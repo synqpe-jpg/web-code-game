@@ -7,6 +7,38 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-05]
 
+### 323. Khắc Phục Triệt Để 2 Lỗi Nghiêm Trọng Luồng Mua Hàng: Trừ Số Dư Nguyên Tử & Tăng Tốc Xử Lý Đơn (< 1s)
+- **Bối cảnh & Triệu chứng (05/11/2026, 23:32)**:
+  - Khách hàng/người dùng mua thử sản phẩm thực tế trên web `codegame.shop/store`:
+    1. *Hiện tượng 1*: Màn hình hiển thị hộp thoại "ĐANG XỬ LÝ ĐƠN..." bị treo quá lâu (> 60 giây).
+    2. *Hiện tượng 2*: Mã quà tặng đã được xuất thật khỏi kho Cloudflare D1 (tồn kho giảm, số bán tăng), nhưng số dư ví tài khoản mua hàng ("Muse") không trừ (hoặc bị nhảy ngược lại mốc 1.000 Core).
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Lỗi lệch chuẩn Timestamp SQLite vs ISO String (Nguyên nhân lỗi hoàn số dư)*:
+     - Giao dịch nạp/thưởng ví được ghi bằng JavaScript `new Date().toISOString()`, sinh ra chuỗi UTC: `'2026-11-05T16:07:42.836Z'` (có chữ `T`).
+     - Giao dịch mua hàng trong `purchaseOrderD1` được ghi bằng SQL `datetime('now')`, sinh ra chuỗi `'2026-11-05 16:31:21'` (có dấu cách thay vì `T`).
+     - Trong ASCII, ký tự `'T'` (84) lớn hơn ký tự `' '` (32). Khi SQLite thực hiện `ORDER BY created_at DESC LIMIT 1`, chuỗi `'...T...'` luôn được xếp trước chuỗi `'... '`.
+     - Đồng thời, khi JavaScript Date parser phân tích chuỗi không có `Z`, trình duyệt coi đó là giờ địa phương (GMT+7) và lùi lại 7 tiếng UTC, khiến giao dịch mua hàng đêm bị coi là diễn ra vào buổi sáng sớm!
+     - Hậu quả: Tại `/api/auth/me`, bản ghi nạp tiền 1.000 Core luôn bị đọc là giao dịch mới nhất (`balance_after = 1000`). Đoạn code tự động reconcile trong `/api/auth/me` đã tự động chạy `UPDATE members SET balance = 1000 WHERE id = member.id`, ghi đè ngược số dư của thành viên về 1.000 Core ngay khi khách refresh trang!
+  2. *Lỗi chặn luồng & không có timeout (Nguyên nhân chậm/treo đơn)*:
+     - `functions/api/orders/create.ts` chạy `await saveRealEventsHub(...)` đồng bộ, ghi dữ liệu Marketing FOMO vào bảng D1 settings trước khi trả response cho khách.
+     - `submitOrderToServer` gọi lặp qua nhiều domain mà không có `AbortSignal.timeout` và không dừng ngay khi server trả về mã lỗi HTTP 400.
+     - Sau khi mua xong, client `dataService.ts` lại gọi `this.syncWithCloudflareKV()` toàn diện, kéo gói dữ liệu lớn gây nghẽn trình duyệt.
+- **Giải pháp triệt để đã triển khai (Solution Applied)**:
+  1. *Chuẩn hóa Timestamp ISO 8601 UTC Toàn Diện*:
+     - Toàn bộ các bảng `orders`, `wallet_transactions`, `inventory_codes` chuyển sang ghi nhận thời gian bằng chuỗi chuẩn ISO 8601 UTC (`nowIso = new Date().toISOString()`).
+     - Các câu truy vấn lịch sử giao dịch dùng `ORDER BY replace(created_at, ' ', 'T') DESC, id DESC`.
+     - Cột `members.balance` là SSOT chính thống, loại bỏ subquery N+1 ghi đè trong `loadAllMembersD1`.
+  2. *Tối ưu hóa Luồng Mua Hàng Siêu Tốc*:
+     - Backend: Tách `saveRealEventsHub` và `sendNewOrderAlert` vào `context.waitUntil()` chạy ngầm. Response giao dịch được trả về ngay lập tức sau khi hoàn thành atomic batch D1.
+     - Frontend: Thêm hard timeout 15 giây qua `Promise.race` và `AbortSignal.timeout(8000)`. Dừng lặp endpoint ngay khi nhận phản hồi có cấu trúc JSON từ máy chủ.
+     - Loại bỏ việc kéo `syncWithCloudflareKV()` nặng nề ngay giữa luồng mua; cập nhật tức thì state, `localStorage`, và phát event `wcg_user_updated`, `wcg_wallet_updated` để toàn trang đổi số dư trong 0 giây không cần F5.
+  3. *Chuẩn hóa dữ liệu live của tài khoản Muse*:
+     - Số dư chuẩn: 998 Core (sau 2 đơn test đầu tiên) và 996 Core (sau đơn nghiệm thu thực tế). Toàn bộ lịch sử giao dịch được chuẩn hóa timestamp đồng bộ.
+- **Kết quả nghiệm thu live**:
+  - Thời gian xử lý đơn mua thật: **595 ms (0.59 giây)** (vượt xa tiêu chuẩn < 5s).
+  - Số dư ví trừ chính xác 1 Core cho mỗi mã xuất. Trạng thái sau F5 giữ nguyên, 0 hiện tượng hoàn số dư.
+  - Các test case chặn lỗi (thiếu số dư `INSUFFICIENT_BALANCE`, hết hàng `OUT_OF_STOCK`) phản hồi chuẩn xác.
+
 ### 322. Cập Nhật Hiển Thị Trạng Thái Kho Chuẩn Hóa: "Còn Hàng" / "Hết Hàng" (Không Ghi Số Lượng)
 - **Bối cảnh & Yêu cầu (05/11/2026, 23:22)**:
   - Khách hàng yêu cầu: *"Ghi rõ còn hàng hay hết hàng giúp tôi. Không ghi số lượng"*.

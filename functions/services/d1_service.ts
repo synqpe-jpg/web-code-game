@@ -16,6 +16,7 @@ export interface D1PurchaseParams {
   unitPrice: number;
   totalAmount: number;
   idempotencyKey?: string;
+  nowIso?: string;
 }
 
 export interface D1PurchaseResult {
@@ -23,6 +24,7 @@ export interface D1PurchaseResult {
   order?: any;
   deliveredCodes?: string[];
   soldCodeIds?: string[];
+  newBalance?: number;
   error?: string;
   code?: 'INSUFFICIENT_BALANCE' | 'OUT_OF_STOCK' | 'DB_ERROR' | 'IDEMPOTENT_REPLAY';
   isIdempotentReplay?: boolean;
@@ -1373,6 +1375,7 @@ export async function initializeD1(db: D1Database): Promise<{ success: boolean; 
 export async function purchaseOrderD1(db: D1Database, params: D1PurchaseParams): Promise<D1PurchaseResult> {
   const { orderId, txId, userId, productId, productSku, productTitle, quantity, unitPrice, totalAmount, idempotencyKey } = params;
   const pSku = (productSku || productId).trim();
+  const nowIso = params.nowIso || new Date().toISOString();
 
   try {
     await ensureSchemaUpgrades(db);
@@ -1400,14 +1403,14 @@ export async function purchaseOrderD1(db: D1Database, params: D1PurchaseParams):
       UPDATE inventory_codes
       SET status = 'SOLD',
           order_id = ?,
-          sold_at = datetime('now')
+          sold_at = ?
       WHERE id IN (
         SELECT id FROM inventory_codes
         WHERE (product_id = ? OR product_id = ?) AND status = 'AVAILABLE'
         ORDER BY created_at ASC, id ASC
         LIMIT ?
       );
-    `).bind(orderId, productId, pSku, quantity);
+    `).bind(orderId, nowIso, productId, pSku, quantity);
 
     // 4. Cập nhật chính xác tồn kho và số bán trực tiếp từ COUNT(inventory_codes)
     const stmtUpdateStock = db.prepare(`
@@ -1440,7 +1443,7 @@ export async function purchaseOrderD1(db: D1Database, params: D1PurchaseParams):
       WHERE id = ?;
     `).bind(pSku, pSku, quantity, pSku, pSku, quantity, productId);
 
-    // 5. Ghi Đơn hàng (Lấy delivered_codes trực tiếp từ inventory_codes trong cùng batch bằng json_group_array)
+    // 5. Ghi Đơn hàng (Lấy delivered_codes trực tiếp từ inventory_codes trong cùng batch bằng json_group_array, lưu nowIso chuẩn UTC)
     const stmtOrder = db.prepare(`
       INSERT INTO orders (
         id, member_id, buyer_email, product_id, product_title, quantity,
@@ -1461,12 +1464,12 @@ export async function purchaseOrderD1(db: D1Database, params: D1PurchaseParams):
         m.balance,
         (SELECT COALESCE(json_group_array(code_content), '[]') FROM inventory_codes WHERE order_id = ?),
         ?,
-        datetime('now')
+        ?
       FROM members m
       WHERE m.id = ?;
-    `).bind(orderId, productId, productTitle, quantity, unitPrice, totalAmount, totalAmount, orderId, idempotencyKey || null, userId);
+    `).bind(orderId, productId, productTitle, quantity, unitPrice, totalAmount, totalAmount, orderId, idempotencyKey || null, nowIso, userId);
 
-    // 6. Ghi Giao dịch Ví (Ghi order_id chính xác phục vụ đối soát 1:1)
+    // 6. Ghi Giao dịch Ví (Ghi order_id chính xác và nowIso chuẩn UTC để sắp xếp thời gian đơn điệu chính xác)
     const stmtWalletTx = db.prepare(`
       INSERT INTO wallet_transactions (
         id, member_id, member_email, type, amount,
@@ -1483,10 +1486,10 @@ export async function purchaseOrderD1(db: D1Database, params: D1PurchaseParams):
         'Thanh toán đơn hàng ' || ? || ' (' || ? || ')',
         'COMPLETED',
         ?,
-        datetime('now')
+        ?
       FROM members m
       WHERE m.id = ?;
-    `).bind(txId, totalAmount, totalAmount, orderId, productTitle, orderId, userId);
+    `).bind(txId, totalAmount, totalAmount, orderId, productTitle, orderId, nowIso, userId);
 
     // THỰC THI 100% NGUYÊN TỬ TRONG MỘT DB.BATCH DUY NHẤT (Gồm gán code + tạo đơn + trừ tiền):
     await db.batch([stmtGuard, stmtDeduct, stmtClaimCodes, stmtUpdateStock, stmtUpdateUtil, stmtOrder, stmtWalletTx]);
@@ -1509,10 +1512,17 @@ export async function purchaseOrderD1(db: D1Database, params: D1PurchaseParams):
       deliveredCodes = (deliveredCodesRes.results || []).map((r: any) => r.code_content);
     }
 
+    // Đọc số dư ví sau giao dịch trực tiếp từ bảng members đã cập nhật nguyên tử
+    const updatedMember = await db.prepare('SELECT balance, total_spent FROM members WHERE id = ?').bind(userId).first<any>();
+    const finalNewBalance = updatedMember && typeof updatedMember.balance === 'number'
+      ? Number(updatedMember.balance)
+      : undefined;
+
     return {
       success: true,
       order: orderRes,
       deliveredCodes,
+      newBalance: finalNewBalance,
       soldCodeIds: [],
     };
   } catch (err: any) {
@@ -3371,14 +3381,8 @@ export async function loadAllMembersD1(db: D1Database, stripSensitive: boolean =
         email, 
         phone, 
         role, 
-        COALESCE(
-          (SELECT balance_after FROM wallet_transactions WHERE member_id = members.id ORDER BY created_at DESC LIMIT 1),
-          balance
-        ) AS balance, 
-        COALESCE(
-          (SELECT balance_after FROM wallet_transactions WHERE member_id = members.id ORDER BY created_at DESC LIMIT 1),
-          balance
-        ) AS wallet_balance,
+        balance, 
+        balance AS wallet_balance,
         total_spent, 
         total_spent AS totalSpent,
         status, 

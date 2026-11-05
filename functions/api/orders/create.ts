@@ -332,6 +332,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       unitPrice,
       totalAmount: totalPrice,
       idempotencyKey,
+      nowIso,
     });
 
     if (!d1Result.success) {
@@ -386,56 +387,60 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
     const deliveredCodesList = d1Result.deliveredCodes || [];
     const remainingAvailCount = Math.max(0, availableStock - qty);
-    const finalBalance = currentBalance - totalPrice;
+    const finalBalance = d1Result.newBalance !== undefined
+      ? d1Result.newBalance
+      : Math.max(0, currentBalance - totalPrice);
 
-    // 6. Update Real Events Hub for Marketing FOMO & Live Cross-Device Sync
-    try {
-      const hub = await getRealEventsHub(env);
-      hub.realProductSoldCounts[product.id] = (hub.realProductSoldCounts[product.id] || 0) + qty;
+    // 6. Update Real Events Hub for Marketing FOMO (Non-blocking background execution via waitUntil)
+    const updateHubPromise = (async () => {
+      try {
+        const hub = await getRealEventsHub(env);
+        hub.realProductSoldCounts[product.id] = (hub.realProductSoldCounts[product.id] || 0) + qty;
 
-      hub.peakProductSoldCounts = hub.peakProductSoldCounts || {};
-      hub.peakProductSoldCounts[product.id] = Math.max(
-        hub.peakProductSoldCounts[product.id] || 0,
-        hub.realProductSoldCounts[product.id]
-      );
+        hub.peakProductSoldCounts = hub.peakProductSoldCounts || {};
+        hub.peakProductSoldCounts[product.id] = Math.max(
+          hub.peakProductSoldCounts[product.id] || 0,
+          hub.realProductSoldCounts[product.id]
+        );
 
-      hub.lowestProductStock = hub.lowestProductStock || {};
-      const currentLowest = hub.lowestProductStock[product.id];
-      if (typeof currentLowest === 'number') {
-        hub.lowestProductStock[product.id] = Math.max(0, currentLowest - qty);
-      } else {
-        hub.lowestProductStock[product.id] = Math.max(0, (remainingAvailCount + 20) - qty);
+        hub.lowestProductStock = hub.lowestProductStock || {};
+        const currentLowest = hub.lowestProductStock[product.id];
+        if (typeof currentLowest === 'number') {
+          hub.lowestProductStock[product.id] = Math.max(0, currentLowest - qty);
+        } else {
+          hub.lowestProductStock[product.id] = Math.max(0, (remainingAvailCount + 20) - qty);
+        }
+
+        // Create real BUY_PRODUCT notification event for all devices to receive immediately
+        const buyEvt = {
+          id: `evt_order_${newOrderId}_${Date.now()}`,
+          type: 'BUY_PRODUCT',
+          title: isUtility ? 'Đơn hàng tiện ích' : 'Mua hàng thành công',
+          productId: product.id,
+          productName: product.title,
+          productPrice: totalPrice,
+          itemType: isUtility ? 'utility' : 'store',
+          userName: buyerDisplayName,
+          message: `${buyerDisplayName} vừa mua thành công ${qty > 1 ? `${qty}x ` : ''}${product.title}`,
+          timeAgo: 'vừa xong',
+          timestamp: Date.now(),
+          scheduledFireTime: Date.now(),
+          isRealUser: true,
+        };
+
+        hub.events = [buyEvt, ...(hub.events || [])].slice(0, 20);
+
+        await saveRealEventsHub(env, hub);
+      } catch (e: any) {
+        console.warn('[OrdersCreate] Hub update warning:', e?.message);
       }
-
-      // Create real BUY_PRODUCT notification event for all devices to receive immediately
-      const buyEvt = {
-        id: `evt_order_${newOrderId}_${Date.now()}`,
-        type: 'BUY_PRODUCT',
-        title: isUtility ? 'Đơn hàng tiện ích' : 'Mua hàng thành công',
-        productId: product.id,
-        productName: product.title,
-        productPrice: totalPrice,
-        itemType: isUtility ? 'utility' : 'store',
-        userName: buyerDisplayName,
-        message: `${buyerDisplayName} vừa mua thành công ${qty > 1 ? `${qty}x ` : ''}${product.title}`,
-        timeAgo: 'vừa xong',
-        timestamp: Date.now(),
-        scheduledFireTime: Date.now(),
-        isRealUser: true,
-      };
-
-      hub.events = [buyEvt, ...(hub.events || [])].slice(0, 20);
-
-      await saveRealEventsHub(env, hub);
-    } catch (e: any) {
-      console.warn('[OrdersCreate] Hub update warning:', e?.message);
-    }
+    })();
 
     // 6.1. Smart Admin Telegram Alerts (Non-blocking background execution)
-    const alertPromises: Promise<any>[] = [];
+    const backgroundPromises: Promise<any>[] = [updateHubPromise];
 
     // Notify owner of new paid order
-    alertPromises.push(
+    backgroundPromises.push(
       sendNewOrderAlert(env, {
         orderId: newOrderId,
         productTitle: product.title,
@@ -447,7 +452,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
     // If stock dropped to 0, trigger instant out-of-stock alert
     if (remainingAvailCount <= 0) {
-      alertPromises.push(
+      backgroundPromises.push(
         sendOutOfStockAlert(env, {
           productId: product.id,
           productTitle: product.title,
@@ -457,9 +462,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     }
 
     if (context.waitUntil) {
-      context.waitUntil(Promise.all(alertPromises));
+      context.waitUntil(Promise.all(backgroundPromises));
     } else {
-      Promise.all(alertPromises).catch(() => {});
+      Promise.all(backgroundPromises).catch(() => {});
     }
 
     // 7. Format Return Order (100% compatible with frontend contracts)

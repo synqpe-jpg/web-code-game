@@ -10,6 +10,30 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-226: Bẫy Lệch Định Dạng Timestamp SQLite (' ') vs ISO 8601 ('T') Gây Đảo Ngược Thứ Tự Giao Dịch & Tự Động Hoàn Lại Số Dư Cũ
+- **Triệu chứng & Rủi ro**:
+  1. Người dùng mua hàng thành công, mã trong kho đã xuất (`status = 'SOLD'`), tồn kho giảm, `total_spent` tăng.
+  2. Tuy nhiên trên giao diện web khách và cơ sở dữ liệu sau khi tải lại trang, `wallet_balance` vẫn giữ nguyên giá trị cũ (ví dụ 1.000 Core) hoặc vừa trừ xong lại bị tự động nhảy ngược lại.
+  3. Màn hình checkout bị kẹt lâu ở trạng thái "ĐANG XỬ LÝ ĐƠN...".
+- **Nguyên nhân gốc rễ**:
+  1. *Lệch chuẩn định dạng Timestamp giữa SQLite và JavaScript*:
+     - Các giao dịch nạp tiền/admin điều chỉnh được lưu bằng ISO 8601 `new Date().toISOString()`, có dạng `'2026-11-05T16:07:42.836Z'` (chứa ký tự `'T'`).
+     - Các giao dịch mua hàng dùng SQL `datetime('now')`, có dạng `'2026-11-05 16:31:21'` (chứa khoảng trắng `' '` thay vì `'T'`).
+     - Ký tự `'T'` (ASCII 84) lớn hơn khoảng trắng `' '` (ASCII 32). SQLite khi chạy câu lệnh `ORDER BY created_at DESC LIMIT 1` coi bản ghi chứa chữ `'T'` luôn mới hơn bản ghi chứa khoảng trắng!
+     - Khi JavaScript Date parser phân tích chuỗi không có đuôi `'Z'`, nó hiểu nhầm đó là Local Time (GMT+7) và lùi lại 7 tiếng UTC, khiến giao dịch buổi tối bị hiểu lầm là diễn ra buổi sáng.
+     - Hậu quả: Hàm reconcile trong `/api/auth/me` và `refreshCurrentUserBalance()` luôn đọc bản ghi nạp tiền ban đầu (1.000 Core) làm giao dịch mới nhất, từ đó tự động ghi đè số dư của thành viên về 1.000 Core.
+  2. *Chặn luồng xử lý do ghi Setting D1 & thiếu timeout*:
+     - Backend chờ ghi `saveRealEventsHub` vào D1 settings làm block response trả về cho khách.
+     - Frontend duyệt lặp endpoints không có timeout, và sau khi nhận kết quả lại kích hoạt `syncWithCloudflareKV()` toàn diện làm nghẽn browser.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Thống nhất 100% chuẩn ISO 8601 UTC*: Mọi câu lệnh insert `orders`, `wallet_transactions`, `inventory_codes` đều truyền biến `nowIso = new Date().toISOString()`. Truy vấn lịch sử dùng `ORDER BY replace(created_at, ' ', 'T') DESC, id DESC`.
+  2. *Thực hiện nền các tác vụ phụ*: Đẩy `saveRealEventsHub` và `sendNewOrderAlert` vào `context.waitUntil()`. Trả ngay response với `newBalance` được đọc trực tiếp từ `members.balance` (SSOT).
+  3. *Frontend phòng thủ timeout & cập nhật tức thì*: Bổ sung hard timeout 15 giây với `Promise.race` và `AbortSignal.timeout(8000)`. Loại bỏ `syncWithCloudflareKV()` giữa luồng mua, cập nhật state tức thì qua `wcg_user_updated`.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không dùng subquery `(SELECT balance_after FROM wallet_transactions ORDER BY created_at DESC LIMIT 1)` để ghi đè lên `members.balance`.*
+  - ❌ *Không dùng `datetime('now')` hỗn tạp với `new Date().toISOString()` trong cùng một bảng dữ liệu.*
+  - ❌ *Không gọi `syncWithCloudflareKV()` ngay giữa luồng thanh toán.*
+
 ### ISSUE-225: Bẫy Minified React error #310 Do Đặt Hook Phía Sau Lệnh Return Sớm Trong Modal (Conditional Hooks Trap)
 - **Triệu chứng & Rủi ro**:
   1. Trang `/store` mở bình thường, nhưng khi khách bấm vào bất kỳ sản phẩm nào hoặc nút "Mua", Error Boundary sập ngay lập tức: *"Đã có sự cố hiển thị nhỏ xảy ra... Minified React error #310"*.

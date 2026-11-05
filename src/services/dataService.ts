@@ -2924,11 +2924,11 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
       headers['Idempotency-Key'] = payload.idempotencyKey;
     }
 
+    const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
     const endpoints = [
       '/api/orders/create',
-      'https://codegame.shop/api/orders/create',
+      ...(currentOrigin && currentOrigin.includes('codegame.shop') ? [] : ['https://codegame.shop/api/orders/create']),
       'https://web-code-game.pages.dev/api/orders/create',
-      'https://admin-code-game-shop.pages.dev/api/orders/create',
     ];
 
     let lastErrorMessage = '';
@@ -2938,17 +2938,16 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
           method: 'POST',
           headers,
           body: JSON.stringify(payload),
+          signal: AbortSignal.timeout ? AbortSignal.timeout(8000) : undefined,
         });
 
         const contentType = res.headers.get('content-type') || '';
         if (contentType.includes('application/json')) {
           const json = await res.json().catch(() => null);
           if (json && typeof json === 'object') {
-            if (res.ok) {
-              return json;
-            } else if (json.message) {
-              return json;
-            }
+            // If the server answered with an authoritative JSON response (200 or 400 error like insufficient balance/out of stock),
+            // immediately return without continuing to subsequent fallback URLs
+            return json;
           }
         }
       } catch (err: any) {
@@ -2968,7 +2967,7 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
     productId: string,
     quantity: number = 1,
     idempotencyKey?: string
-  ): Promise<{ success: boolean; order?: OrderRecord; message?: string }> {
+  ): Promise<{ success: boolean; order?: OrderRecord; message?: string; newBalance?: number; remainingBalance?: number }> {
     const products = this.getStoreProducts();
     const prod = products.find((p) => p.id === productId || p.sku === productId || p.title === productId);
     if (!prod) return { success: false, message: 'Sản phẩm không tồn tại.' };
@@ -3072,13 +3071,19 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
         localStorage.setItem('wcg_admin_transactions_v4', JSON.stringify(txs.slice(0, 500)));
       } catch {}
 
-      this.syncWithCloudflareKV();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('wcg_user_updated', { detail: user }));
+        window.dispatchEvent(new CustomEvent('wcg_wallet_updated', { detail: { newBalance: user.wallet_balance } }));
+        window.dispatchEvent(new CustomEvent('wcg_store_products_updated', { detail: updatedProducts }));
+      }
       this.notifyListeners();
 
       return {
         success: true,
         order: serverRes.order,
         message: serverRes.message || `Thanh toán thành công ${qty} mã! Đã giao hàng tức thì.`,
+        newBalance: user.wallet_balance,
+        remainingBalance: user.wallet_balance,
       };
     }
 
@@ -3376,7 +3381,11 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
         localStorage.setItem('wcg_admin_transactions_v4', JSON.stringify(txs.slice(0, 500)));
       } catch {}
 
-      this.syncWithCloudflareKV();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('wcg_user_updated', { detail: user }));
+        window.dispatchEvent(new CustomEvent('wcg_wallet_updated', { detail: { newBalance: user.wallet_balance } }));
+        window.dispatchEvent(new CustomEvent('wcg_utilities_updated', { detail: updatedUtilities }));
+      }
       this.notifyListeners();
 
       return {
@@ -3961,6 +3970,14 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
         const txs: any[] = JSON.parse(txsRaw);
         if (Array.isArray(txs)) {
           // 1. Get ALL transactions for this user (both DEPOSIT and ORDER/PURCHASE), sorted newest first
+          const parseTxTime = (s: any): number => {
+            if (!s) return 0;
+            const str = String(s).trim();
+            const norm = str.includes('T') ? (str.endsWith('Z') ? str : str + 'Z') : str.replace(' ', 'T') + 'Z';
+            const ms = Date.parse(norm);
+            return isNaN(ms) ? 0 : ms;
+          };
+
           const allUserTxs = txs
             .filter((t) => {
               if (!t || t.status !== 'COMPLETED') return false;
@@ -3973,7 +3990,11 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
                 (normUserId && normTId && normUserId === normTId);
               return Boolean(matchesEmail || matchesId);
             })
-            .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+            .sort((a, b) => {
+              const diff = parseTxTime(b.createdAt) - parseTxTime(a.createdAt);
+              if (diff !== 0) return diff;
+              return String(b.id || '').localeCompare(String(a.id || ''));
+            });
 
           if (allUserTxs.length > 0 && currentUser) {
             const latestTx = allUserTxs[0];

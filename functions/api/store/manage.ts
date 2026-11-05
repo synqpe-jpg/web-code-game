@@ -997,10 +997,88 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       );
     }
 
+    // -------------------------------------------------------------------------
+    // ACTION: RECONCILE_MEMBER_BALANCE (Điều chỉnh & chuẩn hóa số dư ví thành viên)
+    // -------------------------------------------------------------------------
+    if (action === 'reconcile_member_balance') {
+      const email = String(body.email || body.member_email || '').trim().toLowerCase();
+      const memberId = String(body.member_id || body.memberId || body.userId || '').trim();
+      const newBal = Number(body.balance ?? body.wallet_balance);
+      const totalSpent = body.total_spent !== undefined ? Number(body.total_spent) : undefined;
+
+      if (!email && !memberId) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Thiếu email hoặc member_id cần điều chỉnh.' }),
+          { status: 400, headers: CORS_HEADERS }
+        );
+      }
+
+      if (isNaN(newBal) || newBal < 0) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Số dư mới không hợp lệ.' }),
+          { status: 400, headers: CORS_HEADERS }
+        );
+      }
+
+      const member = await env.DB.prepare(
+        'SELECT id, username, email, balance, total_spent FROM members WHERE email = ? COLLATE NOCASE OR id = ? LIMIT 1'
+      ).bind(email || memberId, memberId || email).first<any>();
+
+      if (!member) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Không tìm thấy thành viên trong cơ sở dữ liệu.' }),
+          { status: 404, headers: CORS_HEADERS }
+        );
+      }
+
+      const stmts: D1PreparedStatement[] = [];
+      if (totalSpent !== undefined) {
+        stmts.push(env.DB.prepare('UPDATE members SET balance = ?, total_spent = ? WHERE id = ?').bind(newBal, totalSpent, member.id));
+      } else {
+        stmts.push(env.DB.prepare('UPDATE members SET balance = ? WHERE id = ?').bind(newBal, member.id));
+      }
+
+      // Chuẩn hóa timestamp của các transaction của member này sang ISO 8601 UTC
+      const allTxRes = await env.DB.prepare(
+        'SELECT id, created_at, type, amount, balance_before, balance_after FROM wallet_transactions WHERE member_id = ?'
+      ).bind(member.id).all<any>();
+
+      for (const t of (allTxRes.results || [])) {
+        const rawTime = String(t.created_at || '');
+        if (rawTime && !rawTime.includes('T')) {
+          const isoTime = rawTime.replace(' ', 'T') + '.000Z';
+          stmts.push(env.DB.prepare('UPDATE wallet_transactions SET created_at = ? WHERE id = ?').bind(isoTime, t.id));
+        }
+      }
+
+      // Nếu có cập nhật cụ thể cho transaction thứ 2 của đơn 1 Core
+      if (body.update_tx_id && body.tx_balance_before !== undefined && body.tx_balance_after !== undefined) {
+        stmts.push(env.DB.prepare(
+          'UPDATE wallet_transactions SET balance_before = ?, balance_after = ? WHERE id = ?'
+        ).bind(Number(body.tx_balance_before), Number(body.tx_balance_after), String(body.update_tx_id)));
+      }
+
+      await env.DB.batch(stmts);
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          action: 'reconcile_member_balance',
+          member_id: member.id,
+          email: member.email,
+          previous_balance: member.balance,
+          new_balance: newBal,
+          total_spent: totalSpent !== undefined ? totalSpent : member.total_spent,
+          message: 'Đã chuẩn hóa số dư và toàn bộ nhật ký giao dịch của thành viên thành công!',
+        }),
+        { status: 200, headers: CORS_HEADERS }
+      );
+    }
+
     return new Response(
       JSON.stringify({
         success: false,
-        error: `Action '${action}' không được hỗ trợ. Các action hợp lệ: create_product, update_product, delete_product, import_codes, delete_codes, update_code_status, adjust_fomo.`,
+        error: `Action '${action}' không được hỗ trợ. Các action hợp lệ: create_product, update_product, delete_product, import_codes, delete_codes, update_code_status, adjust_fomo, reconcile_member_balance.`,
       }),
       { status: 400, headers: CORS_HEADERS }
     );

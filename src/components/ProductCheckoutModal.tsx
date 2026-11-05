@@ -183,7 +183,12 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
     setIsProcessing(true);
 
     try {
-      const res = await dataService.createOrder(effectiveTargetId, safeQty, activeKey);
+      const orderPromise = dataService.createOrder(effectiveTargetId, safeQty, activeKey);
+      const timeoutPromise = new Promise<{ success: boolean; message: string }>((_, reject) =>
+        setTimeout(() => reject(new Error('Thời gian phản hồi máy chủ vượt quá 15 giây. Vui lòng kiểm tra lại danh sách mã đã nhận hoặc thử lại.')), 15000)
+      );
+
+      const res: any = await Promise.race([orderPromise, timeoutPromise]);
       setIsProcessing(false);
 
       if (res.success && res.order) {
@@ -192,17 +197,24 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
 
         // Instantly notify React app state of new balance
         if (activeUser) {
-          const newBal = (res.order as any)?.balance_after !== undefined
-            ? Number((res.order as any).balance_after)
-            : (res as any)?.remainingBalance !== undefined
-              ? Number((res as any).remainingBalance)
-              : Math.max(0, (activeUser.wallet_balance || 0) - totalPrice);
+          const newBal = res?.newBalance !== undefined
+            ? Number(res.newBalance)
+            : (res.order as any)?.balance_after !== undefined
+              ? Number((res.order as any).balance_after)
+              : res?.remainingBalance !== undefined
+                ? Number(res.remainingBalance)
+                : Math.max(0, (activeUser.wallet_balance || 0) - totalPrice);
           const updatedUser: UserProfile = {
             ...activeUser,
             wallet_balance: newBal,
           };
+          dataService.saveCurrentUser(updatedUser);
           if (onUpdateUser) {
             onUpdateUser(updatedUser);
+          }
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('wcg_user_updated', { detail: updatedUser }));
+            window.dispatchEvent(new CustomEvent('wcg_wallet_updated', { detail: { newBalance: newBal } }));
           }
         }
 

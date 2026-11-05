@@ -130,7 +130,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         SELECT id, type, amount, balance_before, balance_after, description, status, created_at
         FROM wallet_transactions
         WHERE member_id = ? OR member_email = ?
-        ORDER BY created_at DESC LIMIT 50
+        ORDER BY replace(created_at, ' ', 'T') DESC, id DESC LIMIT 50
       `).bind(member.id, member.email || '').all<any>(),
       env.DB.prepare(`
         SELECT
@@ -205,7 +205,21 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       };
     });
 
-    const userTransactions = (d1TxRes?.results || []).map((r: any) => ({
+    const rawTxRows = (d1TxRes?.results || []).slice();
+    const parseTxTime = (t: any): number => {
+      const s = String(t?.created_at || '');
+      if (!s) return 0;
+      const normalized = s.includes('T') ? (s.endsWith('Z') ? s : s + 'Z') : s.replace(' ', 'T') + 'Z';
+      const ms = Date.parse(normalized);
+      return isNaN(ms) ? 0 : ms;
+    };
+    rawTxRows.sort((a: any, b: any) => {
+      const diff = parseTxTime(b) - parseTxTime(a);
+      if (diff !== 0) return diff;
+      return String(b.id || '').localeCompare(String(a.id || ''));
+    });
+
+    const userTransactions = rawTxRows.map((r: any) => ({
       id: r.id,
       txId: r.id,
       memberId: member.id,
@@ -249,7 +263,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     // If the latest wallet transaction has a different balance_after than member.balance,
     // automatically reconcile member.balance to match the authoritative ACID transaction ledger!
     let currentBalance = Number(member.balance) || 0;
-    const latestTxRow = d1TxRes?.results?.[0];
+    const latestTxRow = rawTxRows[0];
     if (latestTxRow && latestTxRow.balance_after !== undefined && !isNaN(Number(latestTxRow.balance_after))) {
       const expectedBalance = Number(latestTxRow.balance_after);
       if (expectedBalance !== currentBalance) {
