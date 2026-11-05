@@ -5,6 +5,36 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ---
 
+## [2026-11-05]
+
+### 314. Sửa Lỗi Trang Danh Sách Tin Tức Tự Đổi Ảnh Bìa Thành Ảnh Chung Sau ~90 Giây
+- **Bối cảnh & Hiện tượng thực tế (05/11/2026)**:
+  - Trên trang danh sách tin tức `https://codegame.shop/news`: Lúc vừa tải xong, các thẻ bài hiện đúng ảnh bìa của từng game (`/game_icons/...webp`).
+  - Sau khoảng 60–90 giây trên trang (không reload, không đổi thứ tự hay bài viết), thuộc tính `src` của ảnh bìa tất cả các thẻ tự đổi thành cùng một ảnh chung: `/news_covers/thi-truong-game-viet-nam.webp` (ảnh phòng game neon).
+  - 3 bài kiểm chứng thực tế: Sword x Staff (`/game_icons/sword-x-staff.webp`), Hiệp Khách Hành (`/game_icons/hiep-khach-hanh.webp`), Clash of Clans (`/game_icons/clash-of-clans.webp`).
+  - Dữ liệu trong `/api/news` và `/api/sync` hoàn toàn đúng. Trang chi tiết bài viết hiện đúng ảnh. Lỗi chỉ nằm ở tầng hiển thị danh sách sau một khoảng thời gian xem trang.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Timer nền 45s gọi `sync-lite` (`src/services/dataService.ts`)*: Định kỳ mỗi 45 giây khi tab đang hiển thị, hàm `setInterval` gọi `this.syncWithCloudflareKV()`. Sau 2 chu kỳ (~90s), nền gọi `GET /api/sync-lite`.
+  2. *Khuyết trường trong `sync-lite` (`functions/api/sync-lite.ts`)*: Endpoint này chỉ trả về 6 bài viết tóm tắt cho trang chủ và map thiếu các trường: `cover_url`, `game_slug`, `game_name`.
+  3. *Shallow merge ghi đè mất dữ liệu (`src/services/newsService.ts`)*: Khi nhận danh sách từ `sync-lite`, hàm `applyServerSnapshot` thực hiện shallow merge/replace trực tiếp 6 bài viết đầy đủ trong kho cục bộ bằng 6 bài bị khuyết `cover_url` và `game_slug`, sau đó phát sự kiện `wcg_news_updated`.
+  4. *Fallback tự động sang ảnh neon (`src/utils/newsImageUtils.tsx`)*: Khi `NewsView` re-render từ sự kiện `wcg_news_updated`, các bài viết bị khuyết `cover_url` và `game_slug`. Hàm `resolveArticleCover` khi không thấy 2 trường này đã rơi vào fallback cuối cùng: `return '/news_covers/thi-truong-game-viet-nam.webp'`. Đồng thời `SafeNewsCover.handleError` cũng tự gán `setSrc('/news_covers/thi-truong-game-viet-nam.webp')`.
+- **Giải pháp triệt để đã triển khai (Solution Applied)**:
+  1. *Cập nhật `functions/api/sync-lite.ts`*: Bổ sung đầy đủ các trường `cover_url: a.cover_url || a.cover_image || a.cover_image_url || ''`, `cover_image`, `game_slug`, `game_name` vào bản đồ trả về của `sync-lite`.
+  2. *Deep Merge Bảo Toàn Dữ Liệu (`src/services/newsService.ts`)*: Nâng cấp `applyServerSnapshot` thực hiện Deep Merge từng bản ghi; nếu máy chủ gửi dữ liệu rút gọn (như `sync-lite`), hệ thống tự động bảo lưu 100% các trường giàu thông tin (`cover_url`, `cover_image`, `game_slug`, `game_name`, `content`, `gallery_urls`, `views`, `featured`, `author`) của bài viết đã có. Đồng thời so sánh trạng thái thực sự thay đổi trước khi lưu và chỉ phát sự kiện `wcg_news_updated` khi có thay đổi thật sự, ngăn chặn triệt để re-render vô ích mỗi 45s.
+  3. *Bảo Toàn 100% `cover_url` & Loại Bỏ Fallback Ảnh Neon (`src/utils/newsImageUtils.tsx`)*:
+     - `resolveArticleCover`: Ưu tiên giữ nguyên 100% `cover_url` từ dữ liệu (bao gồm cả link ngoài, CDN hay icon). Tuyệt đối không bao giờ trả về `/news_covers/thi-truong-game-viet-nam.webp` làm fallback chung (trả về rỗng `""` nếu không có dữ liệu).
+     - Component `SafeNewsCover`: Khi ảnh lỗi, chỉ đánh dấu `hasError = true`, **TUYỆT ĐỐI KHÔNG ĐỔI `src` SANG ẢNH CHUNG**. Thẻ `<img>` với thuộc tính `src` nguyên bản được bảo toàn trong DOM, giao diện chuyển sang khung placeholder tối trung tính với icon đồ họa mờ và tiêu đề bài viết.
+  4. *Không đụng chạm dữ liệu database / D1 / seed*: Toàn bộ dữ liệu bài viết gốc giữ nguyên vẹn 100%.
+- **Kiểm chứng thực tế Live (`https://codegame.shop/news`)**:
+  - Ghi nhận `src` ban đầu (t=0s): Sword x Staff (`/game_icons/sword-x-staff.webp`), Hiệp Khách Hành (`/game_icons/hiep-khach-hanh.webp`), Clash of Clans (`/game_icons/clash-of-clans.webp`).
+  - Đợi 120 giây liên tục không reload (vượt qua 2 chu kỳ timer 45s): 100% `src` của cả 3 bài giữ nguyên vẹn, 0 trường hợp bị đổi sang ảnh neon!
+  - Reload trang và đợi tiếp 120 giây: 100% `src` giữ nguyên vẹn.
+  - Kiểm tra Incognito (cửa sổ ẩn danh): Hiển thị đúng 100% ảnh bìa của từng game.
+- **Giải pháp thất bại đã thử (Failed Attempts - KHÔNG ĐƯỢC LẶP LẠI)**:
+  - *Thử nghiệm 1*: Dùng `handleError` gán ảnh neon làm ảnh dự phòng $\rightarrow$ *Thất bại*: Khi link ngoài gặp lỗi 403 hoặc dữ liệu thiếu trường tạm thời, ảnh lập tức biến thành ảnh neon hàng loạt gây phản cảm và sai lệch bản chất tựa game.
+
+---
+
 ## [2026-11-04]
 
 ### 313. Xây Dựng Cổng API Quản Lý Nhóm Telegram /api/telegram/manage Cho Muse (15 Actions), Bảng D1 telegram_messages & telegram_admin_log, Cơ Chế Multi-Credential Cho Admin

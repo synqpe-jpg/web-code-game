@@ -10,6 +10,25 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-219: Bẫy Đồng Bộ Nền Xóa Thuộc Tính Ảnh Bìa (cover_url) & Gán Cứng Ảnh Chung Làm Fallback Khiến Thẻ Tin Tức Đổi Ảnh Sau ~90s
+- **Triệu chứng & Rủi ro**:
+  1. Trên trang danh sách tin tức `/news`: Ban đầu tất cả các thẻ bài hiển thị đúng ảnh bìa của từng tựa game tương ứng.
+  2. Sau khoảng 60–90 giây trên trang mà không tải lại, thuộc tính `src` của ảnh bìa hàng loạt thẻ tin tức tự động đổi thành cùng một ảnh chung: `/news_covers/thi-truong-game-viet-nam.webp` (ảnh neon).
+  3. Khi ảnh ngoài gặp lỗi tải hoặc bị hotlink blocking (403), component tự ý đổi `src` sang ảnh neon thay vì hiển thị khung placeholder trung tính.
+- **Nguyên nhân gốc rễ**:
+  1. *Timer nền 45s*: Trong `dataService.ts`, `setInterval` gọi `syncWithCloudflareKV()` mỗi 45s, kích hoạt `GET /api/sync-lite`.
+  2. *Khuyết trường trong `sync-lite`*: API `sync-lite.ts` map 6 bài viết tóm tắt nhưng bỏ quên `cover_url`, `game_slug`, `game_name`.
+  3. *Shallow merge làm mất trường giàu thông tin*: `newsService.applyServerSnapshot` thay thế trực tiếp các bài viết hiện tại bằng dữ liệu khuyết trường của `sync-lite` và phát sự kiện `wcg_news_updated`.
+  4. *Fallback tự động sang ảnh neon*: `newsImageUtils.tsx` khi thấy bài viết thiếu `cover_url` và `game_slug` đã tự động `return '/news_covers/thi-truong-game-viet-nam.webp'`, và trong `handleError` cũng tự đổi `src` sang ảnh neon.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Bổ sung đầy đủ trường trong `sync-lite.ts`*: Map đầy đủ `cover_url`, `cover_image`, `game_slug`, `game_name`.
+  2. *Deep Merge Bảo Vệ Dữ Liệu (`newsService.ts`)*: Deep merge từng bài viết; bảo lưu 100% `cover_url`, `game_slug`, `game_name`, `content`, `gallery_urls` của bài cũ nếu bài từ snapshot bị khuyết. Chỉ lưu và phát sự kiện khi dữ liệu thực sự thay đổi.
+  3. *Bảo Toàn 100% `cover_url` & Placeholder Trung Tính (`newsImageUtils.tsx`)*: `resolveArticleCover` giữ nguyên `cover_url` từ dữ liệu, không trả về ảnh neon. `SafeNewsCover` khi gặp lỗi chỉ đánh dấu `hasError = true`, tuyệt đối KHÔNG đổi `src` sang ảnh khác, bảo toàn thẻ `<img>` với `src` gốc trong DOM và hiển thị khung placeholder tối trung tính.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Tuyệt đối không dùng `/news_covers/thi-truong-game-viet-nam.webp` (hay bất kỳ ảnh chung nào) làm fallback cho thẻ bài viết của game khác.*
+  - ❌ *Không dùng shallow merge (`...cleanServer`) khi snapshot máy chủ chỉ chứa các trường tóm tắt.*
+  - ❌ *Không phát sự kiện `wcg_news_updated` định kỳ khi dữ liệu bài viết không có bất kỳ thay đổi nào.*
+
 ### ISSUE-218: Bẫy Ưu Tiên Header Cứng Gây Lỗi 401 Admin Dù Session Hợp Lệ & Lỗi Undefined .trim() Khi Nhận Mảng Chuỗi Mã Giftcode
 - **Triệu chứng & Rủi ro**:
   1. Trang Quản trị báo lỗi đỏ "Không thể tải dữ liệu Telegram admin" (HTTP 401 Unauthorized) dù người dùng đang đăng nhập với tài khoản SUPER_ADMIN có token hợp lệ.

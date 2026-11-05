@@ -285,6 +285,8 @@ class NewsService {
     serverSources?: NewsAutoSource[],
     serverConfig?: NewsScheduleConfig
   ) {
+    let somethingChanged = false;
+
     if (Array.isArray(serverArticles)) {
       // Chốt chặn an toàn: Nếu máy chủ gửi danh sách rỗng trong khi kho cục bộ đang có dữ liệu thật, không ghi đè rỗng
       if (serverArticles.length === 0 && this.articles.length > 0) {
@@ -300,24 +302,65 @@ class NewsService {
           published_at: a.published_at || a.created_at || new Date().toISOString(),
         }));
 
-        // Chống tụt giảm dữ liệu ngoài ý muốn (Safeguard merge):
-        // Nếu máy chủ trả về ít bài hơn bộ nhớ cục bộ, bảo toàn các bài viết chưa có trên máy chủ
-        let mergedList = cleanServer;
-        if (cleanServer.length < this.articles.length && this.articles.length > 0) {
-          const serverIdSet = new Set(cleanServer.map(a => a.id));
-          const serverSlugSet = new Set(cleanServer.map(a => a.slug));
+        // Chống tụt giảm dữ liệu ngoài ý muốn (Safeguard Deep Merge):
+        // 1. Đối với từng bài viết từ snapshot máy chủ: Giữ nguyên các trường giàu thông tin (cover_url, game_slug, content, gallery_urls)
+        //    nếu snapshot máy chủ (như sync-lite) gửi dữ liệu tóm tắt bị khuyết trường.
+        const localById = new Map<string, NewsArticle>(this.articles.map(a => [a.id, a]));
+        const localBySlug = new Map<string, NewsArticle>(this.articles.filter(a => a.slug).map(a => [a.slug, a]));
+
+        const mergedServer = cleanServer.map((incoming: any) => {
+          const existing = localById.get(incoming.id) || (incoming.slug ? localBySlug.get(incoming.slug) : undefined);
+          if (!existing) return incoming;
+          return {
+            ...existing,
+            ...incoming,
+            cover_url: (incoming.cover_url && incoming.cover_url.trim()) || existing.cover_url || (incoming.cover_image && incoming.cover_image.trim()) || existing.cover_image || '',
+            cover_image: (incoming.cover_image && incoming.cover_image.trim()) || existing.cover_image || (incoming.cover_url && incoming.cover_url.trim()) || existing.cover_url || '',
+            game_slug: (incoming.game_slug && incoming.game_slug.trim()) || existing.game_slug || '',
+            game_name: (incoming.game_name && incoming.game_name.trim()) || existing.game_name || '',
+            content: (incoming.content && incoming.content.trim()) || existing.content || '',
+            gallery_urls: (Array.isArray(incoming.gallery_urls) && incoming.gallery_urls.length > 0) ? incoming.gallery_urls : (existing.gallery_urls || []),
+            author: incoming.author || existing.author || 'CodeGame',
+            views: incoming.views ?? existing.views ?? 0,
+            featured: incoming.featured ?? existing.featured ?? false,
+          };
+        });
+
+        // 2. Nếu máy chủ trả về ít bài hơn bộ nhớ cục bộ (ví dụ: sync-lite chỉ gửi 6 bài tóm tắt), bảo toàn 100% các bài viết còn lại
+        let mergedList = mergedServer;
+        if (mergedServer.length < this.articles.length && this.articles.length > 0) {
+          const serverIdSet = new Set(mergedServer.map(a => a.id));
+          const serverSlugSet = new Set(mergedServer.map(a => a.slug));
           const localOnly = this.articles.filter(
             a => !serverIdSet.has(a.id) && !serverSlugSet.has(a.slug) && !this.deletedArticleIds.has(a.id) && !this.deletedArticleIds.has(a.slug)
           );
           if (localOnly.length > 0) {
-            mergedList = [...cleanServer, ...localOnly];
+            mergedList = [...mergedServer, ...localOnly];
           }
         }
 
         if (mergedList.length > 0 || this.articles.length === 0) {
           mergedList.sort(compareArticlesByDateDesc);
-          this.articles = mergedList;
-          this.saveToStorage();
+
+          const hasChanged =
+            mergedList.length !== this.articles.length ||
+            mergedList.some((art, idx) => {
+              const cur = this.articles[idx];
+              return (
+                !cur ||
+                cur.id !== art.id ||
+                cur.cover_url !== art.cover_url ||
+                cur.cover_image !== art.cover_image ||
+                cur.game_slug !== art.game_slug ||
+                cur.title !== art.title
+              );
+            });
+
+          if (hasChanged) {
+            this.articles = mergedList;
+            this.saveToStorage();
+            somethingChanged = true;
+          }
         }
       }
     }
@@ -328,6 +371,7 @@ class NewsService {
           localStorage.setItem(STORAGE_SOURCES_KEY, JSON.stringify(this.autoSources));
         } catch {}
       }
+      somethingChanged = true;
     }
     if (serverConfig && typeof serverConfig === 'object') {
       this.scheduleConfig = { ...this.scheduleConfig, ...serverConfig };
@@ -336,8 +380,9 @@ class NewsService {
           localStorage.setItem(STORAGE_CONFIG_KEY, JSON.stringify(this.scheduleConfig));
         } catch {}
       }
+      somethingChanged = true;
     }
-    if (typeof window !== 'undefined') {
+    if (somethingChanged && typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('wcg_news_updated', { detail: this.articles }));
     }
   }
