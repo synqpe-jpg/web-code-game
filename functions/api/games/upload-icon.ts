@@ -73,7 +73,7 @@ async function authenticateCaller(
     try {
       const hash = await computeSha256(candidateKey);
       const row: any = await env.DB.prepare(
-        'SELECT id, name, scope, is_active, expires_at FROM mission_ai_api_keys WHERE api_key_hash = ? AND is_active = 1 LIMIT 1'
+        'SELECT id, key_name, scope, is_active FROM mission_ai_api_keys WHERE api_key_hash = ? AND is_active = 1 LIMIT 1'
       ).bind(hash).first();
 
       if (row) {
@@ -84,12 +84,14 @@ async function authenticateCaller(
           }
         }
 
-        // Quyền được chấp thuận: NEWS_FULL, EVENTS_FULL, GAMES_FULL, GAMES_MANAGE, ADMIN_FULL
+        // Quyền được chấp thuận: GAME_ICONS_FULL, GAMES_FULL, GAMES_MANAGE, CRAWLER_WRITE, NEWS_FULL, EVENTS_FULL, ADMIN_FULL
         const isPermitted =
-          hasScope(row.scope, 'NEWS_FULL') ||
-          hasScope(row.scope, 'EVENTS_FULL') ||
+          hasScope(row.scope, 'GAME_ICONS_FULL') ||
           hasScope(row.scope, 'GAMES_FULL') ||
           hasScope(row.scope, 'GAMES_MANAGE') ||
+          hasScope(row.scope, 'CRAWLER_WRITE') ||
+          hasScope(row.scope, 'NEWS_FULL') ||
+          hasScope(row.scope, 'EVENTS_FULL') ||
           hasScope(row.scope, 'ADMIN_FULL');
 
         if (isPermitted) {
@@ -100,7 +102,7 @@ async function authenticateCaller(
           const isAdmin = hasScope(row.scope, 'ADMIN_FULL');
           return {
             authorized: true,
-            callerName: row.name || 'AI Crawler Key',
+            callerName: row.key_name || 'AI Crawler Key',
             isAdmin,
           };
         }
@@ -251,15 +253,40 @@ export const onRequestPost = async (context: {
     );
   }
 
-  // 5. Nếu chưa có bytes nhưng có candidateUrl -> Tải ảnh từ candidateUrl
+  // 5. Nếu chưa có bytes nhưng có candidateUrl -> Tải ảnh từ candidateUrl (Ưu tiên WebP thật từ Store CDN)
   if (!imageBytes && candidateUrl) {
     try {
-      const dlRes = await fetch(candidateUrl, {
+      let finalFetchUrl = candidateUrl;
+      // Google Play optimization: nếu URL googleusercontent chưa có -rw, thay bằng =s512-rw để lấy WebP thật từ Google CDN
+      if (finalFetchUrl.includes('googleusercontent.com')) {
+        if (!finalFetchUrl.includes('-rw')) {
+          const baseGoogleUrl = finalFetchUrl.split('=')[0];
+          finalFetchUrl = `${baseGoogleUrl}=s512-rw`;
+        }
+      }
+      // Apple App Store optimization: thử thay thế .jpg/.png ở cuối bằng .webp để lấy WebP thật từ Apple CDN
+      else if (finalFetchUrl.includes('mzstatic.com') && (finalFetchUrl.endsWith('.jpg') || finalFetchUrl.endsWith('.png'))) {
+        finalFetchUrl = finalFetchUrl.replace(/\.(jpg|png)$/i, '.webp');
+      }
+
+      let dlRes = await fetch(finalFetchUrl, {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko)',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
           'Accept': 'image/webp,image/png,image/jpeg,*/*',
         },
       });
+
+      // Nếu fetch URL tối ưu bị lỗi, fallback về URL gốc ban đầu
+      if (!dlRes.ok && finalFetchUrl !== candidateUrl) {
+        finalFetchUrl = candidateUrl;
+        dlRes = await fetch(finalFetchUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'image/webp,image/png,image/jpeg,*/*',
+          },
+        });
+      }
+
       if (!dlRes.ok) {
         return new Response(
           JSON.stringify({
@@ -485,7 +512,30 @@ export const onRequestPost = async (context: {
 
   // 15. Đồng bộ vào Catalog (bảng games) nếu game đã có trong catalog
   try {
-    await env.DB.prepare('UPDATE games SET icon_url = ? WHERE slug = ?').bind(versionedPath, slug).run();
+    await env.DB.prepare(`
+      UPDATE games SET
+        icon_url = ?,
+        updated_at = datetime('now')
+      WHERE LOWER(TRIM(slug)) = ? OR LOWER(TRIM(id)) = ?
+    `).bind(versionedPath, slug, slug).run();
+  } catch {}
+
+  // Đồng bộ vào wcg_admin_games_v5
+  try {
+    const activeGamesRaw = (await getSettingD1<any[]>(env.DB, 'wcg_admin_games_v5', [])) || [];
+    const activeIdx = activeGamesRaw.findIndex(
+      (g: any) => g && (String(g.slug || '').toLowerCase() === slug || String(g.id || '').toLowerCase() === slug)
+    );
+    if (activeIdx !== -1) {
+      activeGamesRaw[activeIdx] = {
+        ...activeGamesRaw[activeIdx],
+        icon_url: versionedPath,
+        iconUrl: versionedPath,
+        icon_verified: isVerified,
+        updated_at: nowIso,
+      };
+      await setSettingD1(env.DB, 'wcg_admin_games_v5', activeGamesRaw);
+    }
   } catch {}
 
   return new Response(

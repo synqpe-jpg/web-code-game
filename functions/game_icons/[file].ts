@@ -65,17 +65,7 @@ export const onRequestGet = async (context: {
     } catch {}
   }
 
-  // 2. Thử static assets trước
-  if (env.ASSETS) {
-    try {
-      const assetRes = await env.ASSETS.fetch(request);
-      if (assetRes && assetRes.status === 200) {
-        return assetRes;
-      }
-    } catch {}
-  }
-
-  // 3. Tra cứu D1 bảng uploaded_game_icons
+  // 2. Tra cứu D1 bảng uploaded_game_icons trước (Ưu tiên cập nhật mới nhất từ D1 override file tĩnh cũ)
   if (env.DB) {
     try {
       const row: any = await env.DB.prepare(
@@ -117,6 +107,16 @@ export const onRequestGet = async (context: {
     } catch (err) {
       console.warn('[GameIconFunction] Lỗi đọc D1:', err);
     }
+  }
+
+  // 3. Nếu chưa có trong D1, thử nạp từ static assets
+  if (env.ASSETS) {
+    try {
+      const assetRes = await env.ASSETS.fetch(request);
+      if (assetRes && assetRes.status === 200) {
+        return assetRes;
+      }
+    } catch {}
   }
 
   return new Response('Icon not found', { status: 404, headers: CORS_HEADERS });

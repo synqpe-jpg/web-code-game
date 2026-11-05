@@ -10,6 +10,22 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-220: Bẫy Sai Tên Cột Bảng D1 mission_ai_api_keys Gây Ra 401 Giả Mạo & Thứ Tự Ưu Tiên ASSETS Chặn Override Icon D1
+- **Triệu chứng & Rủi ro**:
+  1. Khi gọi `POST /api/games/upload-icon`, máy chủ trả về mã HTTP 401 `{"success": false, "error": "Khóa API không có quyền cập nhật icon game."}` dù client gửi đúng API Key có quyền hợp lệ.
+  2. Khi upload thành công icon động mới vào D1 `uploaded_game_icons`, người dùng truy cập `/game_icons/<slug>.webp` vẫn thấy ảnh cũ từ static build assets thay vì ảnh mới.
+  3. Action ingest của crawler chỉ hỗ trợ `update_icon_live` (trỏ vào file tĩnh có sẵn), khiến AI hoặc crawler ngoại vi không thể đẩy icon từ URL CDN chính thức.
+- **Nguyên nhân gốc rễ**:
+  1. Trong `upload-icon.ts`, câu lệnh SQL `SELECT id, name, scope, is_active, expires_at FROM mission_ai_api_keys` cố gắng đọc các cột không tồn tại (`name` thay vì `key_name`, và `expires_at`). Exception phát sinh trong try-catch bị bắt và trả về phản hồi 401 cho mọi khóa.
+  2. Trong `functions/game_icons/[file].ts`, router kiểm tra `env.ASSETS` trước bảng D1. Khi file tĩnh cũ đã tồn tại trong bundle, Cloudflare Edge trả về ngay file tĩnh và bỏ qua bản ghi mới nhất trong D1.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Sửa đúng schema D1 (`upload-icon.ts`)*: Query đúng `key_name`, mở rộng scope `CRAWLER_WRITE`, `NEWS_FULL`, `EVENTS_FULL`, `GAMES_FULL`, `GAME_ICONS_FULL`.
+  2. *Đảo thứ tự ưu tiên trong `[file].ts`*: Ưu tiên D1 `uploaded_game_icons` trước `env.ASSETS`.
+  3. *Mở rộng action `update_icon_from_url` trong `ingest-codes.ts`*: Hỗ trợ tải, kiểm tra magic bytes, lưu WebP và cập nhật game live.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không viết câu query SQL suy đoán tên cột mà không đối chiếu schema D1.*
+  - ❌ *Không kiểm tra ASSETS tĩnh trước cơ sở dữ liệu động khi hệ thống cho phép admin/AI cập nhật tài nguyên thời gian thực.*
+
 ### ISSUE-219: Bẫy Đồng Bộ Nền Xóa Thuộc Tính Ảnh Bìa (cover_url) & Gán Cứng Ảnh Chung Làm Fallback Khiến Thẻ Tin Tức Đổi Ảnh Sau ~90s
 - **Triệu chứng & Rủi ro**:
   1. Trên trang danh sách tin tức `/news`: Ban đầu tất cả các thẻ bài hiển thị đúng ảnh bìa của từng tựa game tương ứng.

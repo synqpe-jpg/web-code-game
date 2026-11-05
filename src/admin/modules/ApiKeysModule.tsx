@@ -1835,6 +1835,23 @@ console.log(data); // { success: true, iconUrl: '/game_icons/kof-legend.webp?v=.
   }'`}
                 </pre>
               </div>
+
+              <div>
+                <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Terminal className="w-4 h-4 text-emerald-400" />
+                  Mẫu 4: Cập Nhật &amp; Tải Icon Game Live Từ URL Ảnh (Action: update_icon_from_url - cURL)
+                </h4>
+                <pre className="mt-2 p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto">
+{`curl -X POST https://codegame.shop/api/crawler/ingest-codes \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer YOUR_API_KEY" \\
+  -d '{
+    "action": "update_icon_from_url",
+    "slug": "idle-cat-gunner",
+    "image_url": "https://play-lh.googleusercontent.com/DP5-B3_N_pnc3SvmC2jXR61qDewhniXTQrIzhLKdVLkmLDcx8FtIi7Eh16KM59HhAHA3bTb0tDk0YP7WMFpUTWc=s0-br30"
+  }'`}
+                </pre>
+              </div>
             </div>
           )}
 

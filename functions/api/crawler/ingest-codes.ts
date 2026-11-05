@@ -64,7 +64,7 @@ import canonicalBackupState from '../../data/canonical_backup_state.json';
 async function authenticateRequest(request: Request, env: Env): Promise<CrawlerAuthResult> {
   const urlObj = new URL(request.url);
   const authHeader = request.headers.get('Authorization') || '';
-  const apiKeyHeader = request.headers.get('X-API-Key') || request.headers.get('X-Sync-Key') || '';
+  const apiKeyHeader = request.headers.get('X-API-Key') || request.headers.get('X-Admin-Key') || request.headers.get('X-Sync-Key') || '';
   const queryKey = urlObj.searchParams.get('api_key') || urlObj.searchParams.get('key') || '';
 
   const bearerToken = authHeader.replace(/^Bearer\s+/i, '').trim();
@@ -3535,6 +3535,271 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           verified: true,
           accessible: true,
           message: `Đã đặt icon cho game "${gameName}" (${matchedSlug}) thành "${cleanIconUrl}" thành công. Tập tin tải được.`,
+        }),
+        { headers: CORS_HEADERS }
+      );
+    }
+
+    // =========================================================================
+    // ACTION: UPDATE_ICON_FROM_URL / UPLOAD_ICON
+    // Tải ảnh từ URL, kiểm tra magic bytes an toàn, lưu thành WebP vào D1 uploaded_game_icons và trỏ game live
+    // =========================================================================
+    if (body && (body.action === 'update_icon_from_url' || body.action === 'upload_icon')) {
+      const targetSlug = String(body.slug || body.game_slug || body.id || '').trim().toLowerCase();
+      if (!targetSlug || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(targetSlug)) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'Slug không hợp lệ hoặc chứa ký tự đặc biệt nguy hiểm. Chỉ chấp nhận các ký tự [a-z0-9-].',
+          }),
+          { status: 400, headers: CORS_HEADERS }
+        );
+      }
+
+      const rawImageUrl = String(body.image_url || body.imageUrl || body.url || body.candidateUrl || '').trim();
+      if (!rawImageUrl || !rawImageUrl.startsWith('http')) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'Thiếu đường dẫn image_url hợp lệ (bắt buộc bắt đầu bằng http:// hoặc https://).',
+          }),
+          { status: 400, headers: CORS_HEADERS }
+        );
+      }
+
+      // Tìm game trong D1 hoặc wcg_admin_games_v5
+      const activeGamesRaw = (await getSettingD1<any[]>(env.DB, 'wcg_admin_games_v5', [])) || [];
+      const activeIdx = activeGamesRaw.findIndex(
+        (g: any) => g && (String(g.slug || '').toLowerCase() === targetSlug || String(g.id || '').toLowerCase() === targetSlug)
+      );
+
+      let gameName = targetSlug;
+      let iconUrlBefore = '';
+      if (activeIdx !== -1) {
+        gameName = activeGamesRaw[activeIdx].name || targetSlug;
+        iconUrlBefore = activeGamesRaw[activeIdx].icon_url || activeGamesRaw[activeIdx].iconUrl || `/game_icons/${targetSlug}.webp`;
+      } else if (env.DB) {
+        try {
+          const gameRow: any = await env.DB.prepare(
+            'SELECT name, icon_url FROM games WHERE LOWER(TRIM(slug)) = ? OR LOWER(TRIM(id)) = ? LIMIT 1'
+          ).bind(targetSlug, targetSlug).first();
+          if (gameRow) {
+            gameName = gameRow.name || targetSlug;
+            iconUrlBefore = gameRow.icon_url || `/game_icons/${targetSlug}.webp`;
+          }
+        } catch {}
+      }
+
+      // Tối ưu URL theo Store CDN
+      let finalFetchUrl = rawImageUrl;
+      if (finalFetchUrl.includes('googleusercontent.com')) {
+        if (!finalFetchUrl.includes('-rw')) {
+          const baseGoogleUrl = finalFetchUrl.split('=')[0];
+          finalFetchUrl = `${baseGoogleUrl}=s512-rw`;
+        }
+      } else if (finalFetchUrl.includes('mzstatic.com') && (finalFetchUrl.endsWith('.jpg') || finalFetchUrl.endsWith('.png'))) {
+        finalFetchUrl = finalFetchUrl.replace(/\.(jpg|png)$/i, '.webp');
+      }
+
+      let imageBytes: Uint8Array | null = null;
+      try {
+        let dlRes = await fetch(finalFetchUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'image/webp,image/png,image/jpeg,*/*',
+          },
+        });
+
+        if (!dlRes.ok && finalFetchUrl !== rawImageUrl) {
+          finalFetchUrl = rawImageUrl;
+          dlRes = await fetch(finalFetchUrl, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+              'Accept': 'image/webp,image/png,image/jpeg,*/*',
+            },
+          });
+        }
+
+        if (!dlRes.ok) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: `Không thể tải ảnh từ URL cung cấp (${rawImageUrl}). Trạng thái HTTP: ${dlRes.status}.`,
+            }),
+            { status: 400, headers: CORS_HEADERS }
+          );
+        }
+
+        const buf = await dlRes.arrayBuffer();
+        imageBytes = new Uint8Array(buf);
+      } catch (dlErr: any) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: `Lỗi kết nối khi tải ảnh từ URL: ${dlErr?.message}`,
+          }),
+          { status: 400, headers: CORS_HEADERS }
+        );
+      }
+
+      if (!imageBytes || imageBytes.length === 0) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'File tải về rỗng.' }),
+          { status: 400, headers: CORS_HEADERS }
+        );
+      }
+
+      // Giới hạn dung lượng 500KB
+      const MAX_ICON_SIZE_BYTES = 500 * 1024;
+      if (imageBytes.length > MAX_ICON_SIZE_BYTES) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: `Dung lượng ảnh (${Math.round(imageBytes.length / 1024)}KB) vượt quá giới hạn 500KB.`,
+          }),
+          { status: 400, headers: CORS_HEADERS }
+        );
+      }
+
+      // Kiểm tra Magic Bytes an toàn
+      const inspect = inspectImageBytes(imageBytes);
+      if (!inspect.valid) {
+        return new Response(
+          JSON.stringify({ success: false, error: inspect.error || 'File không phải là định dạng ảnh hợp lệ (chỉ nhận WebP, PNG, JPG).' }),
+          { status: 400, headers: CORS_HEADERS }
+        );
+      }
+
+      // Chuyển binary sang base64
+      let b64Str = '';
+      const chunkSz = 8192;
+      for (let i = 0; i < imageBytes.length; i += chunkSz) {
+        const slice = imageBytes.subarray(i, i + chunkSz);
+        b64Str += String.fromCharCode.apply(null, slice as any);
+      }
+      const cleanBase64 = btoa(b64Str);
+      const nowIso = new Date().toISOString();
+
+      // Lưu vào D1 bảng uploaded_game_icons
+      if (env.DB) {
+        try {
+          await env.DB.prepare(`
+            CREATE TABLE IF NOT EXISTS uploaded_game_icons (
+              slug TEXT PRIMARY KEY,
+              content_type TEXT NOT NULL DEFAULT 'image/webp',
+              image_base64 TEXT NOT NULL,
+              size_bytes INTEGER NOT NULL,
+              width INTEGER NOT NULL DEFAULT 512,
+              height INTEGER NOT NULL DEFAULT 512,
+              created_at TEXT NOT NULL,
+              updated_at TEXT NOT NULL
+            );
+          `).run().catch(() => {});
+
+          await env.DB.prepare(`
+            INSERT INTO uploaded_game_icons (slug, content_type, image_base64, size_bytes, width, height, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(slug) DO UPDATE SET
+              content_type = excluded.content_type,
+              image_base64 = excluded.image_base64,
+              size_bytes = excluded.size_bytes,
+              width = excluded.width,
+              height = excluded.height,
+              updated_at = excluded.updated_at;
+          `).bind(
+            targetSlug,
+            inspect.contentType,
+            cleanBase64,
+            imageBytes.length,
+            inspect.width || 512,
+            inspect.height || 512,
+            nowIso,
+            nowIso
+          ).run();
+        } catch (dbErr: any) {
+          console.error('[update_icon_from_url] Lỗi ghi D1 uploaded_game_icons:', dbErr);
+          return new Response(
+            JSON.stringify({ success: false, error: 'Lỗi ghi icon vào D1: ' + dbErr?.message }),
+            { status: 500, headers: CORS_HEADERS }
+          );
+        }
+      }
+
+      const version = Date.now();
+      const versionedPath = `/game_icons/${targetSlug}.webp?v=${version}`;
+      const canonicalPath = `/game_icons/${targetSlug}.webp`;
+
+      // Cập nhật D1 games
+      if (env.DB) {
+        try {
+          await env.DB.prepare(`
+            UPDATE games SET
+              icon_url = ?,
+              updated_at = datetime('now')
+            WHERE LOWER(TRIM(slug)) = ? OR LOWER(TRIM(id)) = ?
+          `).bind(canonicalPath, targetSlug, targetSlug).run();
+        } catch (dbErr) {
+          console.warn('[update_icon_from_url] D1 games update error:', dbErr);
+        }
+      }
+
+      // Cập nhật wcg_admin_games_v5
+      if (activeIdx !== -1) {
+        activeGamesRaw[activeIdx] = {
+          ...activeGamesRaw[activeIdx],
+          icon_url: canonicalPath,
+          iconUrl: canonicalPath,
+          icon_verified: true,
+          updated_at: nowIso,
+        };
+        await setSettingD1(env.DB, 'wcg_admin_games_v5', activeGamesRaw);
+      }
+
+      // Ghi Audit Log
+      const auditLog = {
+        id: `aud_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        action: 'UPDATE_ICON_FROM_URL',
+        target_slug: targetSlug,
+        target_name: gameName,
+        actor: auth.botName || 'crawler_api',
+        icon_url_before: iconUrlBefore,
+        icon_url_after: canonicalPath,
+        source_image_url: rawImageUrl,
+        size_bytes: imageBytes.length,
+        timestamp: nowIso,
+      };
+      const existingAuditLogs = (await getSettingD1<any[]>(env.DB, 'wcg_game_audit_logs_v1', [])) || [];
+      existingAuditLogs.unshift(auditLog);
+      if (existingAuditLogs.length > 500) existingAuditLogs.length = 500;
+      await setSettingD1(env.DB, 'wcg_game_audit_logs_v1', existingAuditLogs).catch(() => {});
+
+      // Invalidate caches
+      (globalThis as any).__wcg_public_sync_cache = null;
+      (globalThis as any).cachedAutocompleteGamesList = null;
+      invalidateGamesCatalogCache();
+      await invalidateCatalogEdgeCache(context as any, request, env, [
+        'https://codegame.shop/api/games',
+        'https://codegame.shop/api/crawler/ingest-codes',
+        'https://codegame.shop/api/sync',
+        `https://codegame.shop/game/${targetSlug}`,
+        `https://codegame.shop/game_icons/${targetSlug}.webp`,
+      ]).catch(() => {});
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          action: 'update_icon_from_url',
+          slug: targetSlug,
+          name: gameName,
+          iconUrl: canonicalPath,
+          versionedIconUrl: versionedPath,
+          contentType: inspect.contentType,
+          bytes: imageBytes.length,
+          width: inspect.width || 512,
+          height: inspect.height || 512,
+          verified: true,
+          source_image_url: rawImageUrl,
+          message: `Đã tải và cập nhật icon chính thức cho game "${gameName}" (${targetSlug}) thành công! Dung lượng: ${Math.round(imageBytes.length / 1024)}KB, định dạng: ${inspect.contentType}.`,
         }),
         { headers: CORS_HEADERS }
       );

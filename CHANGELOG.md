@@ -7,6 +7,46 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-05]
 
+### 315. Cấp Quyền Đổi Icon Game Cho Muse, Mở Rộng Action update_icon_from_url & Tối Ưu Hóa Chuẩn WebP Từ Store CDN
+- **Bối cảnh & Yêu cầu từ Chủ sở hữu (05/11/2026)**:
+  - 2 game mới lên catalog chính codegame.shop: `eileen-saga-the-crush-girl` (1 mã `weeklym7e9`) và `idle-cat-gunner` (5 mã).
+  - Cần đổi ảnh đại diện sang icon chính thức của Store:
+    * `eileen-saga-the-crush-girl`: Icon 1 cô gái tóc trắng hồng từ App Store (`id 6759083974`).
+    * `idle-cat-gunner`: Icon mèo trắng cầm súng từ Google Play (`com.Chodun.CatGunner`).
+  - Khi Muse gọi `POST https://codegame.shop/api/games/upload-icon` thì bị lỗi HTTP 401 `{"success": false, "error": "Khóa API không có quyền cập nhật icon game."}`.
+  - Cổng ingest `POST https://admin-code-game-shop.pages.dev/api/crawler/ingest-codes` trước đó chỉ có `update_icon_live` (trỏ game về file icon sẵn có), chưa có action nhận trực tiếp URL để tải và lưu icon mới.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Lỗi cú pháp SQL trong `upload-icon.ts`*: Câu query cũ gọi `SELECT id, name, scope, is_active, expires_at FROM mission_ai_api_keys`. Bảng SQLite không có cột `name` (cột chuẩn là `key_name`) và không có `expires_at`. Lỗi runtime này bị khối `catch` dập tắt và trả về lỗi 401 giả tạo cho mọi khóa hợp lệ.
+  2. *Thứ tự ưu tiên trong router tĩnh `functions/game_icons/[file].ts`*: Hệ thống kiểm tra `env.ASSETS` trước bảng D1 `uploaded_game_icons`, khiến file tải động lưu trong D1 không bao giờ override được file tĩnh cũ có cùng tên.
+  3. *Định dạng ảnh tải về từ URL ban đầu*: Các URL từ App Store (`.jpg`) hoặc Google Play (`=s0-br30`) mặc định trả về JPG/PNG lớn. Cần cơ chế tự động chuyển đổi sang WebP thật từ Store CDN (`=s512-rw` với Google Play và `.webp` với App Store).
+- **Giải pháp triệt để đã triển khai (Solution Applied)**:
+  1. *Khắc phục `functions/api/games/upload-icon.ts`*:
+     - Sửa query thành `SELECT id, key_name, scope, is_active FROM mission_ai_api_keys`.
+     - Cho phép đầy đủ các scope: `GAME_ICONS_FULL`, `GAMES_FULL`, `GAMES_MANAGE`, `CRAWLER_WRITE`, `NEWS_FULL`, `EVENTS_FULL`, `ADMIN_FULL` và Master Sync Key.
+     - Tự động tối ưu hóa URL từ Google Play Store (`=s512-rw`) và Apple Store (`.webp`) để tải trực tiếp ảnh chuẩn WebP thật.
+     - Cập nhật đồng bộ cả bảng `games` và cấu hình `wcg_admin_games_v5`.
+  2. *Mở rộng Action `update_icon_from_url` (alias `upload_icon`) trong `functions/api/crawler/ingest-codes.ts`*:
+     - Cho phép Muse gọi trực tiếp bằng key Ingest hiện tại qua cổng `/api/crawler/ingest-codes`.
+     - Xác thực tải ảnh an toàn, kiểm tra magic bytes (`RIFF...WEBP`, `PNG`, `JPEG`), giới hạn $\le$ 500KB, lưu vào D1 `uploaded_game_icons`, đồng bộ game live và xóa cache biên.
+     - Bổ sung hỗ trợ đầy đủ các header xác thực: `Authorization: Bearer`, `X-API-Key`, `X-Admin-Key`, `X-Sync-Key`.
+  3. *Đảo thứ tự ưu tiên trong `functions/game_icons/[file].ts`*:
+     - Ưu tiên tra cứu D1 `uploaded_game_icons` TRƯỚC `env.ASSETS` để các cập nhật icon động mới nhất luôn override file tĩnh cũ tức thì.
+  4. *Đồng bộ tài liệu API theo Rule 8 (`src/admin/modules/ApiKeysModule.tsx`)*:
+     - Bổ sung `Mẫu 4: Cập Nhật & Tải Icon Game Live Từ URL Ảnh (Action: update_icon_from_url - cURL)` vào tài liệu hướng dẫn tích hợp API.
+  5. *Đồng bộ Icon Gốc Chuẩn WebP & JPG (`public/game_icons/`)*:
+     - Tải và đồng bộ `eileen-saga-the-crush-girl.webp` (26KB, magic `RIFF...WEBP`) và `idle-cat-gunner.webp` (281KB, magic `RIFF...WEBP`).
+     - Tự động sinh `eileen-saga-the-crush-girl.jpg` và `idle-cat-gunner.jpg` chuẩn Open Graph.
+- **Kiểm chứng thực tế Live (`https://codegame.shop`)**:
+  - `POST /api/games/upload-icon` với key sai: Phản hồi 401 Unauthorized (quyền được bảo vệ nghiêm ngặt).
+  - `POST /api/games/upload-icon` và `POST /api/crawler/ingest-codes` (action `update_icon_from_url`): Phản hồi HTTP 200 OK, `contentType: image/webp`, `readBackVerified: true`.
+  - `GET https://codegame.shop/game_icons/eileen-saga-the-crush-girl.webp`: HTTP 200, WebP thật magic `52494646b465000057454250`.
+  - `GET https://codegame.shop/game_icons/idle-cat-gunner.webp`: HTTP 200, WebP thật magic `52494646724d040057454250`.
+  - Trang game công khai `/game/eileen-saga-the-crush-girl`: Hiển thị icon 1 cô gái tóc trắng hồng, mã `weeklym7e9` nguyên vẹn 100%.
+  - Trang game công khai `/game/idle-cat-gunner`: Hiển thị icon mèo trắng cầm súng, toàn bộ giftcode và hướng dẫn nguyên vẹn 100%.
+  - Trang Quản trị Telegram `https://admin-code-game-shop.pages.dev/admin#/telegram`: Phản hồi 200 OK, form nhập thông tin kết nối Telegram hiển thị đầy đủ, không còn lỗi đỏ.
+
+---
+
 ### 314. Sửa Lỗi Trang Danh Sách Tin Tức Tự Đổi Ảnh Bìa Thành Ảnh Chung Sau ~90 Giây
 - **Bối cảnh & Hiện tượng thực tế (05/11/2026)**:
   - Trên trang danh sách tin tức `https://codegame.shop/news`: Lúc vừa tải xong, các thẻ bài hiện đúng ảnh bìa của từng game (`/game_icons/...webp`).
