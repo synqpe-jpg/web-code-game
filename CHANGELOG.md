@@ -7,6 +7,24 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-05]
 
+### 322. Cập Nhật Hiển Thị Trạng Thái Kho Chuẩn Hóa: "Còn Hàng" / "Hết Hàng" (Không Ghi Số Lượng)
+- **Bối cảnh & Yêu cầu (05/11/2026, 23:22)**:
+  - Khách hàng yêu cầu: *"Ghi rõ còn hàng hay hết hàng giúp tôi. Không ghi số lượng"*.
+  - Trước đây, khi còn hàng hệ thống hoặc là ghi số lượng cụ thể (`Còn: 7`) hoặc để trống.
+  - Yêu cầu chuẩn hóa: Trạng thái kho phải được hiển thị rõ ràng bằng chữ: **"Còn hàng"** (màu xanh emerald) khi có mã và **"Hết hàng"** (màu đỏ rose) khi hết mã, tuyệt đối không hiển thị con số tồn kho cụ thể để bảo mật số lượng kho thực tế.
+- **Giải pháp triệt để đã triển khai (Solution Applied)**:
+  1. *Cửa hàng `StoreView.tsx` (cả Grid View & List View)*:
+     - Khi `displayStock > 0`: Hiển thị rõ nhãn text `Còn hàng` với màu chữ `text-emerald-400 font-semibold`, đi kèm `• Đã bán: ${displaySold}`.
+     - Khi `displayStock <= 0`: Hiển thị nhãn `Hết hàng` với màu chữ `text-rose-400 font-bold`.
+     - Không hiển thị bất kỳ con số tồn kho nào.
+  2. *Modal Chi Tiết Sản Phẩm `ProductDetailModal.tsx`*:
+     - Tại huy hiệu trạng thái chính dưới giá tiền:
+       - Khi còn hàng: Hiển thị badge tròn màu xanh `Còn hàng` kèm icon `CheckCircle2`.
+       - Khi hết hàng: Hiển thị badge màu đỏ `Hết hàng`.
+     - Tại danh sách gói tùy chọn (`packages.map`):
+       - Gói còn hàng: Hiển thị nhãn `Còn hàng` màu xanh emerald dưới giá tiền.
+       - Gói hết hàng: Hiển thị nhãn `Hết hàng` màu đỏ rose dưới giá tiền.
+
 ### 321. Loại Bỏ Hoàn Toàn Hiển Thị Chữ "Còn: [Số Lượng]" Trên Thẻ Sản Phẩm & Xóa Dứt Điểm Dữ Liệu Test
 - **Bối cảnh & Yêu cầu (05/11/2026, 22:36)**:
   - Khách hàng/Quản trị viên yêu cầu xóa hiển thị chữ "Còn: 7" trên thẻ sản phẩm cửa hàng.

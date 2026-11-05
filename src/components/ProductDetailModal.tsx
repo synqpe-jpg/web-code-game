@@ -466,11 +466,16 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       )}
                     </div>
 
-                    {/* Trạng thái kho */}
+                    {/* Trạng thái kho: Ghi rõ còn hàng hay hết hàng (không ghi số lượng) */}
                     <div>
-                      {isOutOfStock && (
+                      {isOutOfStock ? (
                         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-rose-500/15 border border-rose-500/30 text-rose-400 text-xs font-bold">
-                          <span>Tạm hết hàng</span>
+                          <span>Hết hàng</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-bold">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Còn hàng</span>
                         </span>
                       )}
                     </div>
@@ -548,8 +553,10 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                             <span className={`font-mono font-bold text-xs sm:text-sm block ${isSelected ? 'text-red-400' : 'text-emerald-400'}`}>
                               {formatCore(pkg.price)}
                             </span>
-                            {isPkgOut && (
+                            {isPkgOut ? (
                               <span className="text-[10px] text-rose-400 font-semibold block">Hết hàng</span>
+                            ) : (
+                              <span className="text-[10px] text-emerald-400 font-semibold block">Còn hàng</span>
                             )}
                           </div>
                         </button>

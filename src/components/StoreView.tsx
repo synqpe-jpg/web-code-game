@@ -373,11 +373,18 @@ export const StoreView: React.FC<StoreViewProps> = ({
                       <span className="font-mono text-rose-400 font-bold">
                         Hết hàng
                       </span>
-                    ) : null}
-                    {isGlobalSoldEnabled && product.show_sold_count !== false && (
-                      <span className="font-mono text-amber-400/90 hidden xs:inline">
-                        {displayStock <= 0 ? '• ' : ''}Đã bán: {displaySold}
+                    ) : (
+                      <span className="font-mono text-emerald-400 font-semibold">
+                        Còn hàng
                       </span>
+                    )}
+                    {isGlobalSoldEnabled && product.show_sold_count !== false && (
+                      <>
+                        <span>•</span>
+                        <span className="font-mono text-amber-400/90 hidden xs:inline">
+                          Đã bán: {displaySold}
+                        </span>
+                      </>
                     )}
                   </div>
                 </div>
@@ -582,10 +589,14 @@ export const StoreView: React.FC<StoreViewProps> = ({
                             <span className="text-[9px] sm:text-[10px] font-mono text-rose-400 font-bold">
                               Hết hàng
                             </span>
-                          ) : null}
+                          ) : (
+                            <span className="text-[9px] sm:text-[10px] font-mono text-emerald-400 font-semibold">
+                              Còn hàng
+                            </span>
+                          )}
                           {isGlobalSoldEnabled && product.show_sold_count !== false && (
                             <span className="text-[9px] sm:text-[10px] font-mono text-amber-400/90">
-                              {displayStock <= 0 ? '• ' : ''}Đã bán: {displaySold}
+                              • Đã bán: {displaySold}
                             </span>
                           )}
                         </div>
