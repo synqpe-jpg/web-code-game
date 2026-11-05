@@ -7,6 +7,34 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-05]
 
+### 319. Sửa Triệt Để Lỗi Thẻ Sản Phẩm Hiển Thị Sai Tồn Kho ("Còn: 27" Trong Khi Tồn Thật Là 7)
+- **Bối cảnh & Triệu chứng (05/11/2026, 20:55)**:
+  - Trang `/store` mở bình thường ở chế độ khách vãng lai, sản phẩm `test` (`sp_1793880807412_g75`, game `Idle Cat Gunner`) hiển thị đúng các thuộc tính, 5 tab hoạt động chính xác.
+  - Tuy nhiên, trên thẻ sản phẩm hiển thị `Còn: 27`, trong khi cả 2 nguồn cơ sở dữ liệu đều ghi nhận tồn kho thực tế là `7` (`stock_quantity: 7`, `sold_count: 0`, `virtual_sold_count: 0`).
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Cơ chế tồn kho ảo tự động gán Fallback +20 ở Serverless Edge (`functions/services/virtualLayerService.ts`)*:
+     - Trong hàm `initializeVirtualLayer`, khi nạp sản phẩm mới chưa từng được Admin cấu hình FOMO trong `mktConfig.productWeights` (`pw.virtualStockBonus` là `undefined`), hệ thống gán `defaultBonus = 20` và `priority = 'normal'`.
+     - Đồng thời trong các nhánh xử lý khe thời gian và sang ngày mới (`processCurrentTimeSlot`), khi sản phẩm không thuộc bảng neo lịch sử `CUMULATIVE_BASELINES_20261025`, lệnh `p.virtualBuffer = Math.max(0, p.autoRestockAmount || 20)` ép `virtualBuffer = 20`.
+     - Công thức tính của Serverless Edge: `displayStock = realStock (7) + virtualBuffer (20) = 27`.
+     - Endpoint `/api/realtime-events` trả về bộ đếm chuẩn quyền lực (authoritative counters): `stock: 27, real_stock: 7, virtual_buffer: 20`.
+  2. *Client Front-End tin cậy hoàn toàn Server Counter (`src/services/marketingService.ts`)*:
+     - Khi nhận gói `/api/realtime-events`, `marketingService.syncFromHub` lưu `serverProductCounters.set(productId, { stock: 27, ... })`.
+     - Trong `getDisplayStock()`, nhánh kiểm tra `this.serverProductCounters.has(productId)` lấy giá trị `serverItem.stock` (27) và trả về `Math.max(baseStock, 27) = 27`, ghi đè lên tồn kho thực tế `7` trên thẻ sản phẩm.
+- **Giải pháp triệt để đã triển khai (Solution Applied)**:
+  1. *Backend Serverless Edge (`functions/services/virtualLayerService.ts`)*:
+     - Siết chặt điều kiện: Nếu sản phẩm không có cấu hình `virtualStockBonus` rõ ràng từ Admin hoặc `priority === 'off'`, `defaultBonus` bắt buộc là `0` và `priority` mặc định là `'off'`.
+     - Khóa cứng quy tắc: `if (realStock <= 0 || (!baseline && (priority === 'off' || !pw.virtualStockBonus || pw.virtualStockBonus <= 0))) { virtualBuffer = 0; }`.
+     - Trong các chu kỳ lặp khe thời gian, chỉ duy trì buffer ảo khi sản phẩm có cấu hình rõ ràng (`priority !== 'off' && autoRestockAmount > 0`), ngược lại `virtualBuffer = 0`.
+  2. *Client Marketing Service (`src/services/marketingService.ts`)*:
+     - Thêm cơ chế bảo vệ kép trước khi đọc Server Counter: Kiểm tra `hasVirtualStock = pw.priority !== 'off' && bonus > 0`.
+     - Nếu sản phẩm không được cấu hình tồn kho ảo (`!hasVirtualStock`), hàm `getDisplayStock` trả về ngay lập tức đúng tồn kho thật `baseStock` (`product.stock_quantity`), dập tắt hoàn toàn việc cộng thêm số ảo vào sản phẩm mới.
+- **Kết quả nghiệm thu trực tiếp bằng Microsoft Edge Chromium headless (3/3 nguồn đồng nhất 100%)**:
+  - Nguồn 1 (`/api/sync-lite`): `stock_quantity: 7` (HTTP 200).
+  - Nguồn 2 (`/api/realtime-events`): `stock: 7, real_stock: 7, virtual_buffer: 0` (HTTP 200).
+  - Nguồn 3 (Thẻ giao diện StoreView trên Edge CDP): `Còn: 7`, `• Đã bán: 0`, nút "Mua" khả dụng.
+  - F5 Reload kiểm tra: Thẻ hiển thị ngay lập tức `Còn: 7` từ bộ đệm, 0 lỗi Error Boundary, 0 lỗi Console Exception.
+  - 5 tab danh mục: "📦 Tất cả gói" (1 sản phẩm), "🎁 Code VIP" (1 sản phẩm), các tab khác ("Gói nạp", "Thẻ tháng / Pass", "Tài khoản") hiển thị trống ("Không tìm thấy sản phẩm nào") đúng thiết kế.
+
 ### 318. Khắc Phục Lỗi ReferenceError hasMultiplePackages & this.notifySubscribers Gây Sập Trang /store
 - **Bối cảnh & Triệu chứng (05/11/2026, 20:20)**:
   - Sau khi đưa `storeProducts` vào `/api/sync-lite`, dữ liệu đã về đến trình duyệt thành công, nhưng khi mở trang `/store` ở chế độ khách thì component sập và hiện Error Boundary "Đã có sự cố hiển thị nhỏ xảy ra" kèm lỗi `hasMultiplePackages is not defined`.

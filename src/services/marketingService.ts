@@ -2307,6 +2307,19 @@ class MarketingService {
     // Ghi nhớ tồn kho thật
     this.productRealStockMap.set(productId, baseStock);
 
+    const pw = this.getProductConfig(productId);
+    const bonus = Number(pw.virtualStockBonus || 0);
+    const hasVirtualStock = pw.priority !== 'off' && bonus > 0;
+
+    // QUY TẮC CỬA HÀNG & KHO MÃ THẬT (STRICT REAL INVENTORY RULE):
+    // Nếu sản phẩm không có cấu hình tồn kho ảo (priority === 'off' hoặc virtualStockBonus <= 0),
+    // số hiển thị PHẢI bằng đúng tồn kho thật trong kho (baseStock / stock_quantity).
+    // Tuyệt đối không được tự ý cộng thêm số ảo vào sản phẩm mới tạo chưa hề bật tính năng ảo.
+    if (!hasVirtualStock) {
+      this.liveVirtualStockMap.set(productId, baseStock);
+      return baseStock;
+    }
+
     // 1. Authoritative Server Counter from Two-Layer Engine
     if (productId && this.serverProductCounters.has(productId)) {
       const serverItem = this.serverProductCounters.get(productId)!;
@@ -2320,9 +2333,7 @@ class MarketingService {
     }
 
     // 2. Safe Fallback before first server poll response
-    const pw = this.getProductConfig(productId);
-    const bonus = Number(pw.virtualStockBonus || 0);
-    return baseStock + (pw.priority !== 'off' && bonus > 0 ? bonus : 0);
+    return baseStock + bonus;
   }
 
   /**

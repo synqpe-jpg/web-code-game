@@ -360,13 +360,14 @@ export async function initializeVirtualLayer(env: any, forceRefresh: boolean = f
       // Check existing virtual state in memory
       const memState = state.products.get(id);
 
-      const defaultBonus = pw.virtualStockBonus !== undefined ? Number(pw.virtualStockBonus) : 20;
+      const hasExplicitBonus = pw.virtualStockBonus !== undefined && pw.virtualStockBonus !== null;
+      const defaultBonus = (hasExplicitBonus && pw.priority !== 'off') ? Math.max(0, Number(pw.virtualStockBonus)) : 0;
       const defaultThreshold = Math.max(1, Number(pw.autoRestockThreshold) || 1);
-      const defaultRestock = Math.max(1, Number(pw.autoRestockAmount) || 20);
-      const priority = pw.priority || 'normal';
+      const defaultRestock = (pw.autoRestockAmount !== undefined && pw.priority !== 'off') ? Math.max(0, Number(pw.autoRestockAmount)) : 0;
+      const priority = pw.priority || 'off';
 
-      // Virtual buffer: seeded from FOMO config virtualStockBonus, floor = 0 if realStock = 0
-      let virtualBuffer = realStock > 0 ? defaultBonus : 0;
+      // Virtual buffer: seeded from FOMO config virtualStockBonus, floor = 0 if realStock = 0 or priority is off
+      let virtualBuffer = (realStock > 0 && priority !== 'off') ? defaultBonus : 0;
       let virtualSold = 0;
       let restockCount = 0;
       let lastRestock = undefined;
@@ -391,8 +392,8 @@ export async function initializeVirtualLayer(env: any, forceRefresh: boolean = f
         lastRestock = memState.lastRestockAt;
       }
 
-      // Business Rule: If realStock is 0, virtualBuffer must be 0
-      if (realStock <= 0) {
+      // Business Rule: If realStock is 0, or not in baseline and no explicit virtual bonus configured, virtualBuffer must be 0
+      if (realStock <= 0 || (!baseline && (priority === 'off' || !pw.virtualStockBonus || pw.virtualStockBonus <= 0))) {
         virtualBuffer = 0;
       }
 
@@ -424,12 +425,13 @@ export async function initializeVirtualLayer(env: any, forceRefresh: boolean = f
 
       const memState = state.giveaways.get(id);
 
-      const defaultBonus = pw.virtualStockBonus !== undefined ? Number(pw.virtualStockBonus) : 20;
+      const hasExplicitBonus = pw.virtualStockBonus !== undefined && pw.virtualStockBonus !== null;
+      const defaultBonus = (hasExplicitBonus && pw.priority !== 'off') ? Math.max(0, Number(pw.virtualStockBonus)) : 0;
       const defaultThreshold = Math.max(1, Number(pw.autoRestockThreshold) || 1);
-      const defaultRestock = Math.max(1, Number(pw.autoRestockAmount) || 20);
-      const priority = pw.priority || 'normal';
+      const defaultRestock = (pw.autoRestockAmount !== undefined && pw.priority !== 'off') ? Math.max(0, Number(pw.autoRestockAmount)) : 0;
+      const priority = pw.priority || 'off';
 
-      let virtualBuffer = realRemaining > 0 ? defaultBonus : 0;
+      let virtualBuffer = (realRemaining > 0 && priority !== 'off') ? defaultBonus : 0;
       // BẢNG ADMIN LÀ CHÂN LÝ: Số ảo đã giật luôn lấy chính xác từ virtual_claimed_offset do Admin cấu hình
       const virtualClaimed = gw.virtual_claimed_offset !== undefined && gw.virtual_claimed_offset !== null
         ? Math.max(0, Number(gw.virtual_claimed_offset) || 0)
@@ -437,6 +439,7 @@ export async function initializeVirtualLayer(env: any, forceRefresh: boolean = f
       let restockCount = 0;
       let lastRestock = undefined;
 
+      const baseline = CUMULATIVE_BASELINES_20261025[id];
       if (memState && state.lastProcessedSlot >= 0) {
         // virtualClaimed luôn tuân thủ virtual_claimed_offset từ D1 (Admin cấu hình), không lấy cache phình to cũ trong RAM
         virtualBuffer = memState.virtualRemainingBuffer;
@@ -444,7 +447,7 @@ export async function initializeVirtualLayer(env: any, forceRefresh: boolean = f
         lastRestock = memState.lastRestockAt;
       }
 
-      if (realRemaining <= 0) {
+      if (realRemaining <= 0 || (!baseline && (priority === 'off' || !pw.virtualStockBonus || pw.virtualStockBonus <= 0))) {
         virtualBuffer = 0;
       }
 
@@ -501,12 +504,13 @@ export function processCurrentTimeSlot(state: VirtualLayerState, nowMs: number =
     state.products.forEach((p, id) => {
       const b = CUMULATIVE_BASELINES_20261025[id];
       p.virtualSold = b?.virtualSold !== undefined ? b.virtualSold : 0;
-      p.virtualBuffer = p.realStock > 0 ? (p.autoRestockAmount || 20) : 0;
+      p.virtualBuffer = (p.realStock > 0 && (b || (p.priority !== 'off' && p.autoRestockAmount > 0))) ? (p.autoRestockAmount || (b ? (b.virtualBuffer || 20) : 0)) : 0;
       p.virtualRestockCount = 0;
     });
     state.giveaways.forEach((g, id) => {
       // BẢNG ADMIN LÀ CHÂN LÝ: Giữ nguyên g.virtualClaimed chuẩn xác từ virtual_claimed_offset do Admin cấu hình
-      g.virtualRemainingBuffer = g.realRemaining > 0 ? (g.autoRestockAmount || 20) : 0;
+      const b = CUMULATIVE_BASELINES_20261025[id];
+      g.virtualRemainingBuffer = (g.realRemaining > 0 && (b || (g.priority !== 'off' && g.autoRestockAmount > 0))) ? (g.autoRestockAmount || (b ? (b.virtualRemainingBuffer || 20) : 0)) : 0;
       g.virtualRestockCount = 0;
     });
   }
@@ -554,7 +558,7 @@ export function processCurrentTimeSlot(state: VirtualLayerState, nowMs: number =
       p.virtualRestockCount = (b.virtualRestockCount || 0) + deltaRestocks;
       p.virtualBuffer = Math.max(0, (b.virtualBuffer || 20) - deltaSold + deltaRestocks * 20);
     } else {
-      p.virtualBuffer = Math.max(0, p.autoRestockAmount || 20);
+      p.virtualBuffer = (p.realStock > 0 && p.priority !== 'off' && p.autoRestockAmount > 0) ? Math.max(0, p.autoRestockAmount) : 0;
     }
     state.dirtyAggregateIds.add(id);
   });
@@ -570,7 +574,8 @@ export function processCurrentTimeSlot(state: VirtualLayerState, nowMs: number =
       return;
     }
 
-    g.virtualRemainingBuffer = Math.max(0, g.autoRestockAmount || 20);
+    const b = CUMULATIVE_BASELINES_20261025[id];
+    g.virtualRemainingBuffer = (g.realRemaining > 0 && (b || (g.priority !== 'off' && g.autoRestockAmount > 0))) ? Math.max(0, g.autoRestockAmount || (b ? 20 : 0)) : 0;
     state.dirtyAggregateIds.add(id);
   });
 

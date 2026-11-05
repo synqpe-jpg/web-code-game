@@ -10,6 +10,20 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-224: Bẫy Tồn Kho Ảo Tự Động Gán Fallback +20 Khiến Thẻ Sản Phẩm Mới Bị Độn Số Lượng Lên 27 Thay Vì Tồn Thật Là 7
+- **Triệu chứng & Rủi ro**:
+  1. Sản phẩm mới tạo đưa vào kho (`sp_...`) có số tồn thật `stock_quantity = 7`, cả hai API `/api/sync-lite` và `/api/store/manage` đều trả về `7`.
+  2. Tuy nhiên, trên thẻ hiển thị ngoài sàn `/store`, số lượng lại hiển thị `Còn: 27` (độn thêm 20 sản phẩm ảo) dù người bán chưa từng cấu hình tính năng FOMO ảo nào.
+- **Nguyên nhân gốc rễ**:
+  1. *Backend Serverless Edge (`virtualLayerService.ts`)*: Khi nạp sản phẩm chưa có trong bảng `productWeights`, hệ thống gán `defaultBonus = 20`, `priority = 'normal'`, khiến `virtualBuffer` bị gán bằng 20. Khi tổng hợp `productCounters` cho `/api/realtime-events`, công thức `displayStock = realStock (7) + virtualBuffer (20)` sinh ra số 27.
+  2. *Client Front-End (`marketingService.ts`)*: Hàm `getDisplayStock()` ưu tiên lấy số từ `serverProductCounters` mà không kiểm tra xem sản phẩm đó có thực sự bật cấu hình tồn kho ảo (`pw.priority !== 'off' && pw.virtualStockBonus > 0`) hay không.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Backend Serverless Edge*: Nếu sản phẩm không có cấu hình `virtualStockBonus` rõ ràng từ Admin hoặc `priority === 'off'`, `defaultBonus` bắt buộc là `0` và `priority` mặc định là `'off'`, `virtualBuffer` khóa cứng bằng `0`.
+  2. *Client Marketing Service*: Kiểm tra `hasVirtualStock = pw.priority !== 'off' && bonus > 0`. Nếu sản phẩm không có cấu hình tồn kho ảo, lập tức trả về `baseStock` (`product.stock_quantity`), không cho phép bất kỳ số ảo nào chen vào.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không hardcode số tồn kho tĩnh trên giao diện khiến khi khách mua hàng hoặc admin nhập thêm code thật, số hiển thị không tự động cập nhật.*
+  - ❌ *Không xóa hoặc vô hiệu hóa Authoritative Two-Layer Server Counters của toàn bộ hệ thống Marketing, vì các sản phẩm có cấu hình FOMO chủ động vẫn cần cơ chế này.*
+
 ### ISSUE-223: Bẫy Biến Chưa Khai Báo Trong Vòng Lặp Render Thẻ Sản Phẩm Chỉ Bị Lộ Khi Kho Có Sản Phẩm
 - **Triệu chứng & Rủi ro**:
   1. Khi kho chưa có sản phẩm (`products = []`), vòng lặp `filtered.map` không chạy qua phần body JSX, lỗi không bao giờ xuất hiện lúc test kho trống.
