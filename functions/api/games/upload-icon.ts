@@ -2,6 +2,7 @@ import {
   inspectImageBytes,
   verifyGameIcon,
 } from '../../services/icon_verifier_service';
+import { convertToWebp } from '../../services/image_converter_service';
 import { computeSha256, hasScope } from '../../services/mission_service';
 import { getSettingD1, setSettingD1 } from '../../services/d1_service';
 
@@ -274,6 +275,7 @@ export const onRequestPost = async (context: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
           'Accept': 'image/webp,image/png,image/jpeg,*/*',
         },
+        signal: AbortSignal.timeout(10000),
       });
 
       // Nếu fetch URL tối ưu bị lỗi, fallback về URL gốc ban đầu
@@ -284,6 +286,7 @@ export const onRequestPost = async (context: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Accept': 'image/webp,image/png,image/jpeg,*/*',
           },
+          signal: AbortSignal.timeout(10000),
         });
       }
 
@@ -302,7 +305,7 @@ export const onRequestPost = async (context: {
       return new Response(
         JSON.stringify({
           success: false,
-          error: `Lỗi kết nối khi tải ảnh từ URL (${candidateUrl}): ${dlErr?.message}`,
+          error: `Lỗi kết nối hoặc hết thời gian chờ (timeout 10s) khi tải ảnh từ URL (${candidateUrl}): ${dlErr?.message}`,
         }),
         { status: 400, headers: CORS_HEADERS }
       );
@@ -319,22 +322,40 @@ export const onRequestPost = async (context: {
     );
   }
 
-  // 6. Kiểm tra giới hạn dung lượng 500KB
-  if (imageBytes.length > MAX_ICON_SIZE_BYTES) {
+  // 6. Kiểm tra Magic Bytes thực tế
+  let inspect = inspectImageBytes(imageBytes);
+  if (!inspect.valid) {
     return new Response(
-      JSON.stringify({
-        success: false,
-        error: `Dung lượng file (${Math.round(imageBytes.length / 1024)}KB) vượt quá giới hạn tối đa 500KB. Vui lòng nén ảnh trước khi tải lên.`,
-      }),
+      JSON.stringify({ success: false, error: inspect.error || 'File không phải là định dạng ảnh hợp lệ.' }),
       { status: 400, headers: CORS_HEADERS }
     );
   }
 
-  // 7. Kiểm tra Magic Bytes thực tế
-  const inspect = inspectImageBytes(imageBytes);
-  if (!inspect.valid) {
+  // 7. Chuyển đổi mọi định dạng sang WebP thật và tự động nén nếu vượt giới hạn 500KB (Lỗi 3 & Lỗi 7)
+  const isAlreadyWebp = inspect.contentType === 'image/webp';
+  if (!isAlreadyWebp || imageBytes.length > MAX_ICON_SIZE_BYTES || inspect.width > 512 || inspect.height > 512) {
+    const convertRes = await convertToWebp(imageBytes, 512);
+    if (convertRes.success && convertRes.webpBytes) {
+      imageBytes = convertRes.webpBytes;
+      inspect = inspectImageBytes(imageBytes);
+    } else if (!isAlreadyWebp) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `Không thể chuyển đổi ảnh sang định dạng WebP chuẩn: ${convertRes.error || 'Lỗi xử lý'}`,
+        }),
+        { status: 400, headers: CORS_HEADERS }
+      );
+    }
+  }
+
+  // 8. Kiểm tra lại giới hạn dung lượng 500KB (512,000 bytes) sau khi đã nén/chuyển mã
+  if (imageBytes.length > MAX_ICON_SIZE_BYTES) {
     return new Response(
-      JSON.stringify({ success: false, error: inspect.error || 'File không phải là định dạng ảnh hợp lệ.' }),
+      JSON.stringify({
+        success: false,
+        error: `Dung lượng ảnh (${Math.round(imageBytes.length / 1024)}KB) vượt quá giới hạn tối đa 500KB (512,000 bytes). Vui lòng chọn ảnh nhỏ hơn hoặc nén ảnh trước khi tải lên.`,
+      }),
       { status: 400, headers: CORS_HEADERS }
     );
   }
@@ -434,7 +455,7 @@ export const onRequestPost = async (context: {
         updated_at = excluded.updated_at;
     `).bind(
       slug,
-      inspect.contentType,
+      'image/webp',
       cleanBase64,
       imageBytes.length,
       inspect.width || 512,
@@ -450,17 +471,17 @@ export const onRequestPost = async (context: {
     );
   }
 
-  // 12. Read-Back Verification (Bắt buộc theo yêu cầu 2.1)
+  // 12. Read-Back Verification (Kiểm tra file tồn tại và đúng WebP thật)
   let readBackRow: any = null;
   try {
     readBackRow = await env.DB.prepare(
-      'SELECT slug, size_bytes, content_type FROM uploaded_game_icons WHERE slug = ? LIMIT 1'
+      'SELECT slug, size_bytes, content_type, image_base64 FROM uploaded_game_icons WHERE slug = ? LIMIT 1'
     ).bind(slug).first();
   } catch (rbErr: any) {
     console.error('[UploadIcon] Lỗi read-back:', rbErr);
   }
 
-  if (!readBackRow || !readBackRow.size_bytes) {
+  if (!readBackRow || !readBackRow.size_bytes || !readBackRow.image_base64) {
     return new Response(
       JSON.stringify({
         success: false,
@@ -470,7 +491,25 @@ export const onRequestPost = async (context: {
     );
   }
 
-  // 13. Phiên bản hóa & Xóa Edge Cache CDN (Point 2.5)
+  // Kiểm tra magic bytes WebP từ dữ liệu đã lưu
+  const rbCleanB64 = String(readBackRow.image_base64).replace(/^data:image\/[a-zA-Z+]+;base64,/, '').trim();
+  const rbBinStr = atob(rbCleanB64.slice(0, 128));
+  const rbBytes = new Uint8Array(rbBinStr.length);
+  for (let i = 0; i < rbBinStr.length; i++) {
+    rbBytes[i] = rbBinStr.charCodeAt(i);
+  }
+  const rbInspect = inspectImageBytes(rbBytes);
+  if (!rbInspect.valid || rbInspect.contentType !== 'image/webp') {
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: `Lỗi kiểm chứng sau ghi: File lưu trong D1 không phải định dạng WebP chuẩn (thực tế: ${rbInspect.contentType}).`,
+      }),
+      { status: 500, headers: CORS_HEADERS }
+    );
+  }
+
+  // 13. Phiên bản hóa & Xóa Edge Cache CDN triệt để cho cả plain URL và versioned URL
   const version = Date.now();
   const versionedPath = `/game_icons/${slug}.webp?v=${version}`;
   const fullPublicUrl = `https://codegame.shop${versionedPath}`;
@@ -478,10 +517,14 @@ export const onRequestPost = async (context: {
   try {
     const cache = typeof caches !== 'undefined' ? (caches as any).default : null;
     if (cache) {
+      const origin = new URL(request.url).origin;
       const purgeUrls = [
         `https://codegame.shop/game_icons/${slug}.webp`,
         `https://codegame.shop/game_icons/${slug}.jpg`,
-        new URL(`/game_icons/${slug}.webp`, request.url).toString(),
+        `https://codegame.shop/game_icons/${slug}.png`,
+        `${origin}/game_icons/${slug}.webp`,
+        `${origin}/game_icons/${slug}.jpg`,
+        `${origin}/game_icons/${slug}.png`,
       ];
       waitUntil(
         Promise.allSettled(purgeUrls.map((u) => cache.delete(new Request(u, { method: 'GET' }))))

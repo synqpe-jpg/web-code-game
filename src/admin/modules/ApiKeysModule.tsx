@@ -197,13 +197,13 @@ export const ALL_API_SCOPES: ScopeOption[] = [
   },
   {
     id: 'STORE_FULL',
-    name: 'Cửa Hàng & Tiện Ích (Store & Utilities API)',
-    category: 'Thương Mại',
-    description: 'Quản trị sản phẩm nạp game, gói dịch vụ tiện ích, quản lý đơn hàng thanh toán.',
-    color: 'cyan',
-    badgeBg: 'bg-cyan-500/10',
-    badgeText: 'text-cyan-500',
-    badgeBorder: 'border-cyan-500/20',
+    name: 'Kho Code Bán & Gói Sản Phẩm (Store & Paid Codes API)',
+    category: 'Thương Mại & Kho',
+    description: 'Toàn quyền quản trị gói sản phẩm bán (tạo, sửa, xóa gói, điều chỉnh giá, thông số FOMO) và quản lý kho mã code bán (nạp kho, kiểm tra tồn kho, xóa lẻ mã) qua /api/store/manage.',
+    color: 'purple',
+    badgeBg: 'bg-purple-500/10',
+    badgeText: 'text-purple-400',
+    badgeBorder: 'border-purple-500/20',
     icon: ShoppingBag,
   },
   {
@@ -330,7 +330,7 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
 
   // Active sub-tab
   const [activeTab, setActiveTab] = useState<'keys' | 'permissions' | 'docs'>('keys');
-  const [docCategory, setDocCategory] = useState<'universal' | 'news' | 'icons' | 'missions' | 'giveaways' | 'events' | 'games' | 'telegram' | 'sync' | 'history'>('universal');
+  const [docCategory, setDocCategory] = useState<'universal' | 'store' | 'telegram' | 'news' | 'icons' | 'missions' | 'giveaways' | 'events' | 'games' | 'sync' | 'history'>('universal');
 
   const showToast = (msg: string, type: 'success' | 'error' | 'info' = 'success') => {
     if (onShowToast) {
@@ -1403,6 +1403,28 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
               ⚡ API Đa Năng (Set Quyền Bằng 1 Mã API)
             </button>
             <button
+              onClick={() => setDocCategory('store')}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                docCategory === 'store'
+                  ? 'bg-purple-600 text-white shadow-sm'
+                  : 'bg-card border border-border text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <ShoppingBag className="w-3.5 h-3.5" />
+              🛍️ API Code Bán & Gói Bán (Mới)
+            </button>
+            <button
+              onClick={() => setDocCategory('telegram')}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                docCategory === 'telegram'
+                  ? 'bg-cyan-600 text-white shadow-sm'
+                  : 'bg-card border border-border text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Send className="w-3.5 h-3.5" />
+              🤖 API Quản Lý Telegram (Mới)
+            </button>
+            <button
               onClick={() => setDocCategory('news')}
               className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
                 docCategory === 'news'
@@ -1479,9 +1501,6 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
               <Shield className="w-3.5 h-3.5" />
               API Đồng Bộ Master
             </button>
-          </div>
-
-
             <button
               onClick={() => setDocCategory('history')}
               className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
@@ -1493,6 +1512,203 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
               <Trash2 className="w-3.5 h-3.5" />
               API Lịch Sử & Xóa Mềm (Mới)
             </button>
+          </div>
+          
+          {docCategory === 'store' && (
+            <div className="space-y-4 bg-card border border-border p-5 rounded-2xl">
+              <div className="p-4 rounded-xl bg-purple-500/10 border border-purple-500/30 text-purple-300 text-xs leading-relaxed space-y-2">
+                <div className="flex items-center gap-2 font-bold text-purple-400 text-sm">
+                  <ShoppingBag className="w-4 h-4" />
+                  <span>🛍️ Cổng Quản Lý Code Bán & Gói Sản Phẩm (Store & Inventory API)</span>
+                </div>
+                <p>
+                  Endpoint <code>/api/store/manage</code> cung cấp toàn quyền quản trị danh mục gói sản phẩm bán (tạo, cập nhật, xóa gói, điều chỉnh giá bán / giá gốc, cấu hình hiển thị FOMO) và nạp kho mã code bán thực tế cho website. Mọi thay đổi về tồn kho mã code tự động kích hoạt tính toán lại số lượng tồn kho hiển thị (Quy tắc kho hàng thật = 0 thì hiển thị = 0 "HẾT HÀNG") và đồng bộ nguyên tử 1 - 1 lên Cửa Hàng <code>codegame.shop/store</code>.
+                </p>
+                <div className="flex flex-wrap gap-2 pt-1 font-mono text-[11px]">
+                  <span className="px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30">Scope yêu cầu: STORE_FULL</span>
+                  <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300">Method: GET &amp; POST</span>
+                  <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Edge Cache Auto-Purge: Có</span>
+                </div>
+              </div>
+
+              {/* Mẫu 1 */}
+              <div>
+                <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Terminal className="w-4 h-4 text-purple-400" />
+                  Mẫu 1: Liệt kê danh sách gói sản phẩm &amp; số lượng tồn kho thực tế (GET - cURL)
+                </h4>
+                <pre className="mt-2 p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto">
+{`# Lấy toàn bộ danh sách gói sản phẩm bán trên sàn
+curl -X GET "https://codegame.shop/api/store/manage?action=list_products" \
+  -H "X-API-Key: YOUR_API_KEY_HERE"
+
+# Lọc theo game_slug hoặc danh mục (category: pack, card, item...)
+curl -X GET "https://codegame.shop/api/store/manage?action=list_products&game_slug=3q-dao-dao-dao&status=ACTIVE" \
+  -H "Authorization: Bearer YOUR_API_KEY_HERE"`}
+                </pre>
+              </div>
+
+              {/* Mẫu 2 */}
+              <div>
+                <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Terminal className="w-4 h-4 text-emerald-400" />
+                  Mẫu 2: Tạo mới gói sản phẩm / gói nạp chiết khấu (Action: create_product - cURL)
+                </h4>
+                <pre className="mt-2 p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto">
+{`curl -X POST https://codegame.shop/api/store/manage \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_API_KEY_HERE" \
+  -d '{
+    "action": "create_product",
+    "title": "Gói Nạp Đầu 200K Kim Cương",
+    "game_slug": "sword-x-staff",
+    "game_name": "Sword x Staff",
+    "category": "pack",
+    "category_label": "Gói nạp",
+    "original_price": 200000,
+    "current_price": 149000,
+    "badge": "HOT BÁN CHẠY",
+    "description": "Nhận ngay 200.000 Kim Cương và Quà Nạp Đầu Độc Quyền.",
+    "cover_image_url": "https://codegame.shop/game_icons/sword-x-staff.webp",
+    "virtual_sold_count": 86,
+    "show_sold_count": true,
+    "initial_codes": [
+      "SXS200K_A8F1",
+      "SXS200K_B9C2",
+      "SXS200K_D3E4"
+    ]
+  }'`}
+                </pre>
+              </div>
+
+              {/* Mẫu 3 */}
+              <div>
+                <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Terminal className="w-4 h-4 text-cyan-400" />
+                  Mẫu 3: Nạp kho hàng loạt mã code bán mới (Action: import_codes - cURL)
+                </h4>
+                <pre className="mt-2 p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto">
+{`curl -X POST https://codegame.shop/api/store/manage \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY_HERE" \
+  -d '{
+    "action": "import_codes",
+    "product_id": "sp_sword-x-staff_pack1",
+    "codes": [
+      "CODE_VIP_001",
+      "CODE_VIP_002",
+      "CODE_VIP_003",
+      "CODE_VIP_004",
+      "CODE_VIP_005"
+    ]
+  }'`}
+                </pre>
+              </div>
+
+              {/* Mẫu 4 */}
+              <div>
+                <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Terminal className="w-4 h-4 text-sky-400" />
+                  Mẫu 4: Tra cứu danh sách mã code trong kho theo gói (GET list_codes - cURL)
+                </h4>
+                <pre className="mt-2 p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto">
+{`# Xem danh sách mã code chưa bán (AVAILABLE) của gói sản phẩm
+curl -X GET "https://codegame.shop/api/store/manage?action=list_codes&product_id=sp_sword-x-staff_pack1&status=AVAILABLE&limit=100" \
+  -H "X-API-Key: YOUR_API_KEY_HERE"
+
+# Xem toàn bộ mã đã bán kèm ID đơn hàng
+curl -X GET "https://codegame.shop/api/store/manage?action=list_codes&product_id=sp_sword-x-staff_pack1&status=SOLD" \
+  -H "X-API-Key: YOUR_API_KEY_HERE"`}
+                </pre>
+              </div>
+
+              {/* Mẫu 5 */}
+              <div>
+                <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Terminal className="w-4 h-4 text-amber-400" />
+                  Mẫu 5: Cập nhật thông tin gói bán &amp; Điều chỉnh FOMO (Action: update_product / adjust_fomo)
+                </h4>
+                <pre className="mt-2 p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto">
+{`# Cập nhật giá bán và huy hiệu khuyến mãi
+curl -X POST https://codegame.shop/api/store/manage \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_API_KEY_HERE" \
+  -d '{
+    "action": "update_product",
+    "id": "sp_sword-x-staff_pack1",
+    "current_price": 129000,
+    "badge": "GIẢM SỐC 35%",
+    "is_active": true
+  }'
+
+# Điều chỉnh số lượng đã bán ảo và hiển thị FOMO
+curl -X POST https://codegame.shop/api/store/manage \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_API_KEY_HERE" \
+  -d '{
+    "action": "adjust_fomo",
+    "id": "sp_sword-x-staff_pack1",
+    "virtual_sold_count": 120,
+    "show_sold_count": true
+  }'`}
+                </pre>
+              </div>
+
+              {/* Mẫu 6 */}
+              <div>
+                <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Terminal className="w-4 h-4 text-rose-400" />
+                  Mẫu 6: Xóa lẻ mã code hoặc xóa toàn bộ gói bán (Action: delete_codes / delete_product)
+                </h4>
+                <pre className="mt-2 p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto">
+{`# Xóa các mã code chưa bán cụ thể khỏi kho
+curl -X POST https://codegame.shop/api/store/manage \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_API_KEY_HERE" \
+  -d '{
+    "action": "delete_codes",
+    "product_id": "sp_sword-x-staff_pack1",
+    "codes": ["CODE_VIP_001", "CODE_VIP_002"]
+  }'
+
+# Xóa vĩnh viễn gói sản phẩm khỏi Cửa Hàng (kèm toàn bộ mã tồn kho chưa bán)
+curl -X POST https://codegame.shop/api/store/manage \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_API_KEY_HERE" \
+  -d '{
+    "action": "delete_product",
+    "id": "sp_sword-x-staff_pack1"
+  }'`}
+                </pre>
+              </div>
+
+              {/* Mẫu 7: JavaScript Fetch */}
+              <div>
+                <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Code2 className="w-4 h-4 text-purple-400" />
+                  Mẫu 7: Tích hợp tự động hóa nạp kho (Node.js / JavaScript Fetch)
+                </h4>
+                <pre className="mt-2 p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto">
+{`const res = await fetch('https://codegame.shop/api/store/manage', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-API-Key': 'YOUR_API_KEY_HERE',
+  },
+  body: JSON.stringify({
+    action: 'import_codes',
+    product_id: 'sp_sword-x-staff_pack1',
+    codes: ['GIFTCODE_AUTO_1', 'GIFTCODE_AUTO_2']
+  }),
+});
+
+const data = await res.json();
+console.log('Kết quả nạp kho:', data.imported_count, 'Tồn kho mới:', data.total_stock_now);`}
+                </pre>
+              </div>
+            </div>
+          )}
+
           {docCategory === 'telegram' && (
             <div className="space-y-4 bg-card border border-border p-5 rounded-2xl">
               <div className="p-3.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-xs leading-relaxed">

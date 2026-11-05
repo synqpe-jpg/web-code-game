@@ -11,6 +11,7 @@ import * as sepayWebhookApi from './api/webhooks/sepay';
 import * as giveawaysClaimApi from './api/giveaways/claim';
 import * as giveawaysSimulateApi from './api/giveaways/simulate';
 import * as giveawaysManageApi from './api/giveaways/manage';
+import * as storeManageApi from './api/store/manage';
 import { runGiveawaySimulation } from './services/giveaway_simulation_service';
 import * as adminMigrateApi from './api/admin/migrate';
 import * as adminAuditCountersApi from './api/admin/audit-counters';
@@ -502,6 +503,13 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
         if (method === 'PUT') return await eventSchedulerApi.onRequestPut(context);
         if (method === 'DELETE') return await eventSchedulerApi.onRequestDelete(context);
         return await eventSchedulerApi.onRequestGet(context);
+      }
+
+      // 7e. /api/store/manage & /api/store & /api/products/manage (Store & Inventory Full Management API)
+      if (pathname === '/api/store/manage' || pathname === '/api/store' || pathname === '/api/products/manage') {
+        if (method === 'OPTIONS') return await storeManageApi.onRequestOptions(context);
+        if (method === 'POST') return await storeManageApi.onRequestPost(context);
+        return await storeManageApi.onRequestGet(context);
       }
 
       // Passive Tick: Tự động chạy quét mô phỏng mỗi 5 phút một cách nhẹ nhàng
@@ -1860,9 +1868,9 @@ async function handleGameIconRequest(
         const hasVersion = urlObj.searchParams.has('v');
         const cacheControl = hasVersion
           ? 'public, max-age=31536000, immutable'
-          : 'public, max-age=60, s-maxage=3600, stale-while-revalidate=86400';
+          : 'public, max-age=60, s-maxage=120, stale-while-revalidate=86400';
 
-        const contentType = row.content_type || 'image/webp';
+        const contentType = filename.toLowerCase().endsWith('.webp') ? 'image/webp' : (row.content_type || 'image/webp');
         const headers = new Headers({
           'Content-Type': contentType,
           'Content-Length': len.toString(),

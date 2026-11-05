@@ -213,7 +213,7 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
   // Validate candidate cover_url if provided in payload
   const candidateCover = body.cover_url || body.coverUrl || body.cover;
   if (typeof candidateCover === 'string' && candidateCover.trim()) {
-    const val = await validateInternalCoverUrl(candidateCover, request.url, (env as any).ASSETS);
+    const val = await validateInternalCoverUrl(candidateCover, request.url, (env as any).ASSETS, env.DB);
     if (!val.valid) {
       return new Response(
         JSON.stringify({ success: false, error: val.error }),

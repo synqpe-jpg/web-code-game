@@ -10,6 +10,21 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-221: Bẫy Thiếu Cổng API Quản Trị Kho Code Bán Khiến Phải Thao Tác Thủ Công & Nguy Cơ Sai Lệch Tồn Kho Giữa inventory_codes và store_products
+- **Triệu chứng & Rủi ro**:
+  1. Không có API endpoint để tự động nạp code bán, tạo gói sản phẩm hoặc điều chỉnh giá ngoài sàn Cửa Hàng, buộc admin phải đăng nhập web để nhập tay.
+  2. Khi thao tác trực tiếp với bảng `store_products` mà không thông qua cơ chế đếm tự động (`syncProductStockCounter`), số lượng tồn kho `stock_quantity` bị lệch so với số lượng mã code thực tế còn khả dụng (`status = 'AVAILABLE'`) trong bảng `inventory_codes`, vi phạm quy tắc vàng: Kho thật = 0 thì tồn kho hiển thị phải = 0 ("HẾT HÀNG").
+- **Nguyên nhân gốc rễ**:
+  1. Chưa có cổng API chuyên trách cho Store Management (`/api/store/manage`).
+  2. Thiếu scope `STORE_FULL` trong bảng tra cứu quyền và tài liệu hướng dẫn gọi API.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Xây dựng `/api/store/manage`*: Hỗ trợ toàn bộ CRUD gói sản phẩm (`create_product`, `update_product`, `delete_product`, `adjust_fomo`) và kho mã code bán (`import_codes`, `delete_codes`, `list_codes`).
+  2. *Bộ Đếm Tồn Kho Tự Động Nguyên Tử*: Mỗi khi thêm/xóa mã code, hệ thống tự động gọi `syncProductStockCounter(db, productId)` tính toán lại chính xác số lượng khả dụng từ `inventory_codes` và cập nhật vào `store_products` cũng như `wcg_admin_store_products_v4` D1 settings.
+  3. *Đồng bộ tài liệu API theo Rule 8*: Đăng ký scope `STORE_FULL` và tab tài liệu mẫu cURL/Fetch trực quan trong `ApiKeysModule.tsx`.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không cập nhật trường `stock_quantity` độc lập mà không kiểm tra số lượng mã thật trong `inventory_codes`.*
+  - ❌ *Không xóa gói sản phẩm mà bỏ quên dọn dẹp các mã code tồn kho mồ côi (orphaned codes).*
+
 ### ISSUE-220: Bẫy Sai Tên Cột Bảng D1 mission_ai_api_keys Gây Ra 401 Giả Mạo & Thứ Tự Ưu Tiên ASSETS Chặn Override Icon D1
 - **Triệu chứng & Rủi ro**:
   1. Khi gọi `POST /api/games/upload-icon`, máy chủ trả về mã HTTP 401 `{"success": false, "error": "Khóa API không có quyền cập nhật icon game."}` dù client gửi đúng API Key có quyền hợp lệ.

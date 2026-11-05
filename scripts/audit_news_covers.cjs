@@ -71,13 +71,13 @@ async function runAudit() {
 
   let errors = [];
 
-  articleMap.forEach((art) => {
+  for (const art of articleMap.values()) {
     const coverUrl = art.cover_url;
-    if (!coverUrl) return;
+    if (!coverUrl) continue;
 
     // External URLs (http/https) are skipped from local disk checks
     if (coverUrl.startsWith('http://') || coverUrl.startsWith('https://')) {
-      return;
+      continue;
     }
 
     // Internal paths
@@ -85,6 +85,25 @@ async function runAudit() {
       // Strip query string if any
       const cleanPath = coverUrl.split('?')[0].slice(1);
       const localDiskPath = path.join(PUBLIC_DIR, cleanPath);
+
+      if (!fs.existsSync(localDiskPath)) {
+        // Tự động kiểm tra và đồng bộ từ route công khai trên Live nếu đã được upload qua API
+        try {
+          const liveRes = await fetch(`https://codegame.shop/${cleanPath}`, {
+            headers: { 'Accept': 'image/webp,image/*,*/*' },
+          });
+          if (liveRes.ok) {
+            const buf = Buffer.from(await liveRes.arrayBuffer());
+            if (buf.length > 0) {
+              fs.mkdirSync(path.dirname(localDiskPath), { recursive: true });
+              fs.writeFileSync(localDiskPath, buf);
+              console.log(`[Audit News Covers] Synced dynamic icon to local disk: ${cleanPath} (${buf.length} bytes)`);
+            }
+          }
+        } catch (syncErr) {
+          // Bỏ qua lỗi kết nối
+        }
+      }
 
       if (!fs.existsSync(localDiskPath)) {
         errors.push({
@@ -96,7 +115,7 @@ async function runAudit() {
         });
       }
     }
-  });
+  }
 
   if (errors.length > 0) {
     console.error(`\n❌ [Audit News Covers] FAILED: Found ${errors.length} broken news cover image(s):`);

@@ -262,7 +262,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
   // Validate cover_url: reject invalid extensions, 404s, or title-derived fake paths
   if (body.cover_url) {
-    const val = await validateInternalCoverUrl(body.cover_url, request.url, (env as any).ASSETS);
+    const val = await validateInternalCoverUrl(body.cover_url, request.url, (env as any).ASSETS, env.DB);
     if (!val.valid) {
       return new Response(
         JSON.stringify({ success: false, error: val.error }),

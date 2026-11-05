@@ -122,7 +122,8 @@ export const isOnlyIconUrl = (url: string): boolean => {
 /**
  * Component hiển thị ảnh bìa tin tức chống nháy hình (Zero-Flicker Safe News Cover)
  * - Quản lý URL qua React state, bảo toàn 100% cover_url trong suốt phiên xem trang
- * - Tuân thủ: Khi ảnh lỗi, chuyển sang placeholder trung tính, TUYỆT ĐỐI KHÔNG đổi src sang ảnh chung
+ * - Tuân thủ: Khi ảnh lỗi, tự dự phòng cục bộ cho đúng thẻ đó (Tầng 1: Icon game của bài -> Tầng 2: Ảnh chuyên đề mặc định -> Tầng 3: Placeholder trung tính)
+ * - Tuyệt đối KHÔNG đổi ảnh đồng loạt trên các thẻ khác, KHÔNG tải lại dữ liệu sau chu kỳ thời gian
  */
 export const SafeNewsCover: React.FC<{
   article: NewsArticle;
@@ -131,14 +132,33 @@ export const SafeNewsCover: React.FC<{
 }> = ({ article, className = '', isHero = false }) => {
   const [src, setSrc] = useState<string>(() => resolveArticleCover(article));
   const [hasError, setHasError] = useState<boolean>(false);
+  const [fallbackStage, setFallbackStage] = useState<number>(0);
 
   useEffect(() => {
     setSrc(resolveArticleCover(article));
     setHasError(false);
+    setFallbackStage(0);
   }, [article.id, article.cover_url, article.cover_image, article.game_slug, article.title]);
 
   const handleError = () => {
-    // Đánh dấu ảnh lỗi. Tuyệt đối không thay đổi thuộc tính src sang ảnh neon hay ảnh bài khác!
+    // Dự phòng cục bộ cho riêng từng thẻ (per-card local state):
+    // Tầng 1: Thử icon game của đúng bài đó nếu có game_slug và chưa thử
+    const gameIconUrl = article.game_slug ? `/game_icons/${article.game_slug}.webp` : '';
+    if (fallbackStage === 0 && gameIconUrl && src !== gameIconUrl) {
+      setFallbackStage(1);
+      setSrc(gameIconUrl);
+      return;
+    }
+
+    // Tầng 2: Nếu không có game_slug hoặc icon game cũng lỗi -> fallback sang ảnh chung /news_covers/thi-truong-game-viet-nam.webp
+    const defaultCover = '/news_covers/thi-truong-game-viet-nam.webp';
+    if (fallbackStage < 2 && src !== defaultCover) {
+      setFallbackStage(2);
+      setSrc(defaultCover);
+      return;
+    }
+
+    // Tầng 3: Nếu ảnh chung cũng lỗi thì mới hiện placeholder trung tính
     if (!hasError) {
       setHasError(true);
     }

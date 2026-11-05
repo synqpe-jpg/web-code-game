@@ -7,6 +7,52 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-05]
 
+### 316. Xây Dựng Cổng API Quản Lý Code Bán & Gói Sản Phẩm /api/store/manage, Scope STORE_FULL & Đồng Bộ Mục Quản Lý API Admin
+- **Bối cảnh & Yêu cầu từ Chủ sở hữu (05/11/2026)**:
+  - Yêu cầu tạo mục API toàn quyền quản lý mục code bán và gói sản phẩm trong trang quản trị Admin.
+  - Cần endpoint chuyên dụng và tài liệu hướng dẫn đầy đủ để Quản trị viên, AI hoặc hệ thống bên thứ 3 có thể tạo/sửa/xóa gói sản phẩm bán, nạp kho code bán hàng loạt, kiểm tra tồn kho, đổi giá và điều chỉnh thông số FOMO mà không cần thao tác tay trên giao diện web.
+  - Tuân thủ Rule 8: Tự động đăng ký scope mới (`STORE_FULL`), cập nhật `hasScope`, Modal gán quyền / tạo key và tab tài liệu API trong `ApiKeysModule.tsx`.
+- **Giải pháp triệt để đã triển khai (Solution Applied)**:
+  1. *Cổng API Edge Hoàn Chỉnh `/api/store/manage` (`functions/api/store/manage.ts`)*:
+     - Hỗ trợ đầy đủ cả `GET` và `POST`.
+     - Xác thực đa chứng chỉ bằng Scope `STORE_FULL`, `STORE_PRODUCTS_FULL`, `INVENTORY_FULL`, `ADMIN_FULL` hoặc Master Secret / Admin Session.
+     - **Quản lý Gói Sản Phẩm**:
+       - `action=list_products`: Liệt kê tất cả các gói bán kèm số lượng tồn kho thực tế tính từ `inventory_codes` và số lượng đã bán.
+       - `action=get_product`: Tra cứu chi tiết 1 gói bán kèm danh sách mã code gần nhất trong kho.
+       - `action: 'create_product'`: Tạo gói bán mới, hỗ trợ nạp mã ban đầu `initial_codes`, tự động đồng bộ D1 `store_products`, D1 `wcg_admin_store_products_v4` và `wcg_master_state_v4`.
+       - `action: 'update_product'`: Cập nhật linh hoạt giá bán, tiêu đề, ảnh, mô tả, hướng dẫn nạp, trạng thái ẩn/hiện (`is_active`).
+       - `action: 'delete_product'`: Xóa gói sản phẩm, xóa các mã chưa bán trong kho và ghi nhận Tombstone chống hồi sinh.
+       - `action: 'adjust_fomo'`: Điều chỉnh số lượng đã bán ảo và cấu hình hiển thị FOMO ngoài sàn.
+     - **Quản lý Kho Mã Code Bán**:
+       - `action=list_codes`: Phân trang danh sách mã code trong kho theo gói sản phẩm và trạng thái (`AVAILABLE`, `SOLD`, `RESERVED`).
+       - `action: 'import_codes'`: Nạp kho hàng loạt mã code bán mới (chấp nhận mảng chuỗi mã, mảng object hoặc text nhiều dòng), tự động lọc bỏ mã trùng lặp trong kho của gói, batch insert vào `inventory_codes`, và tự động đồng bộ counter tồn kho (`syncProductStockCounter`).
+       - `action: 'delete_codes'`: Xóa lẻ từng mã code hoặc xóa toàn bộ mã chưa bán khỏi kho.
+       - `action: 'update_code_status'`: Cập nhật trạng thái của mã code (`AVAILABLE`, `RESERVED`, `SOLD`).
+     - **Thống kê Tổng Quan**: `action=summary` trả về tổng số gói sản phẩm, số gói active, tổng mã kho, mã khả dụng, mã đã bán.
+     - **Xóa Cache Tự Động**: Tự động gọi `invalidateCatalogEdgeCache` trên mọi thao tác ghi để dữ liệu cập nhật tức thì trên Web Khách (`codegame.shop/store`).
+  2. *Đăng ký Route & Điều Phối Tuyến (`functions/_worker.ts`)*:
+     - Điều hướng các route `/api/store/manage`, `/api/store`, `/api/products/manage` vào `storeManageApi`.
+  3. *Cập nhật Phân Quyền Hạt Nhân (`functions/services/mission_service.ts`)*:
+     - Bổ sung `STORE_FULL`, `STORE_PRODUCTS_FULL`, `INVENTORY_FULL` vào hàm phân giải quyền `hasScope`.
+  4. *Đồng bộ Toàn Diện Vào Mục Quản Lý API Admin (`src/admin/modules/ApiKeysModule.tsx`)*:
+     - Cập nhật định nghĩa scope `STORE_FULL` trong `ALL_API_SCOPES`: Tên hiển thị "Kho Code Bán & Gói Sản Phẩm (Store & Paid Codes API)", danh mục "Thương Mại & Kho", màu tím sang trọng.
+     - Thêm tab tài liệu mới **"🛍️ API Code Bán & Gói Bán (Mới)"** (`docCategory === 'store'`) vào thanh điều hướng tài liệu API.
+     - Cung cấp đầy đủ 7 mẫu cURL & JavaScript Fetch trực quan cho mọi hành động quản trị.
+- **Kiểm chứng thực tế Live 100% (`https://codegame.shop/api/store/manage`)**:
+  - Không token: 401 Unauthorized (Bảo mật tuyệt đối).
+  - Token sai: 401 Unauthorized.
+  - `list_products`: 200 OK.
+  - `summary`: 200 OK.
+  - `create_product`: 200 OK, khởi tạo kèm 2 mã code ban đầu.
+  - `import_codes`: 200 OK, nạp thêm 2 mã, tự động lọc 1 mã trùng lặp, tồn kho tăng đúng lên 4.
+  - `list_codes`: 200 OK, hiển thị đầy đủ 4 mã code khả dụng trong kho.
+  - `update_product`: 200 OK, cập nhật giá bán thành công.
+  - `delete_product`: 200 OK, xóa sạch 100% dữ liệu test, bảo đảm quy tắc Rule 7 (Zero test artifacts on production).
+- **Trạng thái triển khai (Rule 6)**:
+  - Đã chạy `npm run deploy:all` triển khai đồng thời lên Web Khách `web-code-game` (`https://9257bdc7.web-code-game.pages.dev`) và Web Quản Trị `admin-code-game-shop` (`https://323fc799.admin-code-game-shop.pages.dev`).
+
+---
+
 ### 315. Cấp Quyền Đổi Icon Game Cho Muse, Mở Rộng Action update_icon_from_url & Tối Ưu Hóa Chuẩn WebP Từ Store CDN
 - **Bối cảnh & Yêu cầu từ Chủ sở hữu (05/11/2026)**:
   - 2 game mới lên catalog chính codegame.shop: `eileen-saga-the-crush-girl` (1 mã `weeklym7e9`) và `idle-cat-gunner` (5 mã).
