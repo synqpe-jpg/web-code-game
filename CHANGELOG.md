@@ -7,6 +7,20 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-05]
 
+### 321. Loại Bỏ Hoàn Toàn Hiển Thị Chữ "Còn: [Số Lượng]" Trên Thẻ Sản Phẩm & Xóa Dứt Điểm Dữ Liệu Test
+- **Bối cảnh & Yêu cầu (05/11/2026, 22:36)**:
+  - Khách hàng/Quản trị viên yêu cầu xóa hiển thị chữ "Còn: 7" trên thẻ sản phẩm cửa hàng.
+  - Về mặt UI/UX kinh doanh thẻ game/giftcode trực tuyến, việc hiển thị số lượng tồn kho cụ thể (`Còn: 7`, `Còn: 1`, v.v.) không cần thiết và gây hiểu lầm cho người mua. Thẻ chỉ nên thông báo khi hết hàng (`Hết hàng`) hoặc số lượng đã bán (`Đã bán: X`).
+- **Giải pháp triệt để đã triển khai (Solution Applied)**:
+  1. *Loại bỏ hiển thị chữ "Còn: [Số lượng]" trong `StoreView.tsx`*:
+     - Tại cả 2 chế độ List View và Grid View:
+       - Khi sản phẩm hết hàng (`displayStock <= 0`): Hiển thị nhãn nổi bật màu đỏ `Hết hàng`.
+       - Khi sản phẩm còn hàng (`displayStock > 0`): Tuyệt đối không hiển thị dòng chữ `Còn: ...`, chỉ hiển thị thông tin số lượng đã bán (`Đã bán: ${displaySold}`) nếu được bật cấu hình.
+  2. *Thanh lọc 100% dữ liệu test khỏi cache cục bộ khách hàng (`src/services/dataService.ts`)*:
+     - Bổ sung bộ lọc phòng thủ kép trong `getStoreProducts()`: Tự động loại bỏ bất kỳ bản ghi nào có ID `sp_1793880807412_g75` hoặc tiêu đề `test` còn sót lại trong `localStorage` của các trình duyệt chưa xóa cache.
+  3. *Xác thực trạng thái D1 / API Live*:
+     - Sản phẩm test `sp_1793880807412_g75` đã được xóa sạch hoàn toàn trên Cloudflare D1 và ghi nhận vào danh sách tombstone `wcg_deleted_store_products`.
+
 ### 320. Sửa Triệt Để Lỗi Crash Component Khi Bấm Vào Sản Phẩm Ở Cửa Hàng ("Minified React error #310")
 - **Bối cảnh & Triệu chứng (05/11/2026, 21:56)**:
   - Trên trang `/store`, sản phẩm hiển thị bình thường. Tuy nhiên, khi khách hàng click vào thẻ sản phẩm hoặc nút "Mua Ngay", toàn bộ trang sập thành hộp thoại Error Boundary: *"Đã có sự cố hiển thị nhỏ xảy ra — Hệ thống đã tự động ngăn ngừa màn hình đen và bảo vệ trạng thái an toàn cho bạn"* kèm mã lỗi `Minified React error #310`.

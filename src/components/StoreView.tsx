@@ -369,18 +369,15 @@ export const StoreView: React.FC<StoreViewProps> = ({
                     {product.title}
                   </h3>
                   <div className="flex items-center gap-2 text-[10px] sm:text-[11px] text-muted-foreground mt-0.5">
-                    {(product as any).show_stock_count !== false && (
-                      <span className={`font-mono ${displayStock <= 0 ? 'text-rose-400 font-bold' : 'text-slate-300'}`}>
-                        {displayStock <= 0 ? 'Hết hàng' : `Còn: ${displayStock}`}
+                    {displayStock <= 0 ? (
+                      <span className="font-mono text-rose-400 font-bold">
+                        Hết hàng
                       </span>
-                    )}
+                    ) : null}
                     {isGlobalSoldEnabled && product.show_sold_count !== false && (
-                      <>
-                        {(product as any).show_stock_count !== false && <span>•</span>}
-                        <span className="font-mono text-amber-400/90 hidden xs:inline">
-                          Đã bán: {displaySold}
-                        </span>
-                      </>
+                      <span className="font-mono text-amber-400/90 hidden xs:inline">
+                        {displayStock <= 0 ? '• ' : ''}Đã bán: {displaySold}
+                      </span>
                     )}
                   </div>
                 </div>
@@ -581,18 +578,14 @@ export const StoreView: React.FC<StoreViewProps> = ({
                       const displaySold = marketingService.getSoldDisplay(product);
                       return (
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          {(product as any).show_stock_count !== false && (
-                            <span
-                              className={`text-[9px] sm:text-[10px] font-mono ${
-                                displayStock <= 0 ? 'text-rose-400 font-bold' : 'text-slate-300'
-                              }`}
-                            >
-                              {displayStock <= 0 ? 'Hết hàng' : `Còn: ${displayStock}`}
+                          {displayStock <= 0 ? (
+                            <span className="text-[9px] sm:text-[10px] font-mono text-rose-400 font-bold">
+                              Hết hàng
                             </span>
-                          )}
+                          ) : null}
                           {isGlobalSoldEnabled && product.show_sold_count !== false && (
                             <span className="text-[9px] sm:text-[10px] font-mono text-amber-400/90">
-                              {(product as any).show_stock_count !== false ? '• ' : ''}Đã bán: {displaySold}
+                              {displayStock <= 0 ? '• ' : ''}Đã bán: {displaySold}
                             </span>
                           )}
                         </div>

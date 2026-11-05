@@ -2838,15 +2838,15 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
       if (adminSp !== null) {
         const parsed = JSON.parse(adminSp);
         if (Array.isArray(parsed)) {
-          prods = parsed.filter((p) => p && p.id && !deletedSet.has(p.id));
+          prods = parsed.filter((p) => p && p.id && !deletedSet.has(p.id) && p.id !== 'sp_1793880807412_g75' && p.title?.toLowerCase() !== 'test');
         }
       }
     } catch {}
 
     if (!prods || prods.length === 0) {
-      prods = (this.defaultStoreProducts || []).filter((p) => p && p.id && !deletedSet.has(p.id));
+      prods = (this.defaultStoreProducts || []).filter((p) => p && p.id && !deletedSet.has(p.id) && p.id !== 'sp_1793880807412_g75' && p.title?.toLowerCase() !== 'test');
     } else {
-      prods = prods.filter((p) => p && p.id && !p.id.startsWith('ut_') && !deletedSet.has(p.id));
+      prods = prods.filter((p) => p && p.id && !p.id.startsWith('ut_') && !deletedSet.has(p.id) && p.id !== 'sp_1793880807412_g75' && p.title?.toLowerCase() !== 'test');
     }
 
     return prods.map((p) => {
