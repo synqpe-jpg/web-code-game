@@ -461,9 +461,14 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               <div className="rounded-2xl border border-border/80 bg-slate-900/60 p-4 sm:p-5 shadow-xl space-y-4 sticky top-4">
                 {/* Header Gói Đã Chọn */}
                 <div className="pb-3 border-b border-border/70">
-                  <span className="text-xs font-semibold text-muted-foreground block mb-1">
-                    Gói đã chọn:
-                  </span>
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <span className="text-xs font-semibold text-muted-foreground">
+                      Gói đã chọn:
+                    </span>
+                    <span className="text-xs font-bold text-secondary">
+                      Mua Ngay
+                    </span>
+                  </div>
                   <div className="flex items-baseline justify-between gap-2">
                     <div className="flex items-baseline gap-2">
                       <span className="font-display font-extrabold text-2xl sm:text-3xl text-emerald-400 tracking-tight">

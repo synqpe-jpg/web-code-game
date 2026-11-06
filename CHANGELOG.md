@@ -7,6 +7,21 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-06]
 
+### 326. Bổ Sung Chữ "Mua Ngay" Nổi Bật Bên Cạnh Nhãn "Gói Đã Chọn" Trong Modal Chi Tiết Cửa Hàng
+- **Bối cảnh & Yêu cầu (06/11/2026, 15:10 - 15:45)**:
+  - Người dùng yêu cầu: *"tHÊM CHỮ MUA NGAY NGAY BÊN CẠNH CHỮ MỤC ĐÃ CHỌN"* kèm ảnh chụp màn hình modal chi tiết gói sản phẩm trên `/store` (`ProductDetailModal.tsx`).
+  - Tại khu vực cột bên phải (Right Column) của modal chi tiết, phần tiêu đề phía trên giá tiền đang hiển thị nhãn `Gói đã chọn:`. Cần bổ sung chữ `Mua Ngay` nằm thẳng hàng, liền kề nhãn này để làm rõ hành động tức thì cho người dùng.
+- **Nguyên nhân & Thiết kế UI (Design & UX Implementation)**:
+  - Nhãn ban đầu là `<span className="text-xs font-semibold text-muted-foreground block mb-1">Gói đã chọn:</span>`.
+  - Nâng cấp thành khối flex container `flex items-center gap-1.5 mb-1`:
+    - Nhãn phụ: `<span className="text-xs font-semibold text-muted-foreground">Gói đã chọn:</span>`.
+    - Chữ bổ sung: `<span className="text-xs font-bold text-secondary">Mua Ngay</span>` với màu cyan nổi bật (`text-secondary`), hiển thị liền khối trên cùng một dòng.
+    - Giữ trọn vẹn bố cục giá tiền (`font-extrabold text-2xl sm:text-3xl text-emerald-400`), phần trăm giảm giá và trạng thái kho (`Còn hàng` / `Hết hàng`) bên dưới.
+- **Kết quả nghiệm thu**:
+  - Modal mở lên hiển thị chuẩn xác `Gói đã chọn: Mua Ngay` trên cùng dòng header cột phải.
+  - Tương thích 100% trên cả giao diện điện thoại (mobile) lẫn máy tính (desktop), không tràn viền, không phá vỡ responsive layout.
+
+
 ### 325. Sửa Lỗi Ô "Thông Tin Chi Tiết Sản Phẩm" Kẹt Mô Tả Gói Đầu Tiên Khi Chọn Gói Khác
 - **Bối cảnh & Triệu chứng (06/11/2026, 12:41)**:
   - Trên trang `/store`, khi mở bảng chọn gói của một game có nhiều gói (như Hiệp Khách Hành gồm 10 gói), ô "Thông Tin Chi Tiết Sản Phẩm" luôn kẹt cứng mô tả của gói đầu tiên ("CODE NHƯ LAI THẦN CHƯỞNG" 1.500 Core).

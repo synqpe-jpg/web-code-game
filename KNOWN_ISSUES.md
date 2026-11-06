@@ -10,6 +10,16 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-229: Bố Cục Header Nhãn "Gói Đã Chọn" & "Mua Ngay" Trong ProductDetailModal
+- **Triệu chứng & Rủi ro**:
+  1. Khi bổ sung chữ "Mua Ngay" cạnh nhãn "Gói đã chọn:", nếu dùng display block hoặc thiếu container flex, text sẽ bị rớt dòng làm đẩy cụm giá tiền và trạng thái kho (`Còn hàng`) xuống thấp, gây vỡ bố cục trên màn hình mobile.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Sử dụng inline flex container `flex items-center gap-1.5 mb-1` bọc cả 2 nhãn text.
+  2. Giữ nguyên kích thước `text-xs` chuẩn và phân tách màu sắc (`text-muted-foreground` cho "Gói đã chọn:" và `text-secondary` cho "Mua Ngay") để tăng độ tương phản mà không làm xao nhãng mức giá chính.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không dùng thẻ block riêng lẻ khiến chữ bị rớt dòng.*
+
+
 ### ISSUE-228: Bẫy Quên Ánh Xạ Mô Tả Con Trong Hàm Gom Nhóm Gói Khiến Modal Kẹt Mô Tả Gói Đầu
 - **Triệu chứng & Rủi ro**:
   1. Trong cửa hàng `/store`, các sản phẩm có nhiều gói (như Hiệp Khách Hành) khi mở modal chọn gói thì giá, số bán, nút mua đổi theo gói người dùng chọn, nhưng ô "Thông Tin Chi Tiết Sản Phẩm" bị kẹt cứng mô tả của gói đầu tiên.
