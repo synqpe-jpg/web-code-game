@@ -817,7 +817,16 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
         url.searchParams.has('id')
       ) && (pathname === '/giveaways' || pathname === '/giveaway');
 
-      if (request.method === 'GET' && isCrawler && isGiveawayShareQuery) {
+      const isStoreShareQuery = (
+        url.searchParams.has('pkg') ||
+        url.searchParams.has('package') ||
+        url.searchParams.has('product') ||
+        url.searchParams.has('prod') ||
+        url.searchParams.has('game') ||
+        url.searchParams.has('g')
+      ) && (pathname === '/store' || pathname.startsWith('/store/'));
+
+      if (request.method === 'GET' && (isStoreShareQuery || (isCrawler && isGiveawayShareQuery))) {
         return await renderSeoHtml(request, env, pathname);
       }
 
@@ -1057,6 +1066,7 @@ async function renderSeoHtml(
   pathname: string
 ): Promise<Response> {
   const origin = 'https://codegame.shop';
+  const url = new URL(request.url);
 
   // 1. Chuyển hướng 301 chuẩn hóa cho /g/:slug -> /game/:slug hoặc slug chính
   if (pathname.startsWith('/g/')) {
@@ -1744,8 +1754,8 @@ async function renderSeoHtml(
         let matchedPkg: any = null;
         if (pkgIdParam) {
           matchedPkg = await env.DB.prepare(
-            'SELECT id, title, game_slug, game_name, current_price, original_price, discount_percent, stock_quantity, cover_image_url, game_icon_url FROM store_products WHERE id = ? OR sku = ? LIMIT 1'
-          ).bind(pkgIdParam, pkgIdParam).first<any>().catch(() => null);
+            'SELECT id, title, game_slug, game_name, current_price, original_price, discount_percent, stock_quantity, cover_image_url, game_icon_url FROM store_products WHERE id = ? LIMIT 1'
+          ).bind(pkgIdParam).first<any>().catch(() => null);
         }
 
         if (matchedPkg) {
