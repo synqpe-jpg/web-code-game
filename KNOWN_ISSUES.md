@@ -10,6 +10,20 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-230: Bẫy Lồng Thẻ <button> Trong Danh Sách Gói & Deep Link Thiếu Phân Giải ID Gói Con
+- **Triệu chứng & Rủi ro**:
+  1. Khi bổ sung nút chia sẻ cho từng dòng gói trong `ProductDetailModal`, nếu dòng gói ban đầu là thẻ `<button>` và nút chia sẻ cũng là thẻ `<button>`, trình duyệt sẽ báo lỗi HTML nesting violation (`<button> cannot appear as a descendant of <button>`), dẫn đến event click bị nuốt hoặc đóng modal đột ngột.
+  2. Khi người dùng chia sẻ link dạng `/store?game=<slug>&pkg=<id-gói>`, nếu router chỉ tìm kiếm sản phẩm theo ID cha mà không duyệt mảng `packages` con, modal sẽ luôn chọn gói đầu tiên hoặc không mở được gói chia sẻ.
+  3. Nếu gói được chia sẻ đã bị xóa hoặc không tồn tại mà router không có fallback an toàn, trang web có nguy cơ bị trắng hoặc văng lỗi không thể phục hồi.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Thay thế thẻ `<button>` dòng gói bằng `<div role="button" tabIndex={0} ...>` kèm `onKeyDown` (Enter/Space), đồng thời gắn `e.stopPropagation()` trên nút chia sẻ riêng.
+  2. Sử dụng `getProductPackages(found)` để tra cứu cả gói đại diện lẫn toàn bộ gói con khi xử lý `pkgIdParam`.
+  3. Fallback an toàn 100%: Nếu gói không còn tồn tại, vẫn mở modal game bình thường và bắn toast *"Gói này không còn nữa hoặc đã ngừng bán."*, tuyệt đối không làm gián đoạn trải nghiệm của người dùng.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không lồng thẻ `<button>` con bên trong thẻ `<button>` cha.*
+  - ❌ *Không bỏ qua fallback khi tham số `pkg` không tồn tại trong kho.*
+
+
 ### ISSUE-229: Bố Cục Header Nhãn "Gói Đã Chọn" & "Mua Ngay" Trong ProductDetailModal
 - **Triệu chứng & Rủi ro**:
   1. Khi bổ sung chữ "Mua Ngay" cạnh nhãn "Gói đã chọn:", nếu dùng display block hoặc thiếu container flex, text sẽ bị rớt dòng làm đẩy cụm giá tiền và trạng thái kho (`Còn hàng`) xuống thấp, gây vỡ bố cục trên màn hình mobile.

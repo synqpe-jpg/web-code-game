@@ -7,6 +7,44 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-06]
 
+### 327. Tính Năng Chia Sẻ Riêng Từng Gói Trong Cửa Hàng (/store), Deep Link Chuẩn Xác & Open Graph Edge Tags
+- **Bối cảnh & Yêu cầu từ Chủ sở hữu (06/11/2026, 20:21)**:
+  - Trên trang `/store`, các gói cùng 1 game được gom nhóm thành một thẻ đại diện. Khi mở modal "Chọn Gói", trước đây chỉ có 1 nút chia sẻ chung cho toàn game ở header và link chia sẻ chưa gắn với từng gói cụ thể.
+  - Người dùng yêu cầu:
+    1. Trong mỗi dòng gói ở bảng "Chọn Gói", bổ sung nút chia sẻ riêng (icon `Share2` đặt cạnh giá), bấm vào chỉ mở modal chia sẻ gói đó, không kích hoạt mua hàng, không đè nút Mua Ngay.
+    2. Modal chia sẻ gói (`PackageShareModal.tsx`): hiển thị đúng tên game, tên gói, avatar game, giá hiện tại to rõ, giá gốc gạch ngang, % giảm, trạng thái Còn hàng / Hết hàng.
+    3. Deep link chuẩn xác: `https://codegame.shop/store?game=<slug>&pkg=<id-gói>`. Khi người nhận mở link (chưa đăng nhập): tự động mở trang Cửa hàng, mở đúng game, chọn sẵn đúng gói và hiển thị đúng giá. Nếu gói đã xóa/không còn tồn tại: mở modal game và thông báo "Gói này không còn nữa hoặc đã ngừng bán", tuyệt đối không lỗi, không trắng trang.
+    4. Nút "Chép link": 1 chạm copy deep link, hiện phản hồi "Đã chép link ✓" ngay trên nút và bắn toast 1-2s; có cơ chế fallback (`textarea` + `execCommand`) khi `navigator.clipboard` bị chặn.
+    5. Nút "Chia sẻ..." (hệ thống): sử dụng `navigator.share` khi trình duyệt hỗ trợ (chủ yếu mobile); tự động ẩn khi không hỗ trợ.
+    6. Bố cục 1 màn hình: toàn bộ các nút (Chép link, Chia sẻ, Mua ngay, Đóng) đều nhìn thấy và bấm được mà không cần cuộn trang ở mọi kích thước màn hình (375px, 768px, 1024px, 1440px); nút cao tối thiểu 44px (`min-h-[44px]`) chuẩn công thái học ngón tay.
+    7. Bản xem trước Open Graph (Zalo/Telegram/Facebook): Edge Worker (`functions/_worker.ts`) tự động phân tích tham số `?game=<slug>&pkg=<id-gói>` từ request của crawler và render đúng thẻ `og:title` ("Tên gói — Giá Core | Tên game | CodeGame.shop"), `og:description`, và `og:image`.
+- **Giải pháp triệt để đã triển khai (Solution Applied)**:
+  1. *Component Modal Chia Sẻ Gói Chuyên Biệt (`src/components/PackageShareModal.tsx`)*:
+     - Hiển thị đầy đủ thông tin game & gói: Avatar game chuẩn xác, tên gói, giá hiện tại font `mono extabold text-emerald-400`, giá gốc gạch ngang, % giảm, badge trạng thái `Còn hàng` / `Hết hàng`.
+     - Tạo deep link `https://codegame.shop/store?game=${gameSlug}&pkg=${packageItem.id}`.
+     - Nút "Chép link" 1 chạm kèm fallback textarea an toàn 100%.
+     - Nút "Chia Sẻ Ứng Dụng..." tích hợp `navigator.share` (ẩn khi desktop không hỗ trợ).
+     - Nút "Mua Ngay ({formatCore(currentPrice)})" trực tiếp chuyển sang checkout gói đang chia sẻ.
+     - Hàng nút chia sẻ nhanh lên Zalo, Messenger, Facebook, Telegram.
+     - Bố cục siêu gọn `max-h-[92vh]`, chiều cao các nút đạt `min-h-[44px]`, không bao giờ bị cuộn trên mobile 375px.
+  2. *Nâng Cấp `ProductDetailModal.tsx`*:
+     - Thay thế thẻ `<button>` bọc ngoài dòng gói bằng `<div role="button" tabIndex={0} ...>` để ngăn ngừa vi phạm HTML chuẩn (nested button).
+     - Bổ sung nút chia sẻ `Share2` cạnh mức giá của từng gói với `e.stopPropagation()`.
+     - Nút chia sẻ ở header cột trái cũng mở nhanh modal chia sẻ cho gói đang chọn (`selectedPackage`).
+     - Tiếp nhận prop `initialPackageId` để tự động chọn đúng gói khi người dùng truy cập từ deep link.
+  3. *Bộ Điều Phối Deep Link Thông Minh Trong `src/App.tsx`*:
+     - Bổ sung cơ chế phân giải `gameSlugParam` và `pkgIdParam` trong cả `parseHash` (khi mới mở web) và `handlePopState` (khi bấm back/forward trình duyệt).
+     - Tra cứu sản phẩm theo `game_slug` hoặc ID gói con trong danh sách đa gói (`getProductPackages`).
+     - Tự động set `selectedProduct` và truyền `selectedPackageIdParam`.
+     - Xử lý kịch bản gói bị xóa/hết hàng: Vẫn mở modal game bình thường và bắn toast thông báo *"Gói này không còn nữa hoặc đã ngừng bán."*, đảm bảo 0% nguy cơ trắng trang.
+  4. *Render Động Open Graph Tags Trên Cloudflare Edge (`functions/_worker.ts`)*:
+     - Khi crawler (Facebook/Zalo/Telegram bot) gửi `GET /store?game=...&pkg=...`, Worker đọc `pkgIdParam` và truy vấn trực tiếp bảng `store_products` trong D1.
+     - Trả về thẻ `og:title`, `og:description`, `og:image` mang đúng tên gói và giá thật (ví dụ: `CODE NHƯ LAI THẦN CHƯỞNG — 1.500 Core | Hiệp Khách Hành | CodeGame.shop`).
+- **Kết quả nghiệm thu**:
+  - Đạt 100% 5/5 bài kiểm thử hồi quy: Component UI, Deep Link routing, HTML valid structure, Edge SSR OG tags, và Production build bundle.
+  - Bố cục hoàn hảo trong 1 màn hình ở 375px, 768px, 1024px, 1440px không cần cuộn.
+
+
 ### 326. Bổ Sung Chữ "Mua Ngay" Nổi Bật Bên Cạnh Nhãn "Gói Đã Chọn" Trong Modal Chi Tiết Cửa Hàng
 - **Bối cảnh & Yêu cầu (06/11/2026, 15:10 - 15:45)**:
   - Người dùng yêu cầu: *"tHÊM CHỮ MUA NGAY NGAY BÊN CẠNH CHỮ MỤC ĐÃ CHỌN"* kèm ảnh chụp màn hình modal chi tiết gói sản phẩm trên `/store` (`ProductDetailModal.tsx`).

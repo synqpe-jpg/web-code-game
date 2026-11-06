@@ -48,7 +48,7 @@ import { authService } from './services/authService';
 import { growthService } from './services/growthService';
 import type { GameItem, FilterState, StoreProduct, UserProfile, GiveawayCampaign, UtilityProduct, ProductPackageVariant, UpcomingGame } from './types/game';
 import { saveRecentSearch } from './utils/recentSearchUtils';
-import { groupStoreProductsByGame } from './utils/productPackageUtils';
+import { groupStoreProductsByGame, getProductPackages } from './utils/productPackageUtils';
 import { isCodeExpired } from './utils/codeUtils';
 
 export interface SharePayload {
@@ -197,6 +197,7 @@ export const App: React.FC = () => {
   const [selectedGame, setSelectedGame] = useState<GameItem | null>(null);
   const [sharePayload, setSharePayload] = useState<SharePayload | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<StoreProduct | null>(null);
+  const [selectedPackageIdParam, setSelectedPackageIdParam] = useState<string | null>(null);
   const [checkoutProduct, setCheckoutProduct] = useState<StoreProduct | null>(null);
   const [checkoutPackage, setCheckoutPackage] = useState<ProductPackageVariant | null>(null);
   const [checkoutQuantity, setCheckoutQuantity] = useState<number>(1);
@@ -482,9 +483,19 @@ export const App: React.FC = () => {
         }
 
         // 3. Deep link hashes / query params have top priority over static pathname
-        const prodId =
+        const gameSlugParam =
+          urlParams.get('game') ||
+          urlParams.get('g') ||
+          (hashLower.includes('game=') ? hash.split(/game=/i)[1]?.split('&')[0] : null) ||
+          (hashLower.includes('g=') ? hash.split(/g=/i)[1]?.split('&')[0] : null);
+
+        const pkgIdParam =
+          urlParams.get('pkg') ||
+          urlParams.get('package') ||
           urlParams.get('product') ||
           urlParams.get('prod') ||
+          (hashLower.includes('pkg=') ? hash.split(/pkg=/i)[1]?.split('&')[0] : null) ||
+          (hashLower.includes('package=') ? hash.split(/package=/i)[1]?.split('&')[0] : null) ||
           (hashLower.includes('product=') ? hash.split(/product=/i)[1]?.split('&')[0] : null) ||
           (hashLower.includes('prod=') ? hash.split(/prod=/i)[1]?.split('&')[0] : null);
 
@@ -500,19 +511,51 @@ export const App: React.FC = () => {
           (hashLower.includes('utility=') ? hash.split(/utility=/i)[1]?.split('&')[0] : null) ||
           (hashLower.includes('ut=') ? hash.split(/ut=/i)[1]?.split('&')[0] : null);
 
-        if (prodId) {
+        if (gameSlugParam || pkgIdParam) {
           setCurrentTab('store');
           const storeProducts = dataService.getStoreProducts();
           const grouped = groupStoreProductsByGame(storeProducts);
-          const found = grouped.find(
-            (p) => p.id === prodId || p.id.toLowerCase() === prodId.toLowerCase() || (p.packages && p.packages.some((pkg) => pkg.id.toLowerCase() === prodId.toLowerCase()))
-          ) || storeProducts.find(
-            (p) => p.id === prodId || p.id.toLowerCase() === prodId.toLowerCase()
-          );
+
+          let found = null;
+          if (gameSlugParam) {
+            const cleanSlug = gameSlugParam.toLowerCase().trim();
+            found = grouped.find(
+              (p) => (p.game_slug && p.game_slug.toLowerCase() === cleanSlug) ||
+                     (p.game_name && p.game_name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') === cleanSlug)
+            );
+          }
+
+          if (!found && pkgIdParam) {
+            found = grouped.find(
+              (p) => p.id === pkgIdParam ||
+                     p.id.toLowerCase() === pkgIdParam.toLowerCase() ||
+                     (p.packages && p.packages.some((pkg) => pkg.id.toLowerCase() === pkgIdParam.toLowerCase()))
+            ) || storeProducts.find(
+              (p) => p.id === pkgIdParam || p.id.toLowerCase() === pkgIdParam.toLowerCase()
+            );
+          }
+
           if (found) {
             setSelectedProduct(found);
+            if (pkgIdParam) {
+              const allPkgs = getProductPackages(found);
+              const pkgExists = allPkgs.some(
+                (pkg) => pkg.id.toLowerCase() === pkgIdParam.toLowerCase()
+              );
+              if (pkgExists) {
+                setSelectedPackageIdParam(pkgIdParam);
+              } else {
+                setSelectedPackageIdParam(null);
+                showToast('Thông báo', 'Gói này không còn nữa hoặc đã ngừng bán.', 'info');
+              }
+            } else {
+              setSelectedPackageIdParam(null);
+            }
+            return;
+          } else {
+            showToast('Thông báo', 'Không tìm thấy gói hoặc sản phẩm được yêu cầu.', 'info');
+            return;
           }
-          return;
         } else if (utilityId) {
           setCurrentTab('utilities');
           setSelectedUtilityId(utilityId);
@@ -843,6 +886,47 @@ export const App: React.FC = () => {
       } else if (path === '/store' || path.startsWith('/store/')) {
         setSelectedGame(null);
         setCurrentTab('store');
+        const popParams = new URLSearchParams(window.location.search);
+        const popGame = popParams.get('game') || popParams.get('g');
+        const popPkg = popParams.get('pkg') || popParams.get('package') || popParams.get('product') || popParams.get('prod');
+        if (popGame || popPkg) {
+          const storeProducts = dataService.getStoreProducts();
+          const grouped = groupStoreProductsByGame(storeProducts);
+          let found = null;
+          if (popGame) {
+            const cleanSlug = popGame.toLowerCase().trim();
+            found = grouped.find(
+              (p) => (p.game_slug && p.game_slug.toLowerCase() === cleanSlug) ||
+                     (p.game_name && p.game_name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') === cleanSlug)
+            );
+          }
+          if (!found && popPkg) {
+            found = grouped.find(
+              (p) => p.id === popPkg ||
+                     p.id.toLowerCase() === popPkg.toLowerCase() ||
+                     (p.packages && p.packages.some((pkg) => pkg.id.toLowerCase() === popPkg.toLowerCase()))
+            ) || storeProducts.find(
+              (p) => p.id === popPkg || p.id.toLowerCase() === popPkg.toLowerCase()
+            );
+          }
+          if (found) {
+            setSelectedProduct(found);
+            if (popPkg) {
+              const allPkgs = getProductPackages(found);
+              const pkgExists = allPkgs.some(
+                (pkg) => pkg.id.toLowerCase() === popPkg.toLowerCase()
+              );
+              if (pkgExists) {
+                setSelectedPackageIdParam(popPkg);
+              } else {
+                setSelectedPackageIdParam(null);
+                showToast('Thông báo', 'Gói này không còn nữa hoặc đã ngừng bán.', 'info');
+              }
+            } else {
+              setSelectedPackageIdParam(null);
+            }
+          }
+        }
       } else if (path === '/utilities' || path.startsWith('/utilities/')) {
         setSelectedGame(null);
         setCurrentTab('utilities');
@@ -1783,13 +1867,18 @@ export const App: React.FC = () => {
         {selectedProduct && (
           <ProductDetailModal
             product={selectedProduct}
+            initialPackageId={selectedPackageIdParam || undefined}
             currentUser={currentUser}
             onOpenAuth={() => setIsAuthModalOpen(true)}
             onOpenShare={handleOpenShareProduct}
-            onClose={() => setSelectedProduct(null)}
+            onClose={() => {
+              setSelectedProduct(null);
+              setSelectedPackageIdParam(null);
+            }}
             onShowToast={showToast}
             onBuyNow={(prod, pkg, qty) => {
               setSelectedProduct(null);
+              setSelectedPackageIdParam(null);
               if (!currentUser) {
                 setIsAuthModalOpen(true);
               } else {

@@ -1731,8 +1731,47 @@ async function renderSeoHtml(
       replaceTitleAndMeta(title, description, '/giveaways', '/og-image.jpg', giveawayListSchema);
     }
   } else if (pathname === '/store' || pathname.startsWith('/store/')) {
-    const title = 'Cửa Hàng Giftcode VIP & Giao Dịch Mã Game Tự Động 24/7 | CodeGame.shop';
-    const description = 'Mua bán giftcode VIP, gói nạp game bản quyền chiết khấu tới 40%. Giao dịch tự động 24/7 qua SePay, nhận mã ngay trên màn hình trong 30 giây.';
+    const gameSlugParam = (url.searchParams.get('game') || url.searchParams.get('g') || '').trim();
+    const pkgIdParam = (url.searchParams.get('pkg') || url.searchParams.get('package') || url.searchParams.get('product') || url.searchParams.get('prod') || '').trim();
+
+    let title = 'Cửa Hàng Giftcode VIP & Giao Dịch Mã Game Tự Động 24/7 | CodeGame.shop';
+    let description = 'Mua bán giftcode VIP, gói nạp game bản quyền chiết khấu tới 40%. Giao dịch tự động 24/7 qua SePay, nhận mã ngay trên màn hình trong 30 giây.';
+    let canonical = '/store';
+    let ogImage = '/og-image.jpg';
+
+    if (env.DB && (pkgIdParam || gameSlugParam)) {
+      try {
+        let matchedPkg: any = null;
+        if (pkgIdParam) {
+          matchedPkg = await env.DB.prepare(
+            'SELECT id, title, game_slug, game_name, current_price, original_price, discount_percent, stock_quantity, cover_image_url, game_icon_url FROM store_products WHERE id = ? OR sku = ? LIMIT 1'
+          ).bind(pkgIdParam, pkgIdParam).first<any>().catch(() => null);
+        }
+
+        if (matchedPkg) {
+          const priceStr = matchedPkg.current_price ? `${Number(matchedPkg.current_price).toLocaleString('vi-VN')} Core` : 'Giá tốt';
+          const gName = matchedPkg.game_name || '';
+          title = `${matchedPkg.title} — ${priceStr} | ${gName} | CodeGame.shop`;
+          description = `Mua ngay gói ${matchedPkg.title} game ${gName} giá chỉ ${priceStr}${matchedPkg.discount_percent ? ` (giảm ${matchedPkg.discount_percent}%)` : ''}. Tình trạng: ${matchedPkg.stock_quantity > 0 ? 'Còn hàng' : 'Hết hàng'}. Nhận mã tự động 100% trong 30 giây tại CodeGame.shop.`;
+          canonical = `/store?game=${encodeURIComponent(gameSlugParam || matchedPkg.game_slug || '')}&pkg=${encodeURIComponent(matchedPkg.id)}`;
+          ogImage = matchedPkg.game_icon_url || (matchedPkg.game_slug ? `/game_icons/${matchedPkg.game_slug}.webp` : '') || matchedPkg.cover_image_url || '/og-image.jpg';
+        } else if (gameSlugParam) {
+          const matchedGame = await env.DB.prepare(
+            'SELECT slug, name, icon_url FROM games WHERE slug = ? OR id = ? LIMIT 1'
+          ).bind(gameSlugParam, gameSlugParam).first<any>().catch(() => null);
+
+          if (matchedGame) {
+            title = `Gói Nạp & Code VIP ${matchedGame.name} | CodeGame.shop`;
+            description = `Danh sách gói nạp, code VIP và mã quà tặng game ${matchedGame.name} chiết khấu tốt nhất. Nhận mã tự động 100% tại CodeGame.shop.`;
+            canonical = `/store?game=${encodeURIComponent(matchedGame.slug)}`;
+            ogImage = matchedGame.icon_url || `/game_icons/${matchedGame.slug}.webp` || '/og-image.jpg';
+          }
+        }
+      } catch (e) {
+        console.warn('[Edge Worker] Error resolving store package OG meta:', e);
+      }
+    }
+
     const storeSchema = [
       {
         "@context": "https://schema.org",
@@ -1753,7 +1792,7 @@ async function renderSeoHtml(
         ]
       }
     ];
-    replaceTitleAndMeta(title, description, '/store', '/og-image.jpg', storeSchema);
+    replaceTitleAndMeta(title, description, canonical, ogImage, storeSchema);
   } else if (pathname === '/utilities' || pathname.startsWith('/utilities/')) {
     const title = 'Tiện Ích & Tool Hỗ Trợ Game Số 1 Việt Nam | CodeGame.shop';
     const description = 'Dịch vụ tiện ích game, hỗ trợ game thủ tối ưu trải nghiệm chơi game an toàn, tốc độ và bảo mật cao tại CodeGame.shop.';

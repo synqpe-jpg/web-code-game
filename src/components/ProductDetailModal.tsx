@@ -29,9 +29,11 @@ import { dataService } from '../services/dataService';
 import { getProductPackages } from '../utils/productPackageUtils';
 import { GuideLinksBanner } from './GuideLinksBanner';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
+import { PackageShareModal } from './PackageShareModal';
 
 export interface ProductDetailModalProps {
   product: StoreProduct | UtilityProduct | null;
+  initialPackageId?: string;
   onClose: () => void;
   onBuyNow: (product: any, selectedPackage?: ProductPackageVariant, quantity?: number) => void;
   currentUser?: UserProfile | null;
@@ -42,6 +44,7 @@ export interface ProductDetailModalProps {
 
 export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   product,
+  initialPackageId,
   onClose,
   onBuyNow,
   currentUser,
@@ -53,6 +56,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const [isZoomed, setIsZoomed] = useState(false);
   const [isDescExpanded, setIsDescExpanded] = useState(false);
   const [quantity, setQuantity] = useState(1);
+  const [packageToShare, setPackageToShare] = useState<ProductPackageVariant | null>(null);
   useLockBodyScroll(Boolean(product));
   const [, setTick] = useState(0);
 
@@ -63,6 +67,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   }, [product]);
 
   const [selectedPackageId, setSelectedPackageId] = useState<string>(() => {
+    if (initialPackageId && packages.some((p) => p.id === initialPackageId)) {
+      return initialPackageId;
+    }
     return packages[0]?.id || product?.id || '';
   });
 
@@ -71,10 +78,12 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     setIsZoomed(false);
     setIsDescExpanded(false);
     setQuantity(1);
-    if (packages.length > 0) {
+    if (initialPackageId && packages.some((p) => p.id === initialPackageId)) {
+      setSelectedPackageId(initialPackageId);
+    } else if (packages.length > 0) {
       setSelectedPackageId(packages[0].id);
     }
-  }, [product?.id]);
+  }, [product?.id, initialPackageId]);
 
   useEffect(() => {
     const handleUpdate = () => setTick((t) => t + 1);
@@ -265,10 +274,17 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
             <div className="flex items-center gap-1.5 shrink-0">
               <button
-                onClick={handleShare}
+                type="button"
+                onClick={() => {
+                  if (selectedPackage) {
+                    setPackageToShare(selectedPackage);
+                  } else {
+                    handleShare();
+                  }
+                }}
                 className="p-2 sm:p-2.5 rounded-xl bg-muted/60 hover:bg-muted text-slate-300 hover:text-foreground cursor-pointer transition-all active:scale-95"
-                title="Chia sẻ link sản phẩm"
-                aria-label="Chia sẻ link sản phẩm"
+                title="Chia sẻ gói đang chọn"
+                aria-label="Chia sẻ gói đang chọn"
               >
                 <Share2 className="w-4 h-4" />
               </button>
@@ -533,13 +549,22 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       const isPkgOut = pkgStock <= 0;
 
                       return (
-                        <button
+                        <div
                           key={pkg.id}
-                          type="button"
+                          role="button"
+                          tabIndex={0}
                           onClick={() => {
                             setSelectedPackageId(pkg.id);
                             setQuantity(1);
                             setIsDescExpanded(false);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              setSelectedPackageId(pkg.id);
+                              setQuantity(1);
+                              setIsDescExpanded(false);
+                            }
                           }}
                           className={`w-full text-left p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 relative ${
                             isSelected
@@ -570,17 +595,33 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                             </div>
                           </div>
 
-                          <div className="text-right shrink-0">
-                            <span className={`font-mono font-bold text-xs sm:text-sm block ${isSelected ? 'text-red-400' : 'text-emerald-400'}`}>
-                              {formatCore(pkg.price)}
-                            </span>
-                            {isPkgOut ? (
-                              <span className="text-[10px] text-rose-400 font-semibold block">Hết hàng</span>
-                            ) : (
-                              <span className="text-[10px] text-emerald-400 font-semibold block">Còn hàng</span>
-                            )}
+                          <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+                            <div className="text-right">
+                              <span className={`font-mono font-bold text-xs sm:text-sm block ${isSelected ? 'text-red-400' : 'text-emerald-400'}`}>
+                                {formatCore(pkg.price)}
+                              </span>
+                              {isPkgOut ? (
+                                <span className="text-[10px] text-rose-400 font-semibold block">Hết hàng</span>
+                              ) : (
+                                <span className="text-[10px] text-emerald-400 font-semibold block">Còn hàng</span>
+                              )}
+                            </div>
+
+                            {/* Nút chia sẻ riêng từng gói (icon dễ nhận, đặt cạnh giá) */}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setPackageToShare(pkg);
+                              }}
+                              className="p-1.5 sm:p-2 rounded-lg bg-slate-800/80 hover:bg-secondary/20 text-slate-400 hover:text-secondary border border-slate-700/60 hover:border-secondary/40 transition-all cursor-pointer active:scale-90 shrink-0"
+                              title={`Chia sẻ gói ${pkg.name}`}
+                              aria-label={`Chia sẻ gói ${pkg.name}`}
+                            >
+                              <Share2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                            </button>
                           </div>
-                        </button>
+                        </div>
                       );
                     })}
                   </div>
@@ -683,6 +724,22 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               onClick={(e) => e.stopPropagation()}
             />
           </div>
+        )}
+
+        {/* Modal Chia Sẻ Từng Gói Riêng Biệt */}
+        {packageToShare && (
+          <PackageShareModal
+            isOpen={Boolean(packageToShare)}
+            onClose={() => setPackageToShare(null)}
+            product={product}
+            packageItem={packageToShare}
+            onBuyNow={(pkg) => {
+              setPackageToShare(null);
+              setSelectedPackageId(pkg.id);
+              onBuyNow(product, pkg, 1);
+            }}
+            onShowToast={onShowToast || (() => {})}
+          />
         )}
       </div>
     </div>,
