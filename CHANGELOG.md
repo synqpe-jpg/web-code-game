@@ -5,6 +5,26 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ---
 
+## [2026-11-06]
+
+### 325. Sửa Lỗi Ô "Thông Tin Chi Tiết Sản Phẩm" Kẹt Mô Tả Gói Đầu Tiên Khi Chọn Gói Khác
+- **Bối cảnh & Triệu chứng (06/11/2026, 12:41)**:
+  - Trên trang `/store`, khi mở bảng chọn gói của một game có nhiều gói (như Hiệp Khách Hành gồm 10 gói), ô "Thông Tin Chi Tiết Sản Phẩm" luôn kẹt cứng mô tả của gói đầu tiên ("CODE NHƯ LAI THẦN CHƯỞNG" 1.500 Core).
+  - Khi khách hàng bấm chọn các gói khác như "CODE Hộp Khẩu Quyết Lưu Phái Hiếm" (19.000 Core) hay "CODE HIẾM" (35.000 Core), giá, mức giảm, số bán và nút mua đổi đúng theo gói chọn — nhưng ô chi tiết vẫn hiển thị mô tả của gói đầu tiên.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Thiếu trường `description` trong hàm gom nhóm gói (`groupStoreProductsByGame`, `groupUtilitiesByTheme`, `getProductPackages`)*: Khi gom nhóm các sản phẩm cùng game thành sản phẩm đại diện có mảng `packages: ProductPackageVariant[]`, trường `description: item.description` bị bỏ sót không ánh xạ vào từng gói con.
+  2. *Hardcode hiển thị `product.description`*: Trong `src/components/ProductDetailModal.tsx`, khối hiển thị mô tả gọi trực tiếp `product.description` (mô tả của sản phẩm cha đại diện/gói đầu tiên `lead`) thay vì lấy mô tả của gói đang được chọn (`selectedPackage`).
+- **Giải pháp triệt để đã triển khai (Solution Applied)**:
+  1. *Cập nhật hàm ánh xạ gói*: Thêm trường `description: item.description` vào `groupStoreProductsByGame`, `groupUtilitiesByTheme` và `getProductPackages` trong `src/utils/productPackageUtils.ts`.
+  2. *Động hóa mô tả chi tiết trong `ProductDetailModal.tsx`*:
+     - Tạo `currentDescription` ưu tiên lấy `selectedPackage.description`, nếu thiếu thì tự động tra cứu ID gói con trong `dataService.getStoreProducts()` hoặc `getUtilityProducts()`, và fallback về `product.description`.
+     - Thay thế toàn bộ hiển thị mô tả bằng `currentDescription`, giữ nguyên định dạng xuống dòng `whitespace-pre-line`.
+     - Tự động thu gọn accordion (`setIsDescExpanded(false)`) khi người dùng bấm chuyển sang gói khác.
+- **Kết quả nghiệm thu**:
+  - Khi mở bảng chọn gói, hiển thị đúng mô tả của gói đầu tiên.
+  - Khi bấm chọn gói bất kỳ (ví dụ: Hộp Khẩu Quyết 19.000 Core, CODE HIẾM 35.000 Core), ô "Thông Tin Chi Tiết Sản Phẩm" cập nhật tức thì mô tả tương ứng của gói đó.
+  - Định dạng xuống dòng được bảo toàn 100%.
+
 ## [2026-11-05]
 
 ### 324. Chuẩn Hóa SSOT Kho Đơn Hàng D1, Xóa Bỏ Bộ Lọc Cứng & Khắc Phục Triệt Để Phân Mảnh Lịch Sử Mua

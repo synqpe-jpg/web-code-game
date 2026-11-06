@@ -106,9 +106,24 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
         original_price: product.original_price,
         stock_quantity: product.stock_quantity,
         note: 'Xử lý tiêu chuẩn',
+        description: product.description,
       }
     );
   }, [packages, selectedPackageId, product]);
+
+  // Lấy mô tả tương ứng theo gói đang chọn (ưu tiên gói con, fallback sản phẩm gốc)
+  const currentDescription = useMemo(() => {
+    if (selectedPackage?.description && selectedPackage.description.trim()) {
+      return selectedPackage.description;
+    }
+    if (selectedPackage?.id) {
+      const rawStore = dataService.getStoreProducts().find((p) => p.id === selectedPackage.id);
+      if (rawStore?.description && rawStore.description.trim()) return rawStore.description;
+      const rawUtil = dataService.getUtilityProducts().find((u) => u.id === selectedPackage.id);
+      if (rawUtil?.description && rawUtil.description.trim()) return rawUtil.description;
+    }
+    return product?.description || '';
+  }, [selectedPackage, product]);
 
   const realStock = typeof selectedPackage?.stock_quantity === 'number'
     ? selectedPackage.stock_quantity
@@ -384,14 +399,14 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               </div>
 
               {/* Description */}
-              {product.description && (
+              {currentDescription && (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between gap-2">
                     <h4 className="font-heading font-bold text-sm text-foreground flex items-center gap-1.5">
                       <BookOpen className="w-4 h-4 text-primary" />
                       <span>Thông Tin Chi Tiết Sản Phẩm:</span>
                     </h4>
-                    {product.description.length > 200 && (
+                    {currentDescription.length > 200 && (
                       <button
                         type="button"
                         onClick={() => setIsDescExpanded(!isDescExpanded)}
@@ -404,15 +419,15 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   </div>
                   <div
                     className={`relative bg-card p-3.5 sm:p-4 rounded-2xl border border-border transition-all duration-300 ${
-                      !isDescExpanded && product.description.length > 200
+                      !isDescExpanded && currentDescription.length > 200
                         ? 'max-h-[140px] overflow-hidden'
                         : 'sm:max-h-[500px] sm:overflow-y-auto scrollbar-thin'
                     }`}
                   >
                     <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
-                      {product.description}
+                      {currentDescription}
                     </p>
-                    {!isDescExpanded && product.description.length > 200 && (
+                    {!isDescExpanded && currentDescription.length > 200 && (
                       <div className="pointer-events-none absolute bottom-0 inset-x-0 h-14 bg-gradient-to-t from-card via-card/80 to-transparent flex items-end justify-center pb-1">
                         <span className="text-[10px] text-secondary font-semibold bg-card/90 px-2 py-0.5 rounded-full border border-secondary/20 shadow-sm">
                           Nhấn &quot;Xem toàn bộ&quot; để đọc hết mô tả...
@@ -519,6 +534,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                           onClick={() => {
                             setSelectedPackageId(pkg.id);
                             setQuantity(1);
+                            setIsDescExpanded(false);
                           }}
                           className={`w-full text-left p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 relative ${
                             isSelected

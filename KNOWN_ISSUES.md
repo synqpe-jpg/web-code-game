@@ -10,6 +10,19 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-228: Bẫy Quên Ánh Xạ Mô Tả Con Trong Hàm Gom Nhóm Gói Khiến Modal Kẹt Mô Tả Gói Đầu
+- **Triệu chứng & Rủi ro**:
+  1. Trong cửa hàng `/store`, các sản phẩm có nhiều gói (như Hiệp Khách Hành) khi mở modal chọn gói thì giá, số bán, nút mua đổi theo gói người dùng chọn, nhưng ô "Thông Tin Chi Tiết Sản Phẩm" bị kẹt cứng mô tả của gói đầu tiên.
+  2. Khách hàng xem gói đắt tiền nhưng chỉ thấy mô tả của gói rẻ tiền, gây hiểu lầm và rủi ro mua sai gói.
+- **Nguyên nhân gốc rễ**:
+  1. Khi hàm `groupStoreProductsByGame` tạo danh sách `packages: ProductPackageVariant[]`, trường `description: item.description` không được truyền vào.
+  2. Modal `ProductDetailModal.tsx` đọc trực tiếp `product.description` (sản phẩm đại diện) thay vì đọc mô tả của `selectedPackage`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Luôn truyền đầy đủ `description: item.description` vào `ProductPackageVariant` trong mọi hàm gom nhóm (`groupStoreProductsByGame`, `groupUtilitiesByTheme`, `getProductPackages`).
+  2. Trong `ProductDetailModal.tsx`, sử dụng `currentDescription` ưu tiên `selectedPackage.description`, fallback tìm kiếm ID gốc và sản phẩm cha.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không đọc trực tiếp `product.description` trong modal chi tiết đa gói.*
+
 ### ISSUE-227: Bẫy Ô Nhiễm Dữ Liệu Cá Nhân Từ Admin Sync & Bộ Lọc Cứng Ẩn Sản Phẩm
 - **Triệu chứng & Rủi ro**:
   1. Khách hàng/người dùng thấy danh sách "Đã Mua" trong modal `MyReceivedCodesModal` hiển thị nhiều đơn hàng lạ (ví dụ 14 mục) trên máy này nhưng sang máy khác hoặc trình duyệt mới chỉ thấy đúng 4 mục.

@@ -28,6 +28,7 @@ export function getProductPackages(product: StoreProduct | UtilityProduct): Prod
       sold_count: product.sold_count || 0,
       badge: (product as any).badge || undefined,
       note: 'Xử lý tiêu chuẩn',
+      description: product.description,
       is_active: product.is_active !== false,
     },
   ];
@@ -150,6 +151,7 @@ export function groupStoreProductsByGame(products: StoreProduct[]): StoreProduct
         virtual_sold_count: item.virtual_sold_count || 0,
         badge: item.badge,
         note: item.package_type || 'Gói nạp game',
+        description: item.description,
         is_active: item.is_active !== false,
       }));
 
@@ -299,6 +301,7 @@ export function groupUtilitiesByTheme(utilities: UtilityProduct[]): UtilityProdu
         virtual_sold_count: subItem.virtual_sold_count || 0,
         badge: subItem.badge,
         note: 'Giao tài khoản tự động trong 0 giây',
+        description: subItem.description,
         is_active: subItem.is_active !== false,
       };
     });
