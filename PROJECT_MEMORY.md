@@ -49,7 +49,9 @@
   - `GAME_DATA_KV`: Lưu trữ games, giftcodes, tin tức (articles), nguồn cào (crawler sources), banner, cấu hình marketing.
   - `INVENTORY_KV`: Lưu trữ danh mục sản phẩm tiện ích, store products, và kho mã số.
 - **Cloudflare D1 SQL Database**:
-  - Quản lý giao dịch mua hàng (`orders`), kho mã chi tiết (`inventory_items`), tài khoản người dùng (`users`), giao dịch nạp tiền (`transactions`).
+  - Quản lý giao dịch mua hàng (`orders` — hỗ trợ `original_price`, `price_paid`, `discount_type`, `discount_amount`), kho mã chi tiết (`inventory_items`), tài khoản người dùng (`members` — hỗ trợ `email_verified`), giao dịch nạp tiền (`transactions`), lịch sử đặt lại ưu đãi (`first_purchase_resets`).
+  - Chiến dịch Ưu đãi mua lần đầu (First Purchase Offer): Server-authoritative price engine, SQLite atomic batch guard chống race condition song song, bảng kiểm toán reset độc lập.
+  - Endpoints: `GET /api/store/my-offer`, `GET/POST /api/admin/first-purchase`.
 
 ### 2.3. Tự Động Hóa 24/7 (Automation & Crawlers)
 - **GitHub Actions Workflows**:

@@ -207,6 +207,17 @@ export const ALL_API_SCOPES: ScopeOption[] = [
     icon: ShoppingBag,
   },
   {
+    id: 'FIRST_PURCHASE_MANAGE',
+    name: 'Ưu Đãi Mua Lần Đầu (First Purchase Offer API)',
+    category: 'Thương Mại & Kho',
+    description: 'Quản trị chiến dịch ưu đãi mua lần đầu (bật/tắt, giá ưu đãi, trần giá gốc, danh sách gói loại trừ, yêu cầu xác minh email), xem lượt đã dùng và đặt lại quyền ưu đãi cho thành viên qua /api/admin/first-purchase.',
+    color: 'rose',
+    badgeBg: 'bg-rose-500/10',
+    badgeText: 'text-rose-400',
+    badgeBorder: 'border-rose-500/20',
+    icon: Sparkles,
+  },
+  {
     id: 'MEMBERS_FULL',
     name: 'Quản Lý Thành Viên & Ví (Members & Wallets API)',
     category: 'Hệ Thống',

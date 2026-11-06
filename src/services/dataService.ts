@@ -2986,10 +2986,10 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
 
     // Local balance preliminary check
     const currentBal = Number(user.wallet_balance) || 0;
-    if (currentBal < totalPrice) {
+    if (currentBal <= 0) {
       return {
         success: false,
-        message: `Số dư ví không đủ. Cần ${totalPrice.toLocaleString('vi-VN')} Core nhưng ví hiện có ${currentBal.toLocaleString('vi-VN')} Core. Vui lòng nạp thêm Core để thanh toán.`,
+        message: 'Số dư ví hiện tại là 0 Core. Vui lòng nạp thêm Core để thanh toán.',
       };
     }
 
@@ -3025,8 +3025,11 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
     if (serverRes && serverRes.success && serverRes.order) {
       if (typeof serverRes.remainingBalance === 'number') {
         user.wallet_balance = serverRes.remainingBalance;
+      } else if (typeof serverRes.newBalance === 'number') {
+        user.wallet_balance = serverRes.newBalance;
       } else {
-        user.wallet_balance = Math.max(0, currentBal - totalPrice);
+        const actualDeducted = Number(serverRes.order?.price_paid ?? serverRes.order?.total_amount ?? totalPrice);
+        user.wallet_balance = Math.max(0, currentBal - actualDeducted);
       }
       this.saveCurrentUser(user);
 

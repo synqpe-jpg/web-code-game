@@ -1,6 +1,9 @@
 import {
   purchaseOrderD1,
   ensureSchemaUpgrades,
+  getFirstPurchaseConfigD1,
+  isProductExcludedFromFirstPurchase,
+  isMemberEmailVerified,
 } from '../../services/d1_service';
 import { verifyToken, extractUserIdFromToken } from '../../services/auth_service';
 import { getRealEventsHub, saveRealEventsHub } from '../../services/realEventsHub';
@@ -247,17 +250,59 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       );
     }
 
-    // Server-Authoritative Price
-    const unitPrice = Math.max(0, Number(product.current_price) || 0);
-    const totalPrice = unitPrice * qty;
+    // Server-Authoritative Price & Check First Purchase Offer
+    const baseUnitPrice = Math.max(0, Number(product.current_price) || 0);
+    const fpConfig = await getFirstPurchaseConfigD1(env.DB);
+
+    let isFirstPurchaseEligible = false;
+    let offerUnitPrice = baseUnitPrice;
+    let discountAmount = 0;
+    let discountType: 'first_purchase' | null = null;
+
+    if (
+      fpConfig.enabled &&
+      !isProductExcludedFromFirstPurchase(product, fpConfig.excluded_products) &&
+      (fpConfig.max_original_price === null || baseUnitPrice <= fpConfig.max_original_price) &&
+      (!fpConfig.require_verified_email || isMemberEmailVerified(member))
+    ) {
+      // Đếm số đơn đã thanh toán của tài khoản này cho đúng gói này (sau lần reset gần nhất)
+      const pastOrdersRow = await env.DB.prepare(`
+        SELECT COUNT(*) as cnt FROM orders 
+        WHERE (member_id = ? OR buyer_email = ?) 
+          AND product_id = ? 
+          AND status = 'COMPLETED'
+          AND created_at > (
+            SELECT COALESCE(MAX(reset_at), '1970-01-01T00:00:00.000Z') 
+            FROM first_purchase_resets 
+            WHERE (member_id = ? OR member_id = ?) AND product_id = ?
+          )
+      `).bind(member.id, member.email || '', product.id, member.id, member.email || '', product.id).first<any>();
+
+      const pastCount = Number(pastOrdersRow?.cnt) || 0;
+      if (pastCount === 0) {
+        isFirstPurchaseEligible = true;
+        // Giá ưu đãi = min(giá hiện tại, giá ưu đãi)
+        offerUnitPrice = Math.min(baseUnitPrice, fpConfig.offer_price);
+        discountAmount = Math.max(0, baseUnitPrice - offerUnitPrice);
+        if (discountAmount > 0) {
+          discountType = 'first_purchase';
+        }
+      }
+    }
+
+    // Giá khách thực trả: Gói đầu tiên được giá ưu đãi (nếu eligible), các gói thêm (qty > 1) tính giá gốc
+    const finalTotalAmount = (baseUnitPrice * qty) - discountAmount;
+    const originalPriceTotal = baseUnitPrice * qty;
+    const pricePaidTotal = finalTotalAmount;
+    const effectiveUnitPrice = isFirstPurchaseEligible ? offerUnitPrice : baseUnitPrice;
 
     // 3. Pre-flight Balance check
     const currentBalance = Number(member.balance) || 0;
-    if (currentBalance < totalPrice) {
+    if (currentBalance < finalTotalAmount) {
       return new Response(
         JSON.stringify({
           success: false,
-          message: `Số dư ví không đủ. Cần ${totalPrice.toLocaleString('vi-VN')} Core nhưng số dư hiện tại là ${currentBalance.toLocaleString('vi-VN')} Core. Vui lòng nạp thêm tiền vào ví.`,
+          message: `Số dư ví không đủ. Cần ${finalTotalAmount.toLocaleString('vi-VN')} Core nhưng số dư hiện tại là ${currentBalance.toLocaleString('vi-VN')} Core. Vui lòng nạp thêm tiền vào ví.`,
           code: 'INSUFFICIENT_BALANCE',
         }),
         { status: 400, headers: CORS_HEADERS }
@@ -329,10 +374,14 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       productSku: prodSku,
       productTitle: product.title,
       quantity: qty,
-      unitPrice,
-      totalAmount: totalPrice,
+      unitPrice: effectiveUnitPrice,
+      totalAmount: finalTotalAmount,
       idempotencyKey,
       nowIso,
+      originalPrice: originalPriceTotal,
+      pricePaid: pricePaidTotal,
+      discountType,
+      discountAmount,
     });
 
     if (!d1Result.success) {
@@ -361,6 +410,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         amount: existingOrder.total_amount,
         quantity: existingOrder.quantity,
         unit_price: existingOrder.unit_price,
+        original_price: existingOrder.original_price ?? existingOrder.total_amount,
+        price_paid: existingOrder.price_paid ?? existingOrder.total_amount,
+        discount_type: existingOrder.discount_type ?? null,
+        discount_amount: existingOrder.discount_amount ?? 0,
         code_content: deliveredContent,
         code_items: replayCodesList,
         deliveredCodes: replayCodesList,
@@ -389,7 +442,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     const remainingAvailCount = Math.max(0, availableStock - qty);
     const finalBalance = d1Result.newBalance !== undefined
       ? d1Result.newBalance
-      : Math.max(0, currentBalance - totalPrice);
+      : Math.max(0, currentBalance - finalTotalAmount);
 
     // 6. Update Real Events Hub for Marketing FOMO (Non-blocking background execution via waitUntil)
     const updateHubPromise = (async () => {
@@ -418,7 +471,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           title: isUtility ? 'Đơn hàng tiện ích' : 'Mua hàng thành công',
           productId: product.id,
           productName: product.title,
-          productPrice: totalPrice,
+          productPrice: finalTotalAmount,
           itemType: isUtility ? 'utility' : 'store',
           userName: buyerDisplayName,
           message: `${buyerDisplayName} vừa mua thành công ${qty > 1 ? `${qty}x ` : ''}${product.title}`,
@@ -445,7 +498,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         orderId: newOrderId,
         productTitle: product.title,
         quantity: qty,
-        totalAmount: totalPrice,
+        totalAmount: finalTotalAmount,
         buyerName: buyerDisplayName,
       }).catch((err) => console.warn('[OrdersCreate] Telegram new order alert error:', err?.message))
     );
@@ -477,9 +530,13 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       productTitle: product.title,
       product_title: product.title,
       game_name: isUtility ? `Tiện Ích • ${product.category_label || product.category || 'Dịch Vụ'}` : (product.game_name || 'Game'),
-      amount: totalPrice,
+      amount: finalTotalAmount,
       quantity: qty,
-      unit_price: unitPrice,
+      unit_price: effectiveUnitPrice,
+      original_price: d1Result.order?.original_price ?? originalPriceTotal,
+      price_paid: d1Result.order?.price_paid ?? pricePaidTotal,
+      discount_type: d1Result.order?.discount_type ?? discountType,
+      discount_amount: d1Result.order?.discount_amount ?? discountAmount,
       code_content: deliveredContent,
       code_items: deliveredCodesList,
       deliveredCodes: deliveredCodesList,

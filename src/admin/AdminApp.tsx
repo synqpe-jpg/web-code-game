@@ -19,6 +19,7 @@ import { PrivateCodesModule } from './modules/PrivateCodesModule';
 import { CodeInventoryModule } from './modules/CodeInventoryModule';
 import { UtilitiesModule } from './modules/UtilitiesModule';
 import { OrdersModule } from './modules/OrdersModule';
+import { FirstPurchaseModule } from './modules/FirstPurchaseModule';
 import { SePayModule } from './modules/SePayModule';
 import { ContentCMSModule } from './modules/ContentCMSModule';
 import { SecurityLogsModule } from './modules/SecurityLogsModule';
@@ -64,6 +65,7 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToClient }) => {
       'missions',
       'event-scheduler',
       'orders',
+      'first-purchase',
       'sepay',
       'content',
       'api-keys',
@@ -342,6 +344,7 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToClient }) => {
       'missions',
         'event-scheduler',
         'orders',
+      'first-purchase',
         'sepay',
         'content',
         'api-keys',
@@ -578,6 +581,10 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToClient }) => {
 
         {currentTab === 'orders' && (
           <OrdersModule onShowToast={showToast} />
+        )}
+
+        {currentTab === 'first-purchase' && (
+          <FirstPurchaseModule onShowToast={showToast} />
         )}
 
         {currentTab === 'sepay' && (

@@ -17,6 +17,10 @@ export interface D1PurchaseParams {
   totalAmount: number;
   idempotencyKey?: string;
   nowIso?: string;
+  originalPrice?: number;
+  pricePaid?: number;
+  discountType?: 'first_purchase' | null;
+  discountAmount?: number;
 }
 
 export interface D1PurchaseResult {
@@ -26,8 +30,72 @@ export interface D1PurchaseResult {
   soldCodeIds?: string[];
   newBalance?: number;
   error?: string;
-  code?: 'INSUFFICIENT_BALANCE' | 'OUT_OF_STOCK' | 'DB_ERROR' | 'IDEMPOTENT_REPLAY';
+  code?: 'INSUFFICIENT_BALANCE' | 'OUT_OF_STOCK' | 'FIRST_PURCHASE_ALREADY_USED' | 'DB_ERROR' | 'IDEMPOTENT_REPLAY';
   isIdempotentReplay?: boolean;
+}
+
+export interface FirstPurchaseConfig {
+  enabled: boolean;
+  offer_price: number;
+  max_original_price: number | null;
+  excluded_products: string[];
+  require_verified_email: boolean;
+  updated_at?: string;
+}
+
+export const DEFAULT_FIRST_PURCHASE_CONFIG: FirstPurchaseConfig = {
+  enabled: false, // Mặc định TẮT khi bàn giao (user bật tay sau khi kiểm xong)
+  offer_price: 2000,
+  max_original_price: null,
+  excluded_products: ['sp_1793943215070_fxm', 'BỘ CODE'],
+  require_verified_email: true,
+};
+
+export async function getFirstPurchaseConfigD1(db: D1Database): Promise<FirstPurchaseConfig> {
+  try {
+    const row = await db.prepare("SELECT value FROM system_settings WHERE key = 'wcg_first_purchase_config_v1' LIMIT 1").first<any>();
+    if (row && row.value) {
+      const parsed = typeof row.value === 'string' ? JSON.parse(row.value) : row.value;
+      return {
+        enabled: Boolean(parsed.enabled),
+        offer_price: typeof parsed.offer_price === 'number' ? parsed.offer_price : 2000,
+        max_original_price: typeof parsed.max_original_price === 'number' ? parsed.max_original_price : null,
+        excluded_products: Array.isArray(parsed.excluded_products) ? parsed.excluded_products : ['sp_1793943215070_fxm', 'BỘ CODE'],
+        require_verified_email: parsed.require_verified_email !== false,
+        updated_at: parsed.updated_at,
+      };
+    }
+  } catch (e) {
+    console.warn('[getFirstPurchaseConfigD1 error]', e);
+  }
+  return DEFAULT_FIRST_PURCHASE_CONFIG;
+}
+
+export function isProductExcludedFromFirstPurchase(
+  product: { id?: string; title?: string; sku?: string } | null | undefined,
+  excludedList: string[]
+): boolean {
+  if (!product || !excludedList || excludedList.length === 0) return false;
+  const prodId = (product.id || '').trim().toLowerCase();
+  const prodSku = (product.sku || '').trim().toLowerCase();
+  const prodTitle = (product.title || '').trim().toLowerCase();
+
+  return excludedList.some((item) => {
+    const clean = item.trim().toLowerCase();
+    if (!clean) return false;
+    if (prodId === clean || prodSku === clean) return true;
+    if (prodTitle === clean || prodTitle.includes(clean)) return true;
+    return false;
+  });
+}
+
+export function isMemberEmailVerified(member: any): boolean {
+  if (!member) return false;
+  if (member.role === 'ADMIN' || member.role === 'SUPER_ADMIN') return true;
+  if (member.email_verified === 1 || member.email_verified === true) return true;
+  if (member.is_verified === 1 || member.is_verified === true) return true;
+  if (member.email_verified_at) return true;
+  return false;
 }
 
 export interface D1SepayDepositParams {
@@ -570,6 +638,59 @@ export async function ensureSchemaUpgrades(db: D1Database): Promise<void> {
       }
     } catch (e) {
       console.warn('[Migration fix_metadata_and_giveaways_v2 error]', e);
+    }
+
+    // Migration 0014: First Purchase Offer Campaign v1 (Columns in orders & members, reset audit table, indexes)
+    try {
+      const fpCheck = await db.prepare("SELECT 1 FROM schema_migrations WHERE id = 'first_purchase_campaign_v1' LIMIT 1").first().catch(() => null);
+      if (!fpCheck) {
+        // 1. Thêm cột đơn hàng: original_price, price_paid, discount_type, discount_amount
+        await db.prepare('ALTER TABLE orders ADD COLUMN original_price INTEGER;').run().catch(() => {});
+        await db.prepare('ALTER TABLE orders ADD COLUMN price_paid INTEGER;').run().catch(() => {});
+        await db.prepare('ALTER TABLE orders ADD COLUMN discount_type TEXT;').run().catch(() => {});
+        await db.prepare('ALTER TABLE orders ADD COLUMN discount_amount INTEGER DEFAULT 0;').run().catch(() => {});
+
+        // 2. Thêm cột xác minh email cho thành viên
+        await db.prepare('ALTER TABLE members ADD COLUMN email_verified INTEGER DEFAULT 0;').run().catch(() => {});
+
+        // 3. Tạo bảng đặt lại ưu đãi first_purchase_resets
+        await db.prepare(`
+          CREATE TABLE IF NOT EXISTS first_purchase_resets (
+            id TEXT PRIMARY KEY,
+            member_id TEXT NOT NULL,
+            product_id TEXT NOT NULL,
+            admin_id TEXT NOT NULL,
+            admin_username TEXT NOT NULL,
+            reason TEXT NOT NULL,
+            reset_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+          );
+        `).run().catch(() => {});
+
+        // 4. Tạo chỉ mục tối ưu hóa tốc độ tra cứu
+        await db.prepare('CREATE INDEX IF NOT EXISTS idx_fp_resets_member_prod ON first_purchase_resets(member_id, product_id);').run().catch(() => {});
+        await db.prepare('CREATE INDEX IF NOT EXISTS idx_orders_member_prod ON orders(member_id, product_id);').run().catch(() => {});
+        await db.prepare('CREATE INDEX IF NOT EXISTS idx_orders_buyer_email_prod ON orders(buyer_email, product_id);').run().catch(() => {});
+        await db.prepare('CREATE INDEX IF NOT EXISTS idx_orders_discount_type ON orders(discount_type);').run().catch(() => {});
+
+        // 5. Khởi tạo cấu hình mặc định trong system_settings nếu chưa có
+        const existingCfg = await db.prepare("SELECT value FROM system_settings WHERE key = 'wcg_first_purchase_config_v1' LIMIT 1").first().catch(() => null);
+        if (!existingCfg) {
+          const defaultCfg = JSON.stringify({
+            enabled: false, // Mặc định TẮT khi giao (user bật tay sau khi kiểm xong)
+            offer_price: 2000,
+            max_original_price: null,
+            excluded_products: ['sp_1793943215070_fxm', 'BỘ CODE'],
+            require_verified_email: true,
+            updated_at: new Date().toISOString(),
+          });
+          await db.prepare("INSERT INTO system_settings (key, value, updated_at) VALUES ('wcg_first_purchase_config_v1', ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))")
+            .bind(defaultCfg).run().catch(() => {});
+        }
+
+        await db.prepare("INSERT OR IGNORE INTO schema_migrations (id) VALUES ('first_purchase_campaign_v1')").run().catch(() => {});
+      }
+    } catch (e) {
+      console.warn('[Migration first_purchase_campaign_v1 error]', e);
     }
 
     try {
@@ -1373,22 +1494,64 @@ export async function initializeD1(db: D1Database): Promise<{ success: boolean; 
  * Counter Cache: Direct atomic decrement on store_products.stock_quantity
  */
 export async function purchaseOrderD1(db: D1Database, params: D1PurchaseParams): Promise<D1PurchaseResult> {
-  const { orderId, txId, userId, productId, productSku, productTitle, quantity, unitPrice, totalAmount, idempotencyKey } = params;
+  const {
+    orderId,
+    txId,
+    userId,
+    productId,
+    productSku,
+    productTitle,
+    quantity,
+    unitPrice,
+    totalAmount,
+    idempotencyKey,
+    originalPrice,
+    pricePaid,
+    discountType,
+    discountAmount,
+  } = params;
   const pSku = (productSku || productId).trim();
   const nowIso = params.nowIso || new Date().toISOString();
 
   try {
     await ensureSchemaUpgrades(db);
 
-    // 1. Guard Statement: Ép SQLite abort toàn bộ batch nếu Số dư không đủ HOẶC Kho không đủ
+    // 1. Guard Statement: Ép SQLite abort toàn bộ batch nếu Số dư không đủ HOẶC Kho không đủ HOẶC đã dùng ưu đãi lần đầu
     const stmtGuard = db.prepare(`
       INSERT INTO order_purchase_guards (order_id, balance_ok, stock_ok)
       VALUES (
         ?,
-        (SELECT CASE WHEN balance >= ? THEN 1 ELSE NULL END FROM members WHERE id = ?),
+        (SELECT CASE 
+          WHEN balance < ? THEN NULL
+          WHEN ? = 'first_purchase' AND (
+            SELECT COUNT(*) FROM orders 
+            WHERE (member_id = ? OR buyer_email = (SELECT email FROM members WHERE id = ?)) 
+              AND product_id = ? AND status = 'COMPLETED' 
+              AND created_at > (
+                SELECT COALESCE(MAX(reset_at), '1970-01-01T00:00:00.000Z') 
+                FROM first_purchase_resets 
+                WHERE (member_id = ? OR member_id = (SELECT email FROM members WHERE id = ?)) AND product_id = ?
+              )
+          ) > 0 THEN NULL
+          ELSE 1 
+        END FROM members WHERE id = ?),
         (SELECT CASE WHEN (SELECT COUNT(*) FROM inventory_codes WHERE (product_id = ? OR product_id = ?) AND status = 'AVAILABLE') >= ? THEN 1 ELSE NULL END)
       );
-    `).bind(orderId, totalAmount, userId, productId, pSku, quantity);
+    `).bind(
+      orderId,
+      totalAmount,
+      discountType || '',
+      userId,
+      userId,
+      productId,
+      userId,
+      userId,
+      productId,
+      userId,
+      productId,
+      pSku,
+      quantity
+    );
 
     // 2. Trừ số dư ví
     const stmtDeduct = db.prepare(`
@@ -1443,12 +1606,13 @@ export async function purchaseOrderD1(db: D1Database, params: D1PurchaseParams):
       WHERE id = ?;
     `).bind(pSku, pSku, quantity, pSku, pSku, quantity, productId);
 
-    // 5. Ghi Đơn hàng (Lấy delivered_codes trực tiếp từ inventory_codes trong cùng batch bằng json_group_array, lưu nowIso chuẩn UTC)
+    // 5. Ghi Đơn hàng kèm thông tin ưu đãi/chiết khấu (Lấy delivered_codes trực tiếp từ inventory_codes trong cùng batch bằng json_group_array, lưu nowIso chuẩn UTC)
     const stmtOrder = db.prepare(`
       INSERT INTO orders (
         id, member_id, buyer_email, product_id, product_title, quantity,
         unit_price, total_amount, status, balance_before, balance_after,
-        delivered_codes, idempotency_key, created_at
+        delivered_codes, idempotency_key, created_at,
+        original_price, price_paid, discount_type, discount_amount
       )
       SELECT
         ?,
@@ -1464,10 +1628,30 @@ export async function purchaseOrderD1(db: D1Database, params: D1PurchaseParams):
         m.balance,
         (SELECT COALESCE(json_group_array(code_content), '[]') FROM inventory_codes WHERE order_id = ?),
         ?,
+        ?,
+        ?,
+        ?,
+        ?,
         ?
       FROM members m
       WHERE m.id = ?;
-    `).bind(orderId, productId, productTitle, quantity, unitPrice, totalAmount, totalAmount, orderId, idempotencyKey || null, nowIso, userId);
+    `).bind(
+      orderId,
+      productId,
+      productTitle,
+      quantity,
+      unitPrice,
+      totalAmount,
+      totalAmount,
+      orderId,
+      idempotencyKey || null,
+      nowIso,
+      originalPrice ?? totalAmount,
+      pricePaid ?? totalAmount,
+      discountType ?? null,
+      discountAmount ?? 0,
+      userId
+    );
 
     // 6. Ghi Giao dịch Ví (Ghi order_id chính xác và nowIso chuẩn UTC để sắp xếp thời gian đơn điệu chính xác)
     const stmtWalletTx = db.prepare(`
@@ -1529,6 +1713,16 @@ export async function purchaseOrderD1(db: D1Database, params: D1PurchaseParams):
     const msg = err?.message || String(err);
 
     if (msg.includes('order_purchase_guards.balance_ok') || msg.includes('balance >= 0') || msg.includes('SQLITE_CONSTRAINT_CHECK')) {
+      if (params.discountType === 'first_purchase') {
+        const mRow = await db.prepare('SELECT balance FROM members WHERE id = ?').bind(userId).first<any>();
+        if (mRow && Number(mRow.balance) >= totalAmount) {
+          return {
+            success: false,
+            code: 'FIRST_PURCHASE_ALREADY_USED',
+            error: 'Ưu đãi mua lần đầu cho gói này đã được sử dụng từ trước (chỉ 1 đơn được hưởng). Vui lòng mua với giá thông thường.',
+          };
+        }
+      }
       return {
         success: false,
         error: 'Số dư ví không đủ để thực hiện giao dịch này.',

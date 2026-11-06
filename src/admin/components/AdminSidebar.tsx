@@ -27,6 +27,7 @@ import {
   Clock,
   Mail,
   Send,
+  Sparkles,
 } from 'lucide-react';
 import { AdminUser } from '../types/adminTypes';
 import { normalizeVietnamese } from '../../utils/textUtils';
@@ -51,6 +52,7 @@ export type AdminModuleTab =
   | 'email-notifications'
   | 'telegram'
   | 'orders'
+  | 'first-purchase'
   | 'sepay'
   | 'content'
   | 'api-keys'
@@ -195,6 +197,13 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
           icon: ShoppingCart,
           badge: pendingOrdersCount,
           badgeColor: 'bg-sky-500 text-white',
+        },
+        {
+          id: 'first-purchase',
+          label: 'Ưu Đãi Mua Lần Đầu',
+          icon: Sparkles,
+          badge: 'HOT',
+          badgeColor: 'bg-rose-500 text-white font-bold',
         },
       ],
     },

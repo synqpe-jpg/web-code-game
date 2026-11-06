@@ -7,6 +7,47 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-06]
 
+### 328. Chiến Dịch Ưu Đãi Mua Lần Đầu Theo Từng Mặt Hàng (Per-Item First Purchase Offer) với Server-Authoritative Pricing, Atomic D1 Race Guard & Quản Trị Toàn Diện
+- **Bối cảnh & Yêu cầu từ Chủ sở hữu (06/11/2026, 21:00)**:
+  - Tạo chiến dịch "Ưu đãi mua lần đầu": Mỗi tài khoản được mua 1 gói bất kỳ với giá ưu đãi 1 lần duy nhất cho mỗi mặt hàng riêng biệt — lần đầu mua gói X thì X được giá ưu đãi; mua lại đúng gói X thì tính giá bình thường; mua gói Y chưa từng mua vẫn được giá ưu đãi cho Y.
+  - Các quy tắc cốt lõi đã chốt:
+    1. Cặp xác định ưu đãi: `(tài khoản, gói)`.
+    2. Mặt hàng "BỘ CODE" (`sp_1793943215070_fxm`, giá 72.000 Core) không nằm trong ưu đãi — luôn tính giá bình thường.
+    3. Giá ưu đãi mặc định: 2.000 Core, tùy chỉnh được trong Quản trị. Mặc định chiến dịch TẮT khi bàn giao.
+    4. Trần giá gốc: Tùy chỉnh được trong Quản trị (mặc định không giới hạn).
+    5. Giá thực trả lần đầu = `min(giá niêm yết gói, giá ưu đãi)`.
+    6. Chỉ đơn `COMPLETED` (đã trừ Core, đã giao code) mới tính là đã dùng ưu đãi cho gói đó. Đơn lỗi/hủy không tính. Đơn mua trước khi bật chiến dịch vẫn tính là đã mua gói đó.
+    7. Server-authoritative price: Máy chủ tự tính giá cuối, không nhận giá từ trình duyệt. Có khóa atomic SQLite chống 2 đơn cùng gói chạy song song.
+    8. API riêng biệt `GET /api/store/my-offer?game=<slug>` trả về trạng thái ưu đãi của từng gói cho tài khoản đang đăng nhập.
+    9. Giao diện: Nhãn "Mua lần đầu chỉ 2.000 Core" theo từng dòng gói đủ điều kiện; bảng thanh toán có dòng riêng "Ưu đãi lần đầu: −X Core", tổng tiền = giá ưu đãi kèm dòng "Chỉ áp dụng 1 lần cho lần mua đầu tiên của gói này". Banner gợi ý đăng nhập cho khách chưa đăng nhập.
+    10. Trang Quản trị: Tab "Ưu Đãi Mua Lần Đầu" (HOT badge) với cấu hình bật/tắt, giá ưu đãi, trần giá, danh sách loại trừ, yêu cầu email, số liệu thống kê (lượt dùng, Core giảm, tỉ lệ khách mới), lịch sử đơn ưu đãi, nút Reset ưu đãi kèm audit log, và cảnh báo IP nghi vấn.
+    11. Rule 8: Tự động đăng ký quyền `FIRST_PURCHASE_MANAGE` vào `ALL_API_SCOPES` và hàm phân giải quyền `hasScope`.
+- **Giải pháp triệt để đã triển khai (Solution Applied)**:
+  1. *Cơ sở Dữ liệu & SQLite Atomic Guard (`functions/services/d1_service.ts`)*:
+     - Bổ sung migration an toàn `first_purchase_campaign_v1`: Thêm các cột `original_price`, `price_paid`, `discount_type`, `discount_amount` vào bảng `orders`, cột `email_verified` vào `members`, và tạo bảng `first_purchase_resets`.
+     - Seed cấu hình mặc định vào `system_settings` với key `wcg_first_purchase_config_v1`.
+     - Cài đặt SQLite batch guard trong `purchaseOrderD1`: Subquery kiểm tra số đơn `COMPLETED` của member với sản phẩm sau lần reset gần nhất; nếu đã có đơn, subquery trả về `NULL` vào cột `NOT NULL` khiến SQLite abort toàn bộ transaction ngay lập tức và trả về mã lỗi `FIRST_PURCHASE_ALREADY_USED`.
+  2. *Server-Authoritative Price Engine (`functions/api/orders/create.ts`)*:
+     - Tự động kiểm tra điều kiện ưu đãi phía máy chủ: chiến dịch bật, sản phẩm không nằm trong danh sách loại trừ (như BỘ CODE), giá gốc $\le$ trần giá (nếu có), email đã xác minh (nếu bật), và chưa từng mua gói này sau lần reset gần nhất.
+     - Tính toán chính xác `finalTotalAmount`, trừ tiền ví theo giá ưu đãi, truyền dữ liệu discount vào `purchaseOrderD1` và trả về kết quả đầy đủ.
+  3. *Endpoint Độc Lập Cho Client (`functions/api/store/my-offer.ts`)*:
+     - Cung cấp endpoint `GET /api/store/my-offer?game=<slug>` có xác thực token người dùng, tra cứu D1 và trả về bảng map trạng thái `offers[productId] = { eligible, current_price, offer_price, discount_amount, reason }`.
+  4. *Giao Diện Quản Trị Chuyên Biệt (`src/admin/modules/FirstPurchaseModule.tsx`)*:
+     - Module quản trị toàn diện: Thống kê hiệu suất chiến dịch, cấu hình tham số trực quan, danh sách đơn đã hưởng ưu đãi kèm nút Reset nhanh, modal Reset thủ công kèm lý do, nhật ký kiểm toán Reset audit log, và bảng cảnh báo IP lạm dụng.
+     - Tích hợp vào menu Quản trị tại `src/admin/components/AdminSidebar.tsx` và `src/admin/AdminApp.tsx`.
+     - API Quản trị backend tại `functions/api/admin/first-purchase.ts` với bảo mật xác thực Admin và phân quyền API Token.
+  5. *Đồng Bộ Quyền API Theo Rule 8*:
+     - Đã thêm quyền `FIRST_PURCHASE_MANAGE` vào `ALL_API_SCOPES` trong `src/admin/modules/ApiKeysModule.tsx`.
+     - Cập nhật hàm `hasScope` trong `functions/services/mission_service.ts`.
+  6. *Giao Diện Người Dùng Store & Checkout*:
+     - `ProductDetailModal.tsx`: Tự động nạp offer, hiển thị nhãn ưu đãi theo dòng gói, cập nhật mức giá cột phải, banner gợi ý khách chưa đăng nhập, và nút Mua Ngay ưu đãi.
+     - `ProductCheckoutModal.tsx`: Tự động nạp offer, tính tổng tiền gói đầu giá ưu đãi + các gói thêm giá thường, dòng riêng "Ưu đãi lần đầu: −X Core", kèm dòng chú thích "Chỉ áp dụng 1 lần cho lần mua đầu tiên của gói này", và banner gợi ý đăng nhập.
+     - `dataService.ts`: Nới lỏng preliminary check phía client để máy chủ kiểm tra tuyệt đối 100%.
+- **Kết quả nghiệm thu**:
+  - Build thành công 100% Vite Frontend và Cloudflare Pages Edge Worker bundle (`dist/_worker.js`).
+  - Zero test artifacts audit sạch 100% không để lại bất kỳ dữ liệu rác nào.
+  - Cấu hình ban đầu: Chiến dịch mặc định **TẮT** (`enabled: false`) để chủ sở hữu chủ động bật sau khi nghiệm thu.
+
 ### 327. Tính Năng Chia Sẻ Riêng Từng Gói Trong Cửa Hàng (/store), Deep Link Chuẩn Xác & Open Graph Edge Tags
 - **Bối cảnh & Yêu cầu từ Chủ sở hữu (06/11/2026, 20:21)**:
   - Trên trang `/store`, các gói cùng 1 game được gom nhóm thành một thẻ đại diện. Khi mở modal "Chọn Gói", trước đây chỉ có 1 nút chia sẻ chung cho toàn game ở header và link chia sẻ chưa gắn với từng gói cụ thể.

@@ -1,0 +1,210 @@
+import {
+  ensureSchemaUpgrades,
+  getFirstPurchaseConfigD1,
+  isProductExcludedFromFirstPurchase,
+  isMemberEmailVerified,
+} from '../../services/d1_service';
+import { verifyToken, extractUserIdFromToken } from '../../services/auth_service';
+
+interface Env {
+  DB: D1Database;
+  JWT_SECRET?: string;
+  ADMIN_SYNC_SECRET?: string;
+}
+
+const CORS_HEADERS = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Sync-Key, X-Requested-With',
+};
+
+export const onRequestOptions: PagesFunction = async () => {
+  return new Response(null, {
+    status: 204,
+    headers: CORS_HEADERS,
+  });
+};
+
+export const onRequestGet: PagesFunction<Env> = async (context) => {
+  const { env, request } = context;
+
+  try {
+    if (!env.DB) {
+      return new Response(
+        JSON.stringify({ success: false, message: 'D1 Database chưa được cấu hình.' }),
+        { status: 500, headers: CORS_HEADERS }
+      );
+    }
+
+    await ensureSchemaUpgrades(env.DB);
+    const fpConfig = await getFirstPurchaseConfigD1(env.DB);
+
+    const url = new URL(request.url);
+    const gameSlug = (url.searchParams.get('game') || '').trim();
+
+    // 1. Authenticate user via Authorization header
+    const authHeader = request.headers.get('Authorization') || '';
+    const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+
+    if (!token) {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          isAuthenticated: false,
+          campaign: {
+            enabled: fpConfig.enabled,
+            offer_price: fpConfig.offer_price,
+            max_original_price: fpConfig.max_original_price,
+            require_verified_email: fpConfig.require_verified_email,
+          },
+          message: 'Đăng nhập để nhận ưu đãi mua lần đầu',
+          offers: {},
+        }),
+        { headers: { ...CORS_HEADERS, 'Cache-Control': 'no-cache, no-store, must-revalidate' } }
+      );
+    }
+
+    const { valid, userId: tokenUserId } = await verifyToken(token, [env.JWT_SECRET, env.ADMIN_SYNC_SECRET]);
+
+    let member: any = null;
+    if (token) {
+      member = await env.DB.prepare(
+        'SELECT * FROM members WHERE session_token = ? LIMIT 1'
+      ).bind(token).first<any>();
+    }
+
+    if (!member && valid && tokenUserId) {
+      member = await env.DB.prepare(
+        'SELECT * FROM members WHERE id = ? OR username = ? OR email = ? LIMIT 1'
+      ).bind(tokenUserId, tokenUserId, tokenUserId).first<any>();
+    }
+
+    if (!member && token) {
+      const extractedUserId = extractUserIdFromToken(token);
+      if (extractedUserId) {
+        member = await env.DB.prepare(
+          'SELECT * FROM members WHERE id = ? OR username = ? LIMIT 1'
+        ).bind(extractedUserId, extractedUserId).first<any>();
+      }
+    }
+
+    if (!member) {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          isAuthenticated: false,
+          campaign: {
+            enabled: fpConfig.enabled,
+            offer_price: fpConfig.offer_price,
+            max_original_price: fpConfig.max_original_price,
+            require_verified_email: fpConfig.require_verified_email,
+          },
+          message: 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn',
+          offers: {},
+        }),
+        { headers: { ...CORS_HEADERS, 'Cache-Control': 'no-cache, no-store, must-revalidate' } }
+      );
+    }
+
+    // 2. Fetch products for this game (or all active products if no slug provided)
+    let productRows: any[] = [];
+    if (gameSlug) {
+      const res = await env.DB.prepare(
+        'SELECT id, title, game_slug, game_name, current_price, original_price, is_active FROM store_products WHERE game_slug = ? AND is_active = 1'
+      ).bind(gameSlug).all<any>();
+      productRows = res.results || [];
+    } else {
+      const res = await env.DB.prepare(
+        'SELECT id, title, game_slug, game_name, current_price, original_price, is_active FROM store_products WHERE is_active = 1 LIMIT 200'
+      ).all<any>();
+      productRows = res.results || [];
+    }
+
+    // 3. Query all completed purchases by this user for these products after last reset
+    const pastPurchasesRes = await env.DB.prepare(`
+      SELECT o.product_id, MAX(o.created_at) as last_purchased_at
+      FROM orders o
+      WHERE (o.member_id = ? OR o.buyer_email = ?)
+        AND o.status = 'COMPLETED'
+        AND o.created_at > (
+          SELECT COALESCE(MAX(r.reset_at), '1970-01-01T00:00:00.000Z')
+          FROM first_purchase_resets r
+          WHERE (r.member_id = ? OR r.member_id = ?) AND r.product_id = o.product_id
+        )
+      GROUP BY o.product_id;
+    `).bind(member.id, member.email || '', member.id, member.email || '').all<any>();
+
+    const purchasedIds = new Set<string>((pastPurchasesRes.results || []).map((r: any) => String(r.product_id)));
+    const isEmailVerified = isMemberEmailVerified(member);
+
+    // 4. Build per-package offer status
+    const offers: Record<string, {
+      eligible: boolean;
+      current_price: number;
+      offer_price: number;
+      discount_amount: number;
+      reason: string | null;
+    }> = {};
+
+    for (const prod of productRows) {
+      const prodPrice = Number(prod.current_price) || 0;
+      let eligible = false;
+      let reason: string | null = null;
+      let offerPrice = prodPrice;
+      let discountAmount = 0;
+
+      if (!fpConfig.enabled) {
+        reason = 'campaign_disabled';
+      } else if (isProductExcludedFromFirstPurchase(prod, fpConfig.excluded_products)) {
+        reason = 'excluded';
+      } else if (fpConfig.max_original_price !== null && prodPrice > fpConfig.max_original_price) {
+        reason = 'exceeds_max_price';
+      } else if (fpConfig.require_verified_email && !isEmailVerified) {
+        reason = 'email_unverified';
+      } else if (purchasedIds.has(String(prod.id))) {
+        reason = 'already_purchased';
+      } else {
+        eligible = true;
+        offerPrice = Math.min(prodPrice, fpConfig.offer_price);
+        discountAmount = Math.max(0, prodPrice - offerPrice);
+      }
+
+      offers[prod.id] = {
+        eligible,
+        current_price: prodPrice,
+        offer_price: offerPrice,
+        discount_amount: discountAmount,
+        reason,
+      };
+    }
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        isAuthenticated: true,
+        member: {
+          id: member.id,
+          email: member.email,
+          email_verified: isEmailVerified,
+        },
+        campaign: {
+          enabled: fpConfig.enabled,
+          offer_price: fpConfig.offer_price,
+          max_original_price: fpConfig.max_original_price,
+          require_verified_email: fpConfig.require_verified_email,
+        },
+        offers,
+      }),
+      { headers: { ...CORS_HEADERS, 'Cache-Control': 'no-cache, no-store, must-revalidate' } }
+    );
+  } catch (err: any) {
+    return new Response(
+      JSON.stringify({
+        success: false,
+        message: 'Lỗi kiểm tra ưu đãi: ' + (err?.message || 'Không xác định'),
+      }),
+      { status: 500, headers: CORS_HEADERS }
+    );
+  }
+};

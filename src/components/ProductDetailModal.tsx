@@ -57,6 +57,10 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const [isDescExpanded, setIsDescExpanded] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const [packageToShare, setPackageToShare] = useState<ProductPackageVariant | null>(null);
+  const [offerData, setOfferData] = useState<{
+    campaign?: { enabled: boolean; offer_price: number };
+    offers: Record<string, { eligible: boolean; offer_price: number; discount_amount: number; reason: string | null }>;
+  }>({ offers: {} });
   useLockBodyScroll(Boolean(product));
   const [, setTick] = useState(0);
 
@@ -102,6 +106,39 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       window.removeEventListener('wcg_utilities_updated', handleUpdate);
     };
   }, []);
+
+  // Fetch thông tin ưu đãi mua lần đầu (First Purchase Offer) theo tài khoản và game
+  useEffect(() => {
+    let isMounted = true;
+    const fetchOffers = async () => {
+      if (!product) return;
+      try {
+        const token = (typeof localStorage !== 'undefined' && localStorage.getItem('wcg_auth_token')) ||
+          (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('wcg_auth_token')) ||
+          currentUser?.session_token || '';
+
+        const headers: Record<string, string> = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        const slug = (product as any).game_slug || '';
+        const res = await fetch(`/api/store/my-offer?game=${encodeURIComponent(slug)}`, { headers });
+        const data = await res.json();
+        if (isMounted && data.success) {
+          setOfferData({
+            campaign: data.campaign,
+            offers: data.offers || {},
+          });
+        }
+      } catch (e) {
+        console.warn('[ProductDetailModal] fetchOffers error:', e);
+      }
+    };
+
+    fetchOffers();
+    return () => {
+      isMounted = false;
+    };
+  }, [product?.id, (product as any)?.game_slug, currentUser?.id]);
 
   // Lấy gói đang chọn (Hook bắt buộc chạy trước mọi early return)
   const selectedPackage: ProductPackageVariant | undefined = useMemo(() => {
@@ -179,12 +216,25 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
   const currentPrice = selectedPackage.price;
   const originalPrice = selectedPackage.original_price || currentPrice;
+
+  // Kiểm tra ưu đãi mua lần đầu cho gói đang chọn
+  const selectedOffer = offerData.offers[selectedPackage.id];
+  const isSelectedOfferEligible = Boolean(selectedOffer?.eligible);
+  const displayCurrentPrice = isSelectedOfferEligible
+    ? selectedOffer.offer_price
+    : currentPrice;
+  const displayOriginalPrice = isSelectedOfferEligible
+    ? currentPrice
+    : originalPrice;
   const discountPercent =
-    originalPrice > currentPrice
-      ? Math.round(((originalPrice - currentPrice) / originalPrice) * 100)
+    displayOriginalPrice > displayCurrentPrice
+      ? Math.round(((displayOriginalPrice - displayCurrentPrice) / displayOriginalPrice) * 100)
       : (product.discount_percent || 0);
 
-  const totalPrice = currentPrice * quantity;
+  // Tổng tiền: Gói đầu tiên tính giá ưu đãi (nếu đủ điều kiện), các gói thêm (quantity > 1) tính giá thường
+  const totalPrice = isSelectedOfferEligible
+    ? displayCurrentPrice + (currentPrice * (quantity - 1))
+    : currentPrice * quantity;
 
   const handleShare = async () => {
     const origin =
@@ -488,11 +538,11 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   <div className="flex items-baseline justify-between gap-2">
                     <div className="flex items-baseline gap-2">
                       <span className="font-display font-extrabold text-2xl sm:text-3xl text-emerald-400 tracking-tight">
-                        {formatCore(currentPrice)}
+                        {formatCore(displayCurrentPrice)}
                       </span>
-                      {originalPrice > currentPrice && (
+                      {displayOriginalPrice > displayCurrentPrice && (
                         <span className="text-xs sm:text-sm text-muted-foreground line-through font-mono">
-                          {formatCore(originalPrice)}
+                          {formatCore(displayOriginalPrice)}
                         </span>
                       )}
                       {discountPercent > 0 && (
@@ -517,6 +567,13 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     </div>
                   </div>
 
+                  {isSelectedOfferEligible && (
+                    <div className="mt-2 flex items-center gap-1.5 text-[11px] font-bold text-rose-400 bg-rose-500/10 px-2.5 py-1 rounded-lg border border-rose-500/20 w-fit">
+                      <Sparkles className="w-3.5 h-3.5 text-rose-400 animate-pulse" />
+                      <span>Ưu đãi mua lần đầu (chỉ 1 lần duy nhất cho gói này)</span>
+                    </div>
+                  )}
+
                   <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
                     <span className="flex items-center gap-1 text-amber-400 font-semibold">
                       <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
@@ -529,6 +586,24 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     )}
                   </div>
                 </div>
+
+                {/* Banner Gợi Ý Cho Khách Chưa Đăng Nhập */}
+                {!currentUser && offerData.campaign?.enabled && (
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => {
+                      if (onOpenAuth) onOpenAuth();
+                    }}
+                    className="p-2.5 rounded-xl bg-gradient-to-r from-rose-500/15 via-orange-500/15 to-amber-500/15 border border-rose-500/30 hover:border-rose-500/50 transition-all cursor-pointer flex items-center justify-between gap-2 text-xs"
+                  >
+                    <div className="flex items-center gap-1.5 text-rose-300 font-bold">
+                      <Sparkles className="w-3.5 h-3.5 text-rose-400 animate-pulse shrink-0" />
+                      <span>Đăng nhập để nhận ưu đãi mua lần đầu chỉ {formatCore(offerData.campaign?.offer_price || 2000)}</span>
+                    </div>
+                    <span className="text-[10px] text-amber-400 font-bold underline shrink-0">Đăng nhập ngay &gt;</span>
+                  </div>
+                )}
 
                 {/* Danh Sách Chọn Gói (Chọn Gói) */}
                 <div className="space-y-2">
@@ -547,6 +622,11 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       const isSelected = pkg.id === selectedPackage.id;
                       const pkgStock = typeof pkg.stock_quantity === 'number' ? pkg.stock_quantity : product.stock_quantity;
                       const isPkgOut = pkgStock <= 0;
+
+                      const pkgOffer = offerData.offers[pkg.id];
+                      const isPkgOfferEligible = Boolean(pkgOffer?.eligible);
+                      const pkgDisplayPrice = isPkgOfferEligible ? pkgOffer.offer_price : pkg.price;
+                      const pkgOriginalPrice = isPkgOfferEligible ? pkg.price : (pkg.original_price || pkg.price);
 
                       return (
                         <div
@@ -573,10 +653,16 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                           } ${isPkgOut ? 'opacity-60' : ''}`}
                         >
                           <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
                               <span className={`text-xs font-bold truncate ${isSelected ? 'text-white' : 'text-foreground'}`}>
                                 {pkg.name}
                               </span>
+                              {isPkgOfferEligible && (
+                                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 shrink-0 flex items-center gap-1">
+                                  <Sparkles className="w-2.5 h-2.5 text-rose-400" />
+                                  Mua lần đầu chỉ {formatCore(pkgOffer.offer_price)}
+                                </span>
+                              )}
                               {pkg.badge && (
                                 <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 shrink-0">
                                   {pkg.badge}
@@ -598,9 +684,13 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                           <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
                             <div className="text-right">
                               <span className={`font-mono font-bold text-xs sm:text-sm block ${isSelected ? 'text-red-400' : 'text-emerald-400'}`}>
-                                {formatCore(pkg.price)}
+                                {formatCore(pkgDisplayPrice)}
                               </span>
-                              {isPkgOut ? (
+                              {isPkgOfferEligible && pkgOriginalPrice > pkgDisplayPrice ? (
+                                <span className="text-[10px] text-muted-foreground line-through font-mono block">
+                                  {formatCore(pkgOriginalPrice)}
+                                </span>
+                              ) : isPkgOut ? (
                                 <span className="text-[10px] text-rose-400 font-semibold block">Hết hàng</span>
                               ) : (
                                 <span className="text-[10px] text-emerald-400 font-semibold block">Còn hàng</span>
@@ -671,7 +761,11 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-secondary to-primary hover:opacity-95 text-white font-display font-bold text-xs shadow-glow-primary transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-95"
                     >
                       <LogIn className="w-4 h-4" />
-                      <span>Đăng Nhập Để Mua ({formatCore(totalPrice)})</span>
+                      <span>
+                        {offerData.campaign?.enabled
+                          ? `Đăng Nhập Để Nhận Ưu Đãi (${formatCore(totalPrice)})`
+                          : `Đăng Nhập Để Mua (${formatCore(totalPrice)})`}
+                      </span>
                     </button>
                   ) : (
                     <button
@@ -679,18 +773,31 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       disabled={isOutOfStock}
                       onClick={() => {
                         const finalSafeQty = realStock > 0 ? Math.min(quantity, realStock) : quantity;
-                        onBuyNow(product, selectedPackage, finalSafeQty);
+                        onBuyNow(
+                          product,
+                          {
+                            ...selectedPackage,
+                            price: displayCurrentPrice,
+                            isFirstPurchaseOffer: isSelectedOfferEligible,
+                            discountAmount: selectedOffer?.discount_amount || 0,
+                          },
+                          finalSafeQty
+                        );
                       }}
                       className={`w-full py-3.5 px-4 rounded-xl font-display font-bold text-xs transition-all flex items-center justify-center gap-2 shadow-lg active:scale-95 cursor-pointer ${
                         !isOutOfStock
-                          ? 'bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 hover:from-emerald-400 hover:to-teal-500 text-white shadow-emerald-500/20'
+                          ? isSelectedOfferEligible
+                            ? 'bg-gradient-to-r from-rose-500 via-orange-500 to-amber-500 hover:from-rose-600 hover:to-orange-600 text-white shadow-rose-500/20'
+                            : 'bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 hover:from-emerald-400 hover:to-teal-500 text-white shadow-emerald-500/20'
                           : 'bg-muted text-muted-foreground cursor-not-allowed opacity-60'
                       }`}
                     >
                       <Zap className="w-4 h-4" />
                       <span>
                         {!isOutOfStock
-                          ? `Mua Ngay Gói Này (${formatCore(totalPrice)})`
+                          ? isSelectedOfferEligible
+                            ? `Mua Ngay Ưu Đãi Lần Đầu (${formatCore(totalPrice)})`
+                            : `Mua Ngay Gói Này (${formatCore(totalPrice)})`
                           : 'Tạm Hết Hàng'}
                       </span>
                     </button>

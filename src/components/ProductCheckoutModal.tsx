@@ -57,6 +57,61 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
   const [copiedCodeIdx, setCopiedCodeIdx] = useState<number | null>(null);
   const [copiedAll, setCopiedAll] = useState<boolean>(false);
   const [idempotencyKey, setIdempotencyKey] = useState<string>('');
+  const [checkoutOffer, setCheckoutOffer] = useState<{
+    eligible: boolean;
+    offer_price: number;
+    discount_amount: number;
+  } | null>(null);
+
+  // Fetch first purchase offer for this game & package
+  useEffect(() => {
+    let isMounted = true;
+    const activeUser = currentUser || dataService.getCurrentUser();
+    const token =
+      (typeof localStorage !== 'undefined' ? localStorage.getItem('wcg_auth_token') : null) ||
+      (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('wcg_auth_token') : null) ||
+      activeUser?.session_token ||
+      '';
+
+    if (selectedPackage?.isFirstPurchaseOffer) {
+      setCheckoutOffer({
+        eligible: true,
+        offer_price: Number(selectedPackage.price) || 2000,
+        discount_amount: Number(selectedPackage.discountAmount) || 0,
+      });
+    }
+
+    if (!liveProduct?.game_slug) return;
+
+    const headers: Record<string, string> = { 'Cache-Control': 'no-cache, no-store' };
+    if (token) {
+      headers['Authorization'] = 'Bearer ' + token;
+    }
+
+    fetch('/api/store/my-offer?game=' + encodeURIComponent(liveProduct.game_slug) + '&_t=' + Date.now(), {
+      headers,
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!isMounted || !data?.success) return;
+        const targetId = selectedPackage?.id || liveProduct.id;
+        const targetOffer = data.offers?.[targetId];
+        if (targetOffer && targetOffer.eligible) {
+          setCheckoutOffer({
+            eligible: true,
+            offer_price: Number(targetOffer.offer_price) || 2000,
+            discount_amount: Number(targetOffer.discount_amount) || 0,
+          });
+        } else {
+          setCheckoutOffer(null);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      isMounted = false;
+    };
+  }, [liveProduct?.game_slug, selectedPackage?.id, currentUser?.id]);
   const [, setTick] = useState(0);
 
   useEffect(() => {
@@ -110,18 +165,33 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
 
   if (!product || !liveProduct) return null;
 
-  const effectivePrice = selectedPackage?.price ?? liveProduct.current_price;
+  const effectiveRegularPrice = selectedPackage?.raw_price ?? (
+    selectedPackage?.isFirstPurchaseOffer
+      ? (Number(selectedPackage.price) + Number(selectedPackage.discountAmount || 0))
+      : (selectedPackage?.price ?? liveProduct.current_price)
+  );
   const effectiveOriginalPrice = selectedPackage?.original_price ?? liveProduct.original_price;
   const effectiveTitle = selectedPackage && selectedPackage.name && selectedPackage.name !== liveProduct.title
     ? `${liveProduct.title} - ${selectedPackage.name}`
     : liveProduct.title;
   const effectiveTargetId = selectedPackage?.id || liveProduct.id;
 
+  const isFirstPurchaseEligible = Boolean(checkoutOffer?.eligible || selectedPackage?.isFirstPurchaseOffer);
+  const firstItemOfferPrice = isFirstPurchaseEligible
+    ? (checkoutOffer?.offer_price ?? selectedPackage?.price ?? effectiveRegularPrice)
+    : effectiveRegularPrice;
+  const firstItemActualPrice = Math.min(effectiveRegularPrice, firstItemOfferPrice);
+
   const user = currentUser || dataService.getCurrentUser();
   const userBalance = user?.wallet_balance || 0;
   const maxStock = realStock;
   const safeQty = realStock > 0 ? Math.min(Math.max(1, quantity), maxStock) : 0;
-  const totalPrice = effectivePrice * safeQty;
+  const totalPrice = safeQty > 0
+    ? (firstItemActualPrice + Math.max(0, safeQty - 1) * effectiveRegularPrice)
+    : 0;
+  const totalDiscountAmount = isFirstPurchaseEligible
+    ? Math.max(0, (effectiveRegularPrice * safeQty) - totalPrice)
+    : 0;
   const isBalanceEnough = userBalance >= totalPrice;
   const checkoutDisplayStock = realStock <= 0 ? 0 : marketingService.getDisplayStock(effectiveTargetId, realStock);
 
@@ -321,6 +391,11 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
               </div>
 
               <div className="space-y-1.5">
+                <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs font-semibold flex items-center justify-center gap-2 max-w-sm mx-auto">
+                  <Sparkles className="w-4 h-4 text-rose-400 shrink-0 animate-pulse" />
+                  <span>Đăng nhập để nhận ưu đãi mua lần đầu chỉ 2.000 Core</span>
+                </div>
+
                 <h3 className="font-heading font-extrabold text-xl text-foreground">
                   Yêu Cầu Đăng Nhập
                 </h3>
@@ -501,10 +576,22 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
                   </div>
                 </div>
                 <div className="text-right">
-                  <span className="font-display font-black text-base text-emerald-400 block">
-                    {formatCore(effectivePrice)}
-                  </span>
-                  <span className={`text-[10px] font-semibold flex items-center gap-1 justify-end font-sans ${checkoutDisplayStock > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                  <div className="flex items-center gap-1.5 justify-end">
+                    {isFirstPurchaseEligible && totalDiscountAmount > 0 && (
+                      <span className="text-xs text-muted-foreground line-through font-mono">
+                        {formatCore(effectiveRegularPrice)}
+                      </span>
+                    )}
+                    <span className="font-display font-black text-base text-emerald-400">
+                      {formatCore(isFirstPurchaseEligible ? firstItemActualPrice : effectiveRegularPrice)}
+                    </span>
+                  </div>
+                  {isFirstPurchaseEligible && (
+                    <span className="inline-block mt-0.5 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-gradient-to-r from-rose-500 to-amber-500 text-slate-950 uppercase tracking-wider animate-pulse">
+                      Ưu đãi lần đầu
+                    </span>
+                  )}
+                  <span className={`text-[10px] font-semibold flex items-center gap-1 justify-end font-sans mt-0.5 ${checkoutDisplayStock > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                     {checkoutDisplayStock > 0 ? (
                       <>
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
@@ -576,13 +663,37 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
                 </div>
 
                 {/* Total Calculation Row */}
-                <div className="p-2.5 rounded-xl bg-muted/40 border border-border flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">
-                    Tổng tiền ({safeQty} gói x {formatCore(product.current_price)}):
-                  </span>
-                  <span className="font-display font-black text-sm text-emerald-400">
-                    {formatCore(totalPrice)}
-                  </span>
+                <div className="space-y-2">
+                  <div className="p-2.5 rounded-xl bg-muted/40 border border-border flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">
+                      Đơn giá niêm yết ({safeQty} gói x {formatCore(effectiveRegularPrice)}):
+                    </span>
+                    <span className="font-mono font-bold text-foreground">
+                      {formatCore(effectiveRegularPrice * safeQty)}
+                    </span>
+                  </div>
+
+                  {isFirstPurchaseEligible && totalDiscountAmount > 0 && (
+                    <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/25 flex flex-col gap-1 text-xs">
+                      <div className="flex items-center justify-between text-rose-400 font-bold">
+                        <div className="flex items-center gap-1.5">
+                          <Sparkles className="w-3.5 h-3.5 text-rose-400 animate-pulse" />
+                          <span>Ưu đãi lần đầu:</span>
+                        </div>
+                        <span>−{formatCore(totalDiscountAmount)}</span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground italic">
+                        Chỉ áp dụng 1 lần cho lần mua đầu tiên của gói này
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between text-xs">
+                    <span className="font-bold text-foreground">Tổng thanh toán:</span>
+                    <span className="font-display font-black text-base text-emerald-400">
+                      {formatCore(totalPrice)}
+                    </span>
+                  </div>
                 </div>
 
                 {!isBalanceEnough ? (

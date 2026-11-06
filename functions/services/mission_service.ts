@@ -132,6 +132,7 @@ export function hasScope(scopeStr: string | undefined | null, requiredScope: str
   if (target === 'TELEGRAM_NOTIFY' && (scopes.includes('TELEGRAM_FULL') || scopes.includes('ADMIN_FULL'))) return true;
   if (target === 'TELEGRAM_FULL' && scopes.includes('ADMIN_FULL')) return true;
   if ((target === 'STORE_FULL' || target === 'STORE_PRODUCTS_FULL' || target === 'INVENTORY_FULL') && (scopes.includes('STORE_FULL') || scopes.includes('STORE_PRODUCTS_FULL') || scopes.includes('INVENTORY_FULL') || scopes.includes('ADMIN_FULL'))) return true;
+  if ((target === 'FIRST_PURCHASE_MANAGE' || target === 'STORE_OFFERS') && (scopes.includes('FIRST_PURCHASE_MANAGE') || scopes.includes('STORE_FULL') || scopes.includes('ADMIN_FULL'))) return true;
   return scopes.includes(target);
 }
 

@@ -10,6 +10,20 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-231: Bẫy Client-Side Preliminary Balance Check Chặn Người Mua Ưu Đãi Lần Đầu & Bẫy Race Condition Mua Song Song Cùng Gói Ưu Đãi
+- **Triệu chứng & Rủi ro**:
+  1. Khi một gói có giá gốc cao (ví dụ: 35.000 Core) và được hưởng ưu đãi mua lần đầu (ví dụ: 2.000 Core), nếu logic kiểm tra số dư ban đầu ở client (`dataService.createOrder`) vẫn kiểm tra theo giá niêm yết của sản phẩm (`currentBal < unitPrice * qty`), khách hàng có 2.500 Core sẽ bị client chặn thanh toán và báo thiếu tiền, mặc dù phía máy chủ chỉ trừ 2.000 Core.
+  2. Rủi ro gian lận / Race Condition: Nếu người dùng mở 2 tab và bấm thanh toán cùng 1 gói trong cùng 1 giây, nếu không có khóa nguyên tử SQLite ở D1, cả 2 đơn đều có thể được hưởng giá ưu đãi lần đầu 2.000 Core.
+  3. Bẫy phá hủy kế toán khi Reset ưu đãi: Nếu admin muốn cho phép 1 khách hàng được hưởng lại ưu đãi, nếu sửa lại cột `status` của đơn cũ hoặc xóa đơn cũ trong bảng `orders`, sẽ làm sai lệch doanh thu, lịch sử đối soát và mất mã code đã giao.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Nới lỏng preliminary check ở client trong `dataService.createOrder`: Chỉ chặn khi `currentBal <= 0`. Máy chủ (`functions/api/orders/create.ts`) là cơ quan tối cao (Server-authoritative price) tự tính toán giá cuối cùng `finalTotalAmount` dựa trên chiến dịch, trần giá, loại trừ, và số dư thực tế trong D1.
+  2. Khóa chống race condition nguyên tử bằng SQLite Guard: Trong transaction `purchaseOrderD1`, nếu `discountType = 'first_purchase'`, subquery kiểm tra số đơn `COMPLETED` của user với gói này sau lần reset gần nhất. Nếu $> 0$, trả về `NULL` vào cột `NOT NULL` khiến SQLite abort toàn bộ batch transaction ngay lập tức và trả về mã lỗi `FIRST_PURCHASE_ALREADY_USED`.
+  3. Bảng audit reset riêng biệt `first_purchase_resets`: Lưu lịch sử reset theo cặp `(member_id, product_id, admin_id, reason, reset_at)`. Khi xét điều kiện đơn cũ chỉ xét `o.created_at > COALESCE(MAX(r.reset_at), '1970-01-01')`. Bảo toàn 100% dữ liệu kế toán và lưu vết quản trị hoàn hảo.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không tin tưởng giá do client gửi lên (phải tính toán 100% tại máy chủ).*
+  - ❌ *Không xóa hoặc sửa đổi các đơn hàng đã `COMPLETED` trong bảng `orders` để reset ưu đãi.*
+  - ❌ *Không bỏ qua kiểm tra race condition bằng subquery atomic guard trong SQLite transaction.*
+
 ### ISSUE-230: Bẫy Lồng Thẻ <button> Trong Danh Sách Gói & Deep Link Thiếu Phân Giải ID Gói Con
 - **Triệu chứng & Rủi ro**:
   1. Khi bổ sung nút chia sẻ cho từng dòng gói trong `ProductDetailModal`, nếu dòng gói ban đầu là thẻ `<button>` và nút chia sẻ cũng là thẻ `<button>`, trình duyệt sẽ báo lỗi HTML nesting violation (`<button> cannot appear as a descendant of <button>`), dẫn đến event click bị nuốt hoặc đóng modal đột ngột.
