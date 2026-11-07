@@ -521,9 +521,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 </div>
               </div>
 
-              {/* Description */}
+              {/* Description (Hiển thị ở cột trái trên Desktop) */}
               {currentDescription && (
-                <div className="space-y-2">
+                <div className="space-y-2 hidden lg:block">
                   <div className="flex items-center justify-between gap-2">
                     <h4 className="font-heading font-bold text-sm text-foreground flex items-center gap-1.5">
                       <BookOpen className="w-4 h-4 text-primary" />
@@ -588,8 +588,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     <span className="text-xs font-semibold text-muted-foreground">
                       Gói đã chọn:
                     </span>
-                    <span className="text-xs font-bold text-secondary">
-                      Mua Ngay
+                    <span className="text-xs font-bold text-secondary truncate max-w-[260px]">
+                      {selectedPackage.name}
                     </span>
                   </div>
                   <div className="flex items-baseline justify-between gap-2">
@@ -703,6 +703,106 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     )}
                   </div>
                 </div>
+
+                {/* NÚT MUA NGAY TRỰC TIẾP DƯỚI GIÁ GÓI ĐÃ CHỌN (Mobile & Desktop) */}
+                <div className="pt-1">
+                  {!currentUser ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        if (onOpenAuth) onOpenAuth();
+                      }}
+                      className="w-full min-h-[44px] h-[48px] py-3 px-4 rounded-xl bg-gradient-to-r from-secondary to-primary hover:opacity-95 text-white font-display font-bold text-xs sm:text-sm shadow-glow-primary transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-95"
+                    >
+                      <LogIn className="w-4 h-4" />
+                      <span>
+                        {offerData.campaign?.enabled
+                          ? `Đăng Nhập Để Nhận Ưu Đãi (${formatCore(totalPrice)})`
+                          : `Đăng Nhập Để Mua (${formatCore(totalPrice)})`}
+                      </span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={isOutOfStock}
+                      onClick={() => {
+                        if (isOutOfStock) {
+                          if (onShowToast) onShowToast('Hết hàng', 'Gói này tạm thời hết hàng trong kho.', 'error');
+                          return;
+                        }
+                        const finalSafeQty = isSelectedEscalating ? 1 : (realStock > 0 ? Math.min(quantity, realStock) : quantity);
+                        onBuyNow(
+                          product,
+                          {
+                            ...selectedPackage,
+                            price: displayCurrentPrice,
+                            isFirstPurchaseOffer: isSelectedOfferEligible,
+                            discountAmount: isSelectedEscalating ? 0 : (selectedOffer?.discount_amount || 0),
+                            sale_mode: isSelectedEscalating ? 'escalating' : (selectedPackage.sale_mode || 'normal'),
+                            escalating_base_price: selectedEscData.base_price,
+                            escalating_step: selectedEscData.step,
+                            escalating_max_price: selectedEscData.max_price,
+                            escalating_current_price: selectedEscData.current_price,
+                            escalating_completed_count: selectedEscData.completed_count,
+                          },
+                          finalSafeQty
+                        );
+                      }}
+                      className={`w-full min-h-[44px] h-[48px] py-3 px-4 rounded-xl font-display font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-2 shadow-lg active:scale-95 cursor-pointer ${
+                        !isOutOfStock
+                          ? isSelectedEscalating
+                            ? 'bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-400 hover:to-orange-500 text-slate-950 font-black shadow-amber-500/25'
+                            : isSelectedOfferEligible
+                              ? 'bg-gradient-to-r from-rose-500 via-orange-500 to-amber-500 hover:from-rose-600 hover:to-orange-600 text-white shadow-rose-500/20'
+                              : 'bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 hover:from-emerald-400 hover:to-teal-500 text-white shadow-emerald-500/20'
+                          : 'bg-muted text-muted-foreground cursor-not-allowed opacity-60'
+                      }`}
+                    >
+                      <Zap className={`w-4 h-4 ${isSelectedEscalating ? 'fill-slate-950 text-slate-950' : ''}`} />
+                      <span>
+                        {!isOutOfStock
+                          ? isSelectedEscalating
+                            ? `Mua Ngay Gói Nâng Giá (${formatCore(totalPrice)})`
+                            : isSelectedOfferEligible
+                              ? `Mua Ngay Ưu Đãi Lần Đầu (${formatCore(totalPrice)})`
+                              : `Mua Ngay Gói Này (${formatCore(totalPrice)})`
+                          : 'Tạm Hết Hàng'}
+                      </span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Khối Thông Tin Chi Tiết Gói Đang Chọn (Sticky Ghim trên Mobile khi cuộn danh sách gói) */}
+                {currentDescription && (
+                  <div className="sticky top-0 z-10 bg-slate-900/95 backdrop-blur-md -mx-4 px-4 py-2.5 sm:-mx-5 sm:px-5 border-y border-border/80 shadow-md space-y-1.5 transition-all">
+                    <div className="flex items-center justify-between gap-2">
+                      <h4 className="font-heading font-bold text-xs text-foreground flex items-center gap-1.5">
+                        <BookOpen className="w-3.5 h-3.5 text-secondary" />
+                        <span>Thông Tin Chi Tiết Gói:</span>
+                      </h4>
+                      <button
+                        type="button"
+                        onClick={() => setIsDescExpanded(!isDescExpanded)}
+                        className="min-h-[44px] px-3 py-1.5 rounded-lg bg-secondary/15 hover:bg-secondary/25 text-secondary border border-secondary/30 text-xs font-semibold flex items-center gap-1 cursor-pointer transition-all active:scale-95 shrink-0"
+                        aria-label={isDescExpanded ? 'Thu gọn mô tả' : 'Xem thêm mô tả'}
+                      >
+                        <span>{isDescExpanded ? 'Thu gọn' : 'Xem thêm'}</span>
+                        {isDescExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+
+                    <div
+                      className={`text-xs text-muted-foreground leading-relaxed whitespace-pre-line transition-all ${
+                        isDescExpanded
+                          ? 'max-h-[35vh] overflow-y-auto pr-1 scrollbar-thin bg-card/90 p-2.5 rounded-xl border border-border/70'
+                          : 'line-clamp-2'
+                      }`}
+                    >
+                      {currentDescription}
+                    </div>
+                  </div>
+                )}
 
                 {/* Banner Gợi Ý Cho Khách Chưa Đăng Nhập */}
                 {!currentUser && offerData.campaign?.enabled && (

@@ -7,6 +7,40 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-07]
 
+### 341. Sửa Triệt Để Ảnh QR (Bỏ crossOrigin Gây Chặn 301 Redirect, Multi-tier 3 Tầng, Mở Tab Mới) + Bổ Sung Nút Mua Ngay Dưới Giá & Ghim Thông Tin Gói Chi Tiết Trên Mobile
+- **Triệu chứng & Bối cảnh**:
+  - Khách tạo đơn QR thành công nhưng khung ảnh QR bị rơi vào trạng thái lỗi "Không thể tải ảnh mã QR" (do thẻ `<img>` chứa `crossOrigin="anonymous"` khiến trình duyệt chặn các phản hồi 301 redirect của VietQR do thiếu CORS header trên 301). Nút "Đổi QR dự phòng" bị ẩn khi ảnh lỗi; nút "Tải lại mã QR" không thử lại từ nguồn chính SePay.
+  - Trên điện thoại di động (viewport 390px), trong bảng chi tiết gói ([`ProductDetailModal`](file:///c:/4%20Antigravity%20all/13%20web%20code%20game/src/components/ProductDetailModal.tsx)), khách thấy giá gói đã chọn nhưng không có nút mua ngay dưới giá mà phải vuốt qua hết 10 gói mới tới nút mua ở cuối bảng; chữ "Mua Ngay" cạnh "Gói đã chọn" chỉ là nhãn văn bản gây hiểu lầm.
+  - Mục "Thông Tin Chi Tiết Sản Phẩm" bị trôi mất khi vuốt xem danh sách gói; chưa có cơ chế thu gọn 2 dòng kèm nút mở rộng $\ge 44\text{px}$ và thanh cuộn nội bộ tránh đẩy giao diện.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. Thẻ `<img>` nhúng `crossOrigin="anonymous"` kích hoạt chế độ CORS bắt buộc. Khi endpoint VietQR thực hiện 301 redirect sang định dạng SVG, header 301 không kèm CORS khiến trình duyệt chặn ảnh ngay lập tức với lỗi mạng.
+  2. Nút đổi nguồn QR chỉ hiển thị ở điều kiện `qrAttemptStep === 0 && !qrImageLoadFailed`, đúng lúc khách cần đổi nguồn nhất thì lại bị ẩn.
+  3. Hàm thử lại mã QR chỉ gọi lại fallback/compact2 mà không đặt lại từ tầng chính SePay và thiếu cache-busting timestamp `_t`.
+  4. Trong `ProductDetailModal.tsx`, nút mua chính chỉ đặt ở chân cột phải (sau mảng `packages.map`), trên mobile 1 cột làm nút bị trôi xuống dưới 10 gói.
+- **Giải pháp triệt để đã triển khai (Solution Applied)**:
+  1. *Khắc phục triệt để lỗi ảnh QR (`ProductCheckoutModal.tsx` & `create-qr.ts`)*:
+     - Gỡ bỏ hoàn toàn `crossOrigin="anonymous"` khỏi thẻ `<img>`, chỉ giữ `referrerPolicy="no-referrer"` giúp trình duyệt tải ảnh và tuân theo mọi redirect 301/302 một cách tự nhiên.
+     - Đổi fallback URL trong `create-qr.ts` sang trực tiếp `.svg` của VietQR để nhận HTTP 200 trực tiếp trong 1 hop không cần redirect.
+     - Dùng `qrStepRef` đồng bộ bước thử tránh stale closure. Hỗ trợ 3 tầng: Tầng 1 (SePay VietQR) $\rightarrow$ Tầng 2 (VietQR Chuẩn SVG) $\rightarrow$ Tầng 3 (VietQR Rút Gọn Compact2).
+     - Nút "Nguồn QR" hiển thị liên tục (cả khi lỗi lẫn bình thường) cho phép đổi tuần hoàn 3 tầng kèm nhãn tầng rõ ràng.
+     - Nút "Tải lại QR" đặt lại từ tầng 0 (SePay) kèm cache-busting timestamp `_t`. Bổ sung link "Mở ảnh QR ở tab mới" (`target="_blank"`) và khung chẩn đoán lỗi (Debug panel).
+  2. *Bổ sung nút Mua ngay trực tiếp dưới giá gói đã chọn (`ProductDetailModal.tsx`)*:
+     - Thêm nút mua toàn chiều rộng (`w-full`), chiều cao chuẩn `min-h-[44px] h-[48px]` ngay dưới khối giá và ưu đãi (trước danh sách chọn gói).
+     - Nhấn nút đi thẳng tới `onBuyNow` với đúng gói và giá ưu đãi/nâng giá đang hiển thị, hoặc mở modal đăng nhập nếu chưa có phiên. Khi hết hàng chuyển sang "Hết hàng" và bị vô hiệu.
+     - Thay thế chữ trang trí "Mua Ngay" cạnh dòng "Gói đã chọn:" bằng tên gói thật `{selectedPackage.name}` để xóa bỏ hoàn toàn hiểu lầm.
+     - Giữ nguyên nút mua ở cuối bảng để người dùng vuốt xuống đáy vẫn có thể bấm mua.
+  3. *Ghim mục Thông Tin Chi Tiết Gói trên Mobile (`ProductDetailModal.tsx`)*:
+     - Đặt khối Thông Tin Chi Tiết Gói có thuộc tính `sticky top-0 z-10 bg-slate-900/95 backdrop-blur-md` ngay trên danh sách gói. Khi người dùng vuốt qua 10 gói, khối thông tin dính lại dưới thanh tiêu đề mà không che nút mua hay thanh tiêu đề.
+     - Mặc định hiển thị tối đa 2 dòng (`line-clamp-2`), kèm nút "Xem thêm" / "Thu gọn" đạt kích thước cảm ứng chuẩn `min-h-[44px]`.
+     - Khi mở rộng: giới hạn cuộn nội bộ `max-h-[35vh] overflow-y-auto` để không bao giờ đẩy nút mua hoặc bảng chọn gói khỏi màn hình.
+     - Mô tả tự động đồng bộ theo gói đang chọn trong thời gian thực khi bấm chuyển gói.
+  4. *Chuẩn hóa chiều cao nút Mua ngoài Cửa Hàng (`StoreView.tsx`)*:
+     - Bổ sung `h-[46px] min-h-[44px]` cố định cho nút Mua ở cả Grid Mode và List Mode, đảm bảo vượt ngưỡng 44px trên mọi kích thước màn hình điện thoại (390px, 412px, v.v.).
+- **Kết quả nghiệm thu**:
+  - Toàn bộ 23/23 bài kiểm thử logic đạt 100%.
+  - Zero Test Artifacts on Production đạt 100%.
+  - Build thành công toàn bộ hệ thống Vite, Prerender và Edge Worker bundle.
+
 ### 340. Sửa Ảnh QR Bị Trắng/Lỗi Trong Bảng Thanh Toán & Tối Ưu Nút Mua 1-Tap Chuẩn Mobile (≥44px)
 - **Triệu chứng & Bối cảnh**:
   - Khi khách tạo đơn QR thành công, bảng thanh toán hiện đầy đủ thông tin (STK ngân hàng, chủ tài khoản, số tiền, nội dung CK, đếm ngược 15:00 và 3 nút sao chép), nhưng khung ảnh QR bị trắng kèm icon ảnh lỗi (alt "VietQR Payment"). Mở URL SePay riêng ở tab khác tải đúng PNG 360x360.

@@ -10,22 +10,27 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
-### ISSUE-242: Bẫy Chặn Ảnh QR Do Thiếu referrerPolicy="no-referrer", Không Có Cơ Chế Chuyển Fallback Khi primary Lỗi & Vùng Chạm Mobile Dưới 44px
+### ISSUE-242: Bẫy Dùng crossOrigin="anonymous" Gây Chặn 301 Redirect Ảnh VietQR, Bẫy Ẩn Nút Đổi Nguồn Khi Gặp Lỗi & Bẫy Thiếu Nút Mua Trực Tiếp Dưới Giá Gói Mobile
 - **Triệu chứng & Rủi ro**:
-  1. Trong bảng thanh toán QR, URL ảnh QR chính (`qr.sepay.vn`) khi mở riêng ở tab khác tải đúng (file PNG 360x360 hợp lệ), nhưng trong thẻ `<img>` của modal chỉ hiện ô trắng kèm icon ảnh lỗi (alt "VietQR Payment"). Khách không quét được mã QR mà buộc phải copy thông tin chuyển khoản tay.
-  2. Nguyên nhân do thẻ `<img>` gửi kèm header `Referer` khiến trình duyệt có chế độ bảo mật nghiêm ngặt (như Cốc Cốc Privacy Shield, Chrome Brave/AdBlock) chặn tải ảnh từ domain bên thứ ba.
-  3. Cú pháp `src={qrOrder.qrUrls?.primary || qrOrder.qrUrls?.fallback}` trong JSX chỉ đánh giá toán tử `||` một lần ở cấp JavaScript. Khi link `primary` truthy nhưng tải ảnh thất bại tại runtime mạng/trình duyệt (`onError`), trình duyệt không tự chuyển sang `fallback` dẫn tới hiển thị ảnh lỗi vĩnh viễn.
-  4. Nút mua trên điện thoại nếu có chiều cao dưới 44px (`min-h-[30px]`) sẽ vi phạm hướng dẫn giao diện cảm ứng (Apple HIG / WCAG), gây khó bấm cho người dùng trên màn hình nhỏ.
+  1. Trong bảng thanh toán QR, khi thêm `crossOrigin="anonymous"` vào thẻ `<img>`, trình duyệt thực hiện request ở chế độ CORS. Khi endpoint VietQR thực hiện 301 redirect sang định dạng SVG, header 301 không kèm `Access-Control-Allow-Origin: *` khiến trình duyệt chặn ảnh ngay lập tức với lỗi CORS, dẫn tới toàn bộ các tầng fallback đều bị kích hoạt lỗi trong vài mili-giây.
+  2. Nút "Đổi nguồn QR" nếu chỉ hiển thị khi `qrAttemptStep === 0 && !qrImageLoadFailed` sẽ biến mất ngay khi ảnh lỗi, tước đi khả năng chuyển tay nguồn QR của khách hàng.
+  3. Hàm "Tải lại mã QR" nếu chỉ thử lại từ fallback/compact2 mà không đặt lại từ tầng 0 (primary SePay) kèm cache-busting timestamp `_t` sẽ khiến khách bấm thử lại nhiều lần vẫn bị lỗi.
+  4. Trong bảng chi tiết gói (`ProductDetailModal.tsx`), trên điện thoại di động (layout 1 cột), nút mua duy nhất nằm ở tận cuối sau toàn bộ 10 gói sản phẩm. Khách hàng thấy giá gói đã chọn (72.000 Core) nhưng không thấy nút mua dưới giá, chữ "Mua Ngay" cạnh dòng "Gói đã chọn:" chỉ là nhãn văn bản gây hiểu lầm là đã có nút bấm.
+  5. Mục "Thông Tin Chi Tiết Sản Phẩm" bị trôi mất khi vuốt xem danh sách gói; chưa có cơ chế thu gọn 2 dòng kèm nút mở rộng $\ge 44\text{px}$ và thanh cuộn nội bộ tránh đẩy giao diện.
 - **Giải pháp chuẩn đã kiểm chứng**:
-  1. Thêm `referrerPolicy="no-referrer"` và `crossOrigin="anonymous"` vào thẻ `<img>` để trình duyệt không gửi header Referer khi tải ảnh QR từ SePay/VietQR.
-  2. Xây dựng cơ chế Multi-tier Fallback tự động: State `currentQrImageSrc` kèm bộ đếm `qrAttemptStep`. Khi `primary` (`qr.sepay.vn`) kích hoạt `onError`, component tự động chuyển sang `fallback` (`img.vietqr.io` định dạng `qr_only`), nếu tiếp tục lỗi thì chuyển sang client VietQR format `compact2`. Nếu toàn bộ lỗi do adblocker, hiển thị hộp cảnh báo kèm nút "Tải lại mã QR" (cho phép bấm thử lại bất kỳ lúc nào) mà vẫn giữ nguyên 100% bảng thông tin STK, chủ tài khoản, số tiền và nội dung để khách chuyển khoản tay.
-  3. Bổ sung `qrUrls` ở cả cấp top-level lẫn bên trong `order.qrUrls` tại API `create-qr.ts`.
-  4. Tối ưu giao diện mobile: Gán `min-h-[44px]` chuẩn mực cho nút Mua, đưa nút nằm cùng hàng với giá sản phẩm ở cả Grid Mode và List Mode. Hỗ trợ 1-tap checkout: Gói 1 mã đi thẳng vào `ProductCheckoutModal` (bỏ qua bước trung gian `ProductDetailModal`), gói nhiều mã mở `ProductDetailModal` để chọn gói. Khi hết hàng, hiển thị nhãn "Hết hàng" bị vô hiệu (`disabled`), tuyệt đối không ẩn nút.
+  1. Tuyệt đối **KHÔNG dùng `crossOrigin="anonymous"`** trên thẻ `<img>` thanh toán VietQR / SePay, chỉ sử dụng `referrerPolicy="no-referrer"`. Thẻ ảnh thông thường trong HTML không yêu cầu CORS và tự động tải qua mọi redirect 301/302 một cách tự nhiên.
+  2. Bổ sung `qrStepRef` đồng bộ bước thử tránh stale closures trong React event handlers. Hỗ trợ 3 tầng QR rõ ràng: Tầng 1 (SePay VietQR) $\rightarrow$ Tầng 2 (VietQR.io SVG) $\rightarrow$ Tầng 3 (VietQR.io Compact2).
+  3. Nút đổi nguồn QR hiển thị liên tục (cả khi lỗi lẫn bình thường), cho phép khách bấm chuyển tuần hoàn giữa 3 tầng và hiển thị rõ tầng đang chọn (`SePay`, `VietQR Chuẩn`, `VietQR Rút Gọn`).
+  4. Cung cấp đường thoát khẩn cấp: Link "Mở ảnh QR ở tab mới" (`target="_blank"`) và khung thông tin chẩn đoán kỹ thuật (Debug panel) để kiểm tra trạng thái dữ liệu.
+  5. Trong `ProductDetailModal.tsx`:
+     - Thêm nút Mua ngay toàn chiều rộng (`w-full`), chiều cao cảm ứng chuẩn `min-h-[44px] h-[48px]` ngay dưới khối giá và ưu đãi (trước danh sách chọn gói), bấm vào đi thẳng tới bảng thanh toán `onBuyNow`.
+     - Thay thế chữ trang trí "Mua Ngay" cạnh "Gói đã chọn:" bằng tên gói thật `{selectedPackage.name}`.
+     - Đặt khối "Thông Tin Chi Tiết Gói" có `sticky top-0 z-10 bg-slate-900/95 backdrop-blur-md` ngay trên danh sách gói, mặc định 2 dòng (`line-clamp-2`), nút Xem thêm/Thu gọn $\ge 44\text{px}$, cuộn nội bộ `max-h-[35vh]` khi mở rộng, và tự động đổi mô tả theo gói được chọn.
 - 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
-  - ❌ *Không dùng toán tử logic `src={primary || fallback}` để xử lý fallback ảnh runtime mạng (bắt buộc phải dùng sự kiện `onError`).*
-  - ❌ *Không nhúng ảnh thanh toán từ bên thứ ba mà thiếu thuộc tính `referrerPolicy="no-referrer"`.*
-  - ❌ *Không thiết kế nút bấm hành động chính trên mobile có chiều cao cảm ứng nhỏ hơn 44px.*
-  - ❌ *Không ẩn nút Mua khi sản phẩm hết hàng (phải giữ nút ở trạng thái Disabled kèm chữ "Hết hàng").*
+  - ❌ *Không thêm `crossOrigin="anonymous"` vào thẻ `<img>` của VietQR (sẽ bị lỗi CORS khi endpoint 301 redirect).*
+  - ❌ *Không ẩn nút đổi nguồn QR khi ảnh bị lỗi.*
+  - ❌ *Không để nhãn văn bản "Mua Ngay" trang trí dễ gây hiểu lầm mà không có nút bấm thật.*
+  - ❌ *Không bắt khách hàng trên điện thoại phải cuộn qua hết 10 gói mới tới được nút mua hàng.*
 
 ### ISSUE-241: Bẫy Ghép Lệnh Logging Vào ACID Batch Giao Dịch Đơn Hàng & Bẫy Thiếu Cột target_user Trong Bảng security_logs
 - **Triệu chứng & Rủi ro**:

@@ -468,7 +468,7 @@ export const StoreView: React.FC<StoreViewProps> = ({
                     type="button"
                     disabled={product.stock_quantity <= 0}
                     onClick={(e) => handleProductAction(product, e)}
-                    className={`min-h-[44px] px-3 sm:px-4 py-2 rounded-xl font-bold text-xs shadow-sm transition-all flex items-center justify-center gap-1.5 shrink-0 ${
+                    className={`min-h-[44px] h-[46px] px-3.5 sm:px-4 py-2 rounded-xl font-bold text-xs shadow-sm transition-all flex items-center justify-center gap-1.5 shrink-0 ${
                       product.stock_quantity <= 0
                         ? 'bg-slate-800 text-slate-500 border border-slate-700/60 cursor-not-allowed'
                         : isFlashSaleLive
@@ -668,7 +668,7 @@ export const StoreView: React.FC<StoreViewProps> = ({
                     type="button"
                     disabled={product.stock_quantity <= 0}
                     onClick={(e) => handleProductAction(product, e)}
-                    className={`min-h-[44px] px-2.5 sm:px-3.5 py-2 rounded-xl font-bold text-xs shadow-sm transition-all flex items-center justify-center gap-1 shrink-0 ${
+                    className={`min-h-[44px] h-[46px] px-2.5 sm:px-3.5 py-2 rounded-xl font-bold text-xs shadow-sm transition-all flex items-center justify-center gap-1 shrink-0 ${
                       product.stock_quantity <= 0
                         ? 'bg-slate-800 text-slate-500 border border-slate-700/60 cursor-not-allowed'
                         : isFlashSaleLive

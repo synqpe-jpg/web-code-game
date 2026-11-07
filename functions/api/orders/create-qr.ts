@@ -331,7 +331,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     const cleanBank = bankName.replace(/\s+/g, '');
 
     const primaryQrUrl = `https://qr.sepay.vn/img?acc=${encodeURIComponent(cleanAcc)}&bank=${encodeURIComponent(cleanBank)}&amount=${transferAmount}&des=${encodeURIComponent(memoContent)}&template=qr_only`;
-    const fallbackQrUrl = `https://img.vietqr.io/image/${encodeURIComponent(cleanBank)}-${encodeURIComponent(cleanAcc)}-qr_only.png?amount=${transferAmount}&addInfo=${encodeURIComponent(memoContent)}&accountName=${encodeURIComponent(bankAccount)}`;
+    const fallbackQrUrl = `https://img.vietqr.io/image/${encodeURIComponent(cleanBank)}-${encodeURIComponent(cleanAcc)}-qr_only.svg?amount=${transferAmount}&addInfo=${encodeURIComponent(memoContent)}&accountName=${encodeURIComponent(bankAccount)}`;
 
     return new Response(
       JSON.stringify({
