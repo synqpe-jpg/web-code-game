@@ -252,6 +252,10 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           created_at: p.created_at || meta.created_at || undefined,
           show_warranty: p.show_warranty !== undefined ? Boolean(p.show_warranty) : Boolean(meta.show_warranty),
           warranty_text: p.warranty_text || meta.warranty_text || '',
+          sale_mode: p.sale_mode || meta.sale_mode || 'normal',
+          escalating_base_price: p.escalating_base_price !== undefined && p.escalating_base_price !== null ? Number(p.escalating_base_price) : (meta.escalating_base_price !== undefined && meta.escalating_base_price !== null ? Number(meta.escalating_base_price) : null),
+          escalating_step: p.escalating_step !== undefined && p.escalating_step !== null ? Number(p.escalating_step) : (meta.escalating_step !== undefined && meta.escalating_step !== null ? Number(meta.escalating_step) : null),
+          escalating_max_price: p.escalating_max_price !== undefined && p.escalating_max_price !== null ? Number(p.escalating_max_price) : (meta.escalating_max_price !== undefined && meta.escalating_max_price !== null ? Number(meta.escalating_max_price) : null),
         };
       });
 

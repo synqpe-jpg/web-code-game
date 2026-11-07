@@ -7,6 +7,39 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-07]
 
+### 333. Khắc Phục Triệt Để Lỗi Gói Nâng Giá Hiện 0 Core Trên Trang Khách, Bổ Sung Thang Đo Giá Trực Quan & Sửa Chuỗi CoreCore
+- **Bối cảnh & Hiện tượng (07/11/2026)**:
+  - Khi kiểm chứng gói test thật `sp_idle-cat-gunner_mw5yrnka` ("Test Nâng Giá", game Idle Cat Gunner, cấu hình 500 Core, tăng 100/lượt, không trần, tồn 3 mã) trên trang khách live `codegame.shop/store`:
+    1. Thẻ ngoài danh sách hiện đúng 500 Core, nhưng khi mở bảng chọn gói (`ProductDetailModal`) và bảng thanh toán (`ProductCheckoutModal`), gói hiển thị 0 Core, huy hiệu `Nâng Giá (+0 Core/lượt)`, dòng `Lượt mua thứ 1 • Đã mua: 0 • Bước tăng: +0 Core/lượt`.
+    2. Bảng thanh toán hiện đơn giá 0 Core, tổng 0 Core, số lượng cố định 1, nhưng lại báo: *"Số Dư Core Không Đủ — Cần 0 Core, ví hiện có 995 Core. Còn thiếu 0 Core"* và chỉ có nút "Nạp Thêm Core Ngay", không có nút xác nhận mua.
+    3. Chưa có bảng thang đo giá (ước lượng các lượt mua kế tiếp: lượt 1, lượt 2, lượt 3) để kích thích khách mua sớm.
+    4. Lỗi lặp chữ `CoreCore`: dòng *"Sau đơn này, giá sẽ tăng: +0 CoreCore"* do `+{formatCore(step)} Core`.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Lỗi ánh xạ trường trong `functions/api/store/my-offer.ts`*: Hàm `getEscalatingPriceD1` trong `d1_service.ts` định nghĩa tên trường là `current_calculated_price`, `escalating_base_price`, `escalating_step`, `escalating_max_price`, `next_step_price`. Trong khi đó `my-offer.ts` lại truy cập `escInfo.current_price`, `escInfo.base_price`, `escInfo.step`, `escInfo.max_price`, `escInfo.next_price` (các trường này bị `undefined`). Do đó `my-offer.ts` trả về `escalating.current_price: undefined`.
+  2. *Lỗi thiếu trường trong `functions/api/sync-lite.ts`*: Object sản phẩm trong `sync-lite.ts` (dòng 226-256) được ánh xạ thủ công từng trường và bỏ sót 4 trường Nâng Giá: `sale_mode`, `escalating_base_price`, `escalating_step`, `escalating_max_price`.
+  3. *Lỗi so sánh NaN trong `ProductCheckoutModal.tsx`*: Khi `escalatingData.current_price` bị `undefined`, `totalPrice = Number(undefined)` ra `NaN`. Trong JavaScript, `userBalance >= NaN` luôn trả về `false`, khiến hệ thống lầm tưởng số dư ví (995 Core) không đủ tiền và kích hoạt cảnh báo vô lý *"Cần 0 Core, ví có 995 Core, thiếu 0 Core"*.
+  4. *Lỗi ghép chuỗi `formatCore`*: Hàm `formatCore(100)` đã trả về chuỗi `"100 Core"`. Khi template string viết `+{formatCore(escalatingData.step)} Core`, chữ `Core` bị lặp thành `CoreCore` / `Core Core`.
+- **Giải pháp triệt để đã triển khai (Solution Applied)**:
+  1. *Đồng bộ hóa 2 chiều interface `EscalatingPriceInfo` trong `d1_service.ts`*:
+     - Cung cấp đồng thời cả 2 cặp alias: `current_calculated_price` & `current_price`, `next_step_price` & `next_price`, `escalating_base_price` & `base_price`, `escalating_step` & `step`, `escalating_max_price` & `max_price`. Đảm bảo mọi module máy chủ và API đều truy xuất chính xác 100%.
+  2. *Sửa `functions/api/store/my-offer.ts`*:
+     - Sửa cả nhánh chưa đăng nhập và đã đăng nhập, đọc chính xác `current_calculated_price ?? current_price` và các alias, trả về đúng `500 Core` cho gói test.
+  3. *Cập nhật `functions/api/sync-lite.ts`*:
+     - Bổ sung 4 trường: `sale_mode`, `escalating_base_price`, `escalating_step`, `escalating_max_price` vào object `storeProducts`.
+  4. *Gia cố Fallback Đa Tầng An Toàn Trên Giao Diện (`ProductDetailModal.tsx` & `ProductCheckoutModal.tsx`)*:
+     - Biến `selectedEscData` và `escalatingData` kiểm tra fallback sâu từ `offerData.escalating` sang `selectedPackage` và `liveProduct`. Nếu giá lượt chưa tải xong, tự động tính fallback từ `base_price + (completed_count * step)`. Giá không bao giờ bị rơi về `undefined`, `NaN` hay `0`.
+     - Phân định rõ `isPriceValid = !isNaN(totalPrice) && totalPrice > 0`. Chỉ kích hoạt cảnh báo thiếu Core khi giá hợp lệ và `userBalance < totalPrice`. Nếu giá đang tải, hiển thị thông báo "Đang cập nhật giá sản phẩm".
+  5. *Bổ Sung Bảng Thang Đo Giá Trực Quan (Price Ladder Table)*:
+     - Tích hợp widget trực quan 3 mốc (Lượt mua hiện tại • Đang áp dụng, Lượt mua tiếp theo • Lượt kế, Lượt mua sau nữa • Sau nữa) kèm nhãn bước tăng `+{formatCore(step)}/lượt` trên cả `ProductDetailModal` và `ProductCheckoutModal`.
+  6. *Sửa Lỗi Lặp Chuỗi CoreCore*:
+     - Chuẩn hóa template string thành `+{formatCore(escalatingData.step)}` (bỏ chữ `Core` thừa phía sau).
+  7. *Hỗ Trợ Nâng Giá Trong `PackageShareModal.tsx`*:
+     - Bổ sung badge `⚡ Nâng Giá (+X Core/lượt)`, tính đúng giá hiện tại cho link chia sẻ gói nâng giá.
+- **Kết quả nghiệm thu**:
+  - `npm run build` vượt qua 100% không cảnh báo.
+  - Kiểm toán Zero Test Artifacts on Production (Rule 7) đạt 100%.
+  - Giữ nguyên vẹn cấu hình gói test `sp_idle-cat-gunner_mw5yrnka` (500/100, không trần) phục vụ người dùng kiểm chứng live.
+
 ### 332. Triển Khai Hình Thức Mua "Nâng Giá" (Escalating Price Model) Với Động Cơ Server-Authoritative D1 & Khóa Bảo Vệ Slippage 100%
 - **Bối cảnh & Yêu cầu nghiệp vụ**:
   - Người dùng yêu cầu triển khai thêm hình thức mua mới tên "Nâng Giá" cho từng gói trong cửa hàng (`codegame.shop/store`).

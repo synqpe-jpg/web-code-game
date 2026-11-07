@@ -96,15 +96,15 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
         if (isEscalating) {
           const escInfo = await getEscalatingPriceD1(env.DB, prod);
-          prodPrice = escInfo.current_price;
+          prodPrice = Number(escInfo.current_calculated_price ?? escInfo.current_price) || (Number(prod.current_price) || 0);
           escalatingData = {
             is_escalating: true,
-            base_price: escInfo.base_price,
-            step: escInfo.step,
-            max_price: escInfo.max_price,
+            base_price: escInfo.escalating_base_price ?? escInfo.base_price,
+            step: escInfo.escalating_step ?? escInfo.step,
+            max_price: escInfo.escalating_max_price ?? escInfo.max_price,
             completed_count: escInfo.completed_count,
-            current_price: escInfo.current_price,
-            next_price: escInfo.next_price,
+            current_price: prodPrice,
+            next_price: Number(escInfo.next_step_price ?? escInfo.next_price) || (prodPrice + (escInfo.escalating_step ?? escInfo.step ?? 0)),
           };
         }
 
@@ -191,15 +191,15 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
       if (isEscalating) {
         const escInfo = await getEscalatingPriceD1(env.DB, prod);
-        prodPrice = escInfo.current_price;
+        prodPrice = Number(escInfo.current_calculated_price ?? escInfo.current_price) || (Number(prod.current_price) || 0);
         escalatingData = {
           is_escalating: true,
-          base_price: escInfo.base_price,
-          step: escInfo.step,
-          max_price: escInfo.max_price,
+          base_price: escInfo.escalating_base_price ?? escInfo.base_price,
+          step: escInfo.escalating_step ?? escInfo.step,
+          max_price: escInfo.escalating_max_price ?? escInfo.max_price,
           completed_count: escInfo.completed_count,
-          current_price: escInfo.current_price,
-          next_price: escInfo.next_price,
+          current_price: prodPrice,
+          next_price: Number(escInfo.next_step_price ?? escInfo.next_price) || (prodPrice + (escInfo.escalating_step ?? escInfo.step ?? 0)),
         };
       }
 

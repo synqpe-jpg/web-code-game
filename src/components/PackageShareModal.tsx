@@ -65,16 +65,21 @@ export const PackageShareModal: React.FC<PackageShareModalProps> = ({
     (product?.game_slug ? `/game_icons/${product.game_slug}.webp` : '') ||
     '/og-image.jpg';
 
-  const currentPrice = packageItem.price;
-  const originalPrice =
-    typeof packageItem.original_price === 'number' && packageItem.original_price > currentPrice
+  const isEscalating = packageItem?.sale_mode === 'escalating';
+  const currentPrice = isEscalating
+    ? (packageItem.escalating_current_price ?? packageItem.escalating_base_price ?? packageItem.price)
+    : packageItem.price;
+  const originalPrice = isEscalating
+    ? currentPrice
+    : (typeof packageItem.original_price === 'number' && packageItem.original_price > currentPrice
       ? packageItem.original_price
-      : 0;
+      : 0);
 
-  const discountPercent =
-    originalPrice > currentPrice
+  const discountPercent = isEscalating
+    ? 0
+    : (originalPrice > currentPrice
       ? Math.round(((originalPrice - currentPrice) / originalPrice) * 100)
-      : 0;
+      : 0);
 
   const pkgStock =
     typeof packageItem.stock_quantity === 'number'
@@ -208,10 +213,16 @@ export const PackageShareModal: React.FC<PackageShareModalProps> = ({
           </div>
 
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5 mb-0.5">
+            <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
               <span className="text-[10px] font-bold uppercase tracking-wider text-secondary bg-secondary/10 px-1.5 py-0.5 rounded border border-secondary/20">
                 Gói Code
               </span>
+              {isEscalating && (
+                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 shrink-0 flex items-center gap-1">
+                  <Zap className="w-2.5 h-2.5 text-amber-400" />
+                  Nâng Giá (+{formatCore(packageItem.escalating_step || 0)}/lượt)
+                </span>
+              )}
               {packageItem.badge && (
                 <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
                   {packageItem.badge}

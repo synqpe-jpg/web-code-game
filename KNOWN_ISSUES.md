@@ -10,6 +10,28 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-235: Bẫy Lệch Tên Thuộc Tính Interface Giá Nâng Giá, Bỏ Sót Trường Trong sync-lite & Bẫy So Sánh NaN Với Số Dư Ví
+- **Triệu chứng & Rủi ro**:
+  1. Khi cấu hình một gói sản phẩm hình thức Nâng Giá (ví dụ 500 Core, tăng 100/lượt), thẻ ngoài danh sách hiện đúng 500 Core, nhưng khi mở bảng chọn gói (`ProductDetailModal`) và thanh toán (`ProductCheckoutModal`), gói hiển thị `0 Core`, huy hiệu `Nâng Giá (+0 Core/lượt)`.
+  2. Bảng thanh toán hiện tổng 0 Core, nhưng lại kích hoạt thông báo đỏ *"Số Dư Core Không Đủ — Cần 0 Core, ví hiện có 995 Core. Còn thiếu 0 Core"* và biến mất nút xác nhận mua.
+  3. Lỗi lặp chữ `CoreCore` khi format template string `+{formatCore(step)} Core`.
+- **Nguyên nhân gốc rễ**:
+  1. Hàm `getEscalatingPriceD1` trong `d1_service.ts` trả về thuộc tính `current_calculated_price`, `escalating_base_price`, `escalating_step`, nhưng `my-offer.ts` lại truy vấn `escInfo.current_price`, `escInfo.step`, dẫn đến giá trị bị `undefined`.
+  2. Endpoint `/api/sync-lite` ánh xạ thủ công từng trường cho `storeProducts` và bỏ quên 4 trường escalating (`sale_mode`, `escalating_base_price`, `escalating_step`, `escalating_max_price`).
+  3. Trong JavaScript, `totalPrice = Number(undefined)` ra `NaN`. Biểu thức `userBalance >= NaN` luôn trả về `false`, khiến modal kết luận số dư ví không đủ mặc dù ví có tới 995 Core.
+  4. Hàm `formatCore` đã tự sinh đuôi `Core`, việc nối thêm chuỗi `Core` trong JSX sinh ra lỗi lặp từ.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Luôn cung cấp đầy đủ cả hai cặp alias trong `EscalatingPriceInfo`: `current_calculated_price` & `current_price`, `escalating_base_price` & `base_price`, `escalating_step` & `step`, `escalating_max_price` & `max_price`, `next_step_price` & `next_price`.
+  2. Đồng bộ đầy đủ 4 trường Nâng Giá trong `/api/sync-lite`.
+  3. Xây dựng guard fallback đa tầng trên client: `const escCurrent = (rawCurrent > 0) ? rawCurrent : (escBase + escCompleted * escStep)`. Tách bạch kiểm tra giá hợp lệ `isPriceValid = !isNaN(totalPrice) && totalPrice > 0` và chỉ so sánh số dư khi giá hợp lệ `isBalanceEnough = isPriceValid && userBalance >= totalPrice`.
+  4. Chuẩn hóa template string `+{formatCore(step)}` không kèm hậu tố `Core`.
+  5. Bổ sung bảng thang đo giá trực quan 3 mốc (Lượt mua hiện tại, Lượt mua tiếp theo, Lượt mua sau nữa) để người mua thấy rõ cơ chế tăng giá theo lượt.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không định nghĩa interface máy chủ một đằng và API đọc một nẻo mà thiếu alias tương thích.*
+  - ❌ *Không bỏ quên trường dữ liệu mới khi bổ sung model trong `sync-lite.ts`.*
+  - ❌ *Không so sánh trực tiếp `userBalance >= totalPrice` khi chưa kiểm tra `totalPrice` có phải là `NaN` hoặc `<= 0` hay không.*
+  - ❌ *Không ghép thêm chữ `Core` sau hàm `formatCore()` vì hàm này đã có đơn vị sẵn.*
+
 ### ISSUE-234: Bẫy Temporal Dead Zone (TDZ) Khai Báo Biến Dưới Hook Trong Component & Bẫy Kế Thừa discount_percent Sản Phẩm Đại Diện
 - **Triệu chứng & Rủi ro**:
   1. Khi mở modal mua hàng (`ProductCheckoutModal.tsx`), trang web lập tức bị crash văng lỗi: *"Cannot access 'a' before initialization"*. Nguyên nhân do biến `liveProduct` được dùng trong `useEffect` hook trước khi được khai báo `const liveProduct = ...` ở cuối component.

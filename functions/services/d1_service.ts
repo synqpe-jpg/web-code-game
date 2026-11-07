@@ -4061,11 +4061,16 @@ export interface EscalatingPriceInfo {
   productId: string;
   sale_mode: 'normal' | 'escalating';
   escalating_base_price?: number;
+  base_price?: number;
   escalating_step?: number;
+  step?: number;
   escalating_max_price?: number | null;
+  max_price?: number | null;
   completed_count: number;
   current_calculated_price: number;
+  current_price: number;
   next_step_price: number;
+  next_price: number;
   is_at_max: boolean;
 }
 
@@ -4080,7 +4085,15 @@ export async function getEscalatingPriceD1(db: D1Database, product: any): Promis
       sale_mode: 'normal',
       completed_count: 0,
       current_calculated_price: regularPrice,
+      current_price: regularPrice,
       next_step_price: regularPrice,
+      next_price: regularPrice,
+      escalating_base_price: regularPrice,
+      base_price: regularPrice,
+      escalating_step: 0,
+      step: 0,
+      escalating_max_price: null,
+      max_price: null,
       is_at_max: false,
     };
   }
@@ -4115,11 +4128,16 @@ export async function getEscalatingPriceD1(db: D1Database, product: any): Promis
     productId: prodId,
     sale_mode: 'escalating',
     escalating_base_price: basePrice,
+    base_price: basePrice,
     escalating_step: step,
+    step: step,
     escalating_max_price: maxPrice,
+    max_price: maxPrice,
     completed_count: completedCount,
     current_calculated_price: currentPrice,
+    current_price: currentPrice,
     next_step_price: nextPrice,
+    next_price: nextPrice,
     is_at_max: isAtMax,
   };
 }

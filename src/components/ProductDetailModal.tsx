@@ -21,6 +21,7 @@ import {
   Minus,
   Plus,
   Lock,
+  TrendingUp,
 } from 'lucide-react';
 import type { StoreProduct, UtilityProduct, UserProfile, ProductPackageVariant } from '../types/game';
 import { formatCore } from '../utils/textUtils';
@@ -222,21 +223,40 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   // Kiểm tra ưu đãi mua lần đầu & hình thức Nâng Giá cho gói đang chọn
   const selectedOffer = offerData.offers[selectedPackage.id];
   const isSelectedEscalating = selectedPackage.sale_mode === 'escalating' || Boolean(selectedOffer?.escalating?.is_escalating);
-  const selectedEscData = selectedOffer?.escalating || {
+  
+  const rawEsc = selectedOffer?.escalating;
+  const escBase = Number(rawEsc?.base_price ?? rawEsc?.escalating_base_price ?? selectedPackage.escalating_base_price ?? selectedPackage.price ?? currentPrice) || currentPrice;
+  const escStep = Number(rawEsc?.step ?? rawEsc?.escalating_step ?? selectedPackage.escalating_step ?? 0) || 0;
+  const escMax = (rawEsc?.max_price !== undefined && rawEsc?.max_price !== null)
+    ? Number(rawEsc.max_price)
+    : ((rawEsc?.escalating_max_price !== undefined && rawEsc?.escalating_max_price !== null)
+      ? Number(rawEsc.escalating_max_price)
+      : (selectedPackage.escalating_max_price !== undefined && selectedPackage.escalating_max_price !== null ? Number(selectedPackage.escalating_max_price) : null));
+  const escCompleted = Number(rawEsc?.completed_count ?? selectedPackage.escalating_completed_count ?? 0) || 0;
+  const rawCurrent = Number(rawEsc?.current_price ?? rawEsc?.current_calculated_price ?? selectedPackage.escalating_current_price);
+  const escCurrent = (rawCurrent > 0)
+    ? rawCurrent
+    : (escMax !== null && escMax > 0 ? Math.min(escBase + (escCompleted * escStep), escMax) : (escBase + (escCompleted * escStep)));
+  const rawNext = Number(rawEsc?.next_price ?? rawEsc?.next_step_price ?? selectedPackage.escalating_next_price);
+  const escNext = (rawNext > 0)
+    ? rawNext
+    : (escMax !== null && escMax > 0 ? Math.min(escBase + ((escCompleted + 1) * escStep), escMax) : (escBase + ((escCompleted + 1) * escStep)));
+
+  const selectedEscData = {
     is_escalating: isSelectedEscalating,
-    base_price: selectedPackage.escalating_base_price ?? selectedPackage.price,
-    step: selectedPackage.escalating_step ?? 0,
-    max_price: selectedPackage.escalating_max_price ?? null,
-    completed_count: selectedPackage.escalating_completed_count ?? 0,
-    current_price: selectedPackage.escalating_current_price ?? selectedPackage.price,
-    next_price: selectedPackage.escalating_next_price ?? (selectedPackage.price + (selectedPackage.escalating_step ?? 0)),
+    base_price: escBase,
+    step: escStep,
+    max_price: escMax,
+    completed_count: escCompleted,
+    current_price: escCurrent,
+    next_price: escNext,
   };
 
   // Nếu là gói Nâng Giá: tuyệt đối không áp dụng ưu đãi mua lần đầu
   const isSelectedOfferEligible = !isSelectedEscalating && Boolean(selectedOffer?.eligible);
 
   const displayCurrentPrice = isSelectedEscalating
-    ? Number(selectedEscData.current_price)
+    ? selectedEscData.current_price
     : (isSelectedOfferEligible ? selectedOffer.offer_price : currentPrice);
 
   const displayOriginalPrice = isSelectedEscalating
@@ -596,14 +616,56 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   </div>
 
                   {isSelectedEscalating && (
-                    <div className="mt-2.5 flex items-center justify-between text-[11px] bg-amber-500/10 px-3 py-1.5 rounded-xl border border-amber-500/30 text-amber-300">
-                      <span className="flex items-center gap-1.5 font-bold">
-                        <Zap className="w-3.5 h-3.5 text-amber-400" />
-                        Lượt mua thứ {Number(selectedEscData.completed_count) + 1}
-                      </span>
-                      <span className="text-slate-300 text-[10px]">
-                        Đã mua: <strong className="text-foreground font-mono">{selectedEscData.completed_count}</strong> • Bước tăng: <strong className="text-amber-300 font-mono">+{formatCore(selectedEscData.step)}/lượt</strong>
-                      </span>
+                    <div className="mt-2.5 p-3 rounded-2xl bg-slate-900/90 border border-amber-500/30 space-y-2 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="flex items-center gap-1.5 font-bold text-amber-300">
+                          <Zap className="w-3.5 h-3.5 text-amber-400" />
+                          Lượt mua thứ {Number(selectedEscData.completed_count) + 1}
+                        </span>
+                        <span className="text-[11px] font-mono text-amber-300 font-bold">
+                          +{formatCore(selectedEscData.step)}/lượt
+                        </span>
+                      </div>
+
+                      {/* Thang đo giá trực quan 3 lượt */}
+                      <div className="grid grid-cols-3 gap-1.5 text-center pt-1 border-t border-slate-800">
+                        <div className="p-1.5 rounded-xl bg-amber-500/20 border border-amber-500/50">
+                          <span className="text-[9px] text-amber-300 font-bold uppercase block">Lượt {Number(selectedEscData.completed_count) + 1} (Hiện tại)</span>
+                          <span className="font-mono font-black text-xs text-amber-400 block mt-0.5">{formatCore(displayCurrentPrice)}</span>
+                          <span className="text-[8px] text-emerald-400 font-semibold block">Giá lượt này</span>
+                        </div>
+                        <div className="p-1.5 rounded-xl bg-muted/40 border border-border">
+                          <span className="text-[9px] text-muted-foreground font-bold uppercase block">Lượt {Number(selectedEscData.completed_count) + 2}</span>
+                          <span className="font-mono font-bold text-xs text-foreground block mt-0.5">
+                            {formatCore(
+                              selectedEscData.max_price && (displayCurrentPrice + selectedEscData.step) > selectedEscData.max_price
+                                ? selectedEscData.max_price
+                                : displayCurrentPrice + selectedEscData.step
+                            )}
+                          </span>
+                          <span className="text-[8px] text-muted-foreground block">Lượt kế</span>
+                        </div>
+                        <div className="p-1.5 rounded-xl bg-muted/20 border border-border/60 opacity-80">
+                          <span className="text-[9px] text-muted-foreground font-bold uppercase block">Lượt {Number(selectedEscData.completed_count) + 3}</span>
+                          <span className="font-mono font-bold text-xs text-foreground block mt-0.5">
+                            {formatCore(
+                              selectedEscData.max_price && (displayCurrentPrice + (selectedEscData.step * 2)) > selectedEscData.max_price
+                                ? selectedEscData.max_price
+                                : displayCurrentPrice + (selectedEscData.step * 2)
+                            )}
+                          </span>
+                          <span className="text-[8px] text-muted-foreground block">Sau nữa</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-1 border-t border-slate-800/60">
+                        <span>Đã mua thành công: <strong className="text-foreground font-mono">{selectedEscData.completed_count}</strong> lượt</span>
+                        {selectedEscData.max_price ? (
+                          <span>Trần giá: <strong className="text-slate-300 font-mono">{formatCore(selectedEscData.max_price)}</strong></span>
+                        ) : (
+                          <span>Không giới hạn trần</span>
+                        )}
+                      </div>
                     </div>
                   )}
 
@@ -685,12 +747,25 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
                       const pkgOffer = offerData.offers[pkg.id];
                       const isPkgEscalating = pkg.sale_mode === 'escalating' || Boolean(pkgOffer?.escalating?.is_escalating);
-                      const pkgEscData = pkgOffer?.escalating || {
+                      const rawPkgEsc = pkgOffer?.escalating;
+                      const pkgEscBase = Number(rawPkgEsc?.base_price ?? rawPkgEsc?.escalating_base_price ?? pkg.escalating_base_price ?? pkg.price) || pkg.price;
+                      const pkgEscStep = Number(rawPkgEsc?.step ?? rawPkgEsc?.escalating_step ?? pkg.escalating_step ?? 0) || 0;
+                      const pkgEscCompleted = Number(rawPkgEsc?.completed_count ?? pkg.escalating_completed_count ?? 0) || 0;
+                      const pkgEscMax = (rawPkgEsc?.max_price !== undefined && rawPkgEsc?.max_price !== null)
+                        ? Number(rawPkgEsc.max_price)
+                        : (pkg.escalating_max_price !== undefined && pkg.escalating_max_price !== null ? Number(pkg.escalating_max_price) : null);
+                      const rawPkgCurrent = Number(rawPkgEsc?.current_price ?? rawPkgEsc?.current_calculated_price ?? pkg.escalating_current_price);
+                      const pkgEscCurrent = (rawPkgCurrent > 0)
+                        ? rawPkgCurrent
+                        : (pkgEscMax !== null && pkgEscMax > 0 ? Math.min(pkgEscBase + (pkgEscCompleted * pkgEscStep), pkgEscMax) : (pkgEscBase + (pkgEscCompleted * pkgEscStep)));
+
+                      const pkgEscData = {
                         is_escalating: isPkgEscalating,
-                        base_price: pkg.escalating_base_price ?? pkg.price,
-                        step: pkg.escalating_step ?? 0,
-                        current_price: pkg.escalating_current_price ?? pkg.price,
-                        completed_count: pkg.escalating_completed_count ?? 0,
+                        base_price: pkgEscBase,
+                        step: pkgEscStep,
+                        max_price: pkgEscMax,
+                        completed_count: pkgEscCompleted,
+                        current_price: pkgEscCurrent,
                       };
 
                       const isPkgOfferEligible = !isPkgEscalating && Boolean(pkgOffer?.eligible);
@@ -698,7 +773,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       const isPkgOfferLoginReq = !isPkgEscalating && !isPkgOfferEligible && pkgOffer?.reason === 'login_required';
 
                       const pkgDisplayPrice = isPkgEscalating
-                        ? Number(pkgEscData.current_price)
+                        ? pkgEscData.current_price
                         : (isPkgOfferEligible ? pkgOffer.offer_price : pkg.price);
                       const pkgOriginalPrice = isPkgEscalating
                         ? pkgDisplayPrice
