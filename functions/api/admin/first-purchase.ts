@@ -150,10 +150,25 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       LIMIT 15;
     `).all<any>();
 
+    const excludedList = config.excluded_products || config.excluded_product_ids || [];
+
     return new Response(
       JSON.stringify({
         success: true,
-        config,
+        // Top-level configuration fields according to API specifications
+        enabled: Boolean(config.enabled),
+        offer_price: Number(config.offer_price) || 2000,
+        max_original_price: config.max_original_price !== undefined ? config.max_original_price : null,
+        require_verified_email: Boolean(config.require_verified_email),
+        excluded_product_ids: excludedList,
+        updated_at: config.updated_at || new Date().toISOString(),
+        updated_by: config.updated_by || 'admin',
+        // Backward-compatibility object for FirstPurchaseModule admin UI
+        config: {
+          ...config,
+          excluded_products: excludedList,
+          excluded_product_ids: excludedList,
+        },
         metrics: {
           total_used_count: totalUsed,
           total_discount_core: totalDiscount,
@@ -201,65 +216,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     const body: any = await request.json().catch(() => ({}));
     const action = String(body?.action || '').trim();
 
-    // ACTION 1: CẬP NHẬT CẤU HÌNH CHIẾN DỊCH
-    if (action === 'update_config') {
-      const {
-        enabled,
-        offer_price = 2000,
-        max_original_price = null,
-        excluded_products = ['sp_1793943215070_fxm', 'BỘ CODE'],
-        require_verified_email = true,
-      } = body?.config || {};
-
-      const nowIso = new Date().toISOString();
-      const newConfig: FirstPurchaseConfig = {
-        enabled: Boolean(enabled),
-        offer_price: Math.max(1, Math.floor(Number(offer_price) || 2000)),
-        max_original_price: max_original_price !== null && max_original_price !== '' && !isNaN(Number(max_original_price))
-          ? Math.max(1, Math.floor(Number(max_original_price)))
-          : null,
-        excluded_products: Array.isArray(excluded_products)
-          ? excluded_products.map((s) => String(s).trim()).filter(Boolean)
-          : ['sp_1793943215070_fxm', 'BỘ CODE'],
-        require_verified_email: Boolean(require_verified_email),
-        updated_at: nowIso,
-      };
-
-      await env.DB.prepare(`
-        INSERT INTO system_settings (key, value, updated_at)
-        VALUES ('wcg_first_purchase_config_v1', ?, ?)
-        ON CONFLICT(key) DO UPDATE SET
-          value = excluded.value,
-          updated_at = excluded.updated_at;
-      `).bind(JSON.stringify(newConfig), nowIso).run();
-
-      // Ghi audit log
-      const actorName = auth.user.username || auth.user.display_name || 'Admin';
-      const actorEmail = auth.user.email || 'admin@codegame.shop';
-      const logId = 'sec_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
-      await env.DB.prepare(`
-        INSERT INTO security_logs (id, actor_name, actor_email, action, target_id, ip_address, severity, details, created_at)
-        VALUES (?, ?, ?, 'UPDATE_FIRST_PURCHASE_CONFIG', 'system_settings', ?, 'INFO', ?, ?)
-      `).bind(
-        logId,
-        actorName,
-        actorEmail,
-        request.headers.get('cf-connecting-ip') || '127.0.0.1',
-        JSON.stringify(newConfig),
-        nowIso
-      ).run().catch(() => {});
-
-      return new Response(
-        JSON.stringify({
-          success: true,
-          message: 'Cập nhật cấu hình chiến dịch ưu đãi mua lần đầu thành công.',
-          config: newConfig,
-        }),
-        { headers: CORS_HEADERS }
-      );
-    }
-
-    // ACTION 2: ĐẶT LẠI ƯU ĐÃI (RESET OFFER) CHO 1 TÀI KHOẢN & 1 GÓI CỤ THỂ
+    // ACTION 1: ĐẶT LẠI ƯU ĐÃI (RESET OFFER) CHO 1 TÀI KHOẢN & 1 GÓI CỤ THỂ
     if (action === 'reset_offer') {
       const { memberId, memberEmail, productId, reason } = body || {};
 
@@ -335,9 +292,124 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       );
     }
 
+    // ACTION 2: CẬP NHẬT CẤU HÌNH CHIẾN DỊCH (Hỗ trợ cả partial update trực tiếp và action === 'update_config')
+    const currentConfig = await getFirstPurchaseConfigD1(env.DB);
+    const incoming = (body && typeof body.config === 'object' && body.config !== null) ? body.config : body;
+
+    let newEnabled = currentConfig.enabled;
+    if (incoming.enabled !== undefined) {
+      newEnabled = Boolean(incoming.enabled);
+    }
+
+    let newOfferPrice = currentConfig.offer_price;
+    if (incoming.offer_price !== undefined) {
+      const parsedOffer = Number(incoming.offer_price);
+      if (isNaN(parsedOffer) || parsedOffer <= 0) {
+        return new Response(
+          JSON.stringify({ success: false, message: 'offer_price phải là số dương lớn hơn 0.' }),
+          { status: 400, headers: CORS_HEADERS }
+        );
+      }
+      newOfferPrice = Math.floor(parsedOffer);
+    }
+
+    let newMaxOriginalPrice = currentConfig.max_original_price;
+    if (incoming.max_original_price !== undefined) {
+      if (incoming.max_original_price === null || incoming.max_original_price === '' || incoming.max_original_price === 'null') {
+        newMaxOriginalPrice = null;
+      } else {
+        const parsedMax = Number(incoming.max_original_price);
+        if (isNaN(parsedMax) || parsedMax <= newOfferPrice) {
+          return new Response(
+            JSON.stringify({ success: false, message: `max_original_price phải lớn hơn offer_price (${newOfferPrice} Core) hoặc để null.` }),
+            { status: 400, headers: CORS_HEADERS }
+          );
+        }
+        newMaxOriginalPrice = Math.floor(parsedMax);
+      }
+    }
+
+    let newRequireVerifiedEmail = currentConfig.require_verified_email;
+    if (incoming.require_verified_email !== undefined) {
+      newRequireVerifiedEmail = Boolean(incoming.require_verified_email);
+    }
+
+    let newExcludedProducts = currentConfig.excluded_products || [];
+    const rawExcluded = incoming.excluded_product_ids !== undefined ? incoming.excluded_product_ids : incoming.excluded_products;
+    if (rawExcluded !== undefined) {
+      if (Array.isArray(rawExcluded)) {
+        newExcludedProducts = rawExcluded.map((s) => String(s).trim()).filter(Boolean);
+      } else if (typeof rawExcluded === 'string') {
+        newExcludedProducts = rawExcluded.split('\n').map((s) => s.trim()).filter(Boolean);
+      } else {
+        return new Response(
+          JSON.stringify({ success: false, message: 'excluded_product_ids phải là mảng chuỗi ID hợp lệ.' }),
+          { status: 400, headers: CORS_HEADERS }
+        );
+      }
+    }
+
+    const nowIso = new Date().toISOString();
+    const actorName = auth.user.username || auth.user.display_name || 'admin';
+    const actorEmail = auth.user.email || 'admin@codegame.shop';
+
+    const updatedConfig: FirstPurchaseConfig = {
+      enabled: newEnabled,
+      offer_price: newOfferPrice,
+      max_original_price: newMaxOriginalPrice,
+      excluded_products: newExcludedProducts,
+      excluded_product_ids: newExcludedProducts,
+      require_verified_email: newRequireVerifiedEmail,
+      updated_at: nowIso,
+      updated_by: actorName,
+    };
+
+    await env.DB.prepare(`
+      INSERT INTO system_settings (key, value, updated_at)
+      VALUES ('wcg_first_purchase_config_v1', ?, ?)
+      ON CONFLICT(key) DO UPDATE SET
+        value = excluded.value,
+        updated_at = excluded.updated_at;
+    `).bind(JSON.stringify(updatedConfig), nowIso).run();
+
+    // Ghi audit log vào security_logs
+    const logId = 'sec_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
+    await env.DB.prepare(`
+      INSERT INTO security_logs (id, actor_name, actor_email, action, target_id, ip_address, severity, details, created_at)
+      VALUES (?, ?, ?, 'UPDATE_FIRST_PURCHASE_CONFIG', 'system_settings', ?, 'INFO', ?, ?)
+    `).bind(
+      logId,
+      actorName,
+      actorEmail,
+      request.headers.get('cf-connecting-ip') || '127.0.0.1',
+      JSON.stringify({
+        previous: currentConfig,
+        updated: updatedConfig,
+        changes: {
+          enabled: newEnabled !== currentConfig.enabled ? { from: currentConfig.enabled, to: newEnabled } : undefined,
+          offer_price: newOfferPrice !== currentConfig.offer_price ? { from: currentConfig.offer_price, to: newOfferPrice } : undefined,
+          max_original_price: newMaxOriginalPrice !== currentConfig.max_original_price ? { from: currentConfig.max_original_price, to: newMaxOriginalPrice } : undefined,
+          require_verified_email: newRequireVerifiedEmail !== currentConfig.require_verified_email ? { from: currentConfig.require_verified_email, to: newRequireVerifiedEmail } : undefined,
+          excluded_products: newExcludedProducts !== currentConfig.excluded_products ? { count: newExcludedProducts.length } : undefined,
+        },
+      }),
+      nowIso
+    ).run().catch(() => {});
+
     return new Response(
-      JSON.stringify({ success: false, message: 'Action không hợp lệ.' }),
-      { status: 400, headers: CORS_HEADERS }
+      JSON.stringify({
+        success: true,
+        message: 'Cập nhật cấu hình chiến dịch ưu đãi mua lần đầu thành công.',
+        enabled: updatedConfig.enabled,
+        offer_price: updatedConfig.offer_price,
+        max_original_price: updatedConfig.max_original_price,
+        require_verified_email: updatedConfig.require_verified_email,
+        excluded_product_ids: updatedConfig.excluded_products,
+        updated_at: updatedConfig.updated_at,
+        updated_by: updatedConfig.updated_by,
+        config: updatedConfig,
+      }),
+      { headers: CORS_HEADERS }
     );
   } catch (err: any) {
     return new Response(

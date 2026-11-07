@@ -10,6 +10,22 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-236: Bẫy Thiếu Top-level Flattened Fields Trong Admin API, Bỏ Quên Register Route Audit Log Trong _worker.ts & Lệch Trạng Thái Default Email Verification
+- **Triệu chứng & Rủi ro**:
+  1. Khi client bên ngoài hoặc AI Agent gọi `GET /api/admin/first-purchase`, nếu API chỉ trả về object lồng nhau `{ success: true, config: { ... } }` mà thiếu các trường top-level (`enabled`, `offer_price`, `max_original_price`, `require_verified_email`, `excluded_product_ids`, `updated_at`, `updated_by`), các script tích hợp tự động hoặc client chuẩn REST sẽ không đọc được trường cấu hình hoặc báo thiếu dữ liệu.
+  2. Khi gọi `POST /api/admin/first-purchase`, nếu API chỉ chấp nhận payload bọc trong `action: 'update_config'`, việc gửi body partial update dạng phẳng `{ "enabled": false }` hoặc `{ "offer_price": 2500 }` sẽ bị bỏ qua hoặc báo lỗi `Action không hợp lệ`.
+  3. Nếu tạo endpoint mới `functions/api/admin/audit-log.ts` mà quên đăng ký route trong `functions/_worker.ts`, yêu cầu từ client sẽ bị fallback về HTML SPA hoặc 404.
+  4. Nếu `DEFAULT_FIRST_PURCHASE_CONFIG.require_verified_email` để `true`, khi hệ thống khởi tạo hoặc chưa lưu database, khách hàng chưa xác minh email sẽ bị chặn không nhận được giá ưu đãi 2.000 Core.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Luôn trả về đồng thời cả các trường phẳng top-level lẫn đối tượng backward-compatibility `config` trong `GET /api/admin/first-purchase`.
+  2. Hỗ trợ partial update trực tiếp trong `POST /api/admin/first-purchase`: đọc cấu hình hiện tại từ D1, chỉ ghi đè các trường được gửi trong body (hỗ trợ cả trường phẳng lẫn lồng nhau `body.config`), validate logic nghiệp vụ nghiêm ngặt, ghi audit log vào `security_logs` và trả về cấu hình mới.
+  3. Luôn đồng thời import và khai báo route trong `functions/_worker.ts` khi tạo bất kỳ endpoint nào (`/api/admin/audit-log`, `/api/admin/escalating/packages`).
+  4. Đặt mặc định `require_verified_email: false` trong cả `DEFAULT_FIRST_PURCHASE_CONFIG` lẫn hàm `getFirstPurchaseConfigD1`.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không ép API client phải bọc toàn bộ tham số vào `action: 'update_config'` khi đã thiết kế RESTful endpoint.*
+  - ❌ *Không quên đăng ký endpoint mới vào `functions/_worker.ts`.*
+  - ❌ *Không để giá trị mặc định của `require_verified_email` là `true` khi người dùng đã thống nhất là `false`.*
+
 ### ISSUE-235: Bẫy Lệch Tên Thuộc Tính Interface Giá Nâng Giá, Bỏ Sót Trường Trong sync-lite & Bẫy So Sánh NaN Với Số Dư Ví
 - **Triệu chứng & Rủi ro**:
   1. Khi cấu hình một gói sản phẩm hình thức Nâng Giá (ví dụ 500 Core, tăng 100/lượt), thẻ ngoài danh sách hiện đúng 500 Core, nhưng khi mở bảng chọn gói (`ProductDetailModal`) và thanh toán (`ProductCheckoutModal`), gói hiển thị `0 Core`, huy hiệu `Nâng Giá (+0 Core/lượt)`.

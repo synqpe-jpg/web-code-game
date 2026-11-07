@@ -44,9 +44,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     const productId = (url.searchParams.get('product_id') || url.searchParams.get('productId') || '').trim();
     const gameSlug = (url.searchParams.get('game') || '').trim();
 
-    // 1. Phân nhánh: Lịch sử mua hàng và Reset kiểm toán cho Admin (/api/admin/escalating/history)
+    // 1. Phân nhánh: Quản trị Admin (/api/admin/escalating/*)
     if (pathname.includes('/admin/')) {
-      const adminCheck = await verifyAdminAuth(request, env as any, 'STORE_FULL');
+      const adminCheck = await verifyAdminAuth(request, env as any, 'ESCALATING_MANAGE');
       if (!adminCheck.authorized) {
         return new Response(
           JSON.stringify({ success: false, message: adminCheck.error || 'Yêu cầu quyền Quản trị viên.' }),
@@ -54,6 +54,43 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         );
       }
 
+      // 1a. Danh sách toàn bộ các gói đang bật Nâng Giá (/api/admin/escalating/packages)
+      if (pathname === '/api/admin/escalating/packages' || pathname.endsWith('/escalating/packages')) {
+        const prodsRes = await env.DB.prepare(
+          "SELECT id, title, game_slug, game_name, current_price, original_price, sale_mode, escalating_base_price, escalating_step, escalating_max_price, stock_quantity FROM store_products WHERE sale_mode = 'escalating' AND is_active = 1 ORDER BY game_slug ASC, id ASC"
+        ).all<any>();
+
+        const rows = prodsRes.results || [];
+        const packages = [];
+
+        for (const prod of rows) {
+          const epInfo = await getEscalatingPriceD1(env.DB, prod);
+          packages.push({
+            id: prod.id,
+            title: prod.title,
+            game_slug: prod.game_slug,
+            game_name: prod.game_name,
+            escalating_base_price: epInfo.escalating_base_price ?? epInfo.base_price,
+            escalating_step: epInfo.escalating_step ?? epInfo.step,
+            escalating_max_price: epInfo.escalating_max_price ?? epInfo.max_price,
+            completed_count: epInfo.completed_count,
+            current_price: epInfo.current_price,
+            next_price: epInfo.next_price,
+            stock_quantity: prod.stock_quantity,
+          });
+        }
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            count: packages.length,
+            packages,
+          }),
+          { headers: { ...CORS_HEADERS, 'Cache-Control': 'no-cache, no-store' } }
+        );
+      }
+
+      // 1b. Lịch sử mua hàng theo thang giá (/api/admin/escalating/history)
       if (!productId) {
         return new Response(
           JSON.stringify({ success: false, message: 'Vui lòng cung cấp product_id để xem lịch sử.' }),

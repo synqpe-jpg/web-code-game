@@ -71,11 +71,11 @@ interface FirstPurchaseModuleProps {
 
 export const FirstPurchaseModule: React.FC<FirstPurchaseModuleProps> = ({ onShowToast }) => {
   const [config, setConfig] = useState<FirstPurchaseConfig>({
-    enabled: false,
+    enabled: true,
     offer_price: 2000,
-    max_original_price: null,
+    max_original_price: 30000,
     excluded_products: ['sp_1793943215070_fxm', 'BỘ CODE'],
-    require_verified_email: true,
+    require_verified_email: false,
   });
 
   const [metrics, setMetrics] = useState({
@@ -105,18 +105,19 @@ export const FirstPurchaseModule: React.FC<FirstPurchaseModuleProps> = ({ onShow
 
   const getAuthHeaders = (): Record<string, string> => {
     const token =
-      (typeof localStorage !== 'undefined' && localStorage.getItem('wcg_auth_token')) ||
-      (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('wcg_auth_token')) ||
+      (typeof localStorage !== 'undefined' && (localStorage.getItem('wcg_admin_token') || localStorage.getItem('wcg_auth_token'))) ||
+      (typeof sessionStorage !== 'undefined' && (sessionStorage.getItem('wcg_admin_token') || sessionStorage.getItem('wcg_auth_token'))) ||
       '';
     const syncKey =
-      (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('wcg_admin_sync_key')) ||
-      (typeof localStorage !== 'undefined' && localStorage.getItem('wcg_admin_sync_key')) ||
+      (typeof sessionStorage !== 'undefined' && (sessionStorage.getItem('wcg_admin_sync_key') || sessionStorage.getItem('wcg_sync_key'))) ||
+      (typeof localStorage !== 'undefined' && (localStorage.getItem('wcg_admin_sync_key') || localStorage.getItem('wcg_sync_key'))) ||
       'b4e08494bf1c3fd6a0c965dd2411780c60513f7f87001bc955d7496331b2faef';
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'X-Sync-Key': syncKey,
       'X-Admin-Key': syncKey,
+      'X-Api-Key': syncKey,
     };
     if (token) headers['Authorization'] = `Bearer ${token}`;
     return headers;
@@ -179,7 +180,14 @@ export const FirstPurchaseModule: React.FC<FirstPurchaseModuleProps> = ({ onShow
         config: {
           ...config,
           excluded_products: parsedExcluded,
+          excluded_product_ids: parsedExcluded,
         },
+        enabled: config.enabled,
+        offer_price: config.offer_price,
+        max_original_price: config.max_original_price,
+        require_verified_email: config.require_verified_email,
+        excluded_products: parsedExcluded,
+        excluded_product_ids: parsedExcluded,
       };
 
       let saved = false;
@@ -195,7 +203,14 @@ export const FirstPurchaseModule: React.FC<FirstPurchaseModuleProps> = ({ onShow
 
           const data = await res.json().catch(() => null);
           if (res.ok && data?.success) {
-            if (data.config) setConfig(data.config);
+            const savedConfig = data.config || {
+              enabled: data.enabled !== undefined ? data.enabled : config.enabled,
+              offer_price: data.offer_price !== undefined ? data.offer_price : config.offer_price,
+              max_original_price: data.max_original_price !== undefined ? data.max_original_price : config.max_original_price,
+              require_verified_email: data.require_verified_email !== undefined ? data.require_verified_email : config.require_verified_email,
+              excluded_products: data.excluded_product_ids || parsedExcluded,
+            };
+            setConfig(savedConfig);
             onShowToast('Thành công', 'Đã lưu cấu hình chiến dịch ưu đãi mua lần đầu.', 'success');
             saved = true;
             break;

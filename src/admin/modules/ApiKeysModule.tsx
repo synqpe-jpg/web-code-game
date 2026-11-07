@@ -54,6 +54,8 @@ export type ApiKeyScope =
   | 'GIVEAWAYS_FULL'
   | 'EVENT_SCHEDULER_FULL'
   | 'STORE_FULL'
+  | 'FIRST_PURCHASE_MANAGE'
+  | 'ESCALATING_MANAGE'
   | 'MEMBERS_FULL'
   | 'SYNC_FULL'
   | 'API_KEYS_FULL'
@@ -216,6 +218,17 @@ export const ALL_API_SCOPES: ScopeOption[] = [
     badgeText: 'text-rose-400',
     badgeBorder: 'border-rose-500/20',
     icon: Sparkles,
+  },
+  {
+    id: 'ESCALATING_MANAGE',
+    name: 'Quản Lý Nâng Giá (Escalating Price API)',
+    category: 'Thương Mại & Kho',
+    description: 'Tra cứu danh sách gói đang bật Nâng Giá (/api/admin/escalating/packages), xem lịch sử mua hàng theo thang giá (/api/admin/escalating/history), và đặt lại thang giá về mốc ban đầu (/api/admin/escalating/reset).',
+    color: 'amber',
+    badgeBg: 'bg-amber-500/10',
+    badgeText: 'text-amber-400',
+    badgeBorder: 'border-amber-500/20',
+    icon: SlidersHorizontal,
   },
   {
     id: 'MEMBERS_FULL',
@@ -1717,6 +1730,85 @@ const data = await res.json();
 console.log('Kết quả nạp kho:', data.imported_count, 'Tồn kho mới:', data.total_stock_now);`}
                 </pre>
               </div>
+
+              {/* Mẫu 8: First Purchase Campaign Management */}
+              <div>
+                <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-rose-400" />
+                  Mẫu 8: Quản lý Chiến Dịch Ưu Đãi Mua Lần Đầu (GET / POST - Scope: FIRST_PURCHASE_MANAGE)
+                </h4>
+                <pre className="mt-2 p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto">
+{`# 1. Đọc toàn bộ cấu hình chiến dịch, thống kê và danh sách lượt mua
+curl -X GET "https://codegame.shop/api/admin/first-purchase" \\
+  -H "X-API-Key: YOUR_API_KEY_HERE"
+
+# 2. Cập nhật cấu hình từng phần (Partial Update)
+curl -X POST "https://codegame.shop/api/admin/first-purchase" \\
+  -H "Content-Type: application/json" \\
+  -H "X-API-Key: YOUR_API_KEY_HERE" \\
+  -d '{
+    "enabled": true,
+    "offer_price": 2000,
+    "max_original_price": 30000,
+    "require_verified_email": false,
+    "excluded_product_ids": ["sp_1793943215070_fxm", "BỘ CODE"]
+  }'
+
+# 3. Đặt lại quyền mua ưu đãi (Reset Offer) cho 1 thành viên
+curl -X POST "https://codegame.shop/api/admin/first-purchase" \\
+  -H "Content-Type: application/json" \\
+  -H "X-API-Key: YOUR_API_KEY_HERE" \\
+  -d '{
+    "action": "reset_offer",
+    "memberEmail": "member@gmail.com",
+    "productId": "sp_hiep-khach-hanh_nhu-lai",
+    "reason": "Hỗ trợ khách hàng đổi thiết bị"
+  }'`}
+                </pre>
+              </div>
+
+              {/* Mẫu 9: Escalating Price Management */}
+              <div>
+                <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <SlidersHorizontal className="w-4 h-4 text-amber-400" />
+                  Mẫu 9: Quản lý Hình Thức Nâng Giá Theo Gói (Scope: ESCALATING_MANAGE)
+                </h4>
+                <pre className="mt-2 p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto">
+{`# 1. Liệt kê toàn bộ các gói đang bật hình thức Nâng Giá kèm bậc giá hiện tại & tiếp theo
+curl -X GET "https://codegame.shop/api/admin/escalating/packages" \\
+  -H "X-API-Key: YOUR_API_KEY_HERE"
+
+# 2. Xem lịch sử đơn hàng đã mua theo thang giá của 1 gói
+curl -X GET "https://codegame.shop/api/admin/escalating/history?product_id=sp_idle-cat-gunner_mw5yrnka" \\
+  -H "X-API-Key: YOUR_API_KEY_HERE"
+
+# 3. Đặt lại thang giá về mốc ban đầu (Reset Escalating Price)
+curl -X POST "https://codegame.shop/api/admin/escalating/reset" \\
+  -H "Content-Type: application/json" \\
+  -H "X-API-Key: YOUR_API_KEY_HERE" \\
+  -d '{
+    "productId": "sp_idle-cat-gunner_mw5yrnka",
+    "reason": "Khởi động mùa giải mới, đưa giá về mốc ban đầu"
+  }'`}
+                </pre>
+              </div>
+
+              {/* Mẫu 10: Security & Audit Logs */}
+              <div>
+                <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                  Mẫu 10: Tra Cứu Nhật Ký Kiểm Toán (Scope: FIRST_PURCHASE_MANAGE / ESCALATING_MANAGE / ADMIN_FULL)
+                </h4>
+                <pre className="mt-2 p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto">
+{`# Tra cứu nhật ký thay đổi chiến dịch mua lần đầu (phân trang page 1, 20 bản ghi)
+curl -X GET "https://codegame.shop/api/admin/audit-log?scope=first-purchase&page=1&limit=20" \\
+  -H "X-API-Key: YOUR_API_KEY_HERE"
+
+# Tra cứu nhật ký thao tác Nâng Giá
+curl -X GET "https://codegame.shop/api/admin/audit-log?scope=escalating&page=1&limit=20" \\
+  -H "X-API-Key: YOUR_API_KEY_HERE"`}
+                </pre>
+              </div>
             </div>
           )}
 
@@ -2451,6 +2543,15 @@ await fetch('https://codegame.shop/api/event-scheduler?id=ev_1793290359485_abc',
                     className="px-2.5 py-1 rounded-lg text-xs font-medium bg-card border border-border text-muted-foreground hover:text-foreground transition-all"
                   >
                     🔄 Gói Vận Hành
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setSelectedScopes(['STORE_FULL', 'FIRST_PURCHASE_MANAGE', 'ESCALATING_MANAGE'])
+                    }
+                    className="px-2.5 py-1 rounded-lg text-xs font-medium bg-card border border-border text-rose-400 hover:text-rose-300 border-rose-500/20 transition-all"
+                  >
+                    🎁 Gói Ưu Đãi & Nâng Giá
                   </button>
                   <button
                     type="button"

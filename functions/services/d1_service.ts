@@ -40,16 +40,21 @@ export interface FirstPurchaseConfig {
   offer_price: number;
   max_original_price: number | null;
   excluded_products: string[];
+  excluded_product_ids?: string[];
   require_verified_email: boolean;
   updated_at?: string;
+  updated_by?: string;
 }
 
 export const DEFAULT_FIRST_PURCHASE_CONFIG: FirstPurchaseConfig = {
-  enabled: false, // Mặc định TẮT khi bàn giao (user bật tay sau khi kiểm xong)
+  enabled: true,
   offer_price: 2000,
-  max_original_price: null,
+  max_original_price: 30000,
   excluded_products: ['sp_1793943215070_fxm', 'BỘ CODE'],
-  require_verified_email: true,
+  excluded_product_ids: ['sp_1793943215070_fxm', 'BỘ CODE'],
+  require_verified_email: false, // Mặc định TẮT theo quyết định của chủ shop
+  updated_at: new Date().toISOString(),
+  updated_by: 'admin',
 };
 
 export async function getFirstPurchaseConfigD1(db: D1Database): Promise<FirstPurchaseConfig> {
@@ -57,13 +62,20 @@ export async function getFirstPurchaseConfigD1(db: D1Database): Promise<FirstPur
     const row = await db.prepare("SELECT value FROM system_settings WHERE key = 'wcg_first_purchase_config_v1' LIMIT 1").first<any>();
     if (row && row.value) {
       const parsed = typeof row.value === 'string' ? JSON.parse(row.value) : row.value;
+      const excludedList = Array.isArray(parsed.excluded_products)
+        ? parsed.excluded_products
+        : Array.isArray(parsed.excluded_product_ids)
+        ? parsed.excluded_product_ids
+        : ['sp_1793943215070_fxm', 'BỘ CODE'];
       return {
         enabled: Boolean(parsed.enabled),
-        offer_price: typeof parsed.offer_price === 'number' ? parsed.offer_price : 2000,
+        offer_price: typeof parsed.offer_price === 'number' && parsed.offer_price > 0 ? parsed.offer_price : 2000,
         max_original_price: typeof parsed.max_original_price === 'number' ? parsed.max_original_price : null,
-        excluded_products: Array.isArray(parsed.excluded_products) ? parsed.excluded_products : ['sp_1793943215070_fxm', 'BỘ CODE'],
-        require_verified_email: parsed.require_verified_email !== false,
-        updated_at: parsed.updated_at,
+        excluded_products: excludedList,
+        excluded_product_ids: excludedList,
+        require_verified_email: Boolean(parsed.require_verified_email), // Boolean chuẩn, mặc định false nếu không set
+        updated_at: parsed.updated_at || new Date().toISOString(),
+        updated_by: parsed.updated_by || 'admin',
       };
     }
   } catch (e) {

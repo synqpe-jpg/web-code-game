@@ -7,6 +7,40 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-07]
 
+### 334. Triển Khai Bộ API Quản Lý Chiến Dịch Mua Lần Đầu & Hình Thức Nâng Giá, Tự Động Ghi Nhật Ký Kiểm Toán & Đồng Bộ Quyền ESCALATING_MANAGE (Rule 8)
+- **Bối cảnh & Yêu cầu nghiệp vụ**:
+  - Người dùng yêu cầu xây dựng API quản lý hoàn chỉnh cho 2 nhóm tính năng (Chiến dịch ưu đãi mua lần đầu & Hình thức Nâng Giá theo từng gói), sử dụng chung một chuẩn xác thực quản trị (`verifyAdminAuth`), đồng bộ 1 nguồn sự thật (D1 database), hỗ trợ ghi và đọc nhật ký kiểm toán (`security_logs`), giải quyết triệt để lỗi lưu cấu hình và đồng bộ quyền mới theo Rule 8.
+- **Nguyên nhân gốc rễ (Root Cause) & Phân tích chuyên sâu**:
+  1. *Lỗi "Thất bại - Không thể lưu cấu hình" trong Admin*: Tại thời điểm người dùng kiểm chứng trên `admin-code-game-shop.pages.dev/admin#/first-purchase` lúc 10:45 SA 07/11, route `/api/admin/first-purchase` chưa được nạp vào `_worker.ts` dẫn tới Pages fallback về `index.html` (SPA HTML status 200). Khi client gọi `res.json()`, hàm bắt lỗi catch và trả về `null` khiến Toast hiển thị lỗi mặc định. Đồng thời `FirstPurchaseModule.tsx` thiếu fallback nạp token từ `wcg_admin_token`.
+  2. *Thiếu API endpoints quản trị chuyên biệt*: Chưa có endpoint `GET /api/admin/escalating/packages` để AI Agent và hệ thống ngoài liệt kê danh sách gói Nâng Giá; chưa có endpoint `GET /api/admin/audit-log` để đọc lịch sử kiểm toán trong bảng `security_logs`.
+  3. *Thiếu hỗ trợ Partial Update cho first-purchase API*: `POST /api/admin/first-purchase` trước đó chỉ nhận payload bọc trong `action: 'update_config'`, không hỗ trợ nhận trực tiếp các trường partial update phẳng (`{ enabled, offer_price, max_original_price, require_verified_email, excluded_product_ids }`).
+  4. *Trạng thái mặc định email verification*: `DEFAULT_FIRST_PURCHASE_CONFIG.require_verified_email` trước đó để `true`, trong khi chủ sàn đã chốt quyết định mặc định là `false` (tắt).
+- **Giải pháp triệt để đã triển khai (Solution Applied)**:
+  1. *Nâng cấp API Chiến Dịch Mua Lần Đầu (`functions/api/admin/first-purchase.ts`)*:
+     - `GET /api/admin/first-purchase`: Trả về toàn bộ cài đặt hiện tại ở cấp cao nhất (`enabled`, `offer_price`, `max_original_price`, `require_verified_email`, `excluded_product_ids`, `updated_at`, `updated_by`) song song với đối tượng `config`, `metrics`, `used_orders`, `reset_logs`, `ip_alerts` để tương thích 100% với cả API Client lẫn giao diện Admin UI.
+     - `POST /api/admin/first-purchase`: Hỗ trợ cả partial update trực tiếp lẫn `action: 'update_config'`. Kiểm tra validation nghiêm ngặt: `offer_price > 0`, `max_original_price > offer_price` hoặc `null`, `excluded_product_ids` là mảng ID hợp lệ. Ghi nhật ký kiểm toán vào `security_logs` (`UPDATE_FIRST_PURCHASE_CONFIG`) lưu chi tiết giá trị cũ $\rightarrow$ mới. Trả về cấu hình hoàn chỉnh sau khi đổi.
+  2. *Xây dựng API Quản Lý Nâng Giá (`functions/api/store/escalating.ts`)*:
+     - Bổ sung endpoint `GET /api/admin/escalating/packages`: Yêu cầu xác thực quản trị (`verifyAdminAuth`), duyệt toàn bộ các gói đang bật Nâng Giá (`sale_mode = 'escalating' AND is_active = 1`), tính toán chính xác `escalating_base_price`, `escalating_step`, `escalating_max_price`, `completed_count`, `current_price`, `next_price` và trả về dạng mảng JSON chuẩn mực.
+  3. *Xây dựng API Nhật Ký Kiểm Toán (`functions/api/admin/audit-log.ts`)*:
+     - Endpoint `GET /api/admin/audit-log`: Yêu cầu xác thực quản trị, hỗ trợ tham số `scope` (`first-purchase`, `escalating`, `all`), phân trang `page` & `limit` (tối đa 100 bản ghi/trang), truy vấn dữ liệu từ bảng `security_logs`, tự động parse JSON `details`.
+  4. *Cập nhật Đăng Ký Route Trong Cloudflare Pages Edge Worker (`functions/_worker.ts`)*:
+     - Import và đăng ký route `/api/admin/audit-log` và `/api/admin/escalating/packages` trên Edge Worker tập trung, đảm bảo hoạt động nhất quán trên cả Web Khách `codegame.shop` lẫn Web Quản Trị `admin-code-game-shop.pages.dev`.
+  5. *Sửa Dứt Điểm Lệch Trạng Thái Chiến Dịch (`functions/services/d1_service.ts`)*:
+     - Đồng bộ 1 nguồn sự thật duy nhất (D1 database).
+     - Đặt mặc định `require_verified_email: false` theo quyết định của chủ shop.
+  6. *Gia cố Giao Diện Quản Trị `FirstPurchaseModule.tsx`*:
+     - Bổ sung đọc token từ `wcg_admin_token` bên cạnh `wcg_auth_token`.
+     - Cập nhật payload lưu cấu hình gửi đồng thời cả trường phẳng lẫn đối tượng lồng nhau, phản ánh tức thì trạng thái lên UI.
+  7. *Tuân thủ Nguyên Tắc Bắt Buộc Rule 8 trong AGENTS.md*:
+     - Bổ sung scope mới `ESCALATING_MANAGE` vào `ApiKeyScope` và `ALL_API_SCOPES` trong `src/admin/modules/ApiKeysModule.tsx`.
+     - Cập nhật hàm phân giải quyền `hasScope` trong `functions/services/mission_service.ts`.
+     - Bổ sung nút chọn nhanh `🎁 Gói Ưu Đãi & Nâng Giá` trong modal tạo và cấp quyền API Key.
+     - Cập nhật tài liệu cURL/JS mẫu cho 3 mục: Chiến Dịch Mua Lần Đầu (Mẫu 8), Nâng Giá Theo Gói (Mẫu 9) và Nhật Ký Kiểm Toán (Mẫu 10).
+- **Kết quả nghiệm thu**:
+  - Kiểm toán Zero Test Artifacts on Production (Rule 7) đạt 100%.
+  - Biên dịch toàn dự án đạt 100% không phát sinh bất kỳ lỗi TypeScript hay Vite chunking nào.
+  - Sẵn sàng triển khai tự động lên Cloudflare Pages theo Rule 6.
+
 ### 333. Khắc Phục Triệt Để Lỗi Gói Nâng Giá Hiện 0 Core Trên Trang Khách, Bổ Sung Thang Đo Giá Trực Quan & Sửa Chuỗi CoreCore
 - **Bối cảnh & Hiện tượng (07/11/2026)**:
   - Khi kiểm chứng gói test thật `sp_idle-cat-gunner_mw5yrnka` ("Test Nâng Giá", game Idle Cat Gunner, cấu hình 500 Core, tăng 100/lượt, không trần, tồn 3 mã) trên trang khách live `codegame.shop/store`:

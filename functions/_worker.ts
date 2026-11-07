@@ -59,6 +59,7 @@ import * as telegramAdminApi from './api/telegram/admin';
 import * as telegramManageApi from './api/telegram/manage';
 import * as telegramUserApi from './api/telegram/user';
 import * as firstPurchaseAdminApi from './api/admin/first-purchase';
+import * as auditLogAdminApi from './api/admin/audit-log';
 import * as storeMyOfferApi from './api/store/my-offer';
 import * as escalatingApi from './api/store/escalating';
 import { getMultipleSettingsD1 } from './services/d1_service';
@@ -595,11 +596,21 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
         return await firstPurchaseAdminApi.onRequestGet(context);
       }
 
-      // 8c-5. /api/admin/escalating/* (Escalating Price History & Reset API)
-      if (pathname === '/api/admin/escalating/history' || pathname === '/api/admin/escalating/reset') {
+      // 8c-5. /api/admin/escalating/* (Escalating Price History, Packages & Reset API)
+      if (
+        pathname === '/api/admin/escalating/history' ||
+        pathname === '/api/admin/escalating/reset' ||
+        pathname === '/api/admin/escalating/packages'
+      ) {
         if (method === 'OPTIONS') return await escalatingApi.onRequestOptions();
         if (method === 'POST') return await escalatingApi.onRequestPost(context);
         return await escalatingApi.onRequestGet(context);
+      }
+
+      // 8c-6. /api/admin/audit-log (Security & Audit Logs API)
+      if (pathname === '/api/admin/audit-log') {
+        if (method === 'OPTIONS') return await auditLogAdminApi.onRequestOptions();
+        return await auditLogAdminApi.onRequestGet(context);
       }
 
       // 8d. /api/crawl-article (AI Article Crawler & Extractor)
