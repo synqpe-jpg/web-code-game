@@ -254,31 +254,7 @@ export const Header: React.FC<HeaderProps> = ({
               <span>{t.nav.utilities}</span>
             </button>
 
-            <button
-              type="button"
-              onClick={() => onSelectTab('missions')}
-              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                currentTab === 'missions'
-                  ? 'bg-primary text-white shadow-glow-primary'
-                  : 'text-slate-300 hover:text-white hover:bg-card'
-              }`}
-            >
-              <Award className="w-4 h-4 text-primary-light" />
-              <span>{t.nav.missions || 'Nhiệm Vụ'}</span>
-            </button>
 
-            <button
-              type="button"
-              onClick={() => onSelectTab('telegram')}
-              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                currentTab === 'telegram'
-                  ? 'bg-[#229ED9] text-white shadow-sm'
-                  : 'text-slate-300 hover:text-white hover:bg-card'
-              }`}
-            >
-              <Send className="w-4 h-4 text-[#229ED9]" />
-              <span>Telegram</span>
-            </button>
           </nav>
 
           {/* 3. Actions Toolbar: Tải App, Bookmark, Account (Compact & responsive on mobile) */}
@@ -462,7 +438,45 @@ export const Header: React.FC<HeaderProps> = ({
                           <span>{t.header.myCodes}</span>
                         </span>
                         <span className="text-[10px] text-primary-light font-bold">
-                          Mã quà & Nhiệm vụ ↗
+                          Mã quà đã nhận ↗
+                        </span>
+                      </button>
+
+                      {/* 2.1 Nhiệm Vụ Nhận Quà (Chuyển vào Thông Tin Nhân Vật) */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIsUserMenuOpen(false);
+                          if (onOpenProfile) (onOpenProfile as any)('missions');
+                        }}
+                        className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-amber-500/10 text-foreground cursor-pointer text-left group"
+                      >
+                        <span className="flex items-center gap-2">
+                          <Award className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
+                          <span className="font-bold text-amber-300">Nhiệm Vụ Nhận Quà</span>
+                        </span>
+                        <span className="text-[10px] text-amber-400 font-bold bg-amber-500/20 px-2 py-0.5 rounded-full border border-amber-500/30">
+                          HOT
+                        </span>
+                      </button>
+
+                      {/* 2.2 Thông Báo Telegram (Chuyển vào Thông Tin Nhân Vật) */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIsUserMenuOpen(false);
+                          if (onOpenProfile) (onOpenProfile as any)('telegram');
+                        }}
+                        className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-[#229ED9]/15 text-[#229ED9] cursor-pointer text-left group"
+                      >
+                        <span className="flex items-center gap-2">
+                          <Send className="w-4 h-4 text-[#229ED9] group-hover:scale-110 transition-transform" />
+                          <span className="font-bold text-foreground">Thông Báo Telegram</span>
+                        </span>
+                        <span className="text-[10px] text-[#229ED9] font-bold bg-[#229ED9]/20 px-2 py-0.5 rounded-full border border-[#229ED9]/40">
+                          BOT
                         </span>
                       </button>
 
@@ -747,15 +761,17 @@ export const Header: React.FC<HeaderProps> = ({
               )}
             </div>
 
-            {/* Telegram Community Button */}
+            {/* Telegram Community & Alerts Button */}
             <button
               type="button"
-              onClick={() => onSelectTab('telegram')}
-              className={`p-1.5 sm:p-2 min-w-[32px] min-h-[32px] sm:min-w-[38px] sm:min-h-[38px] flex items-center justify-center rounded-xl transition-all cursor-pointer active:scale-95 shadow-sm shrink-0 relative group ${
-                currentTab === 'telegram'
-                  ? 'bg-[#229ED9] text-white shadow-glow-primary'
-                  : 'bg-card hover:bg-[#229ED9]/15 border border-border/80 hover:border-[#229ED9]/40 text-slate-300 hover:text-[#229ED9]'
-              }`}
+              onClick={() => {
+                if (currentUser && onOpenProfile) {
+                  (onOpenProfile as any)('telegram');
+                } else {
+                  window.open('https://t.me/webcodegame_vn', '_blank', 'noopener,noreferrer');
+                }
+              }}
+              className="p-1.5 sm:p-2 min-w-[32px] min-h-[32px] sm:min-w-[38px] sm:min-h-[38px] flex items-center justify-center rounded-xl transition-all cursor-pointer active:scale-95 shadow-sm shrink-0 relative group bg-card hover:bg-[#229ED9]/15 border border-border/80 hover:border-[#229ED9]/40 text-slate-300 hover:text-[#229ED9]"
               title="Cộng đồng Telegram & Bot nhận code riêng"
               aria-label="Cộng đồng Telegram"
             >

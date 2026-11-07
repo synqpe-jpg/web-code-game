@@ -202,32 +202,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           </span>
         </button>
 
-        {/* Tab 5: Nhiệm Vụ (Missions) */}
-        <button
-          type="button"
-          onClick={() => onSelectTab('missions')}
-          className={`flex-1 flex flex-col items-center justify-center py-1 px-0.5 rounded-xl transition-all duration-200 cursor-pointer relative group active:scale-95 min-w-0 ${
-            currentTab === 'missions'
-              ? 'text-primary'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          {currentTab === 'missions' && (
-            <span className="absolute top-0 w-8 h-[2.5px] bg-primary rounded-full shadow-glow-primary animate-fade-in" />
-          )}
-          <div
-            className={`w-7 h-7 rounded-xl flex items-center justify-center transition-all ${
-              currentTab === 'missions'
-                ? 'bg-primary/20 text-primary-light shadow-sm'
-                : 'group-hover:bg-muted/60'
-            }`}
-          >
-            <Award className="w-4 h-4 transition-transform group-hover:scale-110" />
-          </div>
-          <span className="text-[10px] font-bold mt-0.5 tracking-tight whitespace-nowrap">
-            Nhiệm Vụ
-          </span>
-        </button>
+
 
         {/* Tab 5: Tài Khoản / Thông Tin Nhân Vật */}
         <button

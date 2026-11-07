@@ -7,6 +7,35 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-07]
 
+### 346. Chuyển Mục Nhiệm Vụ & Thông Báo Telegram Vào Mục Thông Tin Nhân Vật & Tối Ưu Tinh Gọn Thanh Điều Hướng Desktop/Mobile
+- **Triệu chứng & Bối cảnh**:
+  - Người dùng yêu cầu chuyển mục "Nhiệm vụ" và "Thông báo Telegram" vào bên trong mục "Thông tin nhân vật".
+  - Trước đây, thanh điều hướng ngang trên máy tính (Desktop Navigation) có tới 7 tab (`catalog`, `news`, `giveaways`, `store`, `utilities`, `missions`, `telegram`), khiến thanh menu bị dài và chật chội.
+  - Trên điện thoại di động (Mobile Bottom Navigation), thanh điều hướng dưới đáy màn hình có tới 7 tab chen chúc, làm kích thước các nút bị thu nhỏ, chữ khó đọc và không đảm bảo chuẩn cảm ứng $\ge 44\text{px}$.
+  - Người dùng muốn tích hợp các tính năng liên quan trực tiếp đến thành viên (Nhiệm vụ nhận quà, cấu hình thông báo Telegram và kênh cộng đồng) vào một bảng điều khiển trung tâm (Dashboard) duy nhất: **Hồ Sơ & Thông Tin Nhân Vật** (`UserProfileModal.tsx`).
+- **Nguyên nhân gốc rễ & Phân tích trải nghiệm (Root Cause & UX Analysis)**:
+  1. *Phân mảnh trải nghiệm người dùng*: Nhiệm vụ nhận thưởng và thông báo Telegram là các tính năng gắn liền với tài khoản cá nhân của từng thành viên; việc đặt chúng tách rời trên thanh điều hướng chính của toàn sàn gây loãng trải nghiệm duyệt mua sắm.
+  2. *Quá tải diện tích hiển thị di động*: Màn hình điện thoại có chiều rộng phổ biến 375px - 390px, thanh Bottom Nav với 7 tab khiến khoảng cách giữa các nút bị bóp nghẹt dưới 40px, dễ bấm nhầm.
+- **Giải pháp triệt để đã triển khai (Solution Applied)**:
+  1. *Tích Hợp Đầy Đủ 4 Tab Vào Modal Thông Tin Nhân Vật (`UserProfileModal.tsx`)*:
+     - Mở rộng kích thước modal lên `max-w-2xl` thoáng đãng, hỗ trợ cuộn nội bộ mượt mà `max-h-[92vh]`.
+     - Cấu trúc thanh tab gồm 4 mục rõ ràng:
+       + **Thông Tin Nhân Vật** (`profile`): Quản lý tên hiển thị, avatar 12 phong cách game chibi/cyber, mã UID một chạm sao chép, số dư Core và bổ sung 4 nút **Lối Tắt Nhanh** (Nhiệm Vụ Nhận Quà, Thông Báo Telegram, Ví Core, Đổi Mật Khẩu).
+       + **Nhiệm Vụ Nhận Quà** (`missions`): Tích hợp trực tiếp danh sách nhiệm vụ từ `missionService`, thanh tìm kiếm realtime, các bộ lọc phân loại (Tất cả, Đang mở, Nhận Core, Nhận Code), số lượng còn lại, hạn chót và nút "Làm Nhiệm Vụ" mở trực tiếp `MissionDetailModal` (được nâng lên `z-[140]`).
+       + **Thông Báo Telegram** (`telegram`): Bổ sung Banner Kênh Thông Báo Telegram CodeGame Chính Thức (`https://t.me/webcodegame_vn`), tích hợp trạng thái liên kết Bot Telegram cá nhân, tùy chọn nhận thông báo riêng (mã mới, sắp hết hạn, sự kiện) và danh sách tựa game đang theo dõi 24/7.
+       + **Bảo Mật** (`security`): Đổi mật khẩu an toàn với mã hóa SHA-256 + Salt.
+     - Hỗ trợ prop `initialTab` mở thẳng tab mong muốn từ bên ngoài.
+  2. *Tinh Gọn Thanh Điều Hướng Desktop (`Header.tsx`)*:
+     - Gỡ bỏ 2 tab `missions` và `telegram` khỏi thanh `nav` ngang. Thanh chỉ còn 5 chuyên mục mua sắm & tin tức cốt lõi: Tra Code (`catalog`), Tin Tức (`news`), Săn Quà (`giveaways`), Cửa Hàng (`store`), Tiện Ích (`utilities`).
+     - Trong Menu Dropdown Avatar: Thêm mục "Nhiệm Vụ Nhận Quà" và "Thông Báo Telegram", dẫn thẳng vào `UserProfileModal` với tab tương ứng.
+     - Nút icon Telegram trên toolbar: Nhấp vào mở thẳng tab Telegram của Thông Tin Nhân Vật.
+  3. *Tối Ưu Thanh Điều Hướng Mobile Chuẩn 6 Nút (`MobileBottomNav.tsx`)*:
+     - Gỡ bỏ tab `missions` khỏi Bottom Bar, giữ đúng 6 nút tiêu chuẩn (Tra Code, Tin Tức, Giveaway, Cửa Hàng, Tiện Ích, Nhân Vật).
+     - Đạt chuẩn cảm ứng $\ge 44\text{px}$, các nút hiển thị rộng rãi, icon và chữ rõ ràng, không bị tràn màn hình.
+  4. *Đồng Bộ State & Điều Hướng Trung Tâm (`src/App.tsx`)*:
+     - Quản lý state `profileInitialTab` và hàm `handleOpenProfile(tab)`.
+- **Kiểm thử & Nghiệm thu**: Vượt qua 100% các bài kiểm thử đơn vị (`test_profile_missions_telegram.cjs`), kiểm thử hồi quy hệ thống (`test_adjust_balance_fix.cjs`, `test_credit_type_safety.cjs`, `test_sepay_deposit_fix.cjs`, `test_qr_payment_logic.cjs`).
+
 ### 345. Sửa Triệt Để Lỗi "LIKE or GLOB pattern too complex" Khi Admin Điều Chỉnh Số Dư Ví Thành Viên (Chuyển Idempotency Sang Tra Cứu Cột Chuẩn & Tách Logging Ra Khỏi ACID Batch)
 - **Triệu chứng & Bối cảnh**:
   - Tại trang Quản trị Shop mục Thành Viên (`admin-code-game-shop.pages.dev/admin#/members`) hoặc Quản lý Ví (`#/wallets`), khi Quản trị viên thực hiện Cộng Tiền hoặc Trừ Tiền ví cho thành viên (ví dụ: cộng +70.000 Core cho thành viên Minhhu `usr_1792759505915_tzfh` với lý do "Thưởng sự kiện thành viên tích cực") và bấm "Xác Nhận Thay Đổi Số Dư", giao diện báo toast đỏ:

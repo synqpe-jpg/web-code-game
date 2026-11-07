@@ -10,6 +10,17 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-245: Bẫy Nhồi Quá Nhiều Tab Trên Mobile Bottom Nav Gây Vỡ Giao Diện & Bẫy Xung Đột z-index Khi Mở Modal Lồng Từ User Profile
+- **Triệu chứng & Rủi ro**:
+  1. Khi đưa quá nhiều tính năng (trên 6 tab) lên thanh điều hướng dưới cùng của điện thoại (`MobileBottomNav.tsx`), chiều rộng mỗi nút bấm bị ép xuống dưới 40px (trong khi tiêu chuẩn cảm ứng WCAG/Apple/Google yêu cầu $\ge 44\text{px}$). Chữ bị rớt dòng, icon bị đè và người dùng liên tục bấm nhầm tab.
+  2. Khi mở một modal lồng từ trong modal khác (ví dụ: mở `MissionDetailModal` từ tab Nhiệm vụ trong `UserProfileModal`), nếu modal con có `z-index` thấp hơn hoặc bằng modal cha (`z-50` so với `z-[120]`), modal con sẽ bị che khuất hoàn toàn phía sau lớp backdrop của modal cha, khiến người dùng bị kẹt giao diện không thể thao tác hoặc bấm đóng.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Tinh gọn thanh Bottom Nav di động về đúng 6 nút chiến lược: Tra Code, Tin Tức, Săn Quà (Giveaway), Cửa Hàng, Tiện Ích, và Tài Khoản / Nhân Vật. Toàn bộ các tiện ích cá nhân hóa (Nhiệm vụ nhận quà, thông báo Telegram, ví số dư, bảo mật) được gom vào Dashboard trung tâm trong `UserProfileModal.tsx`.
+  2. Nâng cấp `z-index` phân tầng chuẩn mực: Modal con tương tác chuyên sâu (`MissionDetailModal`) được đặt `z-[140]`, cao hơn hẳn so với Modal cha `UserProfileModal` (`z-[120]`), đảm bảo luôn hiển thị nổi bật trên cùng và nhận sự kiện cảm ứng/chuột chính xác 100%.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không để quá 6 nút trên thanh Mobile Bottom Nav.*
+  - ❌ *Không đặt `z-index` của modal chi tiết nhiệm vụ thấp hơn `UserProfileModal`.*
+
 ### ISSUE-244: Bẫy Dùng Toán Tử LIKE %...% Trên Cột JSON/TEXT Lớn Trong SQLite Cloudflare D1 Gây Lỗi "LIKE or GLOB pattern too complex" & Bẫy Chặn Luồng Giao Dịch Do Khối Idempotency Ném Ngoại Lệ
 - **Triệu chứng & Rủi ro**:
   1. Trong SQLite (Cloudflare D1), khi thực hiện so khớp mẫu `WHERE column LIKE '%...%'` trên cột văn bản không index lưu chuỗi JSON dài hoặc payload phức tạp (như cột `details` của bảng `security_logs`), engine SQLite giới hạn độ phức tạp của thuật toán tìm kiếm non-deterministic substring. Khi số lượng hàng tăng hoặc độ dài bản ghi lớn, SQLite ném ngay ngoại lệ: `D1_ERROR: LIKE or GLOB pattern too complex: SQLITE_ERROR`.

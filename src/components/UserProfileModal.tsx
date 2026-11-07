@@ -31,12 +31,21 @@ import {
   ExternalLink,
   Unlink,
   Trash2,
+  Award,
+  Search,
+  Clock,
+  Gift,
+  RefreshCw,
+  ArrowRight,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import type { UserProfile } from '../types/game';
 import { authService } from '../services/authService';
 import { dataService } from '../services/dataService';
 import { telegramService, type TelegramUserStatus } from '../services/telegramService';
+import { missionService } from '../services/missionService';
+import type { Mission } from '../types/mission';
+import { MissionDetailModal } from './MissionDetailModal';
 import { formatCore, formatFullDateTime } from '../utils/textUtils';
 import { LanguageSelector } from './LanguageSelector';
 
@@ -51,6 +60,8 @@ interface UserProfileModalProps {
   onShowToast: (title: string, message?: string, type?: 'success' | 'error' | 'info') => void;
   isDarkMode?: boolean;
   onToggleTheme?: () => void;
+  initialTab?: 'profile' | 'security' | 'telegram' | 'missions';
+  onOpenAuth?: () => void;
 }
 
 // 12 Curated Gaming/Cyber Chibi Avatar Presets
@@ -80,8 +91,75 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   onShowToast,
   isDarkMode,
   onToggleTheme,
+  initialTab = 'profile',
+  onOpenAuth,
 }) => {
-  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'telegram'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'telegram' | 'missions'>(initialTab);
+
+  // Sync initialTab when modal opens
+  useEffect(() => {
+    if (isOpen && initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [isOpen, initialTab]);
+
+  // Missions States
+  const [missions, setMissions] = useState<Mission[]>(() => {
+    try {
+      const cached = localStorage.getItem('wcg_cached_missions_v1');
+      if (cached) return JSON.parse(cached) || [];
+    } catch {}
+    return [];
+  });
+  const [isLoadingMissions, setIsLoadingMissions] = useState(false);
+  const [missionSearch, setMissionSearch] = useState('');
+  const [missionFilter, setMissionFilter] = useState<'all' | 'active' | 'reward_wallet' | 'reward_code'>('all');
+  const [selectedMission, setSelectedMission] = useState<Mission | null>(null);
+
+  const loadMissions = async () => {
+    setIsLoadingMissions(true);
+    try {
+      const res = await missionService.getMissions(false);
+      if (res.success && res.missions) {
+        setMissions(res.missions);
+        try {
+          localStorage.setItem('wcg_cached_missions_v1', JSON.stringify(res.missions));
+        } catch {}
+      }
+    } catch (e) {
+      console.warn('[UserProfileModal] Load missions error:', e);
+    } finally {
+      setIsLoadingMissions(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen && activeTab === 'missions') {
+      loadMissions();
+    }
+  }, [isOpen, activeTab]);
+
+  const filteredMissions = (missions || []).filter((m) => {
+    if (missionSearch.trim()) {
+      const q = missionSearch.toLowerCase().trim();
+      const matchTitle = (m.title || '').toLowerCase().includes(q);
+      const matchDesc = (m.description || '').toLowerCase().includes(q);
+      const matchCat = (m.category || '').toLowerCase().includes(q);
+      if (!matchTitle && !matchDesc && !matchCat) return false;
+    }
+    if (missionFilter === 'active') {
+      const isExpired = m.end_time ? new Date(m.end_time).getTime() < Date.now() : false;
+      const isFull = (m.participants_count || 0) >= (m.max_participants || 99999);
+      return m.status === 'ACTIVE' && !isExpired && !isFull;
+    }
+    if (missionFilter === 'reward_wallet') {
+      return m.reward_type === 'WALLET' || m.reward_type === 'WALLET_CORE';
+    }
+    if (missionFilter === 'reward_code') {
+      return m.reward_type === 'CODE' || m.reward_type === 'GIFTCODE';
+    }
+    return true;
+  });
 
   // Form states
   const [displayName, setDisplayName] = useState('');
@@ -360,7 +438,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   return createPortal(
     <div className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md overflow-y-auto animate-fade-in">
       <div
-        className="relative w-full max-w-xl bg-card border border-border/90 rounded-3xl overflow-hidden shadow-2xl animate-scale-in my-auto max-h-[92vh] flex flex-col"
+        className="relative w-full max-w-2xl bg-card border border-border/90 rounded-3xl overflow-hidden shadow-2xl animate-scale-in my-auto max-h-[92vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Ambient Top Glow */}
@@ -378,7 +456,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 <Sparkles className="w-4 h-4 text-amber-400 animate-pulse" />
               </h3>
               <p className="text-[11px] sm:text-xs text-muted-foreground">
-                Quản lý danh tính game thủ, đổi avatar và bảo mật tài khoản
+                Quản lý danh tính game thủ, đổi avatar, làm nhiệm vụ và nhận thông báo
               </p>
             </div>
           </div>
@@ -391,11 +469,12 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
           </button>
         </div>
 
-        {/* Tab Navigation */}
-        <div className="flex items-center border-b border-border/60 px-4 sm:px-6 bg-muted/30 shrink-0">
+        {/* Tab Navigation - Cuộn ngang mượt mà trên mobile nếu cần */}
+        <div className="flex items-center border-b border-border/60 px-2 sm:px-6 bg-muted/30 shrink-0 overflow-x-auto scrollbar-none">
           <button
+            type="button"
             onClick={() => setActiveTab('profile')}
-            className={`py-3 px-4 text-xs sm:text-sm font-bold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
+            className={`py-3 px-3 sm:px-4 text-xs sm:text-sm font-bold border-b-2 transition-all flex items-center gap-1.5 sm:gap-2 cursor-pointer whitespace-nowrap shrink-0 ${
               activeTab === 'profile'
                 ? 'border-primary text-primary-light bg-primary/5'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -405,26 +484,40 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             <span>Thông Tin Nhân Vật</span>
           </button>
           <button
-            onClick={() => setActiveTab('security')}
-            className={`py-3 px-4 text-xs sm:text-sm font-bold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
-              activeTab === 'security'
-                ? 'border-primary text-primary-light bg-primary/5'
+            type="button"
+            onClick={() => setActiveTab('missions')}
+            className={`py-3 px-3 sm:px-4 text-xs sm:text-sm font-bold border-b-2 transition-all flex items-center gap-1.5 sm:gap-2 cursor-pointer whitespace-nowrap shrink-0 ${
+              activeTab === 'missions'
+                ? 'border-amber-400 text-amber-400 bg-amber-500/5'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
-            <KeyRound className="w-4 h-4" />
-            <span>Bảo Mật & Mật Khẩu</span>
+            <Award className="w-4 h-4 text-amber-400" />
+            <span>Nhiệm Vụ Nhận Quà</span>
           </button>
           <button
+            type="button"
             onClick={() => setActiveTab('telegram')}
-            className={`py-3 px-4 text-xs sm:text-sm font-bold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
+            className={`py-3 px-3 sm:px-4 text-xs sm:text-sm font-bold border-b-2 transition-all flex items-center gap-1.5 sm:gap-2 cursor-pointer whitespace-nowrap shrink-0 ${
               activeTab === 'telegram'
                 ? 'border-[#229ED9] text-[#229ED9] bg-[#229ED9]/5'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
             <Send className="w-4 h-4 text-[#229ED9]" />
-            <span>Liên Kết Telegram</span>
+            <span>Thông Báo Telegram</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('security')}
+            className={`py-3 px-3 sm:px-4 text-xs sm:text-sm font-bold border-b-2 transition-all flex items-center gap-1.5 sm:gap-2 cursor-pointer whitespace-nowrap shrink-0 ${
+              activeTab === 'security'
+                ? 'border-primary text-primary-light bg-primary/5'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <KeyRound className="w-4 h-4" />
+            <span>Bảo Mật</span>
           </button>
         </div>
 
@@ -519,12 +612,55 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                         <span>Kho Mã Của Tôi</span>
                         <span className="text-[10px] text-emerald-400 bg-emerald-500/20 px-2 py-0.5 rounded-full border border-emerald-500/30 flex items-center gap-1">
                           <Target className="w-2.5 h-2.5" />
-                          Nhiệm Vụ ↗
+                          Mã Quà ↗
                         </span>
                       </button>
                     </div>
                   )}
                 </div>
+              </div>
+
+              {/* Lối Tắt Nhanh: Nhiệm Vụ & Thông Báo Telegram */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('missions')}
+                  className="p-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-300 font-bold text-xs flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95 group shadow-sm"
+                >
+                  <Award className="w-5 h-5 text-amber-400 group-hover:scale-110 transition-transform" />
+                  <span className="text-center font-bold">Nhiệm Vụ Nhận Quà</span>
+                  <span className="text-[9px] font-normal text-amber-400/80">Làm nhận Core</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('telegram')}
+                  className="p-2.5 rounded-xl bg-[#229ED9]/10 hover:bg-[#229ED9]/20 border border-[#229ED9]/30 text-[#229ED9] font-bold text-xs flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95 group shadow-sm"
+                >
+                  <Send className="w-5 h-5 text-[#229ED9] group-hover:scale-110 transition-transform" />
+                  <span className="text-center font-bold">Thông Báo Telegram</span>
+                  <span className="text-[9px] font-normal text-[#229ED9]/80">Nhận code tức thì</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={onOpenWallet}
+                  className="p-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 font-bold text-xs flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95 group shadow-sm"
+                >
+                  <Wallet className="w-5 h-5 text-emerald-400 group-hover:scale-110 transition-transform" />
+                  <span className="text-center font-bold">Ví Số Dư Core</span>
+                  <span className="text-[9px] font-mono text-emerald-400 font-bold">{formatCore(currentUser.wallet_balance)}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('security')}
+                  className="p-2.5 rounded-xl bg-card hover:bg-muted border border-border text-foreground font-bold text-xs flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95 group shadow-sm"
+                >
+                  <KeyRound className="w-5 h-5 text-primary-light group-hover:scale-110 transition-transform" />
+                  <span className="text-center font-bold">Bảo Mật Mật Khẩu</span>
+                  <span className="text-[9px] font-normal text-muted-foreground">Đổi mật khẩu</span>
+                </button>
               </div>
 
               {/* 2. Choose Avatar Presets (12 Game Chibi/Cyber Characters) */}
@@ -781,113 +917,223 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 </div>
               </div>
             </form>
-          ) : activeTab === 'security' ? (
-            /* SECURITY TAB: Password Change */
-            <form onSubmit={handleSaveProfile} className="space-y-5">
-              <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs flex items-start gap-3">
-                <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-bold">Bảo Mật Tài Khoản Cấp Cao</p>
-                  <p className="text-amber-200/80 mt-0.5 leading-relaxed">
-                    Mật khẩu được mã hóa an toàn bằng công nghệ SHA-256 kèm mã muối Salt trên hệ thống Cloudflare Edge. Không chia sẻ mật khẩu của bạn cho bất kỳ ai.
+
+          ) : activeTab === 'missions' ? (
+            /* TAB 2: NHIỆM VỤ NHẬN QUÀ */
+            <div className="space-y-4 animate-fade-in">
+              {/* Header Nhiệm Vụ */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-amber-500/15 via-rose-500/10 to-muted/40 border border-amber-500/25 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Award className="w-5 h-5 text-amber-400" />
+                    <h4 className="font-heading font-black text-sm sm:text-base text-foreground">
+                      Nhiệm Vụ Nhận Thưởng & Core Miễn Phí
+                    </h4>
+                  </div>
+                  <p className="text-[11px] sm:text-xs text-muted-foreground leading-relaxed">
+                    Hoàn thành các nhiệm vụ bên dưới để nhận ngay điểm Core vào ví hoặc Giftcode độc quyền miễn phí.
                   </p>
                 </div>
-              </div>
-
-              {/* Mật khẩu cũ */}
-              <div className="space-y-1.5">
-                <label className="font-bold text-foreground text-xs sm:text-sm flex items-center gap-1.5">
-                  <Lock className="w-4 h-4 text-muted-foreground" />
-                  <span>Mật Khẩu Hiện Tại:</span>
-                </label>
-                <div className="relative">
-                  <input
-                    type={showOldPass ? 'text' : 'password'}
-                    value={oldPassword}
-                    onChange={(e) => setOldPassword(e.target.value)}
-                    placeholder="Nhập mật khẩu hiện tại của bạn..."
-                    className="w-full px-3.5 py-2.5 pr-10 rounded-xl bg-card border border-border text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary font-medium"
-                  />
+                {onOpenReceivedCodes && (
                   <button
                     type="button"
-                    onClick={() => setShowOldPass(!showOldPass)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer p-1"
+                    onClick={() => {
+                      onClose();
+                      onOpenReceivedCodes('missions');
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-card hover:bg-muted border border-border text-foreground text-xs font-bold transition-all cursor-pointer shadow-sm flex items-center gap-1.5 shrink-0"
                   >
-                    {showOldPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    <Package className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Mã Đã Nhận ↗</span>
                   </button>
-                </div>
+                )}
               </div>
 
-              {/* Mật khẩu mới */}
-              <div className="space-y-1.5">
-                <label className="font-bold text-foreground text-xs sm:text-sm flex items-center gap-1.5">
-                  <KeyRound className="w-4 h-4 text-primary-light" />
-                  <span>Mật Khẩu Mới:</span>
-                </label>
-                <div className="relative">
+              {/* Toolbar: Search & Filters */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+                <div className="relative flex-1">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                   <input
-                    type={showNewPass ? 'text' : 'password'}
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Mật khẩu mới (tối thiểu 6 ký tự)..."
-                    className="w-full px-3.5 py-2.5 pr-10 rounded-xl bg-card border border-border text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary font-medium"
+                    type="text"
+                    value={missionSearch}
+                    onChange={(e) => setMissionSearch(e.target.value)}
+                    placeholder="Tìm kiếm nhiệm vụ..."
+                    className="w-full pl-9 pr-3 py-2 rounded-xl bg-muted/50 border border-border text-foreground text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowNewPass(!showNewPass)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer p-1"
-                  >
-                    {showNewPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
-
-              {/* Xác nhận mật khẩu mới */}
-              <div className="space-y-1.5">
-                <label className="font-bold text-foreground text-xs sm:text-sm flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                  <span>Xác Nhận Mật Khẩu Mới:</span>
-                </label>
-                <input
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Nhập lại mật khẩu mới..."
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-card border border-border text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary font-medium"
-                />
-              </div>
-
-              {/* Action Buttons */}
-              <div className="pt-2 flex items-center justify-end gap-2 border-t border-border/60">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="px-4 py-2.5 rounded-xl bg-muted hover:bg-muted/80 text-foreground font-bold border border-border transition-all cursor-pointer text-xs sm:text-sm"
-                >
-                  Hủy Bỏ
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSaving || !newPassword}
-                  className="px-5 py-2.5 rounded-xl bg-primary hover:bg-primary-hover text-white font-extrabold shadow-glow-primary flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-95 text-xs sm:text-sm disabled:opacity-50"
-                >
-                  {isSaving ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      <span>Đang Đổi Mật Khẩu...</span>
-                    </>
-                  ) : (
-                    <>
-                      <KeyRound className="w-4 h-4" />
-                      <span>Cập Nhật Mật Khẩu</span>
-                    </>
+                  {missionSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setMissionSearch('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs p-1"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
                   )}
-                </button>
+                </div>
+
+                <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pb-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setMissionFilter('all')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                      missionFilter === 'all'
+                        ? 'bg-primary text-white shadow-sm'
+                        : 'bg-muted/60 text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    Tất cả
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMissionFilter('active')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                      missionFilter === 'active'
+                        ? 'bg-emerald-500 text-white shadow-sm'
+                        : 'bg-muted/60 text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    Đang mở
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMissionFilter('reward_wallet')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                      missionFilter === 'reward_wallet'
+                        ? 'bg-emerald-600 text-white shadow-sm'
+                        : 'bg-muted/60 text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    Nhận Core
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMissionFilter('reward_code')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                      missionFilter === 'reward_code'
+                        ? 'bg-amber-500 text-white shadow-sm'
+                        : 'bg-muted/60 text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    Nhận Code
+                  </button>
+                </div>
               </div>
-            </form>
-          ) : (
-            /* TELEGRAM TAB: Link Account & Notification Preferences */
-            <div className="space-y-5">
+
+              {/* Missions List */}
+              {isLoadingMissions ? (
+                <div className="p-8 text-center text-muted-foreground space-y-2">
+                  <RefreshCw className="w-6 h-6 mx-auto animate-spin text-primary" />
+                  <p className="text-xs">Đang tải danh sách nhiệm vụ mới nhất...</p>
+                </div>
+              ) : filteredMissions.length === 0 ? (
+                <div className="p-8 rounded-2xl bg-muted/20 border border-border/60 text-center space-y-2">
+                  <Award className="w-8 h-8 mx-auto text-muted-foreground/60" />
+                  <p className="font-bold text-foreground text-xs sm:text-sm">Chưa có nhiệm vụ nào phù hợp</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Hãy quay lại sau hoặc thử xóa bộ lọc tìm kiếm.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  {filteredMissions.map((m) => {
+                    const isWallet = m.reward_type === 'WALLET' || m.reward_type === 'WALLET_CORE';
+                    return (
+                      <div
+                        key={m.id}
+                        className="p-3.5 sm:p-4 rounded-2xl bg-card border border-border hover:border-primary/50 transition-all shadow-sm space-y-3 group"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex flex-wrap items-center gap-1.5 mb-1">
+                              {isWallet ? (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                                  <Wallet className="w-3 h-3" />
+                                  +{(Number(m.reward_amount || m.reward_value) || 0).toLocaleString('vi-VN')} Core
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                                  <Gift className="w-3 h-3" />
+                                  Mã Giftcode VIP
+                                </span>
+                              )}
+                              <span className="text-[10px] text-muted-foreground font-mono">
+                                {m.category || 'Nhiệm vụ'}
+                              </span>
+                            </div>
+                            <h5 className="font-bold text-foreground text-xs sm:text-sm line-clamp-1 group-hover:text-primary-light transition-colors">
+                              {m.title}
+                            </h5>
+                            {m.description && (
+                              <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">
+                                {m.description}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-2 border-t border-border/50 text-[11px]">
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Target className="w-3 h-3 text-primary-light" />
+                              <span>{m.participants_count || 0}/{m.max_participants || '∞'} suất</span>
+                            </span>
+                            {m.end_time && (
+                              <span className="flex items-center gap-1 text-slate-400 hidden xs:inline-flex">
+                                <Clock className="w-3 h-3" />
+                                <span>Hết hạn: {new Date(m.end_time).toLocaleDateString('vi-VN')}</span>
+                              </span>
+                            )}
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => setSelectedMission(m)}
+                            className="px-3 py-1.5 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-bold transition-all cursor-pointer shadow-sm flex items-center gap-1 active:scale-95"
+                          >
+                            <span>Làm Nhiệm Vụ</span>
+                            <ArrowRight className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          ) : activeTab === 'telegram' ? (
+            /* TAB 3: THÔNG BÁO TELEGRAM */
+            <div className="space-y-4 animate-fade-in">
+              {/* 1. Kênh Thông Báo Telegram CodeGame Chính Thức */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-[#229ED9]/20 via-[#229ED9]/10 to-card border border-[#229ED9]/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-[#229ED9] text-white flex items-center justify-center shrink-0 shadow-md">
+                    <Send className="w-5 h-5 -rotate-12" />
+                  </div>
+                  <div>
+                    <h4 className="font-heading font-black text-sm sm:text-base text-foreground flex items-center gap-1.5">
+                      <span>Kênh Thông Báo Telegram Chính Thức</span>
+                      <span className="px-1.5 py-0.2 rounded-full text-[9px] font-black bg-[#229ED9] text-white">
+                        OFFICIAL
+                      </span>
+                    </h4>
+                    <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                      Tham gia kênh để nhận thông báo giftcode mới nhất, sự kiện độc quyền và cảnh báo mã sắp hết hạn 24/7.
+                    </p>
+                  </div>
+                </div>
+                <a
+                  href="https://t.me/webcodegame_vn"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="w-full sm:w-auto px-4 py-2 rounded-xl bg-[#229ED9] hover:bg-[#1f8ec4] text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-md active:scale-95 shrink-0"
+                >
+                  <span>Tham Gia Kênh</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              </div>
+
+              {/* 2. Bot Thông Báo Cá Nhân & Quản Lý Game Theo Dõi */}
+              <div className="space-y-5">
               {isLoadingTelegram ? (
                 <div className="p-8 text-center space-y-3">
                   <div className="w-8 h-8 mx-auto border-3 border-[#229ED9]/30 border-t-[#229ED9] rounded-full animate-spin" />
@@ -1107,10 +1353,129 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                   )}
                 </div>
               )}
+              </div>
             </div>
+          ) : (
+            /* TAB 4: BẢO MẬT & MẬT KHẨU */
+            <form onSubmit={handleSaveProfile} className="space-y-5">
+              <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-bold">Bảo Mật Tài Khoản Cấp Cao</p>
+                  <p className="text-amber-200/80 mt-0.5 leading-relaxed">
+                    Mật khẩu được mã hóa an toàn bằng công nghệ SHA-256 kèm mã muối Salt trên hệ thống Cloudflare Edge. Không chia sẻ mật khẩu của bạn cho bất kỳ ai.
+                  </p>
+                </div>
+              </div>
+
+              {/* Mật khẩu cũ */}
+              <div className="space-y-1.5">
+                <label className="font-bold text-foreground text-xs sm:text-sm flex items-center gap-1.5">
+                  <Lock className="w-4 h-4 text-muted-foreground" />
+                  <span>Mật Khẩu Hiện Tại:</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type={showOldPass ? 'text' : 'password'}
+                    value={oldPassword}
+                    onChange={(e) => setOldPassword(e.target.value)}
+                    placeholder="Nhập mật khẩu hiện tại của bạn..."
+                    className="w-full px-3.5 py-2.5 pr-10 rounded-xl bg-card border border-border text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary font-medium"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowOldPass(!showOldPass)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer p-1"
+                  >
+                    {showOldPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Mật khẩu mới */}
+              <div className="space-y-1.5">
+                <label className="font-bold text-foreground text-xs sm:text-sm flex items-center gap-1.5">
+                  <KeyRound className="w-4 h-4 text-primary-light" />
+                  <span>Mật Khẩu Mới (Tối thiểu 6 ký tự):</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type={showNewPass ? 'text' : 'password'}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Nhập mật khẩu mới..."
+                    className="w-full px-3.5 py-2.5 pr-10 rounded-xl bg-card border border-border text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary font-medium"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPass(!showNewPass)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer p-1"
+                  >
+                    {showNewPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Xác nhận mật khẩu mới */}
+              <div className="space-y-1.5">
+                <label className="font-bold text-foreground text-xs sm:text-sm flex items-center gap-1.5">
+                  <Shield className="w-4 h-4 text-emerald-400" />
+                  <span>Xác Nhận Mật Khẩu Mới:</span>
+                </label>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Nhập lại mật khẩu mới..."
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-card border border-border text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary font-medium"
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div className="pt-2 flex items-center justify-end gap-2 border-t border-border/60">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-4 py-2.5 rounded-xl bg-muted hover:bg-muted/80 text-foreground font-bold border border-border transition-all cursor-pointer text-xs sm:text-sm"
+                >
+                  Hủy Bỏ
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSaving || !newPassword}
+                  className="px-5 py-2.5 rounded-xl bg-primary hover:bg-primary-hover text-white font-extrabold shadow-glow-primary flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-95 text-xs sm:text-sm disabled:opacity-50"
+                >
+                  {isSaving ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      <span>Đang Đổi Mật Khẩu...</span>
+                    </>
+                  ) : (
+                    <>
+                      <KeyRound className="w-4 h-4" />
+                      <span>Cập Nhật Mật Khẩu</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           )}
         </div>
       </div>
+
+      {/* Mission Detail Modal khi người dùng chọn làm nhiệm vụ */}
+      {selectedMission && (
+        <MissionDetailModal
+          mission={selectedMission}
+          currentUser={currentUser}
+          onClose={() => setSelectedMission(null)}
+          onOpenAuth={onOpenAuth || onClose}
+          onOpenWallet={onOpenWallet}
+          onSuccessSubmit={() => {
+            loadMissions();
+          }}
+        />
+      )}
     </div>,
     document.body
   );

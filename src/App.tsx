@@ -255,6 +255,12 @@ export const App: React.FC = () => {
   const [isReceivedCodesOpen, setIsReceivedCodesOpen] = useState(false);
   const [receivedCodesInitialTab, setReceivedCodesInitialTab] = useState<'giveaways' | 'orders' | 'privates' | 'missions'>('giveaways');
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [profileInitialTab, setProfileInitialTab] = useState<'profile' | 'security' | 'telegram' | 'missions'>('profile');
+
+  const handleOpenProfile = (tab: 'profile' | 'security' | 'telegram' | 'missions' = 'profile') => {
+    setProfileInitialTab(tab);
+    setIsProfileModalOpen(true);
+  };
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
 
   const handleOpenReceivedCodes = (tab: 'giveaways' | 'orders' | 'privates' | 'missions' = 'giveaways') => {
@@ -1603,7 +1609,7 @@ export const App: React.FC = () => {
           onOpenAuth={() => setIsAuthModalOpen(true)}
           onOpenWallet={() => setIsWalletModalOpen(true)}
           onOpenReceivedCodes={handleOpenReceivedCodes}
-          onOpenProfile={() => setIsProfileModalOpen(true)}
+          onOpenProfile={handleOpenProfile}
           currentUser={currentUser}
           onLogout={handleLogout}
           isDarkMode={isDarkMode}
@@ -2005,6 +2011,11 @@ export const App: React.FC = () => {
         <UserProfileModal
           isOpen={isProfileModalOpen}
           onClose={() => setIsProfileModalOpen(false)}
+          initialTab={profileInitialTab}
+          onOpenAuth={() => {
+            setIsProfileModalOpen(false);
+            setIsAuthModalOpen(true);
+          }}
           currentUser={currentUser}
           onUpdateUser={handleUpdateUser}
           onOpenWallet={() => setIsWalletModalOpen(true)}
