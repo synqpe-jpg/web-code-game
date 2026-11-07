@@ -317,6 +317,8 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
       if (pollTimerRef.current) clearInterval(pollTimerRef.current);
       if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
       setQrStatus('idle');
+    } else if (paymentMethod === 'vietqr' && qrStatus === 'error') {
+      setQrStatus('idle');
     }
   }, [isQrAvailable, paymentMethod]);
 
@@ -424,7 +426,7 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.success) {
-        setQrStatus('error');
+        setQrStatus('idle');
         onShowToast('Lỗi tạo mã QR', data.message || 'Không thể khởi tạo mã QR thanh toán.', 'error');
         return;
       }
@@ -435,7 +437,7 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
 
       startQrPolling(data.order.id, expiresAtMs);
     } catch (err: any) {
-      setQrStatus('error');
+      setQrStatus('idle');
       onShowToast('Lỗi kết nối', err?.message || 'Không thể kết nối đến máy chủ.', 'error');
     }
   };
@@ -1131,7 +1133,7 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
                   </div>
 
                   {/* QR States Container */}
-                  {qrStatus === 'idle' && (
+                  {(qrStatus === 'idle' || qrStatus === 'error') && (
                     <div className="p-4 rounded-2xl bg-card border border-emerald-500/30 space-y-3 text-xs">
                       <div className="flex items-start gap-3">
                         <div className="w-10 h-10 rounded-xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/30">

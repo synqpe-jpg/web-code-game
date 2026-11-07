@@ -7,6 +7,27 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-07]
 
+### 338. Sửa Lỗi Tạo Mã QR "excludedList.some is not a function" & Phục Hồi Nút Tạo Mã Khi Gặp Lỗi
+- **Triệu chứng & Rủi ro**:
+  - Khi người dùng bấm "Tạo Mã VietQR Thanh Toán", hệ thống hiển thị thông báo lỗi máy chủ: `excludedList.some is not a function`.
+  - Không thể tạo đơn QR `ORD-QR-...`, không hiện mã QR, không hiện đồng hồ đếm ngược 15:00.
+  - Lỗi phụ: Nút "Tạo Mã VietQR Thanh Toán" biến mất hoàn toàn khỏi bảng thanh toán sau khi lỗi, chuyển tab qua lại không khôi phục, buộc phải tải lại trang.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. Trong `functions/api/orders/create-qr.ts`, dòng kiểm tra loại trừ gọi sai chữ ký hàm: `isProductExcludedFromFirstPurchase(product.id, product.title, campaignConfig)` (3 tham số). Trong khi chữ ký hàm tại `d1_service.ts` chỉ nhận 2 tham số: `(product, excludedList)`. Tham số thứ hai nhận vào chuỗi `product.title` thay vì mảng; tới dòng `excludedList.some(...)` thì kiểu chuỗi không có phương thức `.some` dẫn tới ném ngoại lệ Type Error.
+  2. Trong `isProductExcludedFromFirstPurchase`, thiếu kiểm tra phòng thủ `Array.isArray(excludedList)`.
+  3. Lỗi phụ trong `ProductCheckoutModal.tsx`: Khi request lỗi hoặc ngoại lệ mạng, state `qrStatus` bị gán `'error'`. Giao diện JSX chỉ render nút khi `{qrStatus === 'idle' && (...)}`, khiến toàn bộ container nút bấm biến mất khi `qrStatus === 'error'`.
+- **Giải pháp triệt để đã triển khai (Solution Applied)**:
+  1. *Sửa chữ ký hàm trong `create-qr.ts`*: Đổi thành `isProductExcludedFromFirstPurchase(product, campaignConfig.excluded_products)` (2 tham số) và `isMemberEmailVerified(member)` (1 tham số), đồng bộ chuẩn xác với `orders/create.ts`.
+  2. *Phòng thủ tuyệt đối trong `d1_service.ts`*: Thêm điều kiện `!excludedList || !Array.isArray(excludedList) || excludedList.length === 0` để nếu `excludedList` bị truyền sai kiểu dữ liệu (chuỗi, null, undefined) thì tự động coi như không loại trừ (trả về `false`) mà không bao giờ ném lỗi `TypeError`. Thêm kiểm tra `typeof item !== 'string'` trong vòng lặp `.some`.
+  3. *Phục hồi nút Tạo Mã VietQR trong `ProductCheckoutModal.tsx`*:
+     - Khi tạo mã thất bại hoặc mất mạng, `qrStatus` được hoàn về `'idle'` trong cả nhánh `!res.ok` và khối `catch`.
+     - Điều kiện render JSX hỗ trợ cả `(qrStatus === 'idle' || qrStatus === 'error')`.
+     - Tự động reset `qrStatus` về `'idle'` khi người dùng chuyển đổi tab phương thức thanh toán.
+  4. *Kiểm thử đơn vị*: Bổ sung 3 unit tests mới xác nhận gói thường và gói loại trừ tính giá chuẩn xác, không phát sinh lỗi, cùng test phòng thủ tham số.
+- **Kết quả nghiệm thu**:
+  - Toàn bộ 16/16 bài kiểm thử logic đạt 100%.
+  - Zero Test Artifacts on Production đạt 100%.
+
 ### 337. Thanh Toán Trực Tiếp Bằng Mã VietQR Theo Đúng Giá Sản Phẩm + Mở Ngưỡng Nạp/Thanh Toán Từ 2.000 Core/VND
 - **Bối cảnh & Yêu cầu nghiệp vụ**:
   - Khách hàng có nhu cầu mua gói sản phẩm trực tiếp bằng mã QR (VietQR / SePay) với đúng số tiền thực trả của gói đó (đã áp dụng ưu đãi mua lần đầu hoặc Nâng Giá nếu có), không cần nạp Core vào ví trước.

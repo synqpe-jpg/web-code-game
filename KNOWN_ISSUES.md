@@ -10,6 +10,20 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-240: Bẫy Sai Chữ Ký Hàm isProductExcludedFromFirstPurchase (Truyền 3 Tham Số) & Bẫy Ẩn Nút Tạo Mã QR Khi Bị Lỗi
+- **Triệu chứng & Rủi ro**:
+  1. Khi gọi `isProductExcludedFromFirstPurchase(product.id, product.title, campaignConfig)`, do hàm chỉ nhận 2 tham số `(product, excludedList)`, tham số `excludedList` nhận nhầm chuỗi `product.title`. Khi thực thi `excludedList.some(...)`, JavaScript ném lỗi `TypeError: excludedList.some is not a function`.
+  2. Bất kỳ gói hàng nào đang bật ưu đãi mua lần đầu khi bấm tạo mã QR đều bị sập API với lỗi máy chủ trên.
+  3. Khi gặp lỗi, nếu UI component gán `qrStatus = 'error'` mà chỉ render container nút ở điều kiện `{qrStatus === 'idle' && (...)}`, nút bấm sẽ biến mất hoàn toàn và người dùng không thể bấm thử lại nếu không reload trang.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Luôn truyền đúng 2 tham số: `isProductExcludedFromFirstPurchase(product, campaignConfig.excluded_products)` và `isMemberEmailVerified(member)`.
+  2. Trong hàm `isProductExcludedFromFirstPurchase`, luôn kiểm tra phòng thủ: `if (!excludedList || !Array.isArray(excludedList) || excludedList.length === 0) return false;`.
+  3. Trong `ProductCheckoutModal.tsx`, khi tạo đơn QR lỗi hoặc bắt exception mạng, luôn đưa `qrStatus` về `'idle'` và render container nút ở điều kiện `(qrStatus === 'idle' || qrStatus === 'error')` để người dùng luôn có nút bấm thử lại ngay lập tức.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không truyền chuỗi `product.title` vào vị trí tham số `excludedList`.*
+  - ❌ *Không gọi hàm mà không có guard `Array.isArray(excludedList)` bảo vệ.*
+  - ❌ *Không khóa UI bằng state `'error'` khiến nút hành động biến mất.*
+
 ### ISSUE-239: Bẫy CHECK Constraint Orders Status Trong SQLite D1, Bẫy Mất Tồn Kho Khi Đơn QR Hết Hạn & Bẫy Double-Delivery Khi Khách Chuyển Khoản Hai Lần
 - **Triệu chứng & Rủi ro**:
   1. Khi bổ sung trạng thái đơn hàng QR, nếu cố tình đặt `orders.status = 'PENDING_PAYMENT'`, cơ sở dữ liệu Cloudflare D1 sẽ văng lỗi `CHECK constraint failed: status IN ('PENDING', 'COMPLETED', 'FAILED', 'CANCELLED')` khiến đơn hàng không thể tạo được.

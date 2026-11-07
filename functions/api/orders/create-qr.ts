@@ -218,10 +218,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       const pkgOffer = getProductFirstPurchaseOffer(product, campaignConfig);
 
       if (pkgOffer.enabled) {
-        const isExcluded = isProductExcludedFromFirstPurchase(product.id, product.title, campaignConfig);
+        const isExcluded = isProductExcludedFromFirstPurchase(product, campaignConfig.excluded_products);
         let emailVerifiedOk = true;
         if (campaignConfig.require_verified_email) {
-          emailVerifiedOk = await isMemberEmailVerified(env.DB, member.id);
+          emailVerifiedOk = isMemberEmailVerified(member);
         }
 
         if (!isExcluded && emailVerifiedOk) {

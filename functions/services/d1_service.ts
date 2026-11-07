@@ -100,12 +100,14 @@ export function isProductExcludedFromFirstPurchase(
     return isExplicitlyDisabled;
   }
 
-  if (!excludedList || excludedList.length === 0) return false;
+  // Phòng thủ: Nếu excludedList không phải là mảng hoặc rỗng -> coi như không loại trừ (không ném lỗi)
+  if (!excludedList || !Array.isArray(excludedList) || excludedList.length === 0) return false;
   const prodId = (product.id || '').trim().toLowerCase();
   const prodSku = (product.sku || '').trim().toLowerCase();
   const prodTitle = (product.title || '').trim().toLowerCase();
 
   return excludedList.some((item) => {
+    if (typeof item !== 'string') return false;
     const clean = item.trim().toLowerCase();
     if (!clean) return false;
     if (prodId === clean || prodSku === clean) return true;
