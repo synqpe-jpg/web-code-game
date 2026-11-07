@@ -4871,6 +4871,21 @@
 
 ---
 
+### ISSUE-065: Bẫy Giả Định Kiểu Dữ Liệu String Khi Gọi .trim() Trên Mã Giao Dịch SePay (Số Nguyên SQLite/D1 Gây "K.trim is not a function")
+- **Triệu chứng**:
+  - Admin bấm nút "Duyệt Nạp" giao dịch SePay, modal xác nhận hiện đúng nhưng khi ấn "Xác Nhận Nạp Ngay" thì ném lỗi toast: `K.trim is not a function` (hoặc `payload.transactionId.trim is not a function`).
+- **Nguyên nhân gốc rễ**:
+  - Cột `transaction_id` trong SQLite/Cloudflare D1 là kiểu số nguyên (`INTEGER NOT NULL UNIQUE`). Khi query JSON trả về, trường mang kiểu `number`. Việc gọi `payload.transactionId?.trim()` gây lỗi nghiêm trọng vì toán tử `?.` chỉ bảo vệ khi biến là `null` hoặc `undefined`, chứ không bảo vệ khi biến mang kiểu `number` (vốn không có hàm `.trim()`).
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Tuyệt đối không gọi trực tiếp `.trim()` trên các trường định danh có thể xuất phát từ CSDL hoặc bên thứ ba.
+  - Luôn sử dụng cú pháp bảo vệ kiểu nghiêm ngặt: `String(value ?? '').trim()`.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Dùng `value?.trim()` với niềm tin rằng optional chaining ngăn chặn được lỗi khi `value` là số nguyên (`number`)*.
+
+
+
+---
+
 ## 2. QUY TRÌNH BẮT BUỘC TRƯỚC KHI SỬA CODE (PRE-FLIGHT CHECKLIST)
 
 Mọi nhà phát triển hoặc AI Agent khi nhận yêu cầu sửa đổi mã nguồn **PHẢI** thực hiện đủ 4 bước sau:

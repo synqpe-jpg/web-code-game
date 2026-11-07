@@ -1,6 +1,7 @@
 import { getRealEventsHub, saveRealEventsHub } from '../../services/realEventsHub';
 import { ensureSchemaUpgrades } from '../../services/d1_service';
 import { verifyToken, getSigningSecret } from '../../services/auth_service';
+import { verifyAdminAuth } from '../../services/mission_service';
 
 interface Env {
   DB: D1Database;
@@ -59,37 +60,38 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     }
 
     // 1. Kiểm tra quyền Admin
-    const authHeader = request.headers.get('Authorization') || '';
-    const syncKeyHeader = request.headers.get('X-Sync-Key') || '';
-    const cleanToken = authHeader.replace(/^Bearer\s+/i, '').trim();
+    const adminCheck = await verifyAdminAuth(request, env as any, 'WALLET_MANAGE');
+    let isAuthorized = adminCheck.authorized;
 
-    const configuredSecret = (env.ADMIN_SYNC_SECRET || '').trim();
-    let isAuthorized = false;
+    if (!isAuthorized) {
+      const authHeader = request.headers.get('Authorization') || '';
+      const syncKeyHeader = request.headers.get('X-Sync-Key') || '';
+      const cleanToken = authHeader.replace(/^Bearer\s+/i, '').trim();
+      const configuredSecret = (env.ADMIN_SYNC_SECRET || '').trim();
 
-    if (configuredSecret && (syncKeyHeader === configuredSecret || cleanToken === configuredSecret)) {
-      isAuthorized = true;
-    }
-
-    if (!isAuthorized && cleanToken) {
-      // 1a. Tra cứu trực tiếp session_token bí mật trong D1
-      const member = await env.DB.prepare(
-        "SELECT id, role, status FROM members WHERE session_token = ? LIMIT 1"
-      ).bind(cleanToken).first<any>();
-
-      if (member && (member.role === 'ADMIN' || member.role === 'SUPER_ADMIN') && member.status !== 'BANNED') {
+      if (configuredSecret && (syncKeyHeader === configuredSecret || cleanToken === configuredSecret)) {
         isAuthorized = true;
       }
 
-      // 1b. Verify qua signed token nếu cần
-      if (!isAuthorized) {
-        const signingSecret = getSigningSecret(env);
-        const { valid, userId } = await verifyToken(cleanToken, [signingSecret, configuredSecret]);
-        if (valid && userId) {
-          const verifiedMember = await env.DB.prepare(
-            "SELECT id, role, status FROM members WHERE id = ? LIMIT 1"
-          ).bind(userId).first<any>();
-          if (verifiedMember && (verifiedMember.role === 'ADMIN' || verifiedMember.role === 'SUPER_ADMIN') && verifiedMember.status !== 'BANNED') {
-            isAuthorized = true;
+      if (!isAuthorized && cleanToken) {
+        const member = await env.DB.prepare(
+          "SELECT id, role, status FROM members WHERE session_token = ? LIMIT 1"
+        ).bind(cleanToken).first<any>();
+
+        if (member && (member.role === 'ADMIN' || member.role === 'SUPER_ADMIN') && member.status !== 'BANNED') {
+          isAuthorized = true;
+        }
+
+        if (!isAuthorized) {
+          const signingSecret = getSigningSecret(env);
+          const { valid, userId } = await verifyToken(cleanToken, [signingSecret, configuredSecret]);
+          if (valid && userId) {
+            const verifiedMember = await env.DB.prepare(
+              "SELECT id, role, status FROM members WHERE id = ? LIMIT 1"
+            ).bind(userId).first<any>();
+            if (verifiedMember && (verifiedMember.role === 'ADMIN' || verifiedMember.role === 'SUPER_ADMIN') && verifiedMember.status !== 'BANNED') {
+              isAuthorized = true;
+            }
           }
         }
       }
@@ -97,7 +99,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
     if (!isAuthorized) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Unauthorized: Bạn không có quyền quản trị để thực hiện thao tác này.' }),
+        JSON.stringify({ success: false, error: adminCheck.error || 'Unauthorized: Bạn không có quyền quản trị để thực hiện thao tác này.' }),
         { status: 401, headers: CORS_HEADERS }
       );
     }
@@ -180,13 +182,13 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     const stmt1 = existingTx
       ? env.DB.prepare(`
           UPDATE sepay_transactions
-          SET status = 'SUCCESS', member_id = ?, amount_in = ?, transaction_content = ?, gateway = ?
+          SET status = 'SUCCESS', member_id = ?, amount_in = ?, transaction_content = ?, gateway = ?, note = NULL
           WHERE transaction_id = ? AND status != 'SUCCESS'
         `).bind(member.id, amount, note, gateway, transactionId)
       : env.DB.prepare(`
           INSERT INTO sepay_transactions (
-            transaction_id, gateway, account_number, amount_in, transaction_content, member_id, status, created_at
-          ) VALUES (?, ?, 'MANUAL_OVERRIDE', ?, ?, ?, 'SUCCESS', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+            transaction_id, gateway, account_number, amount_in, transaction_content, member_id, status, note, created_at
+          ) VALUES (?, ?, 'MANUAL_OVERRIDE', ?, ?, ?, 'SUCCESS', NULL, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
         `).bind(transactionId, gateway, amount, note, member.id);
 
     const stmt2 = env.DB.prepare(`
@@ -195,26 +197,23 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       WHERE id = ?
     `).bind(amount, member.id);
 
+    const balanceBefore = Math.max(0, Number(member.balance) || 0);
+    const balanceAfter = balanceBefore + amount;
+
     const stmt3 = env.DB.prepare(`
       INSERT INTO wallet_transactions (
         id, member_id, member_email, type, amount,
         balance_before, balance_after, description, status, order_id, created_at
-      )
-      SELECT
-        ?,
-        m.id,
-        m.email,
-        'DEPOSIT',
-        ?,
-        m.balance - ?,
-        m.balance,
-        ?,
-        'COMPLETED',
-        NULL,
-        strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-      FROM members m
-      WHERE m.id = ?
-    `).bind(txId, amount, amount, note, member.id);
+      ) VALUES (?, ?, ?, 'DEPOSIT', ?, ?, ?, ?, 'COMPLETED', NULL, datetime('now'))
+    `).bind(
+      txId,
+      member.id,
+      member.email || `${member.id}@webcodegame.vn`,
+      amount,
+      balanceBefore,
+      balanceAfter,
+      note
+    );
 
     await env.DB.batch([stmt1, stmt2, stmt3]);
 

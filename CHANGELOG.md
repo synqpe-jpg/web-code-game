@@ -7,6 +7,29 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-07]
 
+### 343. Sửa Lỗi "K.trim is not a function" Khi Admin Duyệt Nạp / Bù Core Thủ Công Cho Khách
+- **Triệu chứng & Bối cảnh**:
+  - Tại trang Quản trị Shop mục SePay (`#/sepay`), khi Quản trị viên bấm nút "Duyệt Nạp" ở một giao dịch SePay (ví dụ giao dịch #97104172 của khách Minhhu) và bấm "Xác Nhận Nạp Ngay", giao diện bật toast đỏ: "Lỗi xử lý — K.trim is not a function".
+  - Giao dịch không được gửi thành công, modal không đóng và Core chưa được cộng vào ví khách.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. Trong bảng SQLite/D1 `sepay_transactions`, cột `transaction_id` được định nghĩa kiểu `INTEGER NOT NULL UNIQUE`. Khi API trả về dữ liệu cho Admin client, `transactionId` là kiểu `number` (ví dụ: `97104172`).
+  2. Tại `SePayModule.tsx`, hàm `handleOpenManualCredit` gán trực tiếp giá trị vào state `manualTxId`. Vì input form không được sửa lại tay, state `manualTxId` vẫn giữ kiểu `number`.
+  3. Khi gửi yêu cầu qua `adminDataService.creditSepayDepositManually`, phương thức thực thi lệnh:
+     `const txId = payload.transactionId?.trim() || ...;`
+     Do `payload.transactionId` là kiểu `number` (khác null/undefined), toán tử optional chaining `?.trim()` cố gắng gọi hàm `.trim()` trên biến số, ném ra ngoại lệ `TypeError: payload.transactionId.trim is not a function` (trong bản build minified Vite đổi tên biến thành `K.trim is not a function`).
+  4. Phía backend `functions/api/admin/sepay-credit.ts` trước đây chưa dùng `verifyAdminAuth` tiêu chuẩn (dễ từ chối 401 nếu chạy trên môi trường thiếu `ADMIN_SYNC_SECRET`), chưa xóa `note` lỗi cũ khi chuyển trạng thái sang `SUCCESS`, và dùng subquery `SELECT m.balance - ?` trong cùng batch tiềm ẩn rủi ro race-condition.
+- **Giải pháp triệt để đã triển khai (Solution Applied)**:
+  1. *Phòng vệ kiểu dữ liệu an toàn 100% tại Client*:
+     - Luôn ép kiểu sang String an toàn bằng `String(payload.transactionId ?? '').trim()` trước khi gọi bất kỳ phương thức chuỗi nào.
+     - Ép kiểu tương tự cho `memberId`, `note`, `gateway` và `manualAmount`.
+     - So sánh mã giao dịch dạng chuỗi `String(l.transactionId) === String(txId)` khi cập nhật danh sách log SePay trong bộ nhớ Admin.
+     - Xử lý thêm mã HTTP 409 (Conflict/Duplicate) trả về thông báo rõ ràng cho Admin nếu giao dịch đã từng được duyệt trước đó.
+  2. *Chuẩn hóa Endpoint Backend (`functions/api/admin/sepay-credit.ts`)*:
+     - Tích hợp chuẩn xác hệ thống phân quyền Quản trị đa tầng `verifyAdminAuth(request, env, 'WALLET_MANAGE')` (chấp nhận Master Secret, Session Token D1, Token Bearer, Cookie wcg_admin_token).
+     - Bind trực tiếp `balanceBefore` và `balanceAfter` vào `wallet_transactions` trong ACID batch Cloudflare D1, loại bỏ hoàn toàn subquery.
+     - Cập nhật `note = NULL` khi cập nhật giao dịch sang `SUCCESS` để xóa sạch các cảnh báo lỗi tạm thời trước đó.
+- **Kiểm thử & Nghiệm thu**: Vượt qua 100% unit tests kiểm tra phòng vệ kiểu dữ liệu (`test_credit_type_safety.cjs`), build và deploy đồng thời lên Web Khách và Web Quản Trị.
+
 ### 342. Sửa Tận Gốc Lỗi Nạp Tiền SePay Không Tăng Số Dư Khách (Bảo Toàn API Key Trong D1, Đa Tầng Xác Thực Webhook, Bind Trực Tiếp Số Dư ACID & Đồng Bộ Trang Tài Khoản)
 - **Triệu chứng & Bối cảnh**:
   - Khách nạp tiền qua chuyển khoản VietQR/SePay (vụ việc thực tế: giao dịch #97104172, 2.000đ, nội dung "WCG usr_1792759505915_tzfh" lúc 18:04:52 ngày 07/11/2026) nhưng số dư Core của khách hàng không tăng (vẫn giữ nguyên 27 Core).

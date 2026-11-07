@@ -2980,17 +2980,17 @@ class AdminDataService {
   }
 
   public async creditSepayDepositManually(payload: {
-    memberId: string;
+    memberId: string | number;
     amount: number;
-    transactionId?: string;
+    transactionId?: string | number;
     note?: string;
     gateway?: string;
   }): Promise<{ success: boolean; message: string; data?: any }> {
-    const cleanMemberId = payload.memberId.trim();
+    const cleanMemberId = String(payload.memberId ?? '').trim();
     const cleanAmount = Math.round(Number(payload.amount));
-    const txId = payload.transactionId?.trim() || `MANUAL_${Date.now()}`;
-    const note = payload.note?.trim() || `Duyệt nạp / Bù Core SePay thủ công (GD: ${txId})`;
-    const gateway = payload.gateway?.trim() || this.sepayConfig?.bankName || 'SePay-Manual';
+    const txId = String(payload.transactionId ?? '').trim() || `MANUAL_${Date.now()}`;
+    const note = String(payload.note ?? '').trim() || `Duyệt nạp / Bù Core SePay thủ công (GD: ${txId})`;
+    const gateway = String(payload.gateway ?? '').trim() || this.sepayConfig?.bankName || 'SePay-Manual';
 
     if (!cleanMemberId) {
       return { success: false, message: 'Vui lòng chọn hoặc nhập mã thành viên cần nạp.' };
@@ -3035,6 +3035,12 @@ class AdminDataService {
             success: false,
             message: errJson.error || 'Bạn không có quyền quản trị để thực hiện nạp tiền.',
           };
+        } else if (res.status === 409) {
+          const errJson = await res.json().catch(() => ({}));
+          return {
+            success: false,
+            message: errJson.error || `Giao dịch #${txId} đã được duyệt trước đó. Không thể duyệt lại!`,
+          };
         }
       } catch {}
     }
@@ -3042,13 +3048,13 @@ class AdminDataService {
     // Cập nhật State nội bộ Admin (đảm bảo hiển thị tức thì ngay cả khi offline hoặc đang đồng bộ)
     const member = this.members.find(
       (m) =>
-        m.id.toLowerCase() === cleanMemberId.toLowerCase() ||
-        (m.email && m.email.toLowerCase() === cleanMemberId.toLowerCase()) ||
-        (m.username && m.username.toLowerCase() === cleanMemberId.toLowerCase())
+        String(m.id).toLowerCase() === cleanMemberId.toLowerCase() ||
+        (m.email && String(m.email).toLowerCase() === cleanMemberId.toLowerCase()) ||
+        (m.username && String(m.username).toLowerCase() === cleanMemberId.toLowerCase())
     );
 
     if (member) {
-      const balanceBefore = member.balance;
+      const balanceBefore = Number(member.balance) || 0;
       const balanceAfter = serverResponse?.member?.balanceAfter ?? (balanceBefore + cleanAmount);
       member.balance = balanceAfter;
       this.saveMembers();
@@ -3071,7 +3077,7 @@ class AdminDataService {
     }
 
     // Cập nhật SePay logs
-    const existingLogIdx = this.sepayLogs.findIndex((l) => l.transactionId === txId);
+    const existingLogIdx = this.sepayLogs.findIndex((l) => String(l.transactionId) === String(txId));
     if (existingLogIdx !== -1) {
       this.sepayLogs[existingLogIdx] = {
         ...this.sepayLogs[existingLogIdx],

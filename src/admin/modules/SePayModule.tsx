@@ -224,30 +224,33 @@ export const SePayModule: React.FC<SePayModuleProps> = ({ onShowToast }) => {
   };
 
   const handleOpenManualCredit = (prefill?: {
-    transactionId?: string;
+    transactionId?: string | number;
     amount?: number;
     content?: string;
     memberId?: string;
   }) => {
     if (prefill) {
-      setManualTxId(prefill.transactionId || `MANUAL_${Date.now()}`);
-      setManualAmount(prefill.amount || 50000);
+      const safeTxId = prefill.transactionId !== undefined && prefill.transactionId !== null
+        ? String(prefill.transactionId).trim()
+        : `MANUAL_${Date.now()}`;
+      setManualTxId(safeTxId);
+      setManualAmount(Number(prefill.amount) || 50000);
       setManualNote(
         prefill.content
-          ? `Bù nạp SePay (GD: ${prefill.transactionId || ''} - ${prefill.content})`
+          ? `Bù nạp SePay (GD: ${safeTxId} - ${prefill.content})`
           : 'Duyệt bù tiền giao dịch SePay'
       );
       // Auto detect member from prefill
       let foundMember = prefill.memberId
-        ? members.find((m) => m.id === prefill.memberId)
+        ? members.find((m) => String(m.id).toLowerCase() === String(prefill.memberId).toLowerCase())
         : null;
       if (!foundMember && prefill.content) {
-        const cLower = prefill.content.toLowerCase();
+        const cLower = String(prefill.content).toLowerCase();
         foundMember = members.find(
           (m) =>
-            (m.id && cLower.includes(m.id.toLowerCase())) ||
-            (m.username && cLower.includes(m.username.toLowerCase())) ||
-            (m.email && cLower.includes(m.email.toLowerCase()))
+            (m.id && cLower.includes(String(m.id).toLowerCase())) ||
+            (m.username && cLower.includes(String(m.username).toLowerCase())) ||
+            (m.email && cLower.includes(String(m.email).toLowerCase()))
         ) || null;
       }
       setManualMemberId(foundMember?.id || members[0]?.id || '');
@@ -262,11 +265,16 @@ export const SePayModule: React.FC<SePayModuleProps> = ({ onShowToast }) => {
 
   const handleConfirmManualCredit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!manualMemberId) {
+    const cleanMemberId = String(manualMemberId || '').trim();
+    const cleanAmount = Math.round(Number(manualAmount));
+    const cleanTxId = String(manualTxId || '').trim();
+    const cleanNote = String(manualNote || '').trim();
+
+    if (!cleanMemberId) {
       onShowToast('Thiếu thành viên', 'Vui lòng chọn thành viên cần nạp.', 'error');
       return;
     }
-    if (!manualAmount || manualAmount <= 0) {
+    if (!cleanAmount || cleanAmount <= 0) {
       onShowToast('Số tiền không hợp lệ', 'Vui lòng nhập số tiền lớn hơn 0.', 'error');
       return;
     }
@@ -274,10 +282,10 @@ export const SePayModule: React.FC<SePayModuleProps> = ({ onShowToast }) => {
     setIsSubmittingCredit(true);
     try {
       const res = await adminDataService.creditSepayDepositManually({
-        memberId: manualMemberId,
-        amount: manualAmount,
-        transactionId: manualTxId,
-        note: manualNote,
+        memberId: cleanMemberId,
+        amount: cleanAmount,
+        transactionId: cleanTxId,
+        note: cleanNote,
         gateway: bankName || 'SePay',
       });
 
