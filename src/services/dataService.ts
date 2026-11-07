@@ -4386,6 +4386,52 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
       console.error('Error applying snapshot:', e);
     }
   }
+
+  async verifyEmail(): Promise<{ success: boolean; message: string; email_verified?: boolean }> {
+    const user = this.getCurrentUser();
+    if (!user) {
+      return { success: false, message: 'Vui lòng đăng nhập trước khi xác minh email.' };
+    }
+
+    const token =
+      (typeof localStorage !== 'undefined' ? localStorage.getItem('wcg_auth_token') : null) ||
+      (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('wcg_auth_token') : null) ||
+      user.session_token ||
+      '';
+
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+
+    try {
+      const res = await fetch('/api/auth/verify-email', {
+        method: 'POST',
+        headers,
+      });
+      const data: any = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        const updatedUser: UserProfile = {
+          ...user,
+          email_verified: true,
+          email_verified_at: data.email_verified_at || new Date().toISOString(),
+        };
+        this.saveCurrentUser(updatedUser);
+        return {
+          success: true,
+          message: data.message || 'Xác minh email thành công!',
+          email_verified: true,
+        };
+      }
+      return {
+        success: false,
+        message: data.message || 'Không thể xác minh email. Vui lòng thử lại sau.',
+      };
+    } catch (e: any) {
+      return {
+        success: false,
+        message: 'Lỗi kết nối khi xác minh email: ' + (e?.message || 'Không xác định'),
+      };
+    }
+  }
 }
 
 export const dataService = new DataService();

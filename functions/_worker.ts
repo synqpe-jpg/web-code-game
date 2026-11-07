@@ -6,6 +6,7 @@ import * as loginApi from './api/auth/login';
 import * as registerApi from './api/auth/register';
 import * as meApi from './api/auth/me';
 import * as resetPasswordApi from './api/auth/reset-password';
+import * as verifyEmailApi from './api/auth/verify-email';
 import * as ordersCreateApi from './api/orders/create';
 import * as sepayWebhookApi from './api/webhooks/sepay';
 import * as giveawaysClaimApi from './api/giveaways/claim';
@@ -440,9 +441,15 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
       }
       if (pathname === '/api/auth/me') {
         if (method === 'GET') return await meApi.onRequestGet(context);
+        if (method === 'POST' && meApi.onRequestPost) return await meApi.onRequestPost(context);
+        if (method === 'PUT' && meApi.onRequestPut) return await meApi.onRequestPut(context);
       }
       if (pathname === '/api/auth/reset-password') {
         if (method === 'POST') return await resetPasswordApi.onRequestPost(context);
+      }
+      if (pathname === '/api/auth/verify-email') {
+        if (method === 'OPTIONS' && verifyEmailApi.onRequestOptions) return await verifyEmailApi.onRequestOptions(context);
+        if (method === 'POST' && verifyEmailApi.onRequestPost) return await verifyEmailApi.onRequestPost(context);
       }
 
       // 5. /api/orders/*

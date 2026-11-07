@@ -307,6 +307,8 @@ export interface UserProfile {
   registered_ip?: string;
   created_at?: string;
   last_login?: string;
+  email_verified?: boolean;
+  email_verified_at?: string;
 }
 
 // News Article Model (Tin Tức Cập Nhật Game)

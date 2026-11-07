@@ -47,64 +47,27 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     const authHeader = request.headers.get('Authorization') || '';
     const token = authHeader.replace(/^Bearer\s+/i, '').trim();
 
-    if (!token) {
-      return new Response(
-        JSON.stringify({
-          success: true,
-          isAuthenticated: false,
-          campaign: {
-            enabled: fpConfig.enabled,
-            offer_price: fpConfig.offer_price,
-            max_original_price: fpConfig.max_original_price,
-            require_verified_email: fpConfig.require_verified_email,
-          },
-          message: 'Đăng nhập để nhận ưu đãi mua lần đầu',
-          offers: {},
-        }),
-        { headers: { ...CORS_HEADERS, 'Cache-Control': 'no-cache, no-store, must-revalidate' } }
-      );
-    }
-
-    const { valid, userId: tokenUserId } = await verifyToken(token, [env.JWT_SECRET, env.ADMIN_SYNC_SECRET]);
-
     let member: any = null;
     if (token) {
+      const { valid, userId: tokenUserId } = await verifyToken(token, [env.JWT_SECRET, env.ADMIN_SYNC_SECRET]);
       member = await env.DB.prepare(
         'SELECT * FROM members WHERE session_token = ? LIMIT 1'
       ).bind(token).first<any>();
-    }
 
-    if (!member && valid && tokenUserId) {
-      member = await env.DB.prepare(
-        'SELECT * FROM members WHERE id = ? OR username = ? OR email = ? LIMIT 1'
-      ).bind(tokenUserId, tokenUserId, tokenUserId).first<any>();
-    }
-
-    if (!member && token) {
-      const extractedUserId = extractUserIdFromToken(token);
-      if (extractedUserId) {
+      if (!member && valid && tokenUserId) {
         member = await env.DB.prepare(
-          'SELECT * FROM members WHERE id = ? OR username = ? LIMIT 1'
-        ).bind(extractedUserId, extractedUserId).first<any>();
+          'SELECT * FROM members WHERE id = ? OR username = ? OR email = ? LIMIT 1'
+        ).bind(tokenUserId, tokenUserId, tokenUserId).first<any>();
       }
-    }
 
-    if (!member) {
-      return new Response(
-        JSON.stringify({
-          success: true,
-          isAuthenticated: false,
-          campaign: {
-            enabled: fpConfig.enabled,
-            offer_price: fpConfig.offer_price,
-            max_original_price: fpConfig.max_original_price,
-            require_verified_email: fpConfig.require_verified_email,
-          },
-          message: 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn',
-          offers: {},
-        }),
-        { headers: { ...CORS_HEADERS, 'Cache-Control': 'no-cache, no-store, must-revalidate' } }
-      );
+      if (!member && token) {
+        const extractedUserId = extractUserIdFromToken(token);
+        if (extractedUserId) {
+          member = await env.DB.prepare(
+            'SELECT * FROM members WHERE id = ? OR username = ? LIMIT 1'
+          ).bind(extractedUserId, extractedUserId).first<any>();
+        }
+      }
     }
 
     // 2. Fetch products for this game (or all active products if no slug provided)
@@ -119,6 +82,54 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         'SELECT id, title, game_slug, game_name, current_price, original_price, is_active FROM store_products WHERE is_active = 1 LIMIT 200'
       ).all<any>();
       productRows = res.results || [];
+    }
+
+    // Nếu chưa đăng nhập hoặc token không hợp lệ, trả về offers ở trạng thái 'login_required' để client hiển thị huy hiệu ưu đãi
+    if (!member) {
+      const anonymousOffers: Record<string, any> = {};
+      for (const prod of productRows) {
+        const prodPrice = Number(prod.current_price) || 0;
+        let eligible = false;
+        let reason: string | null = null;
+        let offerPrice = prodPrice;
+        let discountAmount = 0;
+
+        if (!fpConfig.enabled) {
+          reason = 'campaign_disabled';
+        } else if (isProductExcludedFromFirstPurchase(prod, fpConfig.excluded_products)) {
+          reason = 'excluded';
+        } else if (fpConfig.max_original_price !== null && prodPrice > fpConfig.max_original_price) {
+          reason = 'exceeds_max_price';
+        } else {
+          reason = 'login_required';
+          offerPrice = Math.min(prodPrice, fpConfig.offer_price);
+          discountAmount = Math.max(0, prodPrice - offerPrice);
+        }
+
+        anonymousOffers[prod.id] = {
+          eligible,
+          current_price: prodPrice,
+          offer_price: offerPrice,
+          discount_amount: discountAmount,
+          reason,
+        };
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          isAuthenticated: false,
+          campaign: {
+            enabled: fpConfig.enabled,
+            offer_price: fpConfig.offer_price,
+            max_original_price: fpConfig.max_original_price,
+            require_verified_email: fpConfig.require_verified_email,
+          },
+          message: 'Đăng nhập để nhận ưu đãi mua lần đầu',
+          offers: anonymousOffers,
+        }),
+        { headers: { ...CORS_HEADERS, 'Cache-Control': 'no-cache, no-store, must-revalidate' } }
+      );
     }
 
     // 3. Query all completed purchases by this user for these products after last reset

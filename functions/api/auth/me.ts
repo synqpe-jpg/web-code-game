@@ -1,4 +1,4 @@
-import { ensureSchemaUpgrades, getSettingD1 } from '../../services/d1_service';
+import { ensureSchemaUpgrades, getSettingD1, isMemberEmailVerified } from '../../services/d1_service';
 import { verifyToken, computeHash, extractUserIdFromToken, createSignedToken, getSigningSecret } from '../../services/auth_service';
 
 interface Env {
@@ -280,6 +280,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           registered_ip: member.registered_ip || clientIp,
           created_at: member.created_at,
           last_login: member.last_login,
+          email_verified: isMemberEmailVerified(member),
+          email_verified_at: member.email_verified_at || null,
         },
         privateCodes,
         orders: userOrders,
@@ -443,6 +445,8 @@ async function handleUpdateProfile(context: EventContext<Env, any, any>): Promis
       created_at: member.created_at,
       last_login: member.last_login,
       session_token: token,
+      email_verified: isMemberEmailVerified(member),
+      email_verified_at: member.email_verified_at || null,
     };
 
     return new Response(

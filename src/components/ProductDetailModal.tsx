@@ -215,7 +215,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const isSoldVisible = isGlobalSoldEnabled && (product as any).show_sold_count !== false;
 
   const currentPrice = selectedPackage.price;
-  const originalPrice = selectedPackage.original_price || currentPrice;
+  const originalPrice = (typeof selectedPackage.original_price === 'number' && selectedPackage.original_price > 0)
+    ? selectedPackage.original_price
+    : currentPrice;
 
   // Kiểm tra ưu đãi mua lần đầu cho gói đang chọn
   const selectedOffer = offerData.offers[selectedPackage.id];
@@ -229,7 +231,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const discountPercent =
     displayOriginalPrice > displayCurrentPrice
       ? Math.round(((displayOriginalPrice - displayCurrentPrice) / displayOriginalPrice) * 100)
-      : (product.discount_percent || 0);
+      : 0;
 
   // Tổng tiền: Gói đầu tiên tính giá ưu đãi (nếu đủ điều kiện), các gói thêm (quantity > 1) tính giá thường
   const totalPrice = isSelectedOfferEligible
@@ -605,6 +607,26 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   </div>
                 )}
 
+                {/* Banner Hướng Dẫn Xác Minh Email Cho Tài Khoản Đã Đăng Nhập */}
+                {currentUser && offerData.campaign?.enabled && offerData.campaign?.require_verified_email && !currentUser.email_verified && (
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => {
+                      if (typeof window !== 'undefined') {
+                        window.location.hash = '#/account';
+                      }
+                    }}
+                    className="p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/35 hover:border-amber-500/50 transition-all cursor-pointer flex items-center justify-between gap-2 text-xs"
+                  >
+                    <div className="flex items-center gap-1.5 text-amber-300 font-medium">
+                      <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+                      <span>Cần xác minh email trong Hồ Sơ Tài Khoản để nhận giá ưu đãi {formatCore(offerData.campaign?.offer_price || 2000)}.</span>
+                    </div>
+                    <span className="text-[10px] text-amber-400 font-bold underline shrink-0">Xác minh ngay &gt;</span>
+                  </div>
+                )}
+
                 {/* Danh Sách Chọn Gói (Chọn Gói) */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
@@ -625,6 +647,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
                       const pkgOffer = offerData.offers[pkg.id];
                       const isPkgOfferEligible = Boolean(pkgOffer?.eligible);
+                      const isPkgOfferUnverified = !isPkgOfferEligible && pkgOffer?.reason === 'email_unverified';
+                      const isPkgOfferLoginReq = !isPkgOfferEligible && pkgOffer?.reason === 'login_required';
                       const pkgDisplayPrice = isPkgOfferEligible ? pkgOffer.offer_price : pkg.price;
                       const pkgOriginalPrice = isPkgOfferEligible ? pkg.price : (pkg.original_price || pkg.price);
 
@@ -661,6 +685,18 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                                 <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 shrink-0 flex items-center gap-1">
                                   <Sparkles className="w-2.5 h-2.5 text-rose-400" />
                                   Mua lần đầu chỉ {formatCore(pkgOffer.offer_price)}
+                                </span>
+                              )}
+                              {isPkgOfferUnverified && (
+                                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 shrink-0 flex items-center gap-1" title="Cần xác minh email để áp dụng giá ưu đãi">
+                                  <Sparkles className="w-2.5 h-2.5 text-amber-400" />
+                                  Mua lần đầu chỉ {formatCore(pkgOffer?.offer_price || 2000)} (Cần xác minh email)
+                                </span>
+                              )}
+                              {isPkgOfferLoginReq && (
+                                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 shrink-0 flex items-center gap-1">
+                                  <Sparkles className="w-2.5 h-2.5 text-rose-400" />
+                                  Mua lần đầu chỉ {formatCore(pkgOffer?.offer_price || 2000)}
                                 </span>
                               )}
                               {pkg.badge && (

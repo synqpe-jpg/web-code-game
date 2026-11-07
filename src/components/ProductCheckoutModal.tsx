@@ -51,6 +51,7 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
   onOpenAuth,
   onOpenWallet,
 }) => {
+  const liveProduct = product ? (dataService.getStoreProducts().find((p) => p.id === product.id) || product) : null;
   const [quantity, setQuantity] = useState<number>(initialQuantity || 1);
   const [isProcessing, setIsProcessing] = useState(false);
   const [completedOrder, setCompletedOrder] = useState<OrderRecord | null>(null);
@@ -151,7 +152,6 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
 
   useLockBodyScroll(Boolean(product));
 
-  const liveProduct = product ? (dataService.getStoreProducts().find((p) => p.id === product.id) || product) : null;
   const rawStock = typeof selectedPackage?.stock_quantity === 'number'
     ? selectedPackage.stock_quantity
     : liveProduct?.stock_quantity;
@@ -170,7 +170,9 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
       ? (Number(selectedPackage.price) + Number(selectedPackage.discountAmount || 0))
       : (selectedPackage?.price ?? liveProduct.current_price)
   );
-  const effectiveOriginalPrice = selectedPackage?.original_price ?? liveProduct.original_price;
+  const effectiveOriginalPrice = (typeof selectedPackage?.original_price === 'number' && selectedPackage.original_price > 0)
+    ? selectedPackage.original_price
+    : (selectedPackage?.price ?? liveProduct.original_price);
   const effectiveTitle = selectedPackage && selectedPackage.name && selectedPackage.name !== liveProduct.title
     ? `${liveProduct.title} - ${selectedPackage.name}`
     : liveProduct.title;

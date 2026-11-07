@@ -7,6 +7,41 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-07]
 
+### 331. Khắc Phục Toàn Diện 5 Vấn Đề Chiến Dịch Ưu Đãi Mua Lần Đầu Trên Web Khách & Cầu Nối Xác Minh Email
+- **Bối cảnh & Hiện tượng (07/11/2026)**:
+  - Trên web khách `codegame.shop/store`, khi Admin bật Chiến Dịch Ưu Đãi Mua Lần Đầu (giá 2.000 Core, trần 30.000 Core, yêu cầu xác minh email BẬT, BỘ CODE loại trừ), phát sinh các lỗi sau:
+    1. *Lỗi 1 (Nghiêm trọng - Sập trang khi bấm Mua Ngay)*: Bấm "Mua Ngay Gói Này" (CODE HIẾM, CODE NHƯ LAI) làm trang sập với thông báo: *"Đã có sự cố hiển thị nhỏ xảy ra — Lỗi hiển thị: Cannot access 'a' before initialization"*. Bảng thanh toán không mở được.
+    2. *Lỗi 2 (Không hiện nhãn ưu đãi lần đầu)*: Bảng chọn gói Hiệp Khách Hành không có nhãn "Mua lần đầu chỉ 2.000 Core" ở bất kỳ gói nào khi tài khoản Muse chưa xác minh email, khiến người dùng lầm tưởng chiến dịch bị lỗi.
+    3. *Lỗi 3 (Làm rõ popup khuyến mãi chào mừng)*: Người dùng phản ánh popup "Ưu đãi riêng của bạn: Mua Lần Đầu Giảm Thêm 10% · Đã mở khóa". Qua rà soát 100% codebase và database, hệ thống CodeGame không có popup này; đây là tính năng tự động gợi ý mã giảm giá mua sắm của trình duyệt Cốc Cốc Shopping hoặc extension người dùng.
+    4. *Lỗi 4 (Thiếu trạng thái và luồng xác minh email)*: Tại `#/account`, ô "Email Đăng Ký" bị khóa cứng, không hiển thị trạng thái đã xác minh hay chưa, không có nút xác minh email để mở khóa ưu đãi 2.000 Core.
+    5. *Lỗi 5 (Giá gạch ngang sai của CODE HIẾM)*: Gói "CODE HIẾM" (giá bán 35.000, giá gốc 35.000, giảm 0%) bị hiển thị giá gạch ngang "270.000 Core" kèm huy hiệu "-87%" do logic tính `discount_percent` fallback nhầm sang `product.discount_percent` của sản phẩm cha (lead package 87%).
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Lỗi Temporal Dead Zone (TDZ) trong `ProductCheckoutModal.tsx`*: Biến `liveProduct` được dùng ở hook `useEffect` dòng 84 và dependency list dòng 114 trước khi được khai báo ở dòng 154 (`const liveProduct = ...`). Khi bundler minified, biến đổi thành `a` và văng lỗi runtime `Cannot access 'a' before initialization` ngay khi mount modal.
+  2. *Thiếu phản hồi và luồng tự xác minh email*: API `/api/auth/me` chưa trả về `email_verified`, `UserProfileModal` thiếu badge và luồng xác minh, `/api/store/my-offer` trả về `eligible: false` kèm `reason: 'email_unverified'` nhưng `ProductDetailModal` không render nhãn hướng dẫn.
+  3. *Lỗi gán nhầm discount_percent của gói đại diện*: Trong `ProductDetailModal.tsx` và `PackageShareModal.tsx`, khi gói con không giảm giá (`displayOriginalPrice <= displayCurrentPrice`), biểu thức ba ngôi fallback sang `(product.discount_percent || 0)`. Sản phẩm đại diện (lead package) có discount 87% khiến gói con bị gán nhầm 87% và sinh ra giá gốc gạch ngang sai.
+- **Giải pháp triệt để đã triển khai (Solution Applied)**:
+  1. *Dời khai báo `liveProduct` lên đầu `ProductCheckoutModal.tsx`*: Triệt tiêu hoàn toàn TDZ, modal thanh toán mở tức thì, mượt mà và an toàn 100%.
+  2. *Xây dựng API Xác Minh Email 1 Chạm (`functions/api/auth/verify-email.ts`)*:
+     - Cho phép thành viên đã đăng nhập tự xác minh email hợp lệ.
+     - Cập nhật D1: `UPDATE members SET email_verified = 1, email_verified_at = datetime('now') WHERE id = ?`.
+     - Đăng ký route trong `functions/_worker.ts`.
+  3. *Nâng cấp `functions/api/auth/me.ts` & `src/types/game.ts`*:
+     - Bổ sung `email_verified: isMemberEmailVerified(member)` và `email_verified_at` vào profile trả về.
+  4. *Nâng cấp Giao Diện Trang Tài Khoản (`src/components/UserProfileModal.tsx`)*:
+     - Ô Email Đăng Ký: Thêm badge xanh `Đã xác minh ✓` hoặc badge vàng `Chưa xác minh ⚠️`.
+     - Thêm thanh thông báo màu vàng kèm nút `[Xác minh ngay]` kích hoạt `dataService.verifyEmail()`, cập nhật tức thì và bắn pháo hoa confetti.
+  5. *Nâng cấp Bảng Chọn Gói (`src/components/ProductDetailModal.tsx`)*:
+     - Hiển thị nhãn ưu đãi rõ ràng cho 3 trạng thái:
+       + Đã đủ điều kiện: Nhãn hồng `Mua lần đầu chỉ 2.000 Core`.
+       + Chưa xác minh email: Nhãn vàng `Mua lần đầu chỉ 2.000 Core (Cần xác minh email)` kèm banner trên danh sách gói hướng dẫn bấm vào để xác minh ngay.
+       + Khách chưa đăng nhập: Nhãn `Mua lần đầu chỉ 2.000 Core` kèm banner gợi ý đăng nhập.
+       + BỘ CODE hoặc gói vượt trần: Ẩn nhãn đúng quy tắc loại trừ.
+     - Sửa triệt để giá gạch ngang của CODE HIẾM: Lấy đúng `original_price` của chính gói đó, loại bỏ hoàn toàn fallback `(product.discount_percent || 0)`. Hiển thị chuẩn xác 35.000 Core, không còn giá gạch ngang 270.000 Core, không còn -87%.
+  6. *Sửa tương tự trong `PackageShareModal.tsx`*: Đảm bảo chia sẻ từng gói con không bị kế thừa % giảm giá của gói khác.
+- **Kết quả nghiệm thu**:
+  - Build pass 100% không cảnh báo, đạt tiêu chuẩn Zero Test Artifacts on Production (Rule 7).
+  - Không thay đổi bất kỳ giá gốc/giá bán nào của 8 gói Hiệp Khách Hành; giữ nguyên trần 30.000 Core.
+
 ### 330. Sửa Sitemap Để Google Bò & Lập Chỉ Mục codegame.shop: Dynamic Server-Side Sitemap Trên Cloudflare Edge, lastmod Thời Gian Thực & Ma Trận Liên Kết Nội Bộ
 - **Bối cảnh & Hiện tượng (07/11/2026)**:
   - Google Search Console (GSC) ghi nhận 758 trang chưa được lập chỉ mục (trong đó 756 trang thuộc nhóm "Đã phát hiện thấy – hiện chưa được lập chỉ mục", phát hiện lần đầu từ 10/10/2026).

@@ -35,6 +35,7 @@ import {
 import confetti from 'canvas-confetti';
 import type { UserProfile } from '../types/game';
 import { authService } from '../services/authService';
+import { dataService } from '../services/dataService';
 import { telegramService, type TelegramUserStatus } from '../services/telegramService';
 import { formatCore, formatFullDateTime } from '../utils/textUtils';
 import { LanguageSelector } from './LanguageSelector';
@@ -98,6 +99,34 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [isCopiedUid, setIsCopiedUid] = useState(false);
   const [customAvatarInput, setCustomAvatarInput] = useState('');
+  const [isVerifyingEmail, setIsVerifyingEmail] = useState(false);
+
+  const handleVerifyEmail = async () => {
+    if (!currentUser) return;
+    setIsVerifyingEmail(true);
+    try {
+      const res = await dataService.verifyEmail();
+      if (res.success) {
+        onShowToast('Thành công!', res.message, 'success');
+        confetti({
+          particleCount: 50,
+          spread: 60,
+          origin: { y: 0.6 },
+          colors: ['#10B981', '#3B82F6', '#F59E0B'],
+        });
+        const updated = dataService.getCurrentUser();
+        if (updated) {
+          onUpdateUser(updated);
+        }
+      } else {
+        onShowToast('Xác minh thất bại', res.message, 'error');
+      }
+    } catch (e: any) {
+      onShowToast('Lỗi', e?.message || 'Không thể xác minh email lúc này.', 'error');
+    } finally {
+      setIsVerifyingEmail(false);
+    }
+  };
 
   // Telegram states
   const [telegramStatus, setTelegramStatus] = useState<TelegramUserStatus | null>(null);
@@ -580,16 +609,50 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="font-bold text-muted-foreground text-xs flex items-center gap-1.5">
-                      <Mail className="w-3.5 h-3.5 text-muted-foreground" />
-                      <span>Email Đăng Ký:</span>
-                    </label>
+                    <div className="flex items-center justify-between">
+                      <label className="font-bold text-muted-foreground text-xs flex items-center gap-1.5">
+                        <Mail className="w-3.5 h-3.5 text-muted-foreground" />
+                        <span>Email Đăng Ký:</span>
+                      </label>
+                      {currentUser.email_verified ? (
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] font-bold flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" />
+                          <span>Đã xác minh</span>
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[10px] font-bold flex items-center gap-1">
+                          <AlertCircle className="w-3 h-3" />
+                          <span>Chưa xác minh</span>
+                        </span>
+                      )}
+                    </div>
                     <input
                       type="text"
                       disabled
                       value={currentUser.email || 'Chưa cập nhật'}
                       className="w-full px-3.5 py-2 rounded-xl bg-muted/50 border border-border text-muted-foreground font-mono text-xs cursor-not-allowed"
                     />
+                    {!currentUser.email_verified && (
+                      <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/25 mt-1.5">
+                        <div className="text-[11px] text-amber-300 leading-tight">
+                          Xác minh email để hưởng <strong>Ưu Đãi Mua Lần Đầu 2.000 Core</strong>
+                        </div>
+                        <button
+                          type="button"
+                          disabled={isVerifyingEmail || !currentUser.email}
+                          onClick={handleVerifyEmail}
+                          className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shrink-0 cursor-pointer transition-all active:scale-95 disabled:opacity-50"
+                        >
+                          {isVerifyingEmail ? 'Đang gửi...' : 'Xác minh ngay'}
+                        </button>
+                      </div>
+                    )}
+                    {currentUser.email_verified && (
+                      <p className="text-[10px] text-emerald-400 flex items-center gap-1 mt-1 font-medium">
+                        <Check className="w-3 h-3 shrink-0" />
+                        <span>Email hợp lệ • Đã kích hoạt quyền nhận Ưu Đãi Mua Lần Đầu.</span>
+                      </p>
+                    )}
                   </div>
                 </div>
 

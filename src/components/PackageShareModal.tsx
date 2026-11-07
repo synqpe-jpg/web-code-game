@@ -67,14 +67,14 @@ export const PackageShareModal: React.FC<PackageShareModalProps> = ({
 
   const currentPrice = packageItem.price;
   const originalPrice =
-    packageItem.original_price && packageItem.original_price > currentPrice
+    typeof packageItem.original_price === 'number' && packageItem.original_price > currentPrice
       ? packageItem.original_price
-      : (product?.original_price && product.original_price > currentPrice ? product.original_price : 0);
+      : 0;
 
   const discountPercent =
     originalPrice > currentPrice
       ? Math.round(((originalPrice - currentPrice) / originalPrice) * 100)
-      : (product?.discount_percent || 0);
+      : 0;
 
   const pkgStock =
     typeof packageItem.stock_quantity === 'number'

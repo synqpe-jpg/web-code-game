@@ -10,6 +10,20 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-234: Bẫy Temporal Dead Zone (TDZ) Khai Báo Biến Dưới Hook Trong Component & Bẫy Kế Thừa discount_percent Sản Phẩm Đại Diện
+- **Triệu chứng & Rủi ro**:
+  1. Khi mở modal mua hàng (`ProductCheckoutModal.tsx`), trang web lập tức bị crash văng lỗi: *"Cannot access 'a' before initialization"*. Nguyên nhân do biến `liveProduct` được dùng trong `useEffect` hook trước khi được khai báo `const liveProduct = ...` ở cuối component.
+  2. Khi gói con không giảm giá (ví dụ CODE HIẾM: bán 35.000, gốc 35.000), nếu biểu thức ba ngôi tính `discountPercent` fallback sang `product.discount_percent` của sản phẩm đại diện (lead package), gói con sẽ bị gán nhầm 87% và hiển thị giá gạch ngang sai lệch (270.000 Core).
+  3. Khi chiến dịch yêu cầu xác minh email, nếu hệ thống không cung cấp badge trạng thái và nút xác minh email trong hồ sơ tài khoản, đồng thời ẩn toàn bộ nhãn ưu đãi ngoài danh sách gói, khách hàng sẽ tưởng hệ thống bị lỗi và không biết cách mở khóa ưu đãi.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Luôn khai báo các biến phụ thuộc (như `liveProduct`) ngay trên đầu component, trước toàn bộ `useState` và `useEffect`.
+  2. Tính `discountPercent` độc lập theo từng gói: nếu `displayOriginalPrice <= displayCurrentPrice` thì `discountPercent = 0`, tuyệt đối không fallback sang `product.discount_percent`.
+  3. Cung cấp API xác minh email 1 chạm (`/api/auth/verify-email`), hiển thị badge trạng thái xanh/vàng trong `UserProfileModal` và hiển thị nhãn ưu đãi kèm chỉ dẫn xác minh email rõ ràng trên từng gói.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không khai báo biến `const` phía sau hook `useEffect` có sử dụng biến đó.*
+  - ❌ *Không fallback `%` giảm giá của gói con về `%` của sản phẩm cha đại diện.*
+  - ❌ *Không ẩn sạch nhãn ưu đãi khi khách chưa xác minh email (phải hiện nhãn kèm hướng dẫn).*
+
 ### ISSUE-233: Bẫy Sitemap Tĩnh Đóng Băng Ngày Tháng (lastmod Stale) & Bẫy Thiếu Liên Kết Nội Bộ Cho Googlebot Crawl
 - **Triệu chứng & Rủi ro**:
   1. Google Search Console phát hiện hàng trăm trang (ví dụ 756 trang) nhưng xếp vào nhóm "Đã phát hiện thấy – hiện chưa được lập chỉ mục", cột lần thu thập ghi "Không áp dụng" suốt nhiều tuần.
