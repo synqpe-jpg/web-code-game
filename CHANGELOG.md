@@ -7,6 +7,27 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-07]
 
+### 344. Chuyển Duy Nhất 1 Nút Mua Ngay Vào Khối Mô Tả Ghim Cố Định & Chống Chồng Đè Giá Trên Thẻ Gói Mobile
+- **Triệu chứng & Bối cảnh**:
+  - Trong bảng chi tiết gói (`ProductDetailModal.tsx`), người dùng phản ánh tồn tại 2 nút mua ("Mua ngay" dưới khối giá và "Mua ngay" ở cuối bảng sau phần chọn số lượng) gây dư thừa, phân mảnh trải nghiệm.
+  - Khi vuốt xem danh sách gói trên điện thoại (viewport 390px), người dùng muốn nút "Mua ngay" luôn hiện hữu cố định trong khối "Thông Tin Chi Tiết Gói" đã được ghim ở trên.
+  - Trên thẻ gói đang chọn, nhãn ưu đãi "Mua lần đầu chỉ 2.000 Core" bị chữ chạy đè lên số giá "2.000 Core" do cấu trúc hàng đơn hẹp trên màn hình di động.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Thừa nút hành động mua*: Lần cập nhật trước đã thêm nút mua trực tiếp dưới giá nhưng chưa xóa nút mua ở cuối cột, tạo ra 2 nút mua cùng chức năng.
+  2. *Chưa tích hợp nút mua vào khối ghim*: Nút mua tách rời khỏi khối mô tả ghim `sticky top-0`, khi người dùng vuốt danh sách gói xuống dưới thì nút mua dưới giá bị trôi mất.
+  3. *Lệch bố cục Flex trên thẻ gói Mobile*: Container thẻ gói dùng `flex items-center justify-between` trên 1 dòng duy nhất. Với màn hình 390px, phần tên gói kèm huy hiệu ưu đãi dài đẩy sang cột giá `shrink-0`, gây hiện tượng chữ nhãn đè lên số giá.
+- **Giải pháp triệt để đã triển khai (Solution Applied)**:
+  1. *Chuyển Duy Nhất 1 Nút Mua Ngay Vào Khối Mô Tả Ghim*:
+     - Tích hợp 1 nút mua toàn chiều rộng (`w-full`), chiều cao cảm ứng chuẩn `min-h-[44px] h-[48px]` ngay bên dưới phần mô tả trong khối ghim `sticky top-0 z-20`.
+     - Nền khối ghim được phủ màu đặc 100% (`bg-slate-900 border-slate-700/80 shadow-2xl`), loại bỏ hoàn toàn độ trong suốt để thẻ gói cuộn bên dưới không bao giờ bị lộ xuyên qua.
+     - Khi bấm "Xem thêm" mở rộng mô tả, phần mô tả được giới hạn cuộn nội bộ `max-h-[22vh] sm:max-h-[160px] overflow-y-auto`, giữ nút mua luôn hiển thị cố định ở đáy khối ghim mà không bị đẩy khỏi màn hình.
+     - Xóa bỏ hoàn toàn nút mua dưới khối giá ở "Gói Đã Chọn" và xóa toàn bộ mục nút mua ở cuối bảng. Trong toàn bộ bảng chi tiết gói hiện chỉ còn **đúng 1 nút mua duy nhất**.
+     - Đổi gói thì mô tả và giá trên nút mua đổi tức thì theo đúng gói đang chọn.
+  2. *Khắc phục lỗi chồng đè nhãn ưu đãi lên giá thẻ gói*:
+     - Tái cấu trúc thẻ gói sang `flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3`.
+     - Trên mobile, phần giá và nút chia sẻ gói được tách riêng thành một hàng độc lập ở đáy thẻ (`w-full sm:w-auto pt-1.5 sm:pt-0 border-t sm:border-t-0 border-slate-800/60`), đảm bảo số giá luôn nằm riêng biệt, rõ ràng và không bao giờ bị nhãn ưu đãi che khuất.
+- **Kiểm thử & Nghiệm thu**: Vượt qua 100% các bài kiểm thử đơn vị, kiểm tra hiển thị mobile 390px qua ảnh chụp và build thành công.
+
 ### 343. Sửa Lỗi "K.trim is not a function" Khi Admin Duyệt Nạp / Bù Core Thủ Công Cho Khách
 - **Triệu chứng & Bối cảnh**:
   - Tại trang Quản trị Shop mục SePay (`#/sepay`), khi Quản trị viên bấm nút "Duyệt Nạp" ở một giao dịch SePay (ví dụ giao dịch #97104172 của khách Minhhu) và bấm "Xác Nhận Nạp Ngay", giao diện bật toast đỏ: "Lỗi xử lý — K.trim is not a function".

@@ -4883,6 +4883,23 @@
   - ❌ *Dùng `value?.trim()` với niềm tin rằng optional chaining ngăn chặn được lỗi khi `value` là số nguyên (`number`)*.
 
 
+---
+
+### ISSUE-067: Bẫy Nhiều Nút Mua Trùng Lặp Gây Rối Giao Diện & Bẫy Chồng Đè Nhãn Ưu Đãi Lên Giá Trong Thẻ Gói Mobile
+- **Triệu chứng**:
+  - Modal chi tiết sản phẩm tồn tại 2 nút mua cùng lúc ở đầu và cuối bảng gây phân tâm cho người dùng.
+  - Trên điện thoại (viewport 390px), thẻ gói hiển thị nhãn ưu đãi mua lần đầu chạy đè lên số giá Core bên phải do ép hiển thị trên cùng 1 hàng ngang.
+- **Nguyên nhân gốc rễ**:
+  1. Thừa nút mua: lần nâng cấp trước đã bổ sung nút mua dưới giá nhưng chưa xóa nút mua ở chân bảng.
+  2. Bố cục thẻ gói `flex items-center justify-between` thiếu ngắt dòng thích ứng khi nhãn ưu đãi quá dài.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Gom toàn bộ hành động mua về đúng 1 nút duy nhất đặt cố định ở đáy khối mô tả ghim (`sticky top-0 z-20 bg-slate-900 shadow-2xl`).
+  2. Bố cục thích ứng `flex flex-col sm:flex-row` cho thẻ gói: trên mobile, hàng giá nằm tách biệt ở dòng riêng phía dưới với đường viền mờ phân cách, loại trừ hoàn toàn nguy cơ chồng đè chữ.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Để nhiều nút mua ở nhiều vị trí khác nhau trong cùng 1 modal chi tiết sản phẩm*.
+  - ❌ *Dùng `flex-nowrap` hoặc ép 1 hàng ngang cho thẻ gói trên mobile khi có chứa huy hiệu ưu đãi dài*.
+
+
 
 ---
 
