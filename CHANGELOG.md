@@ -5,6 +5,30 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ---
 
+## [2026-11-07]
+
+### 329. Khắc Phục Lỗi Không Thể Lưu Cấu Hình Ưu Đãi Mua Lần Đầu Trong Admin: Đăng Ký Route functions/_worker.ts & Chuẩn Hóa Xác Thực verifyAdminAuth
+- **Bối cảnh & Hiện tượng (07/11/2026, 10:46)**:
+  - Khi Quản trị viên truy cập trang Quản trị tại `admin-code-game-shop.pages.dev/admin#/first-purchase`, thay đổi cài đặt (bật chiến dịch, đặt trần giá 30.000 Core) và bấm nút "Lưu Cấu Hình", hệ thống xuất hiện thông báo toast màu đỏ: *"Thất bại: Không thể lưu cấu hình."*.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Thiếu route dispatch trong Edge Worker nguyên khối (`functions/_worker.ts`)*: Toàn bộ routing API của Cloudflare Pages trong dự án được điều hướng tập trung tại `functions/_worker.ts`. Hai endpoint mới `/api/admin/first-purchase` và `/api/store/my-offer` chưa được import và khai báo dispatch trong `_worker.ts`. Khi client gửi request đến `/api/admin/first-purchase`, Edge Worker rơi vào nhánh fallback 404: `JSON.stringify({ success: false, error: 'Endpoint not found', path: pathname })`.
+  2. *Thiếu trường `message` trong fallback 404*: Phản hồi 404 trả về key `error` thay vì `message`, khiến logic frontend `data.message || 'Không thể lưu cấu hình.'` rơi vào chuỗi mặc định.
+  3. *Xác thực Admin chưa đồng bộ Sync Key*: Trong `FirstPurchaseModule.tsx`, hàm `getAuthHeaders` ban đầu chỉ gửi header `Authorization: Bearer <token>` mà không gửi kèm `X-Sync-Key` / `X-Admin-Key`, đồng thời hàm `authenticateAdmin` trong `first-purchase.ts` chưa tận dụng hàm xác thực đa tầng `verifyAdminAuth` đã có sẵn của hệ thống.
+- **Giải pháp triệt để đã triển khai (Solution Applied)**:
+  1. *Đăng ký đầy đủ Edge Route trong `functions/_worker.ts`*:
+     - Import `firstPurchaseAdminApi` và `storeMyOfferApi`.
+     - Thêm route điều phối `/api/admin/first-purchase` hỗ trợ `OPTIONS`, `GET`, `POST`.
+     - Thêm route điều phối `/api/store/my-offer` hỗ trợ `OPTIONS`, `GET`.
+  2. *Chuẩn hóa xác thực đa tầng với `verifyAdminAuth` (`functions/api/admin/first-purchase.ts`)*:
+     - Chuyển sang sử dụng `verifyAdminAuth(request, env, 'FIRST_PURCHASE_MANAGE')` hỗ trợ nhận diện cả Session Token, Master Secret Keys (`ADMIN_SYNC_SECRET`, `MASTER_SYSTEM_KEYS`), và API Key mang scope tương ứng.
+  3. *Nâng cấp Frontend Admin Module (`src/admin/modules/FirstPurchaseModule.tsx`)*:
+     - Bổ sung `X-Sync-Key` và `X-Admin-Key` vào `getAuthHeaders()`.
+     - Bổ sung danh sách fallback endpoints `['/api/admin/first-purchase', 'https://codegame.shop/api/admin/first-purchase']`.
+     - Cải thiện thông báo lỗi chi tiết: ưu tiên hiển thị `data.message`, `data.error`, hoặc mã trạng thái HTTP để chẩn đoán tức thì.
+- **Kết quả nghiệm thu**:
+  - Biên dịch thành công 100% Vite Frontend và Cloudflare Pages Edge Worker (`dist/_worker.js`).
+  - Deploy thành công đồng thời lên `web-code-game` và `admin-code-game-shop`.
+
 ## [2026-11-06]
 
 ### 328. Chiến Dịch Ưu Đãi Mua Lần Đầu Theo Từng Mặt Hàng (Per-Item First Purchase Offer) với Server-Authoritative Pricing, Atomic D1 Race Guard & Quản Trị Toàn Diện

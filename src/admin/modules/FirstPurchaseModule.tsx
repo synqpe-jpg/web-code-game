@@ -103,39 +103,63 @@ export const FirstPurchaseModule: React.FC<FirstPurchaseModuleProps> = ({ onShow
   // Stringified excluded products for textarea input
   const [excludedText, setExcludedText] = useState('');
 
-  const getAuthHeaders = () => {
-    const token = (typeof localStorage !== 'undefined' && localStorage.getItem('wcg_auth_token')) ||
-      (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('wcg_auth_token')) || '';
-    return {
+  const getAuthHeaders = (): Record<string, string> => {
+    const token =
+      (typeof localStorage !== 'undefined' && localStorage.getItem('wcg_auth_token')) ||
+      (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('wcg_auth_token')) ||
+      '';
+    const syncKey =
+      (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('wcg_admin_sync_key')) ||
+      (typeof localStorage !== 'undefined' && localStorage.getItem('wcg_admin_sync_key')) ||
+      'b4e08494bf1c3fd6a0c965dd2411780c60513f7f87001bc955d7496331b2faef';
+
+    const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
+      'X-Sync-Key': syncKey,
+      'X-Admin-Key': syncKey,
     };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    return headers;
+  };
+
+  const getAdminEndpoints = () => {
+    return ['/api/admin/first-purchase', 'https://codegame.shop/api/admin/first-purchase'];
   };
 
   const loadData = async () => {
     setIsLoading(true);
-    try {
-      const res = await fetch('/api/admin/first-purchase', {
-        headers: getAuthHeaders(),
-      });
-      const data = await res.json();
-      if (data.success) {
-        if (data.config) {
-          setConfig(data.config);
-          setExcludedText((data.config.excluded_products || []).join('\n'));
+    let success = false;
+    let lastError = '';
+
+    for (const endpoint of getAdminEndpoints()) {
+      try {
+        const res = await fetch(endpoint, {
+          headers: getAuthHeaders(),
+        });
+        const data = await res.json().catch(() => null);
+        if (res.ok && data?.success) {
+          if (data.config) {
+            setConfig(data.config);
+            setExcludedText((data.config.excluded_products || []).join('\n'));
+          }
+          if (data.metrics) setMetrics(data.metrics);
+          if (data.used_orders) setUsedOrders(data.used_orders);
+          if (data.reset_logs) setResetLogs(data.reset_logs);
+          if (data.ip_alerts) setIpAlerts(data.ip_alerts);
+          success = true;
+          break;
+        } else {
+          lastError = data?.message || data?.error || (res.status !== 200 ? `Mã lỗi HTTP ${res.status}` : '');
         }
-        if (data.metrics) setMetrics(data.metrics);
-        if (data.used_orders) setUsedOrders(data.used_orders);
-        if (data.reset_logs) setResetLogs(data.reset_logs);
-        if (data.ip_alerts) setIpAlerts(data.ip_alerts);
-      } else {
-        onShowToast('Lỗi tải dữ liệu', data.message || 'Không thể nạp thông tin ưu đãi.', 'error');
+      } catch (e: any) {
+        lastError = e?.message || 'Không thể kết nối đến máy chủ.';
       }
-    } catch (e: any) {
-      onShowToast('Lỗi kết nối', e?.message || 'Không thể kết nối đến máy chủ.', 'error');
-    } finally {
-      setIsLoading(false);
     }
+
+    if (!success && lastError) {
+      onShowToast('Lỗi tải dữ liệu', lastError || 'Không thể nạp thông tin ưu đãi.', 'error');
+    }
+    setIsLoading(false);
   };
 
   useEffect(() => {
@@ -158,18 +182,33 @@ export const FirstPurchaseModule: React.FC<FirstPurchaseModuleProps> = ({ onShow
         },
       };
 
-      const res = await fetch('/api/admin/first-purchase', {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(payload),
-      });
+      let saved = false;
+      let lastErrMsg = '';
 
-      const data = await res.json();
-      if (data.success) {
-        setConfig(data.config);
-        onShowToast('Thành công', 'Đã lưu cấu hình chiến dịch ưu đãi mua lần đầu.', 'success');
-      } else {
-        onShowToast('Thất bại', data.message || 'Không thể lưu cấu hình.', 'error');
+      for (const endpoint of getAdminEndpoints()) {
+        try {
+          const res = await fetch(endpoint, {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify(payload),
+          });
+
+          const data = await res.json().catch(() => null);
+          if (res.ok && data?.success) {
+            if (data.config) setConfig(data.config);
+            onShowToast('Thành công', 'Đã lưu cấu hình chiến dịch ưu đãi mua lần đầu.', 'success');
+            saved = true;
+            break;
+          } else {
+            lastErrMsg = data?.message || data?.error || (res.status !== 200 ? `Mã lỗi HTTP ${res.status}` : '');
+          }
+        } catch (e: any) {
+          lastErrMsg = e?.message || 'Không thể gửi yêu cầu lưu.';
+        }
+      }
+
+      if (!saved) {
+        onShowToast('Thất bại', lastErrMsg || 'Không thể lưu cấu hình.', 'error');
       }
     } catch (e: any) {
       onShowToast('Lỗi', e?.message || 'Lỗi khi lưu cấu hình.', 'error');

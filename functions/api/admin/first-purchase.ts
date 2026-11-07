@@ -3,20 +3,21 @@ import {
   getFirstPurchaseConfigD1,
   FirstPurchaseConfig,
 } from '../../services/d1_service';
-import { verifyToken } from '../../services/auth_service';
-import { verifyAiKeyAuth } from '../../services/mission_service';
+import { verifyAdminAuth } from '../../services/mission_service';
 
 interface Env {
   DB: D1Database;
   JWT_SECRET?: string;
   ADMIN_SYNC_SECRET?: string;
+  PINE_API_KEY?: string;
+  MUSE_API_KEY?: string;
 }
 
 const CORS_HEADERS = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Sync-Key, X-Admin-Key, X-Api-Key, X-Requested-With',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Sync-Key, X-Admin-Key, X-Api-Key, x-admin-sync-key, X-Requested-With',
 };
 
 export const onRequestOptions: PagesFunction = async () => {
@@ -27,44 +28,19 @@ export const onRequestOptions: PagesFunction = async () => {
 };
 
 async function authenticateAdmin(request: Request, env: Env): Promise<{ authorized: boolean; user?: any; error?: string }> {
-  // 1. Kiểm tra API Key / Sync Secret qua verifyAiKeyAuth
-  const keyAuth = await verifyAiKeyAuth(request, env.DB, env as any, 'FIRST_PURCHASE_MANAGE');
-  if (keyAuth.authorized) {
+  const adminCheck = await verifyAdminAuth(request, env as any, 'FIRST_PURCHASE_MANAGE');
+  if (adminCheck.authorized) {
     return {
       authorized: true,
       user: {
-        id: keyAuth.keyRecord?.id || 'admin_api_key',
-        username: keyAuth.keyRecord?.name || 'API Key',
-        email: 'api@codegame.shop',
+        id: adminCheck.adminId || 'usr_admin',
+        username: adminCheck.adminName || 'Admin',
+        email: 'admin@codegame.shop',
         role: 'SUPER_ADMIN',
       },
     };
   }
-
-  // 2. Kiểm tra JWT Bearer / Session Token của Admin
-  const authHeader = request.headers.get('Authorization') || '';
-  const token = authHeader.replace(/^Bearer\s+/i, '').trim();
-
-  if (token) {
-    let member: any = await env.DB.prepare(
-      'SELECT * FROM members WHERE session_token = ? LIMIT 1'
-    ).bind(token).first<any>();
-
-    if (!member) {
-      const { valid, userId } = await verifyToken(token, [env.JWT_SECRET, env.ADMIN_SYNC_SECRET]);
-      if (valid && userId) {
-        member = await env.DB.prepare(
-          'SELECT * FROM members WHERE id = ? OR username = ? OR email = ? LIMIT 1'
-        ).bind(userId, userId, userId).first<any>();
-      }
-    }
-
-    if (member && (member.role === 'ADMIN' || member.role === 'SUPER_ADMIN')) {
-      return { authorized: true, user: member };
-    }
-  }
-
-  return { authorized: false, error: 'Yêu cầu quyền Quản trị viên (ADMIN hoặc SUPER_ADMIN).' };
+  return { authorized: false, error: adminCheck.error || 'Yêu cầu quyền Quản trị viên (ADMIN hoặc SUPER_ADMIN).' };
 }
 
 export const onRequestGet: PagesFunction<Env> = async (context) => {

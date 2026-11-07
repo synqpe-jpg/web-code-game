@@ -10,6 +10,16 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-232: Bẫy Thiếu Khai Báo Route Trong Edge Worker Tập Trung functions/_worker.ts
+- **Triệu chứng & Rủi ro**:
+  1. Khi tạo thêm bất kỳ endpoint mới nào trong thư mục `functions/api/`, nếu quên khai báo `import` và điều phối route `if (pathname === '...')` trong `functions/_worker.ts`, toàn bộ request gửi tới endpoint đó trên Cloudflare Pages sẽ bị rơi xuống cuối file và trả về HTTP 404 (`{ success: false, error: 'Endpoint not found' }`).
+  2. Frontend không thể gọi API, gây lỗi lưu cấu hình hoặc không tải được dữ liệu, kèm thông báo lỗi chung chung.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Mỗi khi phát triển hoặc tạo mới bất kỳ file endpoint nào trong `functions/api/`: **BẮT BUỘC ĐỒNG THỜI** khai báo import và dispatch route tương ứng trong `functions/_worker.ts`.
+  2. Luôn chuẩn hóa xác thực bằng `verifyAdminAuth` và gửi kèm `X-Sync-Key` / `X-Admin-Key` từ các module admin để tương thích trên mọi domain triển khai (cả domain web khách `codegame.shop` lẫn domain quản trị `admin-code-game-shop.pages.dev`).
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không chỉ tạo file trong `functions/api/` mà quên đăng ký route trong `functions/_worker.ts`.*
+
 ### ISSUE-231: Bẫy Client-Side Preliminary Balance Check Chặn Người Mua Ưu Đãi Lần Đầu & Bẫy Race Condition Mua Song Song Cùng Gói Ưu Đãi
 - **Triệu chứng & Rủi ro**:
   1. Khi một gói có giá gốc cao (ví dụ: 35.000 Core) và được hưởng ưu đãi mua lần đầu (ví dụ: 2.000 Core), nếu logic kiểm tra số dư ban đầu ở client (`dataService.createOrder`) vẫn kiểm tra theo giá niêm yết của sản phẩm (`currentBal < unitPrice * qty`), khách hàng có 2.500 Core sẽ bị client chặn thanh toán và báo thiếu tiền, mặc dù phía máy chủ chỉ trừ 2.000 Core.

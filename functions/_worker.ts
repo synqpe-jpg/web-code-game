@@ -57,6 +57,8 @@ import * as telegramWebhookApi from './api/telegram/webhook';
 import * as telegramAdminApi from './api/telegram/admin';
 import * as telegramManageApi from './api/telegram/manage';
 import * as telegramUserApi from './api/telegram/user';
+import * as firstPurchaseAdminApi from './api/admin/first-purchase';
+import * as storeMyOfferApi from './api/store/my-offer';
 import { invalidateCatalogEdgeCache } from './services/cache_service';
 import fallbackGiveawaysData from '../src/data/giveaways.json';
 import fallbackGamesData from '../src/data/games188.json';
@@ -512,6 +514,12 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
         return await storeManageApi.onRequestGet(context);
       }
 
+      // 7f. /api/store/my-offer (First Purchase Offer Eligibility Check API)
+      if (pathname === '/api/store/my-offer') {
+        if (method === 'OPTIONS') return await storeMyOfferApi.onRequestOptions();
+        return await storeMyOfferApi.onRequestGet(context);
+      }
+
       // Passive Tick: Tự động chạy quét mô phỏng mỗi 5 phút một cách nhẹ nhàng
       if (env.DB && (Date.now() - lastGiveawaySimulationTick > 300000)) {
         lastGiveawaySimulationTick = Date.now();
@@ -563,6 +571,13 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
         if (method === 'GET') return await adminHistoryApi.onRequestGet(context);
         if (method === 'POST') return await adminHistoryApi.onRequestPost(context);
         if (method === 'OPTIONS') return await adminHistoryApi.onRequestOptions(context);
+      }
+
+      // 8c-4. /api/admin/first-purchase (First Purchase Offer Campaign Management API)
+      if (pathname === '/api/admin/first-purchase') {
+        if (method === 'OPTIONS') return await firstPurchaseAdminApi.onRequestOptions(context);
+        if (method === 'POST') return await firstPurchaseAdminApi.onRequestPost(context);
+        return await firstPurchaseAdminApi.onRequestGet(context);
       }
 
       // 8d. /api/crawl-article (AI Article Crawler & Extractor)
