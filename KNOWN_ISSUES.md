@@ -10,6 +10,22 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-233: Bẫy Sitemap Tĩnh Đóng Băng Ngày Tháng (lastmod Stale) & Bẫy Thiếu Liên Kết Nội Bộ Cho Googlebot Crawl
+- **Triệu chứng & Rủi ro**:
+  1. Google Search Console phát hiện hàng trăm trang (ví dụ 756 trang) nhưng xếp vào nhóm "Đã phát hiện thấy – hiện chưa được lập chỉ mục", cột lần thu thập ghi "Không áp dụng" suốt nhiều tuần.
+  2. Nguyên nhân do `sitemap.xml` là file tĩnh đóng băng ngày `lastmod` từ 1 tháng trước (`2026-10-09`), trong khi web liên tục nạp code và tin tức mới mỗi ngày. Googlebot coi sitemap là không có cập nhật mới và hạ mức độ ưu tiên thu thập dữ liệu (crawl budget).
+  3. Khi có game mới (như `hiep-khach-hanh`), do sitemap chỉ sinh tĩnh lúc build offline từ JSON cũ nên game mới không bao giờ xuất hiện trong sitemap.
+  4. Các trang render qua Edge SSR thiếu ma trận liên kết nội bộ tới các game cùng thể loại, khiến crawler không thể bò sâu liên tục giữa các trang.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Triển khai Server-Side Dynamic Sitemap trên Edge Worker (`functions/_worker.ts`): Bắt route `/sitemap.xml`, truy vấn D1 SQL tính toán `lastmod = max(mã mới nhất, ngày sửa game)` theo thời gian thực.
+  2. Đệm 2 tầng thông minh: Cloudflare Edge Cache (`caches.default` với key `https://codegame.shop/sitemap.xml`) và Worker RAM isolate cache (30 phút), đảm bảo TTFB < 50ms cho Googlebot.
+  3. Tự động xóa cache: Tích hợp xóa cache sitemap vào `invalidateCatalogEdgeCache` khi crawler ingest code qua `/api/crawler/ingest-codes`.
+  4. Bổ sung ma trận liên kết nội bộ "Tựa Game Cùng Thể Loại & NPH Đang Có Giftcode" (tối thiểu 4 liên kết) vào cả Edge SSR và prerender tĩnh.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không phụ thuộc vào file sitemap tĩnh offline khi hệ thống có dữ liệu cập nhật động 24/7.*
+  - ❌ *Không ghi tay ngày tháng giả lập hoặc ngày tương lai vào sitemap (`lastmod <= todayStr`).*
+  - ❌ *Không để sót các game mới có thật trong database khỏi sitemap.*
+
 ### ISSUE-232: Bẫy Thiếu Khai Báo Route Trong Edge Worker Tập Trung functions/_worker.ts
 - **Triệu chứng & Rủi ro**:
   1. Khi tạo thêm bất kỳ endpoint mới nào trong thư mục `functions/api/`, nếu quên khai báo `import` và điều phối route `if (pathname === '...')` trong `functions/_worker.ts`, toàn bộ request gửi tới endpoint đó trên Cloudflare Pages sẽ bị rơi xuống cuối file và trả về HTTP 404 (`{ success: false, error: 'Endpoint not found' }`).

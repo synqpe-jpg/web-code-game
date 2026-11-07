@@ -59,6 +59,7 @@ import * as telegramManageApi from './api/telegram/manage';
 import * as telegramUserApi from './api/telegram/user';
 import * as firstPurchaseAdminApi from './api/admin/first-purchase';
 import * as storeMyOfferApi from './api/store/my-offer';
+import { getMultipleSettingsD1 } from './services/d1_service';
 import { invalidateCatalogEdgeCache } from './services/cache_service';
 import fallbackGiveawaysData from '../src/data/giveaways.json';
 import fallbackGamesData from '../src/data/games188.json';
@@ -845,6 +846,11 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
         return await renderSeoHtml(request, env, pathname);
       }
 
+      // Dynamic Server-Side Sitemap (XML) with real-time lastmod calculation
+      if ((pathname === '/sitemap.xml' || pathname === '/sitemap') && (request.method === 'GET' || request.method === 'HEAD')) {
+        return await handleDynamicSitemap(request, env, ctx);
+      }
+
       // Root Homepage HTML - Always fresh to guarantee chunk integrity
       if (request.method === 'GET' && (pathname === '/' || pathname === '/index.html')) {
         // Tự động chuyển hướng 301 về URL canonical /game/:slug nếu người dùng hoặc bot truy cập qua ?game= hoặc ?g=
@@ -1068,6 +1074,370 @@ function parseHowToSteps(instructions: string = '', gameName: string = '') {
       text: `Bấm Đổi Quà và kiểm tra hòm Thư trong game ${gameName} để nhận vật phẩm ngay tức thì.`,
     },
   ];
+}
+
+function parseDateMs(val: any): number {
+  if (!val) return 0;
+  if (typeof val === 'number') {
+    return val > 0 && val < 3000000000000 ? val : 0;
+  }
+  const str = String(val).trim();
+  if (!str) return 0;
+  const normalized = str.includes(' ') && !str.includes('T') ? str.replace(' ', 'T') + 'Z' : str;
+  const t = new Date(normalized).getTime();
+  return isNaN(t) ? 0 : t;
+}
+
+function formatDate(ms: number, todayStr: string): string {
+  if (!ms || ms <= 0) return '2026-10-22';
+  const dStr = new Date(ms).toISOString().slice(0, 10);
+  return dStr > todayStr ? todayStr : dStr;
+}
+
+/**
+ * Xử lý request sitemap.xml động với chiến lược bộ đệm đa tầng (RAM Isolate + Edge Cache)
+ */
+async function handleDynamicSitemap(
+  request: Request,
+  env: Env,
+  ctx: ExecutionContext
+): Promise<Response> {
+  const url = new URL(request.url);
+  const isHead = request.method === 'HEAD';
+  const forceFresh = url.searchParams.get('fresh') === '1' || url.searchParams.has('_t');
+
+  const cfCache = typeof caches !== 'undefined' ? (caches as any).default : null;
+  const cacheKey = new Request('https://codegame.shop/sitemap.xml', { method: 'GET' });
+
+  // 1. Kiểm tra Cloudflare Edge Cache nếu không yêu cầu fresh
+  if (cfCache && !forceFresh) {
+    try {
+      const cached = await cfCache.match(cacheKey);
+      if (cached) {
+        const res = new Response(isHead ? null : cached.body, cached);
+        res.headers.set('cf-cache-status', 'HIT');
+        return res;
+      }
+    } catch {}
+  }
+
+  // 2. Kiểm tra bộ nhớ Worker isolate (RAM cache)
+  const gScope = globalThis as any;
+  const now = Date.now();
+  if (!forceFresh && gScope.__wcg_sitemap_xml && (now - (gScope.__wcg_sitemap_time || 0) < 30 * 60 * 1000)) {
+    const res = new Response(isHead ? null : gScope.__wcg_sitemap_xml, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/xml; charset=utf-8',
+        'Cache-Control': 'public, max-age=1800, s-maxage=3600, stale-while-revalidate=86400',
+        'X-Content-Type-Options': 'nosniff',
+        'X-Sitemap-Source': 'isolate-cache',
+      },
+    });
+    if (cfCache && ctx.waitUntil) {
+      try {
+        ctx.waitUntil(cfCache.put(cacheKey, res.clone()));
+      } catch {}
+    }
+    return res;
+  }
+
+  // 3. Tái tạo sitemap XML thời gian thực từ D1 + Fallback State
+  try {
+    const xml = await generateDynamicSitemapXml(env);
+    gScope.__wcg_sitemap_xml = xml;
+    gScope.__wcg_sitemap_time = now;
+
+    const res = new Response(isHead ? null : xml, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/xml; charset=utf-8',
+        'Cache-Control': 'public, max-age=1800, s-maxage=3600, stale-while-revalidate=86400',
+        'X-Content-Type-Options': 'nosniff',
+        'X-Sitemap-Source': 'live-d1',
+      },
+    });
+
+    if (cfCache && ctx.waitUntil) {
+      try {
+        ctx.waitUntil(cfCache.put(cacheKey, res.clone()));
+      } catch {}
+    }
+    return res;
+  } catch (err: any) {
+    console.error('[Worker] Lỗi tạo sitemap động:', err);
+    return await env.ASSETS.fetch(request);
+  }
+}
+
+/**
+ * Tạo nội dung sitemap XML động với lastmod thực tế từ D1 và fallbacks
+ */
+async function generateDynamicSitemapXml(env: Env): Promise<string> {
+  const BASE_URL = 'https://codegame.shop';
+  const todayStr = new Date().toISOString().slice(0, 10);
+
+  const maxCodeTimeBySlug = new Map<string, number>();
+
+  // 1. Nạp timestamp ban đầu từ fallbackCodesData
+  if (Array.isArray(fallbackCodesData)) {
+    for (const c of fallbackCodesData as any[]) {
+      if (!c) continue;
+      const slug = String(c.gameSlug || c.slug || c.gameId || '').trim().toLowerCase();
+      if (!slug) continue;
+      const t = parseDateMs(c.added_at || c.updated_at || c.created_at);
+      if (t > 0 && t > (maxCodeTimeBySlug.get(slug) || 0)) {
+        maxCodeTimeBySlug.set(slug, t);
+      }
+    }
+  }
+
+  let d1Games: any[] = [];
+  let d1Giveaways: any[] = [];
+  let newsArticles: any[] = [];
+
+  if (env.DB) {
+    try {
+      const [codesRes, settingsRes, gamesRes, gwRes] = await Promise.allSettled([
+        env.DB.prepare(
+          'SELECT game_slug, MAX(COALESCE(added_at, created_at)) as max_time FROM codes GROUP BY game_slug'
+        ).all<any>(),
+
+        getMultipleSettingsD1(env.DB, [
+          'wcg_admin_custom_free_codes_v1',
+          'wcg_admin_free_codes_v5',
+          'wcg_admin_free_codes_v4',
+          'wcg_news_articles_v1',
+        ]),
+
+        env.DB.prepare(
+          "SELECT id, name, slug, publisher, category, is_active, status, created_at, updated_at, last_code_at FROM games WHERE is_active = 1 AND (status IS NULL OR UPPER(status) IN ('ACTIVE', 'PUBLISHED', 'APPROVED'))"
+        ).all<any>(),
+
+        env.DB.prepare(
+          "SELECT id, created_at, updated_at, start_time FROM giveaways WHERE status != 'DELETED'"
+        ).all<any>(),
+      ]);
+
+      if (codesRes.status === 'fulfilled' && codesRes.value?.results) {
+        for (const row of codesRes.value.results) {
+          const s = String(row.game_slug || '').trim().toLowerCase();
+          const t = parseDateMs(row.max_time);
+          if (s && t > 0 && t > (maxCodeTimeBySlug.get(s) || 0)) {
+            maxCodeTimeBySlug.set(s, t);
+          }
+        }
+      }
+
+      if (settingsRes.status === 'fulfilled' && settingsRes.value) {
+        const settings = settingsRes.value;
+        const customCodes = settings['wcg_admin_custom_free_codes_v1'];
+        if (Array.isArray(customCodes)) {
+          for (const item of customCodes) {
+            const s = String(item.gameSlug || item.game_slug || item.slug || '').trim().toLowerCase();
+            const t = parseDateMs(item.updatedAt || item.updated_at || item.createdAt || item.created_at);
+            if (s && t > 0 && t > (maxCodeTimeBySlug.get(s) || 0)) {
+              maxCodeTimeBySlug.set(s, t);
+            }
+          }
+        }
+
+        const d1CrawlerCodes = settings['wcg_admin_free_codes_v5'] || settings['wcg_admin_free_codes_v4'];
+        if (Array.isArray(d1CrawlerCodes)) {
+          for (const item of d1CrawlerCodes) {
+            const s = String(item.gameSlug || item.game_slug || item.slug || '').trim().toLowerCase();
+            const t = parseDateMs(item.updatedAt || item.updated_at || item.createdAt || item.created_at || item.added_at);
+            if (s && t > 0 && t > (maxCodeTimeBySlug.get(s) || 0)) {
+              maxCodeTimeBySlug.set(s, t);
+            }
+          }
+        }
+
+        if (Array.isArray(settings['wcg_news_articles_v1'])) {
+          newsArticles = settings['wcg_news_articles_v1'];
+        }
+      }
+
+      if (gamesRes.status === 'fulfilled' && gamesRes.value?.results) {
+        d1Games = gamesRes.value.results;
+      }
+
+      if (gwRes.status === 'fulfilled' && gwRes.value?.results) {
+        d1Giveaways = gwRes.value.results;
+      }
+    } catch (dbErr) {
+      console.warn('[generateDynamicSitemapXml] Lỗi truy vấn D1:', dbErr);
+    }
+  }
+
+  const getEffectiveCodeTime = (rawSlug: string, rawId?: string): number => {
+    const s1 = String(rawSlug || '').trim().toLowerCase();
+    const s2 = s1.replace(/-mobile$/i, '');
+    const s3 = String(rawId || '').trim().toLowerCase();
+    const canon = GAME_CANONICAL_ALIASES[s1] || s1;
+    const isWwm = s1 === 'yen-van-thap-luc-thanh' || s1 === 'where-winds-meet' || s1 === 'where-winds-meet-mobile';
+    return Math.max(
+      maxCodeTimeBySlug.get(s1) || 0,
+      maxCodeTimeBySlug.get(s2) || 0,
+      maxCodeTimeBySlug.get(s3) || 0,
+      maxCodeTimeBySlug.get(canon) || 0,
+      isWwm ? (maxCodeTimeBySlug.get('where-winds-meet-mobile') || maxCodeTimeBySlug.get('yen-van-thap-luc-thanh') || maxCodeTimeBySlug.get('where-winds-meet') || 0) : 0
+    );
+  };
+
+  // Hợp nhất danh sách game (D1 + fallback)
+  const gamesBySlug = new Map<string, any>();
+  if (Array.isArray(fallbackGamesData)) {
+    for (const g of fallbackGamesData as any[]) {
+      if (g && (g.slug || g.id)) {
+        const slug = String(g.slug || g.id).trim().toLowerCase();
+        gamesBySlug.set(slug, g);
+      }
+    }
+  }
+  for (const g of d1Games) {
+    if (g && (g.slug || g.id)) {
+      const slug = String(g.slug || g.id).trim().toLowerCase();
+      gamesBySlug.set(slug, { ...(gamesBySlug.get(slug) || {}), ...g });
+    }
+  }
+
+  let latestGlobalGameOrCodeTime = 0;
+  const clusterMaxTimes = new Map<string, number>();
+  const gameUrls: Array<{ loc: string; lastmod: string; changefreq: string; priority: string }> = [];
+
+  for (const [slug, game] of gamesBySlug.entries()) {
+    if (!slug || GAME_CANONICAL_ALIASES[slug]) continue;
+    if (game.is_active === 0 || game.is_active === false || game.status === 'DELETED' || game.status === 'INACTIVE') continue;
+
+    const codeTime = getEffectiveCodeTime(slug, game.id);
+    let maxTime = Math.max(
+      codeTime,
+      parseDateMs(game.updated_at),
+      parseDateMs(game.created_at),
+      parseDateMs(game.last_code_at)
+    );
+
+    if (maxTime === 0) {
+      maxTime = new Date('2026-10-22T00:00:00Z').getTime();
+    }
+
+    if (maxTime > latestGlobalGameOrCodeTime) {
+      latestGlobalGameOrCodeTime = maxTime;
+    }
+
+    const clusterSlug = getClusterSlug(game.category);
+    const prevClusterTime = clusterMaxTimes.get(clusterSlug) || 0;
+    if (maxTime > prevClusterTime) {
+      clusterMaxTimes.set(clusterSlug, maxTime);
+    }
+
+    const lastmod = formatDate(maxTime, todayStr);
+    gameUrls.push({
+      loc: `${BASE_URL}/game/${encodeURIComponent(slug)}`,
+      lastmod,
+      changefreq: 'weekly',
+      priority: '0.8',
+    });
+  }
+
+  let latestNewsTime = 0;
+  const newsUrls: Array<{ loc: string; lastmod: string; changefreq: string; priority: string }> = [];
+  const nowMs = Date.now();
+  for (const a of newsArticles) {
+    if (!a) continue;
+    const aSlug = a.slug || a.id;
+    if (!aSlug) continue;
+    if (a.status === 'SCHEDULED' && a.scheduled_publish_at && parseDateMs(a.scheduled_publish_at) > nowMs) {
+      continue;
+    }
+    const aTime = Math.max(parseDateMs(a.updated_at), parseDateMs(a.published_at), parseDateMs(a.created_at));
+    if (aTime > latestNewsTime) latestNewsTime = aTime;
+    const aLastmod = formatDate(aTime || new Date('2026-10-13T00:00:00Z').getTime(), todayStr);
+    newsUrls.push({
+      loc: `${BASE_URL}/news/${encodeURIComponent(aSlug)}`,
+      lastmod: aLastmod,
+      changefreq: 'weekly',
+      priority: '0.8',
+    });
+  }
+
+  let latestGwTime = 0;
+  const gwMap = new Map<string, any>();
+  if (Array.isArray(fallbackGiveawaysData)) {
+    for (const gw of fallbackGiveawaysData as any[]) {
+      if (gw && gw.id) gwMap.set(String(gw.id), gw);
+    }
+  }
+  for (const gw of d1Giveaways) {
+    if (gw && gw.id) gwMap.set(String(gw.id), { ...(gwMap.get(String(gw.id)) || {}), ...gw });
+  }
+
+  const giveawayUrls: Array<{ loc: string; lastmod: string; changefreq: string; priority: string }> = [];
+  for (const [gwId, gw] of gwMap.entries()) {
+    if (!gwId || gw.status === 'DELETED') continue;
+    const gwTime = Math.max(parseDateMs(gw.updated_at), parseDateMs(gw.start_time), parseDateMs(gw.created_at));
+    if (gwTime > latestGwTime) latestGwTime = gwTime;
+    const gwLastmod = formatDate(gwTime || new Date('2026-10-25T00:00:00Z').getTime(), todayStr);
+    giveawayUrls.push({
+      loc: `${BASE_URL}/giveaways/${encodeURIComponent(gwId)}`,
+      lastmod: gwLastmod,
+      changefreq: 'daily',
+      priority: '0.8',
+    });
+  }
+
+  const homeLastmod = formatDate(
+    Math.max(latestGlobalGameOrCodeTime, latestNewsTime, latestGwTime),
+    todayStr
+  );
+  const azLastmod = formatDate(latestGlobalGameOrCodeTime, todayStr);
+  const newsIndexLastmod = formatDate(latestNewsTime || latestGlobalGameOrCodeTime, todayStr);
+  const suKienLastmod = formatDate(latestGwTime || latestGlobalGameOrCodeTime, todayStr);
+  const gwIndexLastmod = formatDate(latestGwTime || latestGlobalGameOrCodeTime, todayStr);
+
+  const sitemapMap = new Map<string, { loc: string; lastmod: string; changefreq: string; priority: string }>();
+
+  const addEntry = (item: { loc: string; lastmod: string; changefreq: string; priority: string }) => {
+    if (!item || !item.loc) return;
+    sitemapMap.set(item.loc, item);
+  };
+
+  // 1. Static Core Pages
+  addEntry({ loc: `${BASE_URL}/`, priority: '1.0', changefreq: 'daily', lastmod: homeLastmod });
+  addEntry({ loc: `${BASE_URL}/danh-sach-game-a-z`, priority: '0.9', changefreq: 'daily', lastmod: azLastmod });
+  addEntry({ loc: `${BASE_URL}/news`, priority: '0.9', changefreq: 'daily', lastmod: newsIndexLastmod });
+  addEntry({ loc: `${BASE_URL}/su-kien`, priority: '0.9', changefreq: 'daily', lastmod: suKienLastmod });
+  addEntry({ loc: `${BASE_URL}/giveaways`, priority: '0.9', changefreq: 'daily', lastmod: gwIndexLastmod });
+  addEntry({ loc: `${BASE_URL}/store`, priority: '0.9', changefreq: 'daily', lastmod: '2026-11-06' });
+  addEntry({ loc: `${BASE_URL}/utilities`, priority: '0.9', changefreq: 'daily', lastmod: '2026-10-27' });
+
+  // 2. Chuyên Mục Thể Loại (Topic Clusters)
+  for (const c of TOPIC_CLUSTERS) {
+    const clusterTime = clusterMaxTimes.get(c.slug) || latestGlobalGameOrCodeTime;
+    const clusterLastmod = formatDate(clusterTime, todayStr);
+    addEntry({
+      loc: `${BASE_URL}/the-loai/${c.slug}`,
+      priority: '0.85',
+      changefreq: 'daily',
+      lastmod: clusterLastmod,
+    });
+  }
+
+  // 3. Games
+  for (const gUrl of gameUrls) addEntry(gUrl);
+
+  // 4. News Articles
+  for (const nUrl of newsUrls) addEntry(nUrl);
+
+  // 5. Giveaways
+  for (const gwUrl of giveawayUrls) addEntry(gwUrl);
+
+  const allEntries = Array.from(sitemapMap.values());
+  return `<?xml version="1.0" encoding="UTF-8"?>\n` +
+    `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
+    allEntries.map((u) => `  <url>\n    <loc>${u.loc}</loc>\n    <lastmod>${u.lastmod}</lastmod>\n    <changefreq>${u.changefreq}</changefreq>\n    <priority>${u.priority}</priority>\n  </url>`).join('\n') +
+    `\n</urlset>`;
 }
 
 /**
@@ -1391,6 +1761,38 @@ async function renderSeoHtml(
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#039;');
 
+      // Compute Related Games for Internal Linking Spider Matrix (at least 4 links)
+      let relatedGames: any[] = [];
+      const currentNormSlug = String(game.slug || slug).toLowerCase();
+      const currentCategory = (game.category || '').toLowerCase();
+      const currentPublisher = (game.publisher || '').toLowerCase();
+
+      const candidates = (fallbackGamesData as any[]).filter((g: any) => {
+        if (!g || !g.slug) return false;
+        const s = String(g.slug).toLowerCase();
+        return s !== currentNormSlug && !GAME_CANONICAL_ALIASES[s];
+      });
+
+      relatedGames = candidates.filter((g: any) => {
+        const gCat = (g.category || '').toLowerCase();
+        const gPub = (g.publisher || '').toLowerCase();
+        return (currentCategory && gCat.includes(currentCategory)) ||
+               (currentPublisher && gPub.includes(currentPublisher)) ||
+               getClusterSlug(g.category) === clusterSlug;
+      }).slice(0, 6);
+
+      if (relatedGames.length < 4) {
+        const seen = new Set(relatedGames.map((g: any) => String(g.slug).toLowerCase()));
+        for (const g of candidates) {
+          if (relatedGames.length >= 6) break;
+          const s = String(g.slug).toLowerCase();
+          if (!seen.has(s)) {
+            relatedGames.push(g);
+            seen.add(s);
+          }
+        }
+      }
+
       const ssrBodyHtml = `
       <div class="min-h-screen flex flex-col bg-dark-950 text-gray-100 font-sans">
         <div class="max-w-4xl mx-auto px-4 py-6 w-full space-y-6">
@@ -1498,6 +1900,34 @@ async function renderSeoHtml(
               </div>
             </div>
           </section>
+
+          <!-- Related Games Matrix (Deep Crawl Spider) -->
+          <section class="p-5 rounded-2xl bg-dark-900 border border-gray-800 space-y-3">
+            <h2 class="text-base sm:text-lg font-bold text-white flex items-center space-x-2">
+              <span>🎮 Tựa Game Cùng Thể Loại & NPH Đang Có Giftcode</span>
+            </h2>
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+              ${relatedGames.map((rg: any) => {
+                const rgSlug = escape(rg.slug || rg.id);
+                const rawIcon = rg.icon_url || `/game_icons/${rg.slug || rg.id}.webp`;
+                const rgIcon = escape(rawIcon.startsWith('http') ? rawIcon : `${origin}${rawIcon.startsWith('/') ? rawIcon : `/${rawIcon}`}`);
+                const rgName = escape(rg.name);
+                const rgPub = escape(rg.publisher || 'NPH Việt Nam');
+                return `
+                <a href="/game/${rgSlug}" class="flex flex-col bg-dark-850 hover:bg-dark-800 p-2.5 rounded-xl border border-gray-800 hover:border-brand-500/40 transition-all text-left group">
+                  <img src="${rgIcon}" alt="${rgName}" loading="lazy" width="64" height="64" class="w-full aspect-square rounded-lg object-cover mb-2 border border-gray-700/60" />
+                  <h3 class="font-bold text-xs text-gray-200 group-hover:text-brand-400 line-clamp-1">${rgName}</h3>
+                  <span class="text-[10px] text-gray-400 truncate mt-0.5">${rgPub}</span>
+                </a>`;
+              }).join('')}
+            </div>
+          </section>
+
+          <div class="text-center pt-2">
+            <a href="/" class="inline-block px-6 py-2.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-200 text-xs font-bold transition-all">
+              ← Quay Lại Danh Sách Game
+            </a>
+          </div>
 
           <footer class="mt-8 pt-6 border-t border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-gray-400">
             <p>© 2026 CodeGame.shop. Cập nhật mã ${escape(game.name)}.</p>

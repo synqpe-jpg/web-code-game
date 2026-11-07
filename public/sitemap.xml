@@ -2,7 +2,7 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://codegame.shop/</loc>
-    <lastmod>2026-10-27</lastmod>
+    <lastmod>2026-11-07</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
@@ -32,7 +32,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/store</loc>
-    <lastmod>2026-10-27</lastmod>
+    <lastmod>2026-11-06</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
   </url>
@@ -50,33 +50,39 @@
   </url>
   <url>
     <loc>https://codegame.shop/the-loai/nhap-vai-gacha-anime</loc>
-    <lastmod>2026-11-07</lastmod>
+    <lastmod>2026-10-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://codegame.shop/the-loai/ban-sung-sinh-ton</loc>
-    <lastmod>2026-11-07</lastmod>
+    <lastmod>2026-10-20</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://codegame.shop/the-loai/tam-quoc-chien-thuat</loc>
-    <lastmod>2026-11-07</lastmod>
+    <lastmod>2026-11-05</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://codegame.shop/the-loai/roblox-mini-game</loc>
-    <lastmod>2026-11-07</lastmod>
+    <lastmod>2026-10-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://codegame.shop/the-loai/nhap-vai-mmorpg</loc>
-    <lastmod>2026-11-07</lastmod>
+    <lastmod>2026-11-06</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://codegame.shop/game/hiep-khach-hanh</loc>
+    <lastmod>2026-11-06</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/sword-x-staff</loc>
@@ -158,7 +164,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/ta-la-hac-ngo-khong</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-11-05</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -662,7 +668,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/tien-nghich-mobile</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-11-07</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -728,7 +734,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/giang-ho-ky-ngo</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-07</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -926,7 +932,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/kiem-de-origin</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-06</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>

@@ -7,6 +7,46 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-07]
 
+### 330. Sửa Sitemap Để Google Bò & Lập Chỉ Mục codegame.shop: Dynamic Server-Side Sitemap Trên Cloudflare Edge, lastmod Thời Gian Thực & Ma Trận Liên Kết Nội Bộ
+- **Bối cảnh & Hiện tượng (07/11/2026)**:
+  - Google Search Console (GSC) ghi nhận 758 trang chưa được lập chỉ mục (trong đó 756 trang thuộc nhóm "Đã phát hiện thấy – hiện chưa được lập chỉ mục", phát hiện lần đầu từ 10/10/2026).
+  - Cột "Lần thu thập dữ liệu cuối cùng" ghi "Không áp dụng" do Google chưa bò tới lần nào sau 4 tuần vì `lastmod` trong `sitemap.xml` bị đóng băng ở ngày cũ (trang chủ: `2026-10-27`, phần lớn game: `2026-10-09` hoặc `2026-10-19`), dù kho giftcode và tin tức cập nhật mỗi ngày.
+  - Các tựa game mới tạo trên D1 (như `hiep-khach-hanh`) bị thiếu hoàn toàn trong sitemap tĩnh cũ.
+  - Các trang game động phục vụ qua Edge SSR thiếu ma trận liên kết nội bộ (internal linking) dẫn tới các game cùng thể loại, khiến spider của crawler bị đứt luồng bò sâu.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Sitemap tĩnh bị đóng băng*: Trước đây `sitemap.xml` chỉ là file tĩnh sinh ra lúc build offline từ `games188.json`. Khi có giftcode mới hoặc game mới nạp vào Cloudflare D1/KV, `dist/sitemap.xml` không tự cập nhật và Edge Worker `functions/_worker.ts` không có route chặn `/sitemap.xml`, dẫn tới việc luôn trả về file tĩnh cũ.
+  2. *Thiếu game mới trong fallback static dataset*: `games188.json` chỉ chứa các game cũ, thiếu các game mới như `hiep-khach-hanh`.
+  3. *Edge SSR thiếu khối liên kết nội bộ*: Hàm `renderSeoHtml` của `functions/_worker.ts` chưa render khối game cùng thể loại/NPH, làm giảm khả năng khám phá của crawler khi truy cập trực tiếp vào các URL động.
+- **Giải pháp triệt để đã triển khai (Solution Applied)**:
+  1. *Triển khai Server-Side Dynamic Sitemap trên Cloudflare Edge (`functions/_worker.ts`)*:
+     - Tạo route điều phối `GET/HEAD /sitemap.xml` và `/sitemap`.
+     - Bộ nhớ đa tầng siêu tốc: Cache API Cloudflare (`caches.default` với key `https://codegame.shop/sitemap.xml`, `s-maxage=3600`) + RAM cache isolate Worker 30 phút, đảm bảo TTFB < 50ms cho Googlebot.
+     - Hàm sinh sitemap động `generateDynamicSitemapXml`:
+       - Truy vấn SQL D1 thời gian thực: `SELECT game_slug, MAX(COALESCE(added_at, created_at)) as max_time FROM codes GROUP BY game_slug` song song với bảng `games`, `system_settings` (custom codes, crawled codes, news articles) và `giveaways`.
+       - Tính toán `lastmod = max(ngày có mã mới nhất, ngày sửa thông tin game gần nhất)`.
+       - Chuẩn hóa định dạng `YYYY-MM-DD`, chặn hoàn toàn ngày tương lai (tối đa bằng ngày hiện tại `todayStr`).
+       - Trang chủ `/`, `/danh-sach-game-a-z`, `/news`, `/su-kien`, `/giveaways`: `lastmod` cập nhật tự động theo nội dung mới nhất.
+       - Chuyên mục `/the-loai/...`: `lastmod` động theo game mới nhất thuộc thể loại đó.
+       - Tự động lọc bỏ các game inactive/deleted và slug bí danh trong `GAME_CANONICAL_ALIASES`.
+  2. *Tự Động Invalidate Cache Khi Ingest Mã Mới (`functions/services/cache_service.ts`)*:
+     - Bổ sung `https://codegame.shop/sitemap.xml` vào danh sách `localKeys` và `purgeUrls` trong `invalidateCatalogEdgeCache`.
+     - Xóa cache bộ nhớ isolate `gScope.__wcg_sitemap_xml = null` mỗi khi crawler nạp mã mới qua `/api/crawler/ingest-codes`.
+  3. *Ma Trận Liên Kết Nội Bộ Cho Crawler (Deep Crawl Spider)*:
+     - Bổ sung khối "Tựa Game Cùng Thể Loại & NPH Đang Có Giftcode" (tối thiểu 4 đến 6 game) vào cả Edge SSR (`functions/_worker.ts:renderSeoHtml`) và prerender tĩnh (`scripts/prerender.js`).
+  4. *Đồng Bộ Dữ Liệu Fallback Static & Prerender*:
+     - Bổ sung `hiep-khach-hanh` và các mã code mới nhất của 5 tựa game mẫu vào `games188.json` và `crawled_codes_188.json`.
+     - Cập nhật `scripts/prerender.js` tính toán `clusterLastmod` động cho topic clusters.
+- **Kết quả nghiệm thu**:
+  - `dist/sitemap.xml` xuất bản đủ 847 URLs chuẩn SEO với `lastmod` hoàn toàn thực tế:
+    - Trang chủ `/`: `2026-11-07`
+    - `giang-ho-ky-ngo`: `2026-11-07` (mã mới EVENTSVMOI)
+    - `kiem-de-origin`: `2026-11-06`
+    - `tien-nghich-mobile`: `2026-11-07`
+    - `hiep-khach-hanh`: `2026-11-06` (đã xuất hiện đầy đủ trong sitemap)
+    - `ta-la-hac-ngo-khong`: `2026-11-05`
+    - `/the-loai/kiem-hiep-tien-hiep`: `2026-11-07`
+  - Đạt 100% kiểm tra Zero Test Artifacts on Production (Rule 7).
+
 ### 329. Khắc Phục Lỗi Không Thể Lưu Cấu Hình Ưu Đãi Mua Lần Đầu Trong Admin: Đăng Ký Route functions/_worker.ts & Chuẩn Hóa Xác Thực verifyAdminAuth
 - **Bối cảnh & Hiện tượng (07/11/2026, 10:46)**:
   - Khi Quản trị viên truy cập trang Quản trị tại `admin-code-game-shop.pages.dev/admin#/first-purchase`, thay đổi cài đặt (bật chiến dịch, đặt trần giá 30.000 Core) và bấm nút "Lưu Cấu Hình", hệ thống xuất hiện thông báo toast màu đỏ: *"Thất bại: Không thể lưu cấu hình."*.

@@ -1826,17 +1826,46 @@ async function runPrerender() {
     { loc: `${BASE_URL}/news`, priority: '0.9', changefreq: 'daily', lastmod: newsLastmod },
     { loc: `${BASE_URL}/su-kien`, priority: '0.9', changefreq: 'daily', lastmod: todayStr },
     { loc: `${BASE_URL}/giveaways`, priority: '0.9', changefreq: 'daily', lastmod: gwLastmod },
-    { loc: `${BASE_URL}/store`, priority: '0.9', changefreq: 'daily', lastmod: '2026-10-27' },
+    { loc: `${BASE_URL}/store`, priority: '0.9', changefreq: 'daily', lastmod: '2026-11-06' },
     { loc: `${BASE_URL}/utilities`, priority: '0.9', changefreq: 'daily', lastmod: '2026-10-27' },
   ];
 
   // Add all Topic Clusters to sitemap
   TOPIC_CLUSTERS.forEach((c) => {
+    let maxClusterTime = 0;
+    games.forEach((g) => {
+      if (c.match(g.category || '')) {
+        const slug = g.slug || g.id;
+        const normSlug = String(slug).toLowerCase().trim();
+        const cleanWithoutMobile = normSlug.replace(/-mobile$/i, '');
+        const cleanId = String(g.id || '').toLowerCase().trim();
+        const codeTime = Math.max(
+          maxCodeTimeBySlug.get(normSlug) || 0,
+          maxCodeTimeBySlug.get(cleanWithoutMobile) || 0,
+          maxCodeTimeBySlug.get(cleanId) || 0
+        );
+        let gTime = codeTime;
+        if (g.updated_at) {
+          const t = new Date(g.updated_at).getTime();
+          if (!isNaN(t) && t > gTime) gTime = t;
+        }
+        if (g.created_at) {
+          const t = new Date(g.created_at).getTime();
+          if (!isNaN(t) && t > gTime) gTime = t;
+        }
+        if (gTime > maxClusterTime) maxClusterTime = gTime;
+      }
+    });
+
+    const clusterLastmod = maxClusterTime > 0
+      ? new Date(maxClusterTime).toISOString().slice(0, 10)
+      : todayStr;
+
     sitemapUrls.push({
       loc: `${BASE_URL}/the-loai/${c.slug}`,
       priority: '0.85',
       changefreq: 'daily',
-      lastmod: todayStr,
+      lastmod: clusterLastmod > todayStr ? todayStr : clusterLastmod,
     });
   });
 

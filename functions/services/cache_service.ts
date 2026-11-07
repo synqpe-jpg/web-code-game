@@ -93,12 +93,15 @@ export async function invalidateCatalogEdgeCache(
   gScope.__wcg_sync_lite_cache = null;
   gScope.__wcg_hub = null;
   gScope.__wcg_hub_loaded_at = 0;
+  gScope.__wcg_sitemap_xml = null;
+  gScope.__wcg_sitemap_time = 0;
 
   // 1. Xóa PoP cục bộ (Local Edge Datacenter)
   if (typeof caches !== 'undefined' && (caches as any).default) {
     const cache = (caches as any).default;
     const localKeys = [
       cleanUrl,
+      new URL('/sitemap.xml', request.url).toString(),
       new URL('/api/sync', request.url).toString(),
       new URL('/api/sync-lite', request.url).toString(),
       new URL('/api/news', request.url).toString(),
@@ -107,6 +110,7 @@ export async function invalidateCatalogEdgeCache(
       new URL('/api/metrics/synced', request.url).toString(),
       new URL('/api/stats', request.url).toString(),
       new URL('/api/realtime-events', request.url).toString(),
+      'https://codegame.shop/sitemap.xml',
       'https://codegame.shop/api/games',
       'https://codegame.shop/api/sync',
       'https://codegame.shop/api/sync-lite',
@@ -115,6 +119,7 @@ export async function invalidateCatalogEdgeCache(
       'https://codegame.shop/api/metrics/synced',
       'https://codegame.shop/api/stats',
       'https://codegame.shop/api/realtime-events',
+      'https://www.codegame.shop/sitemap.xml',
       'https://www.codegame.shop/api/games',
       'https://www.codegame.shop/api/sync',
       'https://www.codegame.shop/api/sync-lite',
@@ -123,6 +128,7 @@ export async function invalidateCatalogEdgeCache(
       'https://www.codegame.shop/api/metrics/synced',
       'https://www.codegame.shop/api/stats',
       'https://www.codegame.shop/api/realtime-events',
+      'https://web-code-game.pages.dev/sitemap.xml',
       'https://web-code-game.pages.dev/api/games',
       'https://web-code-game.pages.dev/api/sync',
       'https://web-code-game.pages.dev/api/sync-lite',
@@ -150,6 +156,7 @@ export async function invalidateCatalogEdgeCache(
   // 2. Danh sách các URL cần Purge toàn cầu (Bao gồm cả Web Khách lẫn Trang Admin)
   const purgeUrls = Array.from(new Set([
     cleanUrl,
+    'https://codegame.shop/sitemap.xml',
     'https://codegame.shop/api/games',
     'https://codegame.shop/api/sync',
     'https://codegame.shop/api/sync-lite',
@@ -158,6 +165,7 @@ export async function invalidateCatalogEdgeCache(
     'https://codegame.shop/api/metrics/synced',
     'https://codegame.shop/api/stats',
     'https://codegame.shop/api/realtime-events',
+    'https://www.codegame.shop/sitemap.xml',
     'https://www.codegame.shop/api/games',
     'https://www.codegame.shop/api/sync',
     'https://www.codegame.shop/api/sync-lite',
@@ -166,6 +174,7 @@ export async function invalidateCatalogEdgeCache(
     'https://www.codegame.shop/api/metrics/synced',
     'https://www.codegame.shop/api/stats',
     'https://www.codegame.shop/api/realtime-events',
+    'https://web-code-game.pages.dev/sitemap.xml',
     'https://web-code-game.pages.dev/api/games',
     'https://web-code-game.pages.dev/api/sync',
     'https://web-code-game.pages.dev/api/sync-lite',
