@@ -21,6 +21,7 @@ export interface D1PurchaseParams {
   pricePaid?: number;
   discountType?: 'first_purchase' | null;
   discountAmount?: number;
+  priceRule?: 'escalating' | 'first_purchase' | 'normal' | string | null;
 }
 
 export interface D1PurchaseResult {
@@ -691,6 +692,43 @@ export async function ensureSchemaUpgrades(db: D1Database): Promise<void> {
       }
     } catch (e) {
       console.warn('[Migration first_purchase_campaign_v1 error]', e);
+    }
+
+    // Migration 0015: Escalating Price Model v1 (Columns in store_products & orders, reset audit table, indexes)
+    try {
+      const epCheck = await db.prepare("SELECT 1 FROM schema_migrations WHERE id = 'escalating_price_v1' LIMIT 1").first().catch(() => null);
+      if (!epCheck) {
+        // 1. Thêm cột hình thức mua cho store_products
+        await db.prepare("ALTER TABLE store_products ADD COLUMN sale_mode TEXT DEFAULT 'normal';").run().catch(() => {});
+        await db.prepare('ALTER TABLE store_products ADD COLUMN escalating_base_price INTEGER;').run().catch(() => {});
+        await db.prepare('ALTER TABLE store_products ADD COLUMN escalating_step INTEGER;').run().catch(() => {});
+        await db.prepare('ALTER TABLE store_products ADD COLUMN escalating_max_price INTEGER;').run().catch(() => {});
+
+        // 2. Thêm cột quy tắc giá cho orders
+        await db.prepare('ALTER TABLE orders ADD COLUMN price_rule TEXT;').run().catch(() => {});
+
+        // 3. Tạo bảng đặt lại thang giá escalating_price_resets
+        await db.prepare(`
+          CREATE TABLE IF NOT EXISTS escalating_price_resets (
+            id TEXT PRIMARY KEY,
+            product_id TEXT NOT NULL,
+            admin_id TEXT,
+            admin_name TEXT,
+            previous_count INTEGER NOT NULL DEFAULT 0,
+            reason TEXT,
+            reset_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+          );
+        `).run().catch(() => {});
+
+        // 4. Tạo chỉ mục tối ưu hóa tốc độ đếm số lượt mua và reset
+        await db.prepare('CREATE INDEX IF NOT EXISTS idx_ep_resets_prod ON escalating_price_resets(product_id, reset_at);').run().catch(() => {});
+        await db.prepare('CREATE INDEX IF NOT EXISTS idx_orders_prod_status_created ON orders(product_id, status, created_at);').run().catch(() => {});
+        await db.prepare('CREATE INDEX IF NOT EXISTS idx_orders_price_rule ON orders(price_rule);').run().catch(() => {});
+
+        await db.prepare("INSERT OR IGNORE INTO schema_migrations (id) VALUES ('escalating_price_v1')").run().catch(() => {});
+      }
+    } catch (e) {
+      console.warn('[Migration escalating_price_v1 error]', e);
     }
 
     try {
@@ -1606,13 +1644,14 @@ export async function purchaseOrderD1(db: D1Database, params: D1PurchaseParams):
       WHERE id = ?;
     `).bind(pSku, pSku, quantity, pSku, pSku, quantity, productId);
 
-    // 5. Ghi Đơn hàng kèm thông tin ưu đãi/chiết khấu (Lấy delivered_codes trực tiếp từ inventory_codes trong cùng batch bằng json_group_array, lưu nowIso chuẩn UTC)
+    // 5. Ghi Đơn hàng kèm thông tin ưu đãi/chiết khấu/quy tắc giá
+    const priceRuleValue = params.priceRule || (discountType ? 'first_purchase' : null);
     const stmtOrder = db.prepare(`
       INSERT INTO orders (
         id, member_id, buyer_email, product_id, product_title, quantity,
         unit_price, total_amount, status, balance_before, balance_after,
         delivered_codes, idempotency_key, created_at,
-        original_price, price_paid, discount_type, discount_amount
+        original_price, price_paid, discount_type, discount_amount, price_rule
       )
       SELECT
         ?,
@@ -1627,6 +1666,7 @@ export async function purchaseOrderD1(db: D1Database, params: D1PurchaseParams):
         m.balance + ?,
         m.balance,
         (SELECT COALESCE(json_group_array(code_content), '[]') FROM inventory_codes WHERE order_id = ?),
+        ?,
         ?,
         ?,
         ?,
@@ -1650,6 +1690,7 @@ export async function purchaseOrderD1(db: D1Database, params: D1PurchaseParams):
       pricePaid ?? totalAmount,
       discountType ?? null,
       discountAmount ?? 0,
+      priceRuleValue,
       userId
     );
 
@@ -3024,6 +3065,10 @@ export async function loadAllStoreProductsD1(db: D1Database): Promise<any[]> {
         COALESCE(sp.badge, '') AS badge,
         COALESCE(sp.virtual_sold_count, 0) AS virtual_sold_count,
         COALESCE(sp.show_sold_count, 1) AS show_sold_count,
+        COALESCE(sp.sale_mode, 'normal') AS sale_mode,
+        sp.escalating_base_price,
+        sp.escalating_step,
+        sp.escalating_max_price,
         sp.created_at
       FROM store_products sp
       LEFT JOIN (
@@ -4010,6 +4055,186 @@ export async function getPaginatedVirtualAggregatesD1(
     console.warn('[getPaginatedVirtualAggregatesD1 error]', err?.message);
     return { aggregates: [], total: 0, page: p, limit: l, totalPages: 1 };
   }
+}
+
+export interface EscalatingPriceInfo {
+  productId: string;
+  sale_mode: 'normal' | 'escalating';
+  escalating_base_price?: number;
+  escalating_step?: number;
+  escalating_max_price?: number | null;
+  completed_count: number;
+  current_calculated_price: number;
+  next_step_price: number;
+  is_at_max: boolean;
+}
+
+export async function getEscalatingPriceD1(db: D1Database, product: any): Promise<EscalatingPriceInfo> {
+  const prodId = String(product?.id || '').trim();
+  const saleMode = String(product?.sale_mode || 'normal').toLowerCase();
+
+  if (saleMode !== 'escalating') {
+    const regularPrice = Math.max(0, Number(product?.current_price) || 0);
+    return {
+      productId: prodId,
+      sale_mode: 'normal',
+      completed_count: 0,
+      current_calculated_price: regularPrice,
+      next_step_price: regularPrice,
+      is_at_max: false,
+    };
+  }
+
+  const basePrice = Math.max(0, Number(product.escalating_base_price) || Number(product.current_price) || 0);
+  const step = Math.max(0, Number(product.escalating_step) || 0);
+  const maxPrice = (product.escalating_max_price !== null && product.escalating_max_price !== undefined && product.escalating_max_price !== '')
+    ? Math.max(0, Number(product.escalating_max_price))
+    : null;
+
+  // Đếm số đơn COMPLETED của sản phẩm này sau lần reset gần nhất
+  const countRow = await db.prepare(`
+    SELECT COUNT(*) as cnt
+    FROM orders
+    WHERE product_id = ?
+      AND status = 'COMPLETED'
+      AND created_at > (
+        SELECT COALESCE(MAX(reset_at), '1970-01-01T00:00:00.000Z')
+        FROM escalating_price_resets
+        WHERE product_id = ?
+      )
+  `).bind(prodId, prodId).first<any>().catch(() => ({ cnt: 0 }));
+
+  const completedCount = Number(countRow?.cnt) || 0;
+  const calculatedPrice = basePrice + (completedCount * step);
+  const currentPrice = (maxPrice !== null && maxPrice > 0) ? Math.min(calculatedPrice, maxPrice) : calculatedPrice;
+  const nextCalcPrice = basePrice + ((completedCount + 1) * step);
+  const nextPrice = (maxPrice !== null && maxPrice > 0) ? Math.min(nextCalcPrice, maxPrice) : nextCalcPrice;
+  const isAtMax = maxPrice !== null && maxPrice > 0 && calculatedPrice >= maxPrice;
+
+  return {
+    productId: prodId,
+    sale_mode: 'escalating',
+    escalating_base_price: basePrice,
+    escalating_step: step,
+    escalating_max_price: maxPrice,
+    completed_count: completedCount,
+    current_calculated_price: currentPrice,
+    next_step_price: nextPrice,
+    is_at_max: isAtMax,
+  };
+}
+
+export async function resetEscalatingPriceD1(
+  db: D1Database,
+  params: { productId: string; adminId?: string; adminName?: string; reason?: string }
+): Promise<{ success: boolean; message: string; previous_count: number; reset_at: string }> {
+  const { productId, adminId, adminName, reason } = params;
+  const nowIso = new Date().toISOString();
+
+  // Đếm số đơn hiện tại trước khi reset
+  const countRow = await db.prepare(`
+    SELECT COUNT(*) as cnt
+    FROM orders
+    WHERE product_id = ?
+      AND status = 'COMPLETED'
+      AND created_at > (
+        SELECT COALESCE(MAX(reset_at), '1970-01-01T00:00:00.000Z')
+        FROM escalating_price_resets
+        WHERE product_id = ?
+      )
+  `).bind(productId, productId).first<any>().catch(() => ({ cnt: 0 }));
+
+  const previousCount = Number(countRow?.cnt) || 0;
+  const resetId = `epr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
+  await db.prepare(`
+    INSERT INTO escalating_price_resets (
+      id, product_id, admin_id, admin_name, previous_count, reason, reset_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).bind(
+    resetId,
+    productId,
+    adminId || 'admin',
+    adminName || 'Admin',
+    previousCount,
+    reason || 'Đặt lại thang giá theo yêu cầu quản trị viên',
+    nowIso
+  ).run();
+
+  return {
+    success: true,
+    message: `Đã đặt lại thang giá gói về ban đầu (đã xóa mốc ${previousCount} lượt mua trước đó).`,
+    previous_count: previousCount,
+    reset_at: nowIso,
+  };
+}
+
+export async function getEscalatingPurchasesHistoryD1(
+  db: D1Database,
+  productId: string
+): Promise<{
+  orders: any[];
+  resets: any[];
+  suspicious_alerts: any[];
+  total_completed: number;
+}> {
+  // Lấy danh sách các lần reset
+  const resetsRes = await db.prepare(`
+    SELECT * FROM escalating_price_resets
+    WHERE product_id = ?
+    ORDER BY reset_at DESC
+    LIMIT 50
+  `).bind(productId).all<any>().catch(() => ({ results: [] }));
+  const resets = resetsRes.results || [];
+
+  // Lấy các đơn hàng COMPLETED của gói này
+  const ordersRes = await db.prepare(`
+    SELECT id, member_id, buyer_email, quantity, unit_price, total_amount, price_paid, price_rule, created_at
+    FROM orders
+    WHERE product_id = ? AND status = 'COMPLETED'
+    ORDER BY created_at DESC
+    LIMIT 200
+  `).bind(productId).all<any>().catch(() => ({ results: [] }));
+  const orders = ordersRes.results || [];
+
+  // Phát hiện cảnh báo lạm dụng: 1 tài khoản (member_id hoặc buyer_email) mua >= 3 lượt trong vòng 5 phút (300 giây)
+  const suspiciousMap: Record<string, any[]> = {};
+  for (const ord of orders) {
+    const key = ord.member_id || ord.buyer_email || 'unknown';
+    if (!suspiciousMap[key]) suspiciousMap[key] = [];
+    suspiciousMap[key].push(ord);
+  }
+
+  const suspiciousAlerts: any[] = [];
+  for (const [userKey, userOrders] of Object.entries(suspiciousMap)) {
+    if (userOrders.length >= 3) {
+      // Sắp xếp tăng dần thời gian
+      const sorted = [...userOrders].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      for (let i = 0; i < sorted.length - 2; i++) {
+        const t1 = new Date(sorted[i].created_at).getTime();
+        const t3 = new Date(sorted[i + 2].created_at).getTime();
+        if (t3 - t1 <= 5 * 60 * 1000) { // Trong vòng 5 phút
+          suspiciousAlerts.push({
+            user: userKey,
+            email: sorted[i].buyer_email,
+            count: 3,
+            time_window_minutes: 5,
+            first_order_at: sorted[i].created_at,
+            last_order_at: sorted[i + 2].created_at,
+            warning: `Tài khoản ${userKey} đã mua 3 lượt gói này trong vòng dưới 5 phút. Cảnh báo hành vi gom hàng Nâng Giá.`,
+          });
+          break;
+        }
+      }
+    }
+  }
+
+  return {
+    orders,
+    resets,
+    suspicious_alerts: suspiciousAlerts,
+    total_completed: orders.length,
+  };
 }
 
 

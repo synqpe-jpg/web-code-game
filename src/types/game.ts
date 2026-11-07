@@ -177,6 +177,13 @@ export interface ProductPackageVariant {
   note?: string; // e.g. "Xử lý tiêu chuẩn", "Bảo hành 30 ngày"
   description?: string;
   is_active?: boolean;
+  sale_mode?: 'normal' | 'escalating';
+  escalating_base_price?: number;
+  escalating_step?: number;
+  escalating_max_price?: number | null;
+  escalating_completed_count?: number;
+  escalating_current_price?: number;
+  escalating_next_price?: number;
 }
 
 // Store Product / Paid Code Model
@@ -213,6 +220,13 @@ export interface StoreProduct {
   warranty_text?: string;
   packages?: ProductPackageVariant[];
   use_template?: boolean;
+  sale_mode?: 'normal' | 'escalating';
+  escalating_base_price?: number;
+  escalating_step?: number;
+  escalating_max_price?: number | null;
+  escalating_completed_count?: number;
+  escalating_current_price?: number;
+  escalating_next_price?: number;
 }
 
 // Store Category Model (Danh Mục Gói Code / Cửa Hàng)
@@ -235,6 +249,7 @@ export interface OrderRecord {
   code_content: string;
   code_items?: string[];
   status: 'completed' | 'pending' | 'failed';
+  price_rule?: 'escalating' | 'first_purchase' | 'normal' | string;
   created_at: string;
   payment_method: 'wallet' | 'vietqr';
 }
@@ -282,6 +297,13 @@ export interface UtilityProduct {
   warranty_text?: string;
   packages?: ProductPackageVariant[];
   use_template?: boolean;
+  sale_mode?: 'normal' | 'escalating';
+  escalating_base_price?: number;
+  escalating_step?: number;
+  escalating_max_price?: number | null;
+  escalating_completed_count?: number;
+  escalating_current_price?: number;
+  escalating_next_price?: number;
 }
 
 // Utility Category Model (Danh Mục Tiện Ích)

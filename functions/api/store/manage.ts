@@ -14,6 +14,7 @@ import {
   setSettingD1,
   invalidateSettingMemoryCache,
   ensureSchemaUpgrades,
+  getEscalatingPriceD1,
 } from '../../services/d1_service';
 import { recordSoftDelete } from '../../services/soft_delete_service';
 import { invalidateCatalogEdgeCache } from '../../services/cache_service';
@@ -226,6 +227,13 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         );
       }
 
+      if (product && String(product.sale_mode || '').toLowerCase() === 'escalating') {
+        const escInfo = await getEscalatingPriceD1(env.DB, product);
+        product.escalating_current_price = escInfo.current_price;
+        product.escalating_completed_count = escInfo.completed_count;
+        product.escalating_next_price = escInfo.next_price;
+      }
+
       // Lấy 50 mã code tồn kho gần nhất
       const codesRes = await env.DB.prepare(`
         SELECT id, product_id, code_content, status, order_id, sold_at, created_at
@@ -413,6 +421,12 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       const isActive = body.is_active !== undefined ? (body.is_active ? 1 : 0) : 1;
       const virtualSoldCount = Math.max(0, Number(body.virtual_sold_count ?? body.virtualSoldCount ?? 0));
       const showSoldCount = body.show_sold_count !== false ? 1 : 0;
+      const saleMode = String(body.sale_mode || body.saleMode || 'normal').trim().toLowerCase() === 'escalating' ? 'escalating' : 'normal';
+      const escalatingBasePrice = saleMode === 'escalating' ? Math.max(0, Number(body.escalating_base_price ?? body.escalatingBasePrice ?? currentPrice)) : null;
+      const escalatingStep = saleMode === 'escalating' ? Math.max(0, Number(body.escalating_step ?? body.escalatingStep ?? 0)) : null;
+      const escalatingMaxPrice = saleMode === 'escalating' && body.escalating_max_price !== undefined && body.escalating_max_price !== null && String(body.escalating_max_price).trim() !== ''
+        ? Math.max(0, Number(body.escalating_max_price ?? body.escalatingMaxPrice))
+        : null;
 
       // Sinh ID định danh duy nhất cho sản phẩm
       const customId = String(body.id || body.product_id || '').trim();
@@ -426,8 +440,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           id, title, game_slug, game_name, original_price, discount_percent, current_price,
           stock_quantity, sold_count, is_active, package_type, category, category_label,
           cover_image_url, game_icon_url, description, badge, virtual_sold_count, show_sold_count,
+          sale_mode, escalating_base_price, escalating_step, escalating_max_price,
           created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
           title = excluded.title,
           game_slug = excluded.game_slug,
@@ -445,6 +460,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           badge = excluded.badge,
           virtual_sold_count = excluded.virtual_sold_count,
           show_sold_count = excluded.show_sold_count,
+          sale_mode = excluded.sale_mode,
+          escalating_base_price = excluded.escalating_base_price,
+          escalating_step = excluded.escalating_step,
+          escalating_max_price = excluded.escalating_max_price,
           updated_at = excluded.updated_at
       `).bind(
         productId,
@@ -464,6 +483,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         badge,
         virtualSoldCount,
         showSoldCount,
+        saleMode,
+        escalatingBasePrice,
+        escalatingStep,
+        escalatingMaxPrice,
         nowIso,
         nowIso
       ).run();
@@ -496,6 +519,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         virtual_sold_count: virtualSoldCount,
         show_sold_count: showSoldCount === 1,
         show_stock_count: body.show_stock_count !== false,
+        sale_mode: saleMode,
+        escalating_base_price: escalatingBasePrice,
+        escalating_step: escalatingStep,
+        escalating_max_price: escalatingMaxPrice,
         created_at: nowIso,
         updated_at: nowIso,
       };
@@ -579,6 +606,23 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       const isActive = body.is_active !== undefined ? (body.is_active ? 1 : 0) : existingRow.is_active;
       const virtualSoldCount = body.virtual_sold_count !== undefined ? Math.max(0, Number(body.virtual_sold_count)) : existingRow.virtual_sold_count;
       const showSoldCount = body.show_sold_count !== undefined ? (body.show_sold_count ? 1 : 0) : existingRow.show_sold_count;
+      const saleMode = body.sale_mode !== undefined || body.saleMode !== undefined
+        ? (String(body.sale_mode || body.saleMode || 'normal').trim().toLowerCase() === 'escalating' ? 'escalating' : 'normal')
+        : (existingRow.sale_mode || 'normal');
+      const escalatingBasePrice = saleMode === 'escalating'
+        ? (body.escalating_base_price !== undefined || body.escalatingBasePrice !== undefined
+            ? Math.max(0, Number(body.escalating_base_price ?? body.escalatingBasePrice ?? currentPrice))
+            : (existingRow.escalating_base_price !== null && existingRow.escalating_base_price !== undefined ? Number(existingRow.escalating_base_price) : currentPrice))
+        : null;
+      const escalatingStep = saleMode === 'escalating'
+        ? (body.escalating_step !== undefined || body.escalatingStep !== undefined
+            ? Math.max(0, Number(body.escalating_step ?? body.escalatingStep ?? 0))
+            : (existingRow.escalating_step !== null && existingRow.escalating_step !== undefined ? Number(existingRow.escalating_step) : 0))
+        : null;
+      const rawMax = body.escalating_max_price !== undefined ? body.escalating_max_price : (body.escalatingMaxPrice !== undefined ? body.escalatingMaxPrice : existingRow.escalating_max_price);
+      const escalatingMaxPrice = saleMode === 'escalating' && rawMax !== null && rawMax !== undefined && String(rawMax).trim() !== ''
+        ? Math.max(0, Number(rawMax))
+        : null;
 
       const nowIso = new Date().toISOString();
 
@@ -600,6 +644,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           badge = ?,
           virtual_sold_count = ?,
           show_sold_count = ?,
+          sale_mode = ?,
+          escalating_base_price = ?,
+          escalating_step = ?,
+          escalating_max_price = ?,
           updated_at = ?
         WHERE id = ?
       `).bind(
@@ -619,6 +667,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         badge,
         virtualSoldCount,
         showSoldCount,
+        saleMode,
+        escalatingBasePrice,
+        escalatingStep,
+        escalatingMaxPrice,
         nowIso,
         productId
       ).run();
@@ -643,6 +695,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         description,
         cover_image_url: coverImageUrl,
         game_icon_url: gameIconUrl,
+        sale_mode: saleMode,
+        escalating_base_price: escalatingBasePrice,
+        escalating_step: escalatingStep,
+        escalating_max_price: escalatingMaxPrice,
         product_images: body.product_images !== undefined ? body.product_images : (existingMetaList[metaIdx]?.product_images || [coverImageUrl]),
         guide_links: body.guide_links !== undefined ? body.guide_links : (existingMetaList[metaIdx]?.guide_links || []),
         guide_url: body.guide_url !== undefined ? body.guide_url : (existingMetaList[metaIdx]?.guide_url || ''),

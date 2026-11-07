@@ -4,6 +4,7 @@ import {
   getFirstPurchaseConfigD1,
   isProductExcludedFromFirstPurchase,
   isMemberEmailVerified,
+  getEscalatingPriceD1,
 } from '../../services/d1_service';
 import { verifyToken, extractUserIdFromToken } from '../../services/auth_service';
 import { getRealEventsHub, saveRealEventsHub } from '../../services/realEventsHub';
@@ -53,6 +54,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       memberEmail,
       buyerName,
       buyerPhone,
+      expected_price,
+      client_displayed_price,
     } = body || {};
 
     const targetId = String(productId || utilityId || '').trim();
@@ -250,51 +253,102 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       );
     }
 
-    // Server-Authoritative Price & Check First Purchase Offer
-    const baseUnitPrice = Math.max(0, Number(product.current_price) || 0);
-    const fpConfig = await getFirstPurchaseConfigD1(env.DB);
+    // 2. Server-Authoritative Price Calculation
+    const isEscalating = String(product.sale_mode || '').toLowerCase() === 'escalating';
 
-    let isFirstPurchaseEligible = false;
-    let offerUnitPrice = baseUnitPrice;
-    let discountAmount = 0;
-    let discountType: 'first_purchase' | null = null;
-
-    if (
-      fpConfig.enabled &&
-      !isProductExcludedFromFirstPurchase(product, fpConfig.excluded_products) &&
-      (fpConfig.max_original_price === null || baseUnitPrice <= fpConfig.max_original_price) &&
-      (!fpConfig.require_verified_email || isMemberEmailVerified(member))
-    ) {
-      // Đếm số đơn đã thanh toán của tài khoản này cho đúng gói này (sau lần reset gần nhất)
-      const pastOrdersRow = await env.DB.prepare(`
-        SELECT COUNT(*) as cnt FROM orders 
-        WHERE (member_id = ? OR buyer_email = ?) 
-          AND product_id = ? 
-          AND status = 'COMPLETED'
-          AND created_at > (
-            SELECT COALESCE(MAX(reset_at), '1970-01-01T00:00:00.000Z') 
-            FROM first_purchase_resets 
-            WHERE (member_id = ? OR member_id = ?) AND product_id = ?
-          )
-      `).bind(member.id, member.email || '', product.id, member.id, member.email || '', product.id).first<any>();
-
-      const pastCount = Number(pastOrdersRow?.cnt) || 0;
-      if (pastCount === 0) {
-        isFirstPurchaseEligible = true;
-        // Giá ưu đãi = min(giá hiện tại, giá ưu đãi)
-        offerUnitPrice = Math.min(baseUnitPrice, fpConfig.offer_price);
-        discountAmount = Math.max(0, baseUnitPrice - offerUnitPrice);
-        if (discountAmount > 0) {
-          discountType = 'first_purchase';
-        }
-      }
+    // Chống lạm dụng: Hình thức Nâng Giá giới hạn số lượng = 1
+    if (isEscalating && qty > 1) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          message: 'Hình thức mua Nâng Giá chỉ áp dụng tối đa số lượng 1 gói mỗi đơn hàng.',
+          code: 'ESCALATING_SINGLE_QTY_ONLY',
+        }),
+        { status: 400, headers: CORS_HEADERS }
+      );
     }
 
-    // Giá khách thực trả: Gói đầu tiên được giá ưu đãi (nếu eligible), các gói thêm (qty > 1) tính giá gốc
-    const finalTotalAmount = (baseUnitPrice * qty) - discountAmount;
-    const originalPriceTotal = baseUnitPrice * qty;
-    const pricePaidTotal = finalTotalAmount;
-    const effectiveUnitPrice = isFirstPurchaseEligible ? offerUnitPrice : baseUnitPrice;
+    let finalTotalAmount = 0;
+    let originalPriceTotal = 0;
+    let pricePaidTotal = 0;
+    let effectiveUnitPrice = 0;
+    let discountAmount = 0;
+    let discountType: 'first_purchase' | null = null;
+    let priceRule: 'escalating' | 'first_purchase' | 'normal' | null = null;
+    let isFirstPurchaseEligible = false;
+
+    if (isEscalating) {
+      // 2.A. Gói Nâng Giá: Tính giá bậc thang theo số đơn COMPLETED trong D1, KHÔNG cộng dồn ưu đãi lần đầu 2.000 Core
+      const epInfo = await getEscalatingPriceD1(env.DB, product);
+      const serverCalculatedPrice = epInfo.current_calculated_price;
+
+      // Chống tăng giá bất ngờ (Anti-Slippage Guard): Nếu giá máy chủ tính ra cao hơn giá trình duyệt gửi kèm
+      const clientExpectedPrice = expected_price ?? client_displayed_price;
+      if (
+        typeof clientExpectedPrice === 'number' &&
+        clientExpectedPrice > 0 &&
+        serverCalculatedPrice > clientExpectedPrice
+      ) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            code: 'PRICE_ESCALATED',
+            old_price: clientExpectedPrice,
+            new_price: serverCalculatedPrice,
+            completed_count: epInfo.completed_count,
+            message: `Giá gói vừa tăng lên ${serverCalculatedPrice.toLocaleString('vi-VN')} Core (đã có người mua trước bạn). Bạn có muốn mua với giá mới không?`,
+          }),
+          { status: 409, headers: CORS_HEADERS }
+        );
+      }
+
+      finalTotalAmount = serverCalculatedPrice;
+      originalPriceTotal = serverCalculatedPrice;
+      pricePaidTotal = serverCalculatedPrice;
+      effectiveUnitPrice = serverCalculatedPrice;
+      priceRule = 'escalating';
+    } else {
+      // 2.B. Gói Bình Thường: Kiểm tra chiến dịch Ưu đãi mua lần đầu (First Purchase Offer)
+      const baseUnitPrice = Math.max(0, Number(product.current_price) || 0);
+      const fpConfig = await getFirstPurchaseConfigD1(env.DB);
+      let offerUnitPrice = baseUnitPrice;
+
+      if (
+        fpConfig.enabled &&
+        !isProductExcludedFromFirstPurchase(product, fpConfig.excluded_products) &&
+        (fpConfig.max_original_price === null || baseUnitPrice <= fpConfig.max_original_price) &&
+        (!fpConfig.require_verified_email || isMemberEmailVerified(member))
+      ) {
+        // Đếm số đơn đã thanh toán của tài khoản này cho đúng gói này (sau lần reset gần nhất)
+        const pastOrdersRow = await env.DB.prepare(`
+          SELECT COUNT(*) as cnt FROM orders 
+          WHERE (member_id = ? OR buyer_email = ?) 
+            AND product_id = ? 
+            AND status = 'COMPLETED'
+            AND created_at > (
+              SELECT COALESCE(MAX(reset_at), '1970-01-01T00:00:00.000Z') 
+              FROM first_purchase_resets 
+              WHERE (member_id = ? OR member_id = ?) AND product_id = ?
+            )
+        `).bind(member.id, member.email || '', product.id, member.id, member.email || '', product.id).first<any>();
+
+        const pastCount = Number(pastOrdersRow?.cnt) || 0;
+        if (pastCount === 0) {
+          isFirstPurchaseEligible = true;
+          offerUnitPrice = Math.min(baseUnitPrice, fpConfig.offer_price);
+          discountAmount = Math.max(0, baseUnitPrice - offerUnitPrice);
+          if (discountAmount > 0) {
+            discountType = 'first_purchase';
+            priceRule = 'first_purchase';
+          }
+        }
+      }
+
+      finalTotalAmount = (baseUnitPrice * qty) - discountAmount;
+      originalPriceTotal = baseUnitPrice * qty;
+      pricePaidTotal = finalTotalAmount;
+      effectiveUnitPrice = isFirstPurchaseEligible ? offerUnitPrice : baseUnitPrice;
+    }
 
     // 3. Pre-flight Balance check
     const currentBalance = Number(member.balance) || 0;
@@ -382,6 +436,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       pricePaid: pricePaidTotal,
       discountType,
       discountAmount,
+      priceRule,
     });
 
     if (!d1Result.success) {
@@ -537,6 +592,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       price_paid: d1Result.order?.price_paid ?? pricePaidTotal,
       discount_type: d1Result.order?.discount_type ?? discountType,
       discount_amount: d1Result.order?.discount_amount ?? discountAmount,
+      price_rule: d1Result.order?.price_rule ?? priceRule,
       code_content: deliveredContent,
       code_items: deliveredCodesList,
       deliveredCodes: deliveredCodesList,

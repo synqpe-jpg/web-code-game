@@ -20,6 +20,10 @@ import {
   Sparkles,
   Eye,
   EyeOff,
+  Zap,
+  RotateCcw,
+  History,
+  AlertTriangle,
 } from 'lucide-react';
 import { FormModal } from '../components/ui/FormModal';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
@@ -110,7 +114,27 @@ export const CodeInventoryModule: React.FC<CodeInventoryModuleProps> = ({ onShow
     cover_image_url: '/game_icons/3q-dao-dao-dao.webp',
     product_images: ['/game_icons/3q-dao-dao-dao.webp'] as string[],
     is_active: true,
+    sale_mode: 'normal' as 'normal' | 'escalating',
+    escalating_base_price: 2000,
+    escalating_step: 500,
+    escalating_max_price: '' as string | number,
+    escalating_completed_count: 0,
+    escalating_current_price: 2000,
   });
+
+  // --- ESCALATING PRICE MANAGEMENT STATE ---
+  const [resetModalProduct, setResetModalProduct] = useState<StoreProduct | null>(null);
+  const [resetReason, setResetReason] = useState('Đổi đợt phát hành mới');
+  const [isResetting, setIsResetting] = useState(false);
+
+  const [historyModalProduct, setHistoryModalProduct] = useState<StoreProduct | null>(null);
+  const [historyData, setHistoryData] = useState<{
+    orders: any[];
+    resets: any[];
+    abuse_warning: boolean;
+    abuse_details?: string;
+  } | null>(null);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
   // --- BATCH IMPORT MODAL STATE (NHẬP KHO) ---
   const [isBatchOpen, setIsBatchOpen] = useState(false);
@@ -199,6 +223,12 @@ export const CodeInventoryModule: React.FC<CodeInventoryModuleProps> = ({ onShow
       cover_image_url: initialCover,
       product_images: initialCover ? [initialCover] : [],
       is_active: true,
+      sale_mode: 'normal',
+      escalating_base_price: 2000,
+      escalating_step: 500,
+      escalating_max_price: '',
+      escalating_completed_count: 0,
+      escalating_current_price: 2000,
     });
     setIsProductModalOpen(true);
   };
@@ -253,8 +283,76 @@ export const CodeInventoryModule: React.FC<CodeInventoryModuleProps> = ({ onShow
       cover_image_url: prod.cover_image_url || existingImages[0] || '',
       product_images: existingImages,
       is_active: prod.is_active,
+      sale_mode: (prod.sale_mode || 'normal') as any,
+      escalating_base_price: prod.escalating_base_price ?? prod.current_price ?? 2000,
+      escalating_step: prod.escalating_step ?? 500,
+      escalating_max_price: prod.escalating_max_price ?? '',
+      escalating_completed_count: prod.escalating_completed_count ?? 0,
+      escalating_current_price: prod.escalating_current_price ?? prod.current_price ?? 2000,
     });
     setIsProductModalOpen(true);
+  };
+
+  // --- ESCALATING API HANDLERS ---
+  const handleOpenResetModal = (prod: StoreProduct) => {
+    setResetModalProduct(prod);
+    setResetReason('Đổi đợt phát hành mới');
+  };
+
+  const handleConfirmResetEscalating = async () => {
+    if (!resetModalProduct) return;
+    setIsResetting(true);
+    try {
+      const token = localStorage.getItem('wcg_admin_token') || localStorage.getItem('wcg_auth_token') || '';
+      const res = await fetch('/api/admin/escalating/reset', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : '',
+        },
+        body: JSON.stringify({
+          productId: resetModalProduct.id,
+          reason: resetReason.trim() || 'Quản trị viên đặt lại thang giá',
+        }),
+      });
+      const data: any = await res.json().catch(() => null);
+      if (res.ok && data?.success) {
+        onShowToast('Thành công', `Đã đặt lại thang giá cho ${resetModalProduct.title} về mức ban đầu.`, 'success');
+        setResetModalProduct(null);
+        await adminDataService.refreshFromServer();
+        setStoreProducts([...adminDataService.getStoreProducts()]);
+      } else {
+        onShowToast('Lỗi', data?.message || 'Không thể đặt lại thang giá.', 'error');
+      }
+    } catch (err: any) {
+      onShowToast('Lỗi', err?.message || 'Không thể kết nối đến máy chủ.', 'error');
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
+  const handleOpenHistoryModal = async (prod: StoreProduct) => {
+    setHistoryModalProduct(prod);
+    setHistoryData(null);
+    setIsLoadingHistory(true);
+    try {
+      const token = localStorage.getItem('wcg_admin_token') || localStorage.getItem('wcg_auth_token') || '';
+      const res = await fetch(`/api/admin/escalating/history?product_id=${encodeURIComponent(prod.id)}`, {
+        headers: {
+          'Authorization': token ? `Bearer ${token}` : '',
+        },
+      });
+      const data: any = await res.json().catch(() => null);
+      if (res.ok && data?.success) {
+        setHistoryData(data);
+      } else {
+        onShowToast('Lỗi', data?.message || 'Không thể tải lịch sử lượt mua.', 'error');
+      }
+    } catch (err: any) {
+      onShowToast('Lỗi', err?.message || 'Không thể tải lịch sử lượt mua.', 'error');
+    } finally {
+      setIsLoadingHistory(false);
+    }
   };
 
   const handleAddGuideLink = () => {
@@ -347,11 +445,18 @@ export const CodeInventoryModule: React.FC<CodeInventoryModuleProps> = ({ onShow
 
     const finalStock = totalAvail;
 
-    const originalPrice = Math.max(0, Number(productForm.original_price) || 0);
-    const discountPercent = Math.max(0, Math.min(100, Number(productForm.discount_percent) || 0));
-    const calculatedPrice = discountPercent > 0
-      ? Math.round(originalPrice * (1 - discountPercent / 100))
-      : originalPrice;
+    const isEscalating = productForm.sale_mode === 'escalating';
+    const escalatingBase = Math.max(0, Number(productForm.escalating_base_price) || 0);
+    const escalatingStep = Math.max(0, Number(productForm.escalating_step) || 0);
+    const escalatingMax = productForm.escalating_max_price !== '' && productForm.escalating_max_price !== null && productForm.escalating_max_price !== undefined
+      ? Math.max(0, Number(productForm.escalating_max_price))
+      : null;
+
+    const originalPrice = isEscalating ? escalatingBase : Math.max(0, Number(productForm.original_price) || 0);
+    const discountPercent = isEscalating ? 0 : Math.max(0, Math.min(100, Number(productForm.discount_percent) || 0));
+    const calculatedPrice = isEscalating
+      ? escalatingBase
+      : (discountPercent > 0 ? Math.round(originalPrice * (1 - discountPercent / 100)) : originalPrice);
 
     const chosenCat = productForm.category || productForm.package_type || 'pack';
     const foundCat = categoriesList.find((c) => c.id === chosenCat);
@@ -398,6 +503,10 @@ export const CodeInventoryModule: React.FC<CodeInventoryModuleProps> = ({ onShow
       game_icon_url: coverImg || undefined,
       product_images: finalImages.length > 0 ? finalImages : (coverImg ? [coverImg] : []),
       is_active: productForm.is_active,
+      sale_mode: isEscalating ? 'escalating' : 'normal',
+      escalating_base_price: isEscalating ? escalatingBase : null,
+      escalating_step: isEscalating ? escalatingStep : null,
+      escalating_max_price: isEscalating ? escalatingMax : null,
     });
 
     onShowToast(
@@ -1216,23 +1325,30 @@ export const CodeInventoryModule: React.FC<CodeInventoryModuleProps> = ({ onShow
                 {/* Price & Stock Display */}
                 <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
                   <div>
-                    <div className="flex items-baseline gap-1.5">
+                    <div className="flex items-baseline gap-1.5 flex-wrap">
                       <span className="font-mono text-sm font-black text-amber-500 dark:text-amber-400">
-                        {formatCurrencyVND(prod.current_price)}
+                        {formatCurrencyVND(prod.sale_mode === 'escalating' ? (prod.escalating_current_price ?? prod.current_price) : prod.current_price)}
                       </span>
-                      {prod.original_price > prod.current_price && (
-                        <>
-                          <span className="font-mono text-[10px] text-slate-400 line-through">
-                            {formatCurrencyVND(prod.original_price)}
-                          </span>
-                          <span className="text-[9px] font-bold text-rose-500">
-                            -{prod.discount_percent}%
-                          </span>
-                        </>
+                      {prod.sale_mode === 'escalating' ? (
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-500 border border-amber-500/40 inline-flex items-center gap-0.5">
+                          <Zap className="w-2.5 h-2.5" />
+                          +{formatCore(prod.escalating_step || 0)}/lượt
+                        </span>
+                      ) : (
+                        prod.original_price > prod.current_price && (
+                          <>
+                            <span className="font-mono text-[10px] text-slate-400 line-through">
+                              {formatCurrencyVND(prod.original_price)}
+                            </span>
+                            <span className="text-[9px] font-bold text-rose-500">
+                              -{prod.discount_percent}%
+                            </span>
+                          </>
+                        )
                       )}
                     </div>
                     <span className="text-[9px] font-bold text-indigo-500 font-mono">
-                      Quy đổi: {formatCore(prod.current_price)}
+                      Quy đổi: {formatCore(prod.sale_mode === 'escalating' ? (prod.escalating_current_price ?? prod.current_price) : prod.current_price)}
                     </span>
                   </div>
 
@@ -1348,6 +1464,30 @@ export const CodeInventoryModule: React.FC<CodeInventoryModuleProps> = ({ onShow
                       </>
                     )}
                   </button>
+
+                  {/* Nút Nâng Giá: Lịch sử & Đặt lại */}
+                  {prod.sale_mode === 'escalating' && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenHistoryModal(prod)}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 text-[11px] font-bold transition-colors cursor-pointer border border-indigo-500/25"
+                        title="Xem lịch sử lượt mua thành công và cảnh báo gom hàng"
+                      >
+                        <History className="h-3 w-3 text-indigo-500" />
+                        <span>Lịch sử</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenResetModal(prod)}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 text-[11px] font-bold transition-colors cursor-pointer border border-rose-500/25"
+                        title="Đặt lại thang giá gói về ban đầu (0 lượt mua)"
+                      >
+                        <RotateCcw className="h-3 w-3 text-rose-500" />
+                        <span>Đặt lại</span>
+                      </button>
+                    </>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-1 shrink-0">
@@ -1458,64 +1598,221 @@ export const CodeInventoryModule: React.FC<CodeInventoryModuleProps> = ({ onShow
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
+          {/* Chọn Hình Thức Bán: Giá Bình Thường vs Nâng Giá */}
+          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-2.5">
+            <div className="flex items-center justify-between">
               <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                Giá Gốc (VND / Core) <span className="text-rose-500">*</span>
+                Hình Thức Bán Gói
               </label>
-              <input
-                type="number"
-                min={0}
-                required
-                value={productForm.original_price === 0 ? '' : productForm.original_price}
-                onChange={(e) => {
-                  const val = e.target.value === '' ? 0 : Number(e.target.value);
-                  const disc = productForm.discount_percent || 0;
-                  setProductForm((p) => ({
-                    ...p,
-                    original_price: val,
-                    current_price: disc > 0 ? Math.round(val * (1 - disc / 100)) : val,
-                  }));
-                }}
-                placeholder="Nhập giá bất kỳ (VD: 15000, 50000...)"
-                className="mt-1 w-full font-mono font-bold rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-              />
-            </div>
-
-            <div>
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                Chiết Khấu (%)
-              </label>
-              <input
-                type="number"
-                min={0}
-                max={100}
-                value={productForm.discount_percent === 0 ? '' : productForm.discount_percent}
-                onChange={(e) => {
-                  const disc = e.target.value === '' ? 0 : Math.min(100, Math.max(0, Number(e.target.value)));
-                  const orig = productForm.original_price || 0;
-                  setProductForm((p) => ({
-                    ...p,
-                    discount_percent: disc,
-                    current_price: disc > 0 ? Math.round(orig * (1 - disc / 100)) : orig,
-                  }));
-                }}
-                placeholder="0"
-                className="mt-1 w-full font-mono rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-              />
-            </div>
-          </div>
-
-          <div className="rounded-xl bg-slate-50 dark:bg-slate-800/60 p-2.5 text-xs flex items-center justify-between border border-slate-200/60 dark:border-slate-700/60">
-            <span className="text-slate-500 dark:text-slate-400 text-[11px]">Giá bán thực tế sau chiết khấu:</span>
-            <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400 text-sm">
-              {formatCurrencyVND(
-                productForm.discount_percent > 0
-                  ? Math.round((productForm.original_price || 0) * (1 - (productForm.discount_percent || 0) / 100))
-                  : (productForm.original_price || 0)
+              {productForm.sale_mode === 'escalating' && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-500 border border-amber-500/40 flex items-center gap-1">
+                  <Zap className="w-3 h-3 text-amber-500" />
+                  Đang Bật Nâng Giá
+                </span>
               )}
-            </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setProductForm((p) => ({ ...p, sale_mode: 'normal' }))}
+                className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 border cursor-pointer ${
+                  productForm.sale_mode === 'normal'
+                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                    : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:border-slate-400'
+                }`}
+              >
+                <Tag className="w-3.5 h-3.5" />
+                <span>Giá Bình Thường</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setProductForm((p) => ({ ...p, sale_mode: 'escalating' }))}
+                className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 border cursor-pointer ${
+                  productForm.sale_mode === 'escalating'
+                    ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-black border-amber-500 shadow-md'
+                    : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:border-amber-400'
+                }`}
+              >
+                <Zap className="w-3.5 h-3.5" />
+                <span>⚡ Nâng Giá (Tăng theo lượt)</span>
+              </button>
+            </div>
+
+            {productForm.sale_mode === 'escalating' && (
+              <p className="text-[11px] text-amber-600 dark:text-amber-400 leading-relaxed">
+                Người mua đầu tiên trả giá ban đầu; mỗi lượt mua thành công sau đó giá tự động tăng thêm 1 mức cố định. Gói Nâng Giá được tự động loại trừ khỏi ưu đãi mua lần đầu 2.000 Core.
+              </p>
+            )}
           </div>
+
+          {productForm.sale_mode === 'normal' ? (
+            <>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Giá Gốc (VND / Core) <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    required
+                    value={productForm.original_price === 0 ? '' : productForm.original_price}
+                    onChange={(e) => {
+                      const val = e.target.value === '' ? 0 : Number(e.target.value);
+                      const disc = productForm.discount_percent || 0;
+                      setProductForm((p) => ({
+                        ...p,
+                        original_price: val,
+                        current_price: disc > 0 ? Math.round(val * (1 - disc / 100)) : val,
+                      }));
+                    }}
+                    placeholder="Nhập giá bất kỳ (VD: 15000, 50000...)"
+                    className="mt-1 w-full font-mono font-bold rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Chiết Khấu (%)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={productForm.discount_percent === 0 ? '' : productForm.discount_percent}
+                    onChange={(e) => {
+                      const disc = e.target.value === '' ? 0 : Math.min(100, Math.max(0, Number(e.target.value)));
+                      const orig = productForm.original_price || 0;
+                      setProductForm((p) => ({
+                        ...p,
+                        discount_percent: disc,
+                        current_price: disc > 0 ? Math.round(orig * (1 - disc / 100)) : orig,
+                      }));
+                    }}
+                    placeholder="0"
+                    className="mt-1 w-full font-mono rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-xl bg-slate-50 dark:bg-slate-800/60 p-2.5 text-xs flex items-center justify-between border border-slate-200/60 dark:border-slate-700/60">
+                <span className="text-slate-500 dark:text-slate-400 text-[11px]">Giá bán thực tế sau chiết khấu:</span>
+                <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400 text-sm">
+                  {formatCurrencyVND(
+                    productForm.discount_percent > 0
+                      ? Math.round((productForm.original_price || 0) * (1 - (productForm.discount_percent || 0) / 100))
+                      : (productForm.original_price || 0)
+                  )}
+                </span>
+              </div>
+            </>
+          ) : (
+            /* Khối Cấu Hình Nâng Giá */
+            <div className="space-y-3 p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Giá Ban Đầu (Core) <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    required
+                    value={productForm.escalating_base_price === 0 ? '' : productForm.escalating_base_price}
+                    onChange={(e) => {
+                      const val = e.target.value === '' ? 0 : Number(e.target.value);
+                      setProductForm((p) => ({ ...p, escalating_base_price: val }));
+                    }}
+                    placeholder="VD: 2000"
+                    className="mt-1 w-full font-mono font-bold rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-900 focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                  />
+                  <span className="text-[10px] text-muted-foreground block mt-0.5">Giá cho người mua thứ 1</span>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Mức Tăng / Lượt (Core) <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    required
+                    value={productForm.escalating_step === 0 ? '' : productForm.escalating_step}
+                    onChange={(e) => {
+                      const val = e.target.value === '' ? 0 : Number(e.target.value);
+                      setProductForm((p) => ({ ...p, escalating_step: val }));
+                    }}
+                    placeholder="VD: 500"
+                    className="mt-1 w-full font-mono font-bold rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-900 focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                  />
+                  <span className="text-[10px] text-muted-foreground block mt-0.5">Cộng thêm sau mỗi đơn</span>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Trần Giá Tối Đa (Core)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={productForm.escalating_max_price}
+                    onChange={(e) => {
+                      const val = e.target.value === '' ? '' : Number(e.target.value);
+                      setProductForm((p) => ({ ...p, escalating_max_price: val }));
+                    }}
+                    placeholder="Để trống = Không trần"
+                    className="mt-1 w-full font-mono font-bold rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-900 focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                  />
+                  <span className="text-[10px] text-muted-foreground block mt-0.5">Không bắt buộc</span>
+                </div>
+              </div>
+
+              {/* Box Thống Kê & Nút Thao Tác Nâng Giá */}
+              <div className="p-3 rounded-xl bg-white dark:bg-slate-900/90 border border-amber-500/30 space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-600 dark:text-slate-400">Số lượt đã mua thành công:</span>
+                  <span className="font-mono font-bold text-foreground">
+                    {productForm.escalating_completed_count} lượt
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-600 dark:text-slate-400">Giá hiện tại cho lượt tiếp theo:</span>
+                  <span className="font-mono font-black text-amber-500 text-sm">
+                    {formatCore(
+                      productForm.escalating_max_price !== '' && productForm.escalating_max_price !== null && Number(productForm.escalating_max_price) > 0
+                        ? Math.min(
+                            Number(productForm.escalating_max_price),
+                            Number(productForm.escalating_base_price || 0) + Number(productForm.escalating_completed_count) * Number(productForm.escalating_step || 0)
+                          )
+                        : Number(productForm.escalating_base_price || 0) + Number(productForm.escalating_completed_count) * Number(productForm.escalating_step || 0)
+                    )}
+                  </span>
+                </div>
+
+                {editingProduct && (
+                  <div className="pt-2 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenHistoryModal(editingProduct)}
+                      className="px-2.5 py-1.5 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-600 dark:text-indigo-400 font-bold text-xs flex items-center gap-1 cursor-pointer transition-all"
+                    >
+                      <History className="w-3.5 h-3.5" />
+                      <span>Xem lịch sử lượt mua</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenResetModal(editingProduct)}
+                      className="px-2.5 py-1.5 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-600 dark:text-rose-400 font-bold text-xs flex items-center gap-1 cursor-pointer transition-all"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>Đặt lại thang giá về 0</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           <div>
             <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
@@ -2199,6 +2496,202 @@ export const CodeInventoryModule: React.FC<CodeInventoryModuleProps> = ({ onShow
           onShowToast={onShowToast}
         />
       )}
+
+      {/* MODAL: ĐẶT LẠI THANG GIÁ NÂNG GIÁ (RESET ESCALATING PRICE) */}
+      <FormModal
+        isOpen={!!resetModalProduct}
+        onClose={() => !isResetting && setResetModalProduct(null)}
+        title="Đặt Lại Thang Giá Nâng Giá"
+        description={`Đưa số lượt mua gói "${resetModalProduct?.title}" về 0 và quay về giá ban đầu (${formatCore(resetModalProduct?.escalating_base_price ?? resetModalProduct?.current_price ?? 0)}).`}
+      >
+        <div className="space-y-4 text-left">
+          <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs space-y-1">
+            <div className="flex items-center gap-1.5 font-bold">
+              <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+              <span>Lưu ý quan trọng:</span>
+            </div>
+            <p className="leading-relaxed">
+              Hành động này sẽ reset thang tính giá của gói về lượt 1. Các đơn hàng cũ đã hoàn tất vẫn được lưu nguyên vẹn trong hệ thống và nhật ký kiểm toán sẽ ghi lại thao tác reset này.
+            </p>
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+              Lý Do Đặt Lại Thang Giá <span className="text-rose-500">*</span>
+            </label>
+            <input
+              type="text"
+              required
+              value={resetReason}
+              onChange={(e) => setResetReason(e.target.value)}
+              placeholder="VD: Mở đợt phát hành mới, Reset sau kiểm thử..."
+              className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+            />
+          </div>
+
+          <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100 dark:border-slate-800">
+            <button
+              type="button"
+              disabled={isResetting}
+              onClick={() => setResetModalProduct(null)}
+              className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold cursor-pointer transition-all"
+            >
+              Hủy bỏ
+            </button>
+            <button
+              type="button"
+              disabled={isResetting || !resetReason.trim()}
+              onClick={handleConfirmResetEscalating}
+              className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-md cursor-pointer transition-all disabled:opacity-50 flex items-center gap-1.5"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>{isResetting ? 'Đang đặt lại...' : 'Xác Nhận Đặt Lại Về 0'}</span>
+            </button>
+          </div>
+        </div>
+      </FormModal>
+
+      {/* MODAL: LỊCH SỬ LƯỢT MUA & CẢNH BÁO GOM HÀNG */}
+      <FormModal
+        isOpen={!!historyModalProduct}
+        onClose={() => setHistoryModalProduct(null)}
+        title="Lịch Sử Lượt Mua & Kiểm Toán Nâng Giá"
+        description={`Chi tiết lượt mua và nhật ký kiểm toán gói "${historyModalProduct?.title}".`}
+      >
+        <div className="space-y-4 text-left max-h-[75vh] overflow-y-auto pr-1">
+          {isLoadingHistory ? (
+            <div className="py-8 text-center text-xs text-muted-foreground animate-pulse">
+              Đang tải lịch sử từ Cloudflare D1...
+            </div>
+          ) : !historyData ? (
+            <div className="py-6 text-center text-xs text-muted-foreground">
+              Không có dữ liệu lịch sử.
+            </div>
+          ) : (
+            <>
+              {/* Cảnh báo gom hàng / dồn đơn */}
+              {historyData.abuse_warning && (
+                <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs space-y-1">
+                  <div className="flex items-center gap-1.5 font-bold">
+                    <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0 animate-bounce" />
+                    <span>Cảnh Báo Nghi Vấn Gom Hàng Dồn Dập:</span>
+                  </div>
+                  <p className="leading-relaxed">
+                    {historyData.abuse_details || 'Phát hiện có từ 3 lượt mua thành công trở lên trong vòng 5 phút từ cùng tài khoản/IP.'}
+                  </p>
+                </div>
+              )}
+
+              {/* Thông tin thang giá hiện tại */}
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                <div>
+                  <span className="text-slate-500 dark:text-slate-400 block text-[10px]">Giá ban đầu</span>
+                  <strong className="font-mono text-foreground">{formatCore(historyModalProduct?.escalating_base_price ?? historyModalProduct?.current_price ?? 0)}</strong>
+                </div>
+                <div>
+                  <span className="text-slate-500 dark:text-slate-400 block text-[10px]">Mức tăng/lượt</span>
+                  <strong className="font-mono text-amber-500">+{formatCore(historyModalProduct?.escalating_step ?? 0)}</strong>
+                </div>
+                <div>
+                  <span className="text-slate-500 dark:text-slate-400 block text-[10px]">Đã mua (lượt)</span>
+                  <strong className="font-mono text-emerald-500">{historyData.orders?.length || 0} lượt</strong>
+                </div>
+                <div>
+                  <span className="text-slate-500 dark:text-slate-400 block text-[10px]">Trần giá</span>
+                  <strong className="font-mono text-foreground">{historyModalProduct?.escalating_max_price ? formatCore(historyModalProduct.escalating_max_price) : 'Không trần'}</strong>
+                </div>
+              </div>
+
+              {/* Danh sách đơn hàng đã mua */}
+              <div>
+                <h5 className="font-bold text-xs text-foreground mb-2 flex items-center justify-between">
+                  <span>Danh Sách Đơn Mua Thành Công ({historyData.orders?.length || 0})</span>
+                  <span className="text-[10px] text-muted-foreground font-normal">Chỉ tính đơn COMPLETED sau lần reset gần nhất</span>
+                </h5>
+                <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
+                  {(!historyData.orders || historyData.orders.length === 0) ? (
+                    <div className="p-3 rounded-xl bg-muted/40 text-center text-xs text-muted-foreground italic">
+                      Chưa có lượt mua nào sau lần reset gần nhất.
+                    </div>
+                  ) : (
+                    historyData.orders.map((o: any, idx: number) => (
+                      <div
+                        key={o.id || idx}
+                        className="p-2.5 rounded-xl bg-card border border-border flex items-center justify-between gap-2 text-xs"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono font-bold text-amber-400 text-[11px]">#{idx + 1}</span>
+                            <span className="font-bold text-foreground truncate">{o.buyer_name || o.buyer_email || 'Khách hàng'}</span>
+                            {o.buyer_email && (
+                              <span className="text-[10px] text-muted-foreground truncate hidden sm:inline">({o.buyer_email})</span>
+                            )}
+                          </div>
+                          <span className="text-[10px] text-muted-foreground font-mono block mt-0.5">
+                            {new Date(o.created_at).toLocaleString('vi-VN')} • Đơn: {o.id}
+                          </span>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <span className="font-mono font-bold text-emerald-400 block text-xs">
+                            {formatCore(o.price_paid || o.total_amount)}
+                          </span>
+                          <span className="text-[9px] text-slate-400 uppercase font-bold">Thành công</span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Nhật ký kiểm toán các lần Đặt Lại (Resets Audit) */}
+              <div>
+                <h5 className="font-bold text-xs text-foreground mb-2 flex items-center justify-between">
+                  <span>Nhật Ký Kiểm Toán Đặt Lại Thang Giá ({historyData.resets?.length || 0})</span>
+                </h5>
+                <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                  {(!historyData.resets || historyData.resets.length === 0) ? (
+                    <div className="p-3 rounded-xl bg-muted/40 text-center text-xs text-muted-foreground italic">
+                      Chưa từng có lần đặt lại thang giá nào cho gói này.
+                    </div>
+                  ) : (
+                    historyData.resets.map((r: any, idx: number) => (
+                      <div
+                        key={r.id || idx}
+                        className="p-2 rounded-xl bg-muted/30 border border-border/70 flex items-center justify-between gap-2 text-xs"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <RotateCcw className="w-3 h-3 text-rose-400 shrink-0" />
+                            <span className="font-bold text-foreground truncate">{r.admin_name || 'Quản trị viên'}</span>
+                            <span className="text-[10px] text-slate-400">đã reset</span>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground mt-0.5 italic">
+                            &quot;{r.reason || 'Đặt lại về 0'}&quot;
+                          </p>
+                        </div>
+                        <div className="text-right shrink-0 text-[10px] text-muted-foreground">
+                          <span className="block font-mono">Trước reset: {r.previous_completed_count} lượt</span>
+                          <span className="block">{new Date(r.reset_at).toLocaleString('vi-VN')}</span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              <div className="pt-2 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setHistoryModalProduct(null)}
+                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold cursor-pointer transition-all"
+                >
+                  Đóng
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </FormModal>
     </div>
   );
 };

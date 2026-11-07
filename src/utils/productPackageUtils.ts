@@ -30,6 +30,13 @@ export function getProductPackages(product: StoreProduct | UtilityProduct): Prod
       note: 'Xử lý tiêu chuẩn',
       description: product.description,
       is_active: product.is_active !== false,
+      sale_mode: (product as any).sale_mode || 'normal',
+      escalating_base_price: (product as any).escalating_base_price,
+      escalating_step: (product as any).escalating_step,
+      escalating_max_price: (product as any).escalating_max_price,
+      escalating_completed_count: (product as any).escalating_completed_count,
+      escalating_current_price: (product as any).escalating_current_price,
+      escalating_next_price: (product as any).escalating_next_price,
     },
   ];
 }
@@ -41,7 +48,13 @@ export function getProductMinPrice(product: StoreProduct | UtilityProduct): numb
   if (!product) return 0;
   const packages = getProductPackages(product);
   if (packages.length === 0) return product.current_price || 0;
-  return Math.min(...packages.map((p) => p.price));
+  return Math.min(
+    ...packages.map((p) =>
+      p.sale_mode === 'escalating'
+        ? (p.escalating_current_price ?? p.escalating_base_price ?? p.price)
+        : p.price
+    )
+  );
 }
 
 /**
@@ -153,12 +166,25 @@ export function groupStoreProductsByGame(products: StoreProduct[]): StoreProduct
         note: item.package_type || 'Gói nạp game',
         description: item.description,
         is_active: item.is_active !== false,
+        sale_mode: item.sale_mode || 'normal',
+        escalating_base_price: item.escalating_base_price,
+        escalating_step: item.escalating_step,
+        escalating_max_price: item.escalating_max_price,
+        escalating_completed_count: item.escalating_completed_count,
+        escalating_current_price: item.escalating_current_price,
+        escalating_next_price: item.escalating_next_price,
       }));
 
       const totalStock = packages.reduce((sum, p) => sum + (Number(p.stock_quantity) || 0), 0);
       const totalSold = packages.reduce((sum, p) => sum + (Number(p.sold_count) || 0), 0);
       const totalVirtualSold = list.reduce((sum, p) => sum + (Number(p.virtual_sold_count) || 0), 0);
-      const minPrice = Math.min(...packages.map((p) => p.price));
+      const minPrice = Math.min(
+        ...packages.map((p) =>
+          p.sale_mode === 'escalating'
+            ? (p.escalating_current_price ?? p.escalating_base_price ?? p.price)
+            : p.price
+        )
+      );
 
       const parentProduct: StoreProduct = {
         ...lead,

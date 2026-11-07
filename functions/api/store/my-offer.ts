@@ -3,6 +3,7 @@ import {
   getFirstPurchaseConfigD1,
   isProductExcludedFromFirstPurchase,
   isMemberEmailVerified,
+  getEscalatingPriceD1,
 } from '../../services/d1_service';
 import { verifyToken, extractUserIdFromToken } from '../../services/auth_service';
 
@@ -72,14 +73,15 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
     // 2. Fetch products for this game (or all active products if no slug provided)
     let productRows: any[] = [];
+    const selectFields = 'id, title, game_slug, game_name, current_price, original_price, is_active, sale_mode, escalating_base_price, escalating_step, escalating_max_price';
     if (gameSlug) {
       const res = await env.DB.prepare(
-        'SELECT id, title, game_slug, game_name, current_price, original_price, is_active FROM store_products WHERE game_slug = ? AND is_active = 1'
+        `SELECT ${selectFields} FROM store_products WHERE game_slug = ? AND is_active = 1`
       ).bind(gameSlug).all<any>();
       productRows = res.results || [];
     } else {
       const res = await env.DB.prepare(
-        'SELECT id, title, game_slug, game_name, current_price, original_price, is_active FROM store_products WHERE is_active = 1 LIMIT 200'
+        `SELECT ${selectFields} FROM store_products WHERE is_active = 1 LIMIT 200`
       ).all<any>();
       productRows = res.results || [];
     }
@@ -88,13 +90,35 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     if (!member) {
       const anonymousOffers: Record<string, any> = {};
       for (const prod of productRows) {
-        const prodPrice = Number(prod.current_price) || 0;
+        const isEscalating = String(prod.sale_mode || '').toLowerCase() === 'escalating';
+        let escalatingData: any = null;
+        let prodPrice = Number(prod.current_price) || 0;
+
+        if (isEscalating) {
+          const escInfo = await getEscalatingPriceD1(env.DB, prod);
+          prodPrice = escInfo.current_price;
+          escalatingData = {
+            is_escalating: true,
+            base_price: escInfo.base_price,
+            step: escInfo.step,
+            max_price: escInfo.max_price,
+            completed_count: escInfo.completed_count,
+            current_price: escInfo.current_price,
+            next_price: escInfo.next_price,
+          };
+        }
+
         let eligible = false;
         let reason: string | null = null;
         let offerPrice = prodPrice;
         let discountAmount = 0;
 
-        if (!fpConfig.enabled) {
+        if (isEscalating) {
+          eligible = false;
+          reason = 'escalating_mode';
+          offerPrice = prodPrice;
+          discountAmount = 0;
+        } else if (!fpConfig.enabled) {
           reason = 'campaign_disabled';
         } else if (isProductExcludedFromFirstPurchase(prod, fpConfig.excluded_products)) {
           reason = 'excluded';
@@ -112,6 +136,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           offer_price: offerPrice,
           discount_amount: discountAmount,
           reason,
+          escalating: escalatingData,
         };
       }
 
@@ -156,16 +181,39 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       offer_price: number;
       discount_amount: number;
       reason: string | null;
+      escalating?: any;
     }> = {};
 
     for (const prod of productRows) {
-      const prodPrice = Number(prod.current_price) || 0;
+      const isEscalating = String(prod.sale_mode || '').toLowerCase() === 'escalating';
+      let escalatingData: any = null;
+      let prodPrice = Number(prod.current_price) || 0;
+
+      if (isEscalating) {
+        const escInfo = await getEscalatingPriceD1(env.DB, prod);
+        prodPrice = escInfo.current_price;
+        escalatingData = {
+          is_escalating: true,
+          base_price: escInfo.base_price,
+          step: escInfo.step,
+          max_price: escInfo.max_price,
+          completed_count: escInfo.completed_count,
+          current_price: escInfo.current_price,
+          next_price: escInfo.next_price,
+        };
+      }
+
       let eligible = false;
       let reason: string | null = null;
       let offerPrice = prodPrice;
       let discountAmount = 0;
 
-      if (!fpConfig.enabled) {
+      if (isEscalating) {
+        eligible = false;
+        reason = 'escalating_mode';
+        offerPrice = prodPrice;
+        discountAmount = 0;
+      } else if (!fpConfig.enabled) {
         reason = 'campaign_disabled';
       } else if (isProductExcludedFromFirstPurchase(prod, fpConfig.excluded_products)) {
         reason = 'excluded';
@@ -187,6 +235,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         offer_price: offerPrice,
         discount_amount: discountAmount,
         reason,
+        escalating: escalatingData,
       };
     }
 

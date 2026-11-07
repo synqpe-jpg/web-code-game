@@ -62,6 +62,14 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
     eligible: boolean;
     offer_price: number;
     discount_amount: number;
+    escalating?: any;
+  } | null>(null);
+
+  const [priceEscalatedDialog, setPriceEscalatedDialog] = useState<{
+    isOpen: boolean;
+    oldPrice: number;
+    newPrice: number;
+    message: string;
   } | null>(null);
 
   // Fetch first purchase offer for this game & package
@@ -97,11 +105,12 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
         if (!isMounted || !data?.success) return;
         const targetId = selectedPackage?.id || liveProduct.id;
         const targetOffer = data.offers?.[targetId];
-        if (targetOffer && targetOffer.eligible) {
+        if (targetOffer) {
           setCheckoutOffer({
-            eligible: true,
+            eligible: Boolean(targetOffer.eligible),
             offer_price: Number(targetOffer.offer_price) || 2000,
             discount_amount: Number(targetOffer.discount_amount) || 0,
+            escalating: targetOffer.escalating || null,
           });
         } else {
           setCheckoutOffer(null);
@@ -178,7 +187,21 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
     : liveProduct.title;
   const effectiveTargetId = selectedPackage?.id || liveProduct.id;
 
-  const isFirstPurchaseEligible = Boolean(checkoutOffer?.eligible || selectedPackage?.isFirstPurchaseOffer);
+  const isEscalating = selectedPackage?.sale_mode === 'escalating'
+    || Boolean(checkoutOffer?.escalating?.is_escalating)
+    || liveProduct?.sale_mode === 'escalating';
+
+  const escalatingData = checkoutOffer?.escalating || {
+    is_escalating: isEscalating,
+    base_price: selectedPackage?.escalating_base_price ?? liveProduct?.escalating_base_price ?? selectedPackage?.price ?? liveProduct?.current_price,
+    step: selectedPackage?.escalating_step ?? liveProduct?.escalating_step ?? 0,
+    max_price: selectedPackage?.escalating_max_price ?? liveProduct?.escalating_max_price ?? null,
+    completed_count: selectedPackage?.escalating_completed_count ?? liveProduct?.escalating_completed_count ?? 0,
+    current_price: selectedPackage?.escalating_current_price ?? liveProduct?.escalating_current_price ?? selectedPackage?.price ?? liveProduct?.current_price,
+    next_price: selectedPackage?.escalating_next_price ?? liveProduct?.escalating_next_price ?? ((selectedPackage?.price ?? liveProduct?.current_price) + (selectedPackage?.escalating_step ?? 0)),
+  };
+
+  const isFirstPurchaseEligible = !isEscalating && Boolean(checkoutOffer?.eligible || selectedPackage?.isFirstPurchaseOffer);
   const firstItemOfferPrice = isFirstPurchaseEligible
     ? (checkoutOffer?.offer_price ?? selectedPackage?.price ?? effectiveRegularPrice)
     : effectiveRegularPrice;
@@ -187,10 +210,12 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
   const user = currentUser || dataService.getCurrentUser();
   const userBalance = user?.wallet_balance || 0;
   const maxStock = realStock;
-  const safeQty = realStock > 0 ? Math.min(Math.max(1, quantity), maxStock) : 0;
-  const totalPrice = safeQty > 0
-    ? (firstItemActualPrice + Math.max(0, safeQty - 1) * effectiveRegularPrice)
-    : 0;
+  const safeQty = isEscalating ? 1 : (realStock > 0 ? Math.min(Math.max(1, quantity), maxStock) : 0);
+  const totalPrice = isEscalating
+    ? Number(escalatingData.current_price)
+    : (safeQty > 0
+        ? (firstItemActualPrice + Math.max(0, safeQty - 1) * effectiveRegularPrice)
+        : 0);
   const totalDiscountAmount = isFirstPurchaseEligible
     ? Math.max(0, (effectiveRegularPrice * safeQty) - totalPrice)
     : 0;
@@ -198,16 +223,17 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
   const checkoutDisplayStock = realStock <= 0 ? 0 : marketingService.getDisplayStock(effectiveTargetId, realStock);
 
   const handleDecreaseQty = () => {
-    if (maxStock <= 0) return;
+    if (isEscalating || maxStock <= 0) return;
     setQuantity((prev) => Math.max(1, prev - 1));
   };
 
   const handleIncreaseQty = () => {
-    if (maxStock <= 0) return;
+    if (isEscalating || maxStock <= 0) return;
     setQuantity((prev) => Math.min(maxStock, prev + 1));
   };
 
   const handleQtyInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isEscalating) return;
     if (maxStock <= 0) {
       setQuantity(0);
       return;
@@ -255,13 +281,23 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
     setIsProcessing(true);
 
     try {
-      const orderPromise = dataService.createOrder(effectiveTargetId, safeQty, activeKey);
+      const orderPromise = dataService.createOrder(effectiveTargetId, safeQty, activeKey, { expectedPrice: totalPrice });
       const timeoutPromise = new Promise<{ success: boolean; message: string }>((_, reject) =>
         setTimeout(() => reject(new Error('Thời gian phản hồi máy chủ vượt quá 15 giây. Vui lòng kiểm tra lại danh sách mã đã nhận hoặc thử lại.')), 15000)
       );
 
       const res: any = await Promise.race([orderPromise, timeoutPromise]);
       setIsProcessing(false);
+
+      if (res.code === 'PRICE_ESCALATED') {
+        setPriceEscalatedDialog({
+          isOpen: true,
+          oldPrice: res.old_price || totalPrice,
+          newPrice: res.new_price,
+          message: res.message || `Giá gói vừa tăng lên ${formatCore(res.new_price)} (đã có khách hàng mua trước bạn). Bạn có muốn mua với giá mới không?`,
+        });
+        return;
+      }
 
       if (res.success && res.order) {
         const activeUser = currentUser || (typeof window !== 'undefined' ? dataService.getCurrentUser() : null);
@@ -302,6 +338,55 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
         if (res.message && res.message.includes('Phiên đăng nhập') && onOpenAuth) {
           onOpenAuth();
         }
+        onShowToast('Thất bại', res.message || 'Không thể hoàn tất đơn hàng.', 'error');
+      }
+    } catch (err: any) {
+      setIsProcessing(false);
+      onShowToast('Lỗi', err?.message || 'Không thể hoàn tất đơn hàng.', 'error');
+    }
+  };
+
+  const handleAcceptNewEscalatedPrice = async (newPrice: number) => {
+    setPriceEscalatedDialog(null);
+    if (selectedPackage) {
+      selectedPackage.escalating_current_price = newPrice;
+      selectedPackage.price = newPrice;
+    }
+    const newKey = (typeof crypto !== 'undefined' && crypto.randomUUID)
+      ? crypto.randomUUID()
+      : 'key_' + Date.now() + '_' + Math.random().toString(36).substring(2, 10);
+    setIdempotencyKey(newKey);
+    setIsProcessing(true);
+
+    try {
+      const res: any = await dataService.createOrder(effectiveTargetId, 1, newKey, { expectedPrice: newPrice });
+      setIsProcessing(false);
+      if (res.success && res.order) {
+        const activeUser = currentUser || (typeof window !== 'undefined' ? dataService.getCurrentUser() : null);
+        marketingService.recordRealOrder(effectiveTitle, effectiveTargetId, newPrice, 'store', activeUser, 1);
+        if (activeUser) {
+          const newBal = res?.newBalance !== undefined
+            ? Number(res.newBalance)
+            : Math.max(0, (activeUser.wallet_balance || 0) - newPrice);
+          const updatedUser: UserProfile = { ...activeUser, wallet_balance: newBal };
+          dataService.saveCurrentUser(updatedUser);
+          if (onUpdateUser) onUpdateUser(updatedUser);
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('wcg_user_updated', { detail: updatedUser }));
+            window.dispatchEvent(new CustomEvent('wcg_wallet_updated', { detail: { newBalance: newBal } }));
+          }
+        }
+        setCompletedOrder(res.order);
+        confetti({ particleCount: 80, spread: 80, origin: { y: 0.6 }, colors: ['#6366F1', '#10B981', '#F59E0B'] });
+        onShowToast('Thanh toán thành công!', 'Đã giao 1 mã quà tặng tức thì.', 'success');
+      } else if (res.code === 'PRICE_ESCALATED') {
+        setPriceEscalatedDialog({
+          isOpen: true,
+          oldPrice: res.old_price || newPrice,
+          newPrice: res.new_price,
+          message: res.message,
+        });
+      } else {
         onShowToast('Thất bại', res.message || 'Không thể hoàn tất đơn hàng.', 'error');
       }
     } catch (err: any) {
@@ -579,20 +664,24 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
                 </div>
                 <div className="text-right">
                   <div className="flex items-center gap-1.5 justify-end">
-                    {isFirstPurchaseEligible && totalDiscountAmount > 0 && (
+                    {!isEscalating && isFirstPurchaseEligible && totalDiscountAmount > 0 && (
                       <span className="text-xs text-muted-foreground line-through font-mono">
                         {formatCore(effectiveRegularPrice)}
                       </span>
                     )}
                     <span className="font-display font-black text-base text-emerald-400">
-                      {formatCore(isFirstPurchaseEligible ? firstItemActualPrice : effectiveRegularPrice)}
+                      {formatCore(isEscalating ? totalPrice : (isFirstPurchaseEligible ? firstItemActualPrice : effectiveRegularPrice))}
                     </span>
                   </div>
-                  {isFirstPurchaseEligible && (
+                  {isEscalating ? (
+                    <span className="inline-block mt-0.5 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-500/20 text-amber-300 border border-amber-500/40 uppercase tracking-wider">
+                      ⚡ Nâng Giá (+{formatCore(escalatingData.step)}/lượt)
+                    </span>
+                  ) : isFirstPurchaseEligible ? (
                     <span className="inline-block mt-0.5 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-gradient-to-r from-rose-500 to-amber-500 text-slate-950 uppercase tracking-wider animate-pulse">
                       Ưu đãi lần đầu
                     </span>
-                  )}
+                  ) : null}
                   <span className={`text-[10px] font-semibold flex items-center gap-1 justify-end font-sans mt-0.5 ${checkoutDisplayStock > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                     {checkoutDisplayStock > 0 ? (
                       <>
@@ -607,44 +696,90 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
               </div>
 
               {/* Quantity Selector */}
-              <div className="p-3.5 rounded-2xl bg-card border border-border flex items-center justify-between gap-3">
-                <div>
-                  <span className="text-xs font-bold text-foreground block">Số Lượng Mua:</span>
-                  {maxStock <= 0 && (
-                    <span className="text-[10px] font-medium block text-rose-400 font-bold">
-                      Sản phẩm hiện đang tạm hết hàng
+              {isEscalating ? (
+                <div className="space-y-2">
+                  <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-amber-300">
+                        <Zap className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Hình thức Mua Nâng Giá</span>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        Cố định 1 gói/đơn để bảo đảm giá theo lượt mua.
+                      </p>
+                    </div>
+                    <span className="font-mono font-bold text-xs text-foreground px-3 py-1 bg-muted rounded-xl border border-border">
+                      1 Gói
                     </span>
-                  )}
-                </div>
+                  </div>
 
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={handleDecreaseQty}
-                    disabled={safeQty <= 1 || maxStock <= 0}
-                    className="w-8 h-8 rounded-xl bg-muted hover:bg-muted/80 text-foreground flex items-center justify-center font-bold text-sm disabled:opacity-40 transition-all cursor-pointer"
-                    aria-label="Giảm số lượng"
-                  >
-                    <Minus className="w-3.5 h-3.5" />
-                  </button>
-                  <input
-                    type="number"
-                    min={maxStock <= 0 ? 0 : 1}
-                    max={maxStock}
-                    value={safeQty}
-                    disabled={maxStock <= 0}
-                    onChange={handleQtyInputChange}
-                    className="w-14 h-9 text-center font-black font-mono text-sm bg-white text-slate-950 border-2 border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary shadow-sm selection:bg-indigo-100 disabled:opacity-50"
-                  />
-                  <button
-                    onClick={handleIncreaseQty}
-                    disabled={safeQty >= maxStock || maxStock <= 0}
-                    className="w-8 h-8 rounded-xl bg-muted hover:bg-muted/80 text-foreground flex items-center justify-center font-bold text-sm disabled:opacity-40 transition-all cursor-pointer"
-                    aria-label="Tăng số lượng"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                  </button>
+                  <div className="p-3 rounded-2xl bg-slate-900/80 border border-border/80 space-y-1.5 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Lượt mua của bạn:</span>
+                      <span className="font-mono font-bold text-amber-300">
+                        Thứ {Number(escalatingData.completed_count) + 1}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Đã mua thành công:</span>
+                      <span className="font-mono font-bold text-foreground">
+                        {escalatingData.completed_count} lượt
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between pt-1 border-t border-slate-800">
+                      <span className="text-muted-foreground">Sau đơn này, giá sẽ tăng:</span>
+                      <span className="font-mono font-bold text-rose-400">
+                        +{formatCore(escalatingData.step)} Core
+                      </span>
+                    </div>
+                    {escalatingData.max_price && (
+                      <div className="flex items-center justify-between pt-1 border-t border-slate-800/60 text-[11px] text-muted-foreground">
+                        <span>Trần giá tối đa:</span>
+                        <span className="font-mono text-slate-300">{formatCore(escalatingData.max_price)}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="p-3.5 rounded-2xl bg-card border border-border flex items-center justify-between gap-3">
+                  <div>
+                    <span className="text-xs font-bold text-foreground block">Số Lượng Mua:</span>
+                    {maxStock <= 0 && (
+                      <span className="text-[10px] font-medium block text-rose-400 font-bold">
+                        Sản phẩm hiện đang tạm hết hàng
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleDecreaseQty}
+                      disabled={safeQty <= 1 || maxStock <= 0}
+                      className="w-8 h-8 rounded-xl bg-muted hover:bg-muted/80 text-foreground flex items-center justify-center font-bold text-sm disabled:opacity-40 transition-all cursor-pointer"
+                      aria-label="Giảm số lượng"
+                    >
+                      <Minus className="w-3.5 h-3.5" />
+                    </button>
+                    <input
+                      type="number"
+                      min={maxStock <= 0 ? 0 : 1}
+                      max={maxStock}
+                      value={safeQty}
+                      disabled={maxStock <= 0}
+                      onChange={handleQtyInputChange}
+                      className="w-14 h-9 text-center font-black font-mono text-sm bg-white text-slate-950 border-2 border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary shadow-sm selection:bg-indigo-100 disabled:opacity-50"
+                    />
+                    <button
+                      onClick={handleIncreaseQty}
+                      disabled={safeQty >= maxStock || maxStock <= 0}
+                      className="w-8 h-8 rounded-xl bg-muted hover:bg-muted/80 text-foreground flex items-center justify-center font-bold text-sm disabled:opacity-40 transition-all cursor-pointer"
+                      aria-label="Tăng số lượng"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Wallet Method & Balance Box */}
               <div className="p-4 rounded-2xl bg-card border border-border space-y-3">
@@ -666,16 +801,27 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
 
                 {/* Total Calculation Row */}
                 <div className="space-y-2">
-                  <div className="p-2.5 rounded-xl bg-muted/40 border border-border flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">
-                      Đơn giá niêm yết ({safeQty} gói x {formatCore(effectiveRegularPrice)}):
-                    </span>
-                    <span className="font-mono font-bold text-foreground">
-                      {formatCore(effectiveRegularPrice * safeQty)}
-                    </span>
-                  </div>
+                  {isEscalating ? (
+                    <div className="p-2.5 rounded-xl bg-muted/40 border border-border flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground">
+                        Giá theo lượt mua thứ {Number(escalatingData.completed_count) + 1}:
+                      </span>
+                      <span className="font-mono font-bold text-amber-300">
+                        {formatCore(totalPrice)}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="p-2.5 rounded-xl bg-muted/40 border border-border flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground">
+                        Đơn giá niêm yết ({safeQty} gói x {formatCore(effectiveRegularPrice)}):
+                      </span>
+                      <span className="font-mono font-bold text-foreground">
+                        {formatCore(effectiveRegularPrice * safeQty)}
+                      </span>
+                    </div>
+                  )}
 
-                  {isFirstPurchaseEligible && totalDiscountAmount > 0 && (
+                  {!isEscalating && isFirstPurchaseEligible && totalDiscountAmount > 0 && (
                     <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/25 flex flex-col gap-1 text-xs">
                       <div className="flex items-center justify-between text-rose-400 font-bold">
                         <div className="flex items-center gap-1.5">
@@ -746,9 +892,17 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
               <button
                 onClick={handlePayWithWallet}
                 disabled={isProcessing || maxStock <= 0}
-                className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-secondary to-primary hover:opacity-95 text-white font-display font-bold text-sm shadow-glow-primary transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
+                className={`w-full py-3.5 rounded-2xl font-display font-bold text-sm transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2 ${
+                  isEscalating
+                    ? 'bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-400 hover:to-orange-500 text-slate-950 font-black shadow-amber-500/30'
+                    : 'bg-gradient-to-r from-secondary to-primary hover:opacity-95 text-white shadow-glow-primary'
+                }`}
               >
-                <Sparkles className="w-4 h-4 text-amber-300" />
+                {isEscalating ? (
+                  <Zap className="w-4 h-4 fill-slate-950 text-slate-950" />
+                ) : (
+                  <Sparkles className="w-4 h-4 text-amber-300" />
+                )}
                 <span>
                   {isProcessing
                     ? 'Đang xử lý thanh toán...'
@@ -756,6 +910,8 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
                     ? 'Sản phẩm tạm hết hàng'
                     : !isBalanceEnough
                     ? `Thiếu ${formatCore(totalPrice - userBalance)} • Nạp Core Ngay`
+                    : isEscalating
+                    ? `Xác Nhận Mua Gói Nâng Giá • ${formatCore(totalPrice)}`
                     : `Xác Nhận Mua ${safeQty > 1 ? `(${safeQty} Gói)` : ''} • ${formatCore(totalPrice)}`}
                 </span>
               </button>
@@ -764,6 +920,47 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
         </div>
       </div>
     </div>
+
+    {/* Slippage Protection Dialog (Chống tăng giá bất ngờ khi có người mua trước) */}
+    {priceEscalatedDialog && (
+      <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in">
+        <div className="relative w-full max-w-md bg-card border border-amber-500/50 rounded-3xl p-5 sm:p-6 shadow-2xl animate-scale-in space-y-4">
+          <div className="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center mx-auto border border-amber-500/40">
+            <Zap className="w-6 h-6 animate-pulse" />
+          </div>
+          <div className="text-center space-y-1">
+            <h4 className="font-heading font-extrabold text-base sm:text-lg text-foreground">
+              Giá Gói Vừa Tăng Theo Lượt!
+            </h4>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Đã có khách hàng hoàn tất thanh toán trước bạn một tích tắc. Theo quy tắc Nâng Giá, giá lượt hiện tại đã tăng từ <strong className="text-foreground font-mono">{formatCore(priceEscalatedDialog.oldPrice)}</strong> lên <strong className="text-amber-400 font-mono font-bold">{formatCore(priceEscalatedDialog.newPrice)}</strong>.
+            </p>
+          </div>
+          <div className="p-3 rounded-2xl bg-muted/50 border border-border text-center space-y-1">
+            <span className="text-[11px] text-muted-foreground uppercase font-bold tracking-wider">Giá lượt mua mới của bạn</span>
+            <p className="font-display font-black text-2xl text-emerald-400">
+              {formatCore(priceEscalatedDialog.newPrice)}
+            </p>
+          </div>
+          <div className="flex items-center gap-2.5 pt-1">
+            <button
+              type="button"
+              onClick={() => setPriceEscalatedDialog(null)}
+              className="flex-1 py-3 px-3 rounded-xl bg-muted hover:bg-muted/80 text-foreground text-xs font-semibold cursor-pointer transition-all"
+            >
+              Hủy bỏ
+            </button>
+            <button
+              type="button"
+              onClick={() => handleAcceptNewEscalatedPrice(priceEscalatedDialog.newPrice)}
+              className="flex-1 py-3 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:opacity-95 text-slate-950 font-bold text-xs shadow-md cursor-pointer transition-all"
+            >
+              Đồng ý mua giá mới
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
   </>,
   document.body
 );

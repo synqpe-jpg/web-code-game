@@ -290,8 +290,13 @@ export const StoreView: React.FC<StoreViewProps> = ({
             const flashSale = eventSchedulerService.getScheduleForProduct(product.id);
             const isFlashSaleLive = flashSale?.status === 'LIVE';
             const isFlashSaleUpcoming = flashSale?.status === 'UPCOMING';
-            const effectivePrice = isFlashSaleLive && flashSale.event.sale_price ? flashSale.event.sale_price : product.current_price;
-            const effectiveDiscount = isFlashSaleLive && flashSale.event.discount_percent ? flashSale.event.discount_percent : product.discount_percent;
+            const isProductEscalating = product.sale_mode === 'escalating';
+            const effectivePrice = isProductEscalating
+              ? (product.escalating_current_price ?? product.escalating_base_price ?? product.current_price)
+              : (isFlashSaleLive && flashSale.event.sale_price ? flashSale.event.sale_price : product.current_price);
+            const effectiveDiscount = isProductEscalating
+              ? 0
+              : (isFlashSaleLive && flashSale.event.discount_percent ? flashSale.event.discount_percent : product.discount_percent);
 
             const packages = getProductPackages(product);
             const hasMultiplePackages = Array.isArray(packages) && packages.length > 1;
@@ -453,8 +458,13 @@ export const StoreView: React.FC<StoreViewProps> = ({
             const flashSale = eventSchedulerService.getScheduleForProduct(product.id);
             const isFlashSaleLive = flashSale?.status === 'LIVE';
             const isFlashSaleUpcoming = flashSale?.status === 'UPCOMING';
-            const effectivePrice = isFlashSaleLive && flashSale.event.sale_price ? flashSale.event.sale_price : product.current_price;
-            const effectiveDiscount = isFlashSaleLive && flashSale.event.discount_percent ? flashSale.event.discount_percent : product.discount_percent;
+            const isProductEscalating = product.sale_mode === 'escalating';
+            const effectivePrice = isProductEscalating
+              ? (product.escalating_current_price ?? product.escalating_base_price ?? product.current_price)
+              : (isFlashSaleLive && flashSale.event.sale_price ? flashSale.event.sale_price : product.current_price);
+            const effectiveDiscount = isProductEscalating
+              ? 0
+              : (isFlashSaleLive && flashSale.event.discount_percent ? flashSale.event.discount_percent : product.discount_percent);
 
             const packages = getProductPackages(product);
             const hasMultiplePackages = Array.isArray(packages) && packages.length > 1;

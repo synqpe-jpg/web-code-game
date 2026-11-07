@@ -60,6 +60,7 @@ import * as telegramManageApi from './api/telegram/manage';
 import * as telegramUserApi from './api/telegram/user';
 import * as firstPurchaseAdminApi from './api/admin/first-purchase';
 import * as storeMyOfferApi from './api/store/my-offer';
+import * as escalatingApi from './api/store/escalating';
 import { getMultipleSettingsD1 } from './services/d1_service';
 import { invalidateCatalogEdgeCache } from './services/cache_service';
 import fallbackGiveawaysData from '../src/data/giveaways.json';
@@ -528,6 +529,12 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
         return await storeMyOfferApi.onRequestGet(context);
       }
 
+      // 7g. /api/store/escalating (Escalating Price Query API)
+      if (pathname === '/api/store/escalating') {
+        if (method === 'OPTIONS') return await escalatingApi.onRequestOptions();
+        return await escalatingApi.onRequestGet(context);
+      }
+
       // Passive Tick: Tự động chạy quét mô phỏng mỗi 5 phút một cách nhẹ nhàng
       if (env.DB && (Date.now() - lastGiveawaySimulationTick > 300000)) {
         lastGiveawaySimulationTick = Date.now();
@@ -586,6 +593,13 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
         if (method === 'OPTIONS') return await firstPurchaseAdminApi.onRequestOptions(context);
         if (method === 'POST') return await firstPurchaseAdminApi.onRequestPost(context);
         return await firstPurchaseAdminApi.onRequestGet(context);
+      }
+
+      // 8c-5. /api/admin/escalating/* (Escalating Price History & Reset API)
+      if (pathname === '/api/admin/escalating/history' || pathname === '/api/admin/escalating/reset') {
+        if (method === 'OPTIONS') return await escalatingApi.onRequestOptions();
+        if (method === 'POST') return await escalatingApi.onRequestPost(context);
+        return await escalatingApi.onRequestGet(context);
       }
 
       // 8d. /api/crawl-article (AI Article Crawler & Extractor)

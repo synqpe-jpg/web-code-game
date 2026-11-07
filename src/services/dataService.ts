@@ -2892,6 +2892,7 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
     productTitle?: string;
     productCategory?: string;
     unitPrice?: number;
+    expected_price?: number;
     quantity: number;
     memberId?: string;
     memberEmail?: string;
@@ -2901,7 +2902,7 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
     clientInventory?: any[];
     orderType: 'store' | 'utility';
     idempotencyKey?: string;
-  }): Promise<{ success: boolean; order?: OrderRecord; remainingBalance?: number; updatedStock?: number; updatedInventory?: any[]; message?: string }> {
+  }): Promise<{ success: boolean; order?: OrderRecord; remainingBalance?: number; updatedStock?: number; updatedInventory?: any[]; message?: string; code?: string; old_price?: number; new_price?: number }> {
     const activeUser = this.getCurrentUser();
     let token =
       (typeof localStorage !== 'undefined' ? localStorage.getItem('wcg_auth_token') : null) ||
@@ -2966,8 +2967,9 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
   async createOrder(
     productId: string,
     quantity: number = 1,
-    idempotencyKey?: string
-  ): Promise<{ success: boolean; order?: OrderRecord; message?: string; newBalance?: number; remainingBalance?: number }> {
+    idempotencyKey?: string,
+    options?: { expectedPrice?: number }
+  ): Promise<{ success: boolean; order?: OrderRecord; message?: string; newBalance?: number; remainingBalance?: number; code?: string; old_price?: number; new_price?: number }> {
     const products = this.getStoreProducts();
     const prod = products.find((p) => p.id === productId || p.sku === productId || p.title === productId);
     if (!prod) return { success: false, message: 'Sản phẩm không tồn tại.' };
@@ -2978,7 +2980,7 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
     }
 
     const qty = Math.max(1, Math.min(999, Math.floor(quantity || 1)));
-    const unitPrice = Number(prod.current_price) || 0;
+    const unitPrice = options?.expectedPrice !== undefined ? Number(options.expectedPrice) : (Number(prod.current_price) || 0);
     if (unitPrice <= 0) {
       return { success: false, message: 'Giá sản phẩm không hợp lệ.' };
     }
@@ -3007,6 +3009,7 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
         productTitle: prod.title,
         productCategory: prod.package_type || prod.game_name,
         unitPrice: unitPrice,
+        expected_price: options?.expectedPrice,
         quantity: qty,
         memberId: user.id,
         memberEmail: user.email,
@@ -3020,6 +3023,10 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
         success: false,
         message: 'Lỗi trong quá trình gửi yêu cầu tạo đơn hàng: ' + (e?.message || 'Không xác định'),
       };
+    }
+
+    if (serverRes && !serverRes.success && serverRes.code === 'PRICE_ESCALATED') {
+      return serverRes;
     }
 
     if (serverRes && serverRes.success && serverRes.order) {

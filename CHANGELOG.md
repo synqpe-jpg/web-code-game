@@ -7,6 +7,53 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-07]
 
+### 332. Triển Khai Hình Thức Mua "Nâng Giá" (Escalating Price Model) Với Động Cơ Server-Authoritative D1 & Khóa Bảo Vệ Slippage 100%
+- **Bối cảnh & Yêu cầu nghiệp vụ**:
+  - Người dùng yêu cầu triển khai thêm hình thức mua mới tên "Nâng Giá" cho từng gói trong cửa hàng (`codegame.shop/store`).
+  - *Quy tắc bất biến*:
+    1. *Tính theo từng gói*: Mỗi gói có thang giá riêng dựa trên số đơn đã mua thành công (`status = 'COMPLETED'`) của chính gói đó.
+    2. *Công thức*: `Giá lượt thứ n = Giá ban đầu + (n - 1) × Mức tăng`. (Ví dụ: ban đầu 2.000, tăng 500/lượt -> Người 1 trả 2.000, người 2 trả 2.500, người 3 trả 3.000...).
+    3. *Chỉ đơn COMPLETED mới làm giá tăng*. Đơn lỗi/hủy/chưa trừ tiền không tính. Đơn hoàn tiền không giảm giá lại.
+    4. *Tính theo lượt mua, không tính theo tài khoản*. Cùng 1 người mua lại vẫn trả giá của lượt tiếp theo.
+    5. *Khóa số lượng*: Mỗi đơn chỉ mua đúng 1 gói (`quantity = 1`).
+    6. *Giá trần (`escalating_max_price`)*: Tùy chọn, để trống = không giới hạn. Khi giá tính ra vượt trần thì giữ ở mức trần.
+    7. *Tách biệt với ưu đãi mua lần đầu 2.000 Core*: Gói nào bật Nâng Giá thì không áp dụng ưu đãi mua lần đầu và ngược lại.
+    8. *Hết hàng*: Hiện hết hàng bình thường, khi nạp thêm code thì thang giá tiếp tục từ mức hiện tại. Quản trị có nút Đặt lại thang giá riêng về 0 (kèm lý do và audit log).
+    9. *Server-Authoritative & Slippage Guard (Chống tăng giá bất ngờ)*: Máy chủ Cloudflare D1 tự tính giá theo dữ liệu thực tế thời gian thực. Nếu giá máy chủ tính ra cao hơn giá client hiển thị lúc bấm mua (do người khác vừa mua trước), máy chủ trả về mã `PRICE_ESCALATED` (HTTP 409). Client hiển thị hộp thoại xác nhận mua giá mới chứ tuyệt đối không tự ý trừ Core.
+- **Giải pháp & Kiến trúc triển khai**:
+  1. *Cơ sở dữ liệu Cloudflare D1 (`functions/services/d1_service.ts`)*:
+     - Migration `escalating_price_v1`: Bổ sung 4 cột vào `store_products` (`sale_mode`, `escalating_base_price`, `escalating_step`, `escalating_max_price`), bổ sung cột `price_rule` vào bảng `orders`, và tạo bảng kiểm toán `escalating_price_resets` kèm index.
+     - Cài đặt và export: `getEscalatingPriceD1`, `resetEscalatingPriceD1`, `getEscalatingPurchasesHistoryD1`.
+     - Cập nhật `purchaseOrderD1` lưu `price_rule` (`'escalating'`, `'first_purchase'`, `'normal'`).
+     - Cập nhật `loadAllStoreProductsD1` lấy các cột Nâng Giá cho API public và admin.
+  2. *API Xử Lý Đơn Hàng (`functions/api/orders/create.ts`)*:
+     - Nhận `expected_price` và `client_displayed_price`.
+     - Nếu gói là Nâng Giá: chặn `quantity > 1` (`ESCALATING_SINGLE_QTY_ONLY`), tắt ưu đãi mua lần đầu.
+     - Tính giá server-authoritative từ D1. Nếu `expected_price !== undefined && currentPrice > expected_price` -> Trả về HTTP 409 `{ success: false, code: 'PRICE_ESCALATED', old_price, new_price, message }`.
+     - Lưu đơn với `priceRule = 'escalating'`.
+  3. *Endpoints Tra Cứu & Quản Trị (`functions/api/store/escalating.ts` & `functions/_worker.ts`)*:
+     - `GET /api/store/escalating`: Tra cứu công khai giá và số lượt mua thời gian thực.
+     - `GET /api/admin/escalating/history`: Xem danh sách đơn COMPLETED, audit log các lần reset và cảnh báo dồn đơn $\ge 3$ đơn/5 phút.
+     - `POST /api/admin/escalating/reset`: Quản trị viên đặt lại thang giá về 0 (ghi rõ lý do vào nhật ký kiểm toán).
+  4. *Tích Hợp API My-Offer (`functions/api/store/my-offer.ts`)*:
+     - Trả về thông tin `escalating` chi tiết của từng gói kèm giá thời gian thực.
+  5. *Quản Lý Kho & Gói Bán (`functions/api/store/manage.ts`)*:
+     - Lưu đầy đủ `sale_mode`, `escalating_base_price`, `escalating_step`, `escalating_max_price` khi tạo/sửa gói.
+  6. *Frontend Client (`ProductDetailModal.tsx`, `ProductCheckoutModal.tsx`, `StoreView.tsx`, `productPackageUtils.ts`)*:
+     - `ProductDetailModal`: Badge `⚡ Nâng Giá (+X Core/lượt)`, thông tin lượt mua thứ N, ẩn giá gạch ngang và % giảm, ẩn nhãn ưu đãi lần đầu, khóa số lượng mua = 1.
+     - `ProductCheckoutModal`: Khóa số lượng = 1, hiển thị bảng thang đo giá, gửi `expectedPrice` lên server, xử lý Popup Slippage xác nhận giá mới an toàn 100%.
+     - `StoreView`: Giá "Từ X Core" ngoài trang chủ và thẻ game tự động phản ánh đúng giá lượt hiện tại của gói nâng giá rẻ nhất.
+  7. *Admin Quản Trị Kho (`CodeInventoryModule.tsx`)*:
+     - Bộ chuyển đổi hình thức bán (Giá Bình Thường / Nâng Giá).
+     - 3 ô nhập giá ban đầu, mức tăng/lượt, trần giá tối đa.
+     - Khối thông tin số lượt đã mua và giá lượt tiếp theo.
+     - Nút [Lịch sử] và [Đặt lại] ngay trên từng thẻ gói và trong modal sửa gói.
+     - Modal Đặt lại thang giá (ghi lý do) và Modal Lịch sử lượt mua & cảnh báo gom hàng dồn dập.
+- **Kết quả nghiệm thu**:
+  - `npm run build` vượt qua 100% không cảnh báo.
+  - Đạt tiêu chuẩn Zero Test Artifacts on Production (Rule 7).
+  - Mặc định toàn bộ gói sản phẩm hiện có vẫn là `normal` (không tự ý đổi gói nào sang Nâng Giá).
+
 ### 331. Khắc Phục Toàn Diện 5 Vấn Đề Chiến Dịch Ưu Đãi Mua Lần Đầu Trên Web Khách & Cầu Nối Xác Minh Email
 - **Bối cảnh & Hiện tượng (07/11/2026)**:
   - Trên web khách `codegame.shop/store`, khi Admin bật Chiến Dịch Ưu Đãi Mua Lần Đầu (giá 2.000 Core, trần 30.000 Core, yêu cầu xác minh email BẬT, BỘ CODE loại trừ), phát sinh các lỗi sau:
