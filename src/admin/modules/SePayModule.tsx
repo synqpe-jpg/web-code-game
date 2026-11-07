@@ -363,6 +363,10 @@ export const SePayModule: React.FC<SePayModuleProps> = ({ onShowToast }) => {
                 ? '⏰ Hết hạn 15p'
                 : item.note.includes('DUPLICATE_PAYMENT')
                 ? '🔁 Chuyển tiền đúp'
+                : item.note.includes('UNAUTHORIZED')
+                ? '🔒 Sai/Thiếu API Key'
+                : item.note.includes('UNMATCHED')
+                ? '🔍 Chưa khớp mã TV'
                 : item.note}
             </p>
           )}

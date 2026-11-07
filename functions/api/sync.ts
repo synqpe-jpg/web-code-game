@@ -897,7 +897,10 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     };
 
     if (isDummyBank && env.DB) {
-      setSettingD1(env.DB, 'wcg_admin_sepay_v4', sanitizedPayment).catch(() => {});
+      const existingInDb = await env.DB.prepare("SELECT value FROM system_settings WHERE key = 'wcg_admin_sepay_v4' LIMIT 1").first<any>().catch(() => null);
+      if (!existingInDb) {
+        setSettingD1(env.DB, 'wcg_admin_sepay_v4', sanitizedPayment).catch(() => {});
+      }
     }
 
     // Load Real Marketing Events Hub
@@ -5572,7 +5575,25 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           const merged = await mergeContentIntoD1(env.DB, body.content);
           currentMaster.content = merged;
         }
-        if (body.sepay !== undefined || body.key === 'wcg_admin_sepay_v4') await setSettingD1(env.DB, 'wcg_admin_sepay_v4', body.sepay ?? body.data);
+        if (body.sepay !== undefined || body.key === 'wcg_admin_sepay_v4') {
+          const incomingSepay = (body.sepay ?? body.data) || {};
+          const existingSepay = await getSettingD1<any>(env.DB, 'wcg_admin_sepay_v4', {});
+          const secureSepay = await getSettingD1<any>(env.DB, 'wcg_admin_sepay_private_v1', {});
+
+          // Bảo toàn apiKey nếu incoming payload không chứa key (do client snapshot chỉ nhận dữ liệu đã làm sạch)
+          if (!incomingSepay.apiKey && existingSepay?.apiKey) {
+            incomingSepay.apiKey = existingSepay.apiKey;
+          } else if (!incomingSepay.apiKey && secureSepay?.apiKey) {
+            incomingSepay.apiKey = secureSepay.apiKey;
+          }
+
+          // Lưu riêng vào bảng bảo mật wcg_admin_sepay_private_v1 nếu có apiKey
+          if (incomingSepay.apiKey && typeof incomingSepay.apiKey === 'string' && incomingSepay.apiKey.trim().length > 0) {
+            await setSettingD1(env.DB, 'wcg_admin_sepay_private_v1', { apiKey: incomingSepay.apiKey.trim() });
+          }
+
+          await setSettingD1(env.DB, 'wcg_admin_sepay_v4', incomingSepay);
+        }
         const incomingMarketing = body.marketingConfig !== undefined
           ? body.marketingConfig
           : (body.key === 'wcg_marketing_config_v1' ? body.data : undefined);

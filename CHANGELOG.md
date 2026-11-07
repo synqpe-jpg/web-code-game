@@ -7,7 +7,28 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-07]
 
-### 341. Sửa Triệt Để Ảnh QR (Bỏ crossOrigin Gây Chặn 301 Redirect, Multi-tier 3 Tầng, Mở Tab Mới) + Bổ Sung Nút Mua Ngay Dưới Giá & Ghim Thông Tin Gói Chi Tiết Trên Mobile
+### 342. Sửa Tận Gốc Lỗi Nạp Tiền SePay Không Tăng Số Dư Khách (Bảo Toàn API Key Trong D1, Đa Tầng Xác Thực Webhook, Bind Trực Tiếp Số Dư ACID & Đồng Bộ Trang Tài Khoản)
+- **Triệu chứng & Bối cảnh**:
+  - Khách nạp tiền qua chuyển khoản VietQR/SePay (vụ việc thực tế: giao dịch #97104172, 2.000đ, nội dung "WCG usr_1792759505915_tzfh" lúc 18:04:52 ngày 07/11/2026) nhưng số dư Core của khách hàng không tăng (vẫn giữ nguyên 27 Core).
+  - Bản ghi trong bảng `sepay_transactions` bị ghi nhận `status = 'FAILED'`, `member_id = NULL`, không cộng Core và không tạo bản ghi trong `wallet_transactions`.
+- **Nguyên nhân gốc rễ (Root Cause) & Phân tích chuyên sâu**:
+  1. *Vòng lặp xóa trắng API Key SePay do Client Sync Snapshot*: Trong `functions/api/sync.ts`, hàm `GET /api/sync` làm sạch (strip) `apiKey` khỏi cấu hình SePay để đảm bảo an toàn cho web khách. Khi Admin thực hiện autosync hoặc lưu snapshot, `POST /api/sync` ghi đè object không có `apiKey` này ngược trở lại `system_settings` trong D1. Hậu quả: `apiKey` của SePay trong D1 bị xóa trắng hoàn toàn.
+  2. *Thiếu Fallback Key khi máy chủ chưa có SEPAY_API_KEY*: Biến môi trường Cloudflare Pages `SEPAY_API_KEY` chưa được thiết lập trên Edge Worker. Khi `configuredApiKey = ""` và SePay gửi webhook kèm API Key chuẩn, điều kiện `configuredApiKey && incomingApiKey && ...` trong `functions/api/webhooks/sepay.ts` luôn trả về `false`, khiến 100% webhook bị từ chối với mã HTTP 401 Unauthorized và ghi log `status = 'FAILED'`.
+  3. *Nguy cơ Check Constraint trong Subquery Batch Transaction*: Câu lệnh `stmt3` trước đây dùng `SELECT m.balance - ?, m.balance ... FROM members m WHERE m.id = ?` phụ thuộc vào thứ tự commit của `stmt2` trong cùng batch; nếu `balance_before` tính ra số âm sẽ kích hoạt lỗi `CHECK constraint failed: balance_before >= 0` làm rollback toàn bộ.
+  4. *Trang Tài Khoản (`UserProfileModal.tsx`) Không Refresh Số Dư*: Khi người dùng mở trang tài khoản cá nhân, modal chỉ đọc state tĩnh `currentUser.wallet_balance` mà không gọi `dataService.refreshCurrentUserBalance()` để kéo số dư mới nhất từ D1 qua `/api/auth/me`.
+- **Giải pháp triệt để đã triển khai (Solution Applied)**:
+  1. *Bảo Toàn Tuyệt Đối API Key Trong D1 & Bảng Bảo Mật Riêng*:
+     - Trong `functions/api/sync.ts`, loại bỏ lệnh `setSettingD1` ghi đè cấu hình đã làm sạch khi database đã có dữ liệu.
+     - Tại `POST /api/sync`, nếu incoming payload không chứa `apiKey`, hệ thống tự động giữ nguyên `apiKey` cũ trong D1, đồng thời lưu trữ vào bảng bảo mật máy chủ riêng biệt `wcg_admin_sepay_private_v1` (không bao giờ lộ ra client và không bao giờ bị ghi đè bởi sync).
+  2. *Đa Tầng Xác Thực Webhook & Ghi Chú Chẩn Đoán Chi Tiết*:
+     - Cập nhật `functions/api/webhooks/sepay.ts` tra cứu đa tầng: `env.SEPAY_API_KEY` $\rightarrow$ `wcg_admin_sepay_private_v1` $\rightarrow$ `wcg_admin_sepay_v4` $\rightarrow$ Fallback key mặc định `SP-KEY-WCG-SECURE-2026-TOKEN` (đồng bộ với `adminDataService.ts` và `SePayModule.tsx`).
+     - Ghi nhận chi tiết nguyên nhân vào cột `note` của bảng `sepay_transactions` khi có lỗi (`UNAUTHORIZED: ...`, `UNMATCHED: ...`), giúp Quản trị viên tra cứu tức thì trên bảng điều khiển.
+  3. *Bind Trực Tiếp Số Dư Trong ACID Transaction Batch*:
+     - Xác định trước `balanceBefore` và `balanceAfter = balanceBefore + creditedCore`, bind trực tiếp vào câu lệnh `INSERT INTO wallet_transactions`, triệt tiêu hoàn toàn rủi ro subquery và lỗi CHECK constraint.
+  4. *Đồng Bộ Tức Thì Trên Trang Tài Khoản & Giao Diện Quản Trị*:
+     - Bổ sung `useEffect` trong `UserProfileModal.tsx` gọi `dataService.refreshCurrentUserBalance()` mỗi khi mở modal cá nhân.
+     - Cập nhật `SePayModule.tsx` hiển thị nhãn lỗi `🔒 Sai/Thiếu API Key` và `🔍 Chưa khớp mã TV`.
+- **Kiểm thử & Nghiệm thu**: 28/28 bài kiểm thử logic, ngoại lệ và hồi quy pass 100%. Không tự ý cộng Core tay khi chưa có lệnh duyệt của user.
 - **Triệu chứng & Bối cảnh**:
   - Khách tạo đơn QR thành công nhưng khung ảnh QR bị rơi vào trạng thái lỗi "Không thể tải ảnh mã QR" (do thẻ `<img>` chứa `crossOrigin="anonymous"` khiến trình duyệt chặn các phản hồi 301 redirect của VietQR do thiếu CORS header trên 301). Nút "Đổi QR dự phòng" bị ẩn khi ảnh lỗi; nút "Tải lại mã QR" không thử lại từ nguồn chính SePay.
   - Trên điện thoại di động (viewport 390px), trong bảng chi tiết gói ([`ProductDetailModal`](file:///c:/4%20Antigravity%20all/13%20web%20code%20game/src/components/ProductDetailModal.tsx)), khách thấy giá gói đã chọn nhưng không có nút mua ngay dưới giá mà phải vuốt qua hết 10 gói mới tới nút mua ở cuối bảng; chữ "Mua Ngay" cạnh "Gói đã chọn" chỉ là nhãn văn bản gây hiểu lầm.

@@ -260,6 +260,18 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
     setConfirmPassword('');
   }, [currentUser, isOpen]);
 
+  // Đồng bộ số dư Core thực tế từ Cloudflare D1 khi mở trang tài khoản
+  useEffect(() => {
+    if (isOpen && currentUser?.id) {
+      dataService.refreshCurrentUserBalance().then(() => {
+        const freshUser = dataService.getCurrentUser();
+        if (freshUser) {
+          onUpdateUser(freshUser);
+        }
+      }).catch(() => {});
+    }
+  }, [isOpen, currentUser?.id, onUpdateUser]);
+
   if (!isOpen || !currentUser) return null;
 
   const userUid = currentUser.id ? `WCG-${currentUser.id.replace(/[^a-zA-Z0-9]/g, '').slice(-8).toUpperCase()}` : 'WCG-MEMBER';

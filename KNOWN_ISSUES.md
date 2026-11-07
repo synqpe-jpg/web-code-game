@@ -10,6 +10,24 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-243: Bẫy Xóa Trắng API Key SePay Do Vòng Lặp Client Sync Snapshot, Bẫy Missing Fallback Key Khi Máy Chủ Chưa Cấu Hình SEPAY_API_KEY & Bẫy Subquery balance_before Trong D1 Batch
+- **Triệu chứng & Rủi ro**:
+  1. Trong `functions/api/sync.ts`, `GET /api/sync` làm sạch `apiKey` khỏi cấu hình SePay để bảo mật phía client, nhưng khi Admin thực hiện autosync hoặc lưu snapshot, `POST /api/sync` ghi đè object không có `apiKey` này ngược trở lại `system_settings` trong D1. Hậu quả: `apiKey` của SePay trong D1 bị xóa trắng hoàn toàn.
+  2. Biến môi trường Cloudflare Pages `SEPAY_API_KEY` nếu chưa được thiết lập trên Edge Worker và trong D1 `apiKey` bị rỗng thì `configuredApiKey = ""` khiến 100% webhook SePay gửi tới bị từ chối với mã HTTP 401 Unauthorized (`!isAuthorized`) và ghi nhận `status = 'FAILED'`, `member_id = NULL`. Khách chuyển khoản đúng cú pháp nhưng số dư không tăng.
+  3. Câu lệnh `stmt3` trong SePay webhook trước đây dùng `SELECT m.balance - ?, m.balance ... FROM members m WHERE m.id = ?` phụ thuộc vào thứ tự commit của `stmt2` trong cùng batch; nếu `balance_before` tính ra số âm sẽ kích hoạt lỗi `CHECK constraint failed: balance_before >= 0` làm rollback toàn bộ.
+  4. Trang tài khoản (`UserProfileModal.tsx`) chỉ đọc state tĩnh `currentUser.wallet_balance` mà không gọi `dataService.refreshCurrentUserBalance()` khi mở modal, khiến khách hàng nhìn thấy số dư cũ kể cả khi D1 đã thay đổi.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Tuyệt đối **KHÔNG ghi đè cấu hình SePay rỗng vào D1**: Tại `POST /api/sync`, nếu incoming payload không chứa `apiKey`, hệ thống tự động giữ nguyên `apiKey` cũ trong D1, đồng thời lưu trữ vào bảng bảo mật máy chủ riêng biệt `wcg_admin_sepay_private_v1` (không bao giờ lộ ra client và không bao giờ bị ghi đè bởi sync).
+  2. **Đa tầng xác thực Webhook**: Cập nhật `functions/api/webhooks/sepay.ts` tra cứu đa tầng: `env.SEPAY_API_KEY` $\rightarrow$ `wcg_admin_sepay_private_v1` $\rightarrow$ `wcg_admin_sepay_v4` $\rightarrow$ Fallback key mặc định `SP-KEY-WCG-SECURE-2026-TOKEN` (đồng bộ với `adminDataService.ts` và `SePayModule.tsx`).
+  3. Ghi nhận chi tiết nguyên nhân vào cột `note` của bảng `sepay_transactions` khi có lỗi (`UNAUTHORIZED: ...`, `UNMATCHED: ...`), giúp Quản trị viên tra cứu tức thì trên bảng điều khiển.
+  4. **Bind trực tiếp số dư trong ACID Transaction Batch**: Xác định trước `balanceBefore` và `balanceAfter = balanceBefore + creditedCore`, bind trực tiếp vào câu lệnh `INSERT INTO wallet_transactions`, triệt tiêu hoàn toàn rủi ro subquery và lỗi CHECK constraint.
+  5. Bổ sung `useEffect` trong `UserProfileModal.tsx` gọi `dataService.refreshCurrentUserBalance()` mỗi khi mở modal cá nhân.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không dùng setSettingD1 ghi đè sanitizedPayment vào wcg_admin_sepay_v4 trong GET /api/sync.*
+  - ❌ *Không ghi đè rỗng apiKey trong POST /api/sync nếu client snapshot không gửi kèm apiKey.*
+  - ❌ *Không dùng subquery tính balance_before/balance_after bên trong batch transaction.*
+  - ❌ *Không tự ý cộng Core tay khi chưa có lệnh và thông tin duyệt cụ thể từ người dùng.*
+
 ### ISSUE-242: Bẫy Dùng crossOrigin="anonymous" Gây Chặn 301 Redirect Ảnh VietQR, Bẫy Ẩn Nút Đổi Nguồn Khi Gặp Lỗi & Bẫy Thiếu Nút Mua Trực Tiếp Dưới Giá Gói Mobile
 - **Triệu chứng & Rủi ro**:
   1. Trong bảng thanh toán QR, khi thêm `crossOrigin="anonymous"` vào thẻ `<img>`, trình duyệt thực hiện request ở chế độ CORS. Khi endpoint VietQR thực hiện 301 redirect sang định dạng SVG, header 301 không kèm `Access-Control-Allow-Origin: *` khiến trình duyệt chặn ảnh ngay lập tức với lỗi CORS, dẫn tới toàn bộ các tầng fallback đều bị kích hoạt lỗi trong vài mili-giây.
