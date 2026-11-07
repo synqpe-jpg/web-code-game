@@ -336,6 +336,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     return new Response(
       JSON.stringify({
         success: true,
+        qrUrls: {
+          primary: primaryQrUrl,
+          fallback: fallbackQrUrl,
+        },
         order: {
           id: orderId,
           orderId,

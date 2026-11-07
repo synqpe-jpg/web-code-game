@@ -7,6 +7,34 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-07]
 
+### 340. Sửa Ảnh QR Bị Trắng/Lỗi Trong Bảng Thanh Toán & Tối Ưu Nút Mua 1-Tap Chuẩn Mobile (≥44px)
+- **Triệu chứng & Bối cảnh**:
+  - Khi khách tạo đơn QR thành công, bảng thanh toán hiện đầy đủ thông tin (STK ngân hàng, chủ tài khoản, số tiền, nội dung CK, đếm ngược 15:00 và 3 nút sao chép), nhưng khung ảnh QR bị trắng kèm icon ảnh lỗi (alt "VietQR Payment"). Mở URL SePay riêng ở tab khác tải đúng PNG 360x360.
+  - Trên điện thoại di động (≤640px), nút mua hàng có chiều cao chỉ 30px (`min-h-[30px]`), vi phạm kích thước vùng chạm chuẩn (Touch Target Size $\ge 44\text{px}$). Với các sản phẩm chỉ có 1 gói, người dùng vẫn bị bắt buộc phải mở qua bảng chọn gói (`ProductDetailModal`) gây tốn thêm một thao tác không cần thiết.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. Thẻ `<img>` trong `ProductCheckoutModal.tsx` thiếu thuộc tính `referrerPolicy="no-referrer"` và `crossOrigin="anonymous"`. Khi tải ảnh từ domain bên thứ ba (`qr.sepay.vn`), trình duyệt gửi header `Referer` và bị các cơ chế Privacy Shield / AdBlock (như trên Cốc Cốc, Chrome) chặn hiển thị.
+  2. Đoạn mã `src={qrOrder.qrUrls?.primary || qrOrder.qrUrls?.fallback}` chỉ dùng toán tử logic `||` tĩnh trong JSX. Khi link `primary` truthy nhưng bị lỗi tải mạng/chặn tại runtime, trình duyệt không tự kích hoạt fallback mà hiển thị hình ảnh lỗi vĩnh viễn do thiếu sự kiện `onError`.
+  3. API `create-qr.ts` trả `qrUrls` lồng nhau trong `order` mà thiếu trường phẳng `qrUrls` ở cấp top-level.
+  4. Trong `StoreView.tsx`, nút hành động có kích thước chạm nhỏ (`min-h-[30px]`) và không phân biệt sản phẩm đơn gói với đa gói khi bấm mua ngoài danh sách.
+- **Giải pháp triệt để đã triển khai (Solution Applied)**:
+  1. *Cơ chế Multi-tier Fallback tự động & no-referrer (`ProductCheckoutModal.tsx`)*:
+     - Thêm `referrerPolicy="no-referrer"` và `crossOrigin="anonymous"` vào thẻ `<img>` để trình duyệt không gửi header Referer khi tải ảnh từ SePay/VietQR.
+     - Xây dựng state `currentQrImageSrc` và hàm `handleQrImageError`: Khi link `primary` (`qr.sepay.vn`) bị lỗi tải, hệ thống tự động nhảy sang `fallback` (`img.vietqr.io` định dạng `qr_only`), nếu tiếp tục lỗi thì chuyển sang định dạng `compact2` tự tạo từ `bankInfo` trên client.
+     - Khi toàn bộ link bị adblocker chặn: hiển thị giao diện fallback thông minh với nút "Tải lại mã QR" (cache-busting timestamp), giữ nguyên 100% các nút sao chép STK, số tiền, nội dung CK. Bổ sung nút chuyển nhanh "Đổi QR dự phòng" ngay dưới ảnh.
+  2. *Top-level `qrUrls` trong `create-qr.ts`*:
+     - Bổ sung `qrUrls: { primary, fallback }` ở cả cấp top-level JSON response lẫn bên trong `order.qrUrls`.
+  3. *Tối ưu nút Mua trên Mobile & 1-tap Direct Checkout (`StoreView.tsx` & `App.tsx`)*:
+     - Chuẩn hóa chiều cao chạm tối thiểu `min-h-[44px]` (đạt chuẩn Apple HIG và WCAG 2.1 Level AAA).
+     - Đưa nút Mua nằm cùng hàng với tên / giá sản phẩm ở cả chế độ lưới (Grid) và danh sách (List) trên mobile.
+     - Thêm callback `onDirectCheckout(product, singlePkg)`: Gói 1 mã đi thẳng vào `ProductCheckoutModal` với `quantity = 1` (bỏ qua bước chọn gói), gói nhiều mã hiển thị "Chọn gói" và mở `ProductDetailModal`.
+     - Khi sản phẩm hết hàng: Nút hiển thị chữ "Hết hàng" bị vô hiệu (`disabled`), tuyệt đối không ẩn nút.
+  4. *Kiểm thử đơn vị*:
+     - Bổ sung 4 unit tests mới trong `scratch/test_qr_payment_logic.cjs` (nâng tổng số lên 22/22 tests pass 100%).
+- **Kết quả nghiệm thu**:
+  - Toàn bộ 22/22 bài kiểm thử logic đạt 100%.
+  - Zero Test Artifacts on Production đạt 100%.
+  - Build thành công toàn bộ Vite Frontend, SEO Prerender (847 links), và Cloudflare Edge Worker bundle.
+
 ### 339. Sửa Lỗi D1_ERROR security_logs has no column named target_user, Tách Rời Logging Khỏi ACID Batch & Nâng Cấp Tìm Kiếm Cửa Hàng
 - **Triệu chứng & Rủi ro**:
   - Khi người dùng bấm tạo mã QR, hệ thống trả về lỗi máy chủ: `D1_ERROR: table security_logs has no column named target_user`.

@@ -14,7 +14,7 @@ import { dataService } from '../services/dataService';
 import { marketingService } from '../services/marketingService';
 import { formatCore, smartVietnameseMatch } from '../utils/textUtils';
 import { getProductPackages, getProductMinPrice, groupStoreProductsByGame } from '../utils/productPackageUtils';
-import type { StoreProduct, UserProfile } from '../types/game';
+import type { StoreProduct, UserProfile, ProductPackageVariant } from '../types/game';
 import { EventCountdownBadge } from './countdown/EventCountdownBadge';
 import { eventSchedulerService } from '../services/eventSchedulerService';
 import { templateService } from '../services/templateService';
@@ -22,6 +22,7 @@ import { offerService } from '../services/offerService';
 
 interface StoreViewProps {
   onSelectProduct: (product: StoreProduct) => void;
+  onDirectCheckout?: (product: StoreProduct, packageVariant?: ProductPackageVariant | null) => void;
   onShowToast: (title: string, message?: string, type?: 'success' | 'error' | 'info') => void;
   currentUser?: UserProfile | null;
   onOpenAuth?: () => void;
@@ -32,6 +33,7 @@ const STORE_VIEW_MODE_STORAGE_KEY = 'wcg_store_view_mode';
 
 export const StoreView: React.FC<StoreViewProps> = ({
   onSelectProduct,
+  onDirectCheckout,
   onShowToast,
   currentUser,
   onOpenAuth,
@@ -116,6 +118,40 @@ export const StoreView: React.FC<StoreViewProps> = ({
           'success'
         );
       }
+    }
+  };
+
+  const handleProductAction = (product: StoreProduct, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (product.stock_quantity <= 0) {
+      onShowToast(
+        'Hết hàng',
+        'Gói code này hiện đã hết hàng trong kho. Vui lòng quay lại sau.',
+        'error'
+      );
+      return;
+    }
+
+    const packages = getProductPackages(product);
+    const hasMultiplePackages = Array.isArray(packages) && packages.length > 1;
+
+    if (hasMultiplePackages) {
+      onSelectProduct(product);
+      return;
+    }
+
+    // Gói chỉ có 1 mã/gói: đi thẳng tới thanh toán (ProductCheckoutModal)
+    const singlePkg = (Array.isArray(packages) && packages.length > 0) ? packages[0] : null;
+    if (!currentUser && onOpenAuth) {
+      onOpenAuth();
+      onShowToast('Cần đăng nhập', 'Vui lòng đăng nhập để thanh toán gói code.', 'info');
+      return;
+    }
+
+    if (onDirectCheckout) {
+      onDirectCheckout(product, singlePkg);
+    } else {
+      onSelectProduct(product);
     }
   };
 
@@ -429,29 +465,25 @@ export const StoreView: React.FC<StoreViewProps> = ({
                   </div>
 
                   <button
+                    type="button"
                     disabled={product.stock_quantity <= 0}
-                    onClick={() => {
-                      if (product.stock_quantity <= 0) {
-                        onShowToast('Hết hàng', 'Gói code này hiện đã hết hàng trong kho.', 'error');
-                        return;
-                      }
-                      if (!currentUser && !hasMultiplePackages && onOpenAuth) {
-                        onOpenAuth();
-                        onShowToast('Cần đăng nhập', 'Vui lòng đăng nhập để mua gói code.', 'info');
-                      } else {
-                        onSelectProduct({ ...product, current_price: effectivePrice, discount_percent: effectiveDiscount });
-                      }
-                    }}
-                    className={`px-2.5 sm:px-3 py-1.5 rounded-xl font-bold text-xs shadow-sm transition-all flex items-center gap-1 cursor-pointer active:scale-95 ${
+                    onClick={(e) => handleProductAction(product, e)}
+                    className={`min-h-[44px] px-3 sm:px-4 py-2 rounded-xl font-bold text-xs shadow-sm transition-all flex items-center justify-center gap-1.5 shrink-0 ${
                       product.stock_quantity <= 0
                         ? 'bg-slate-800 text-slate-500 border border-slate-700/60 cursor-not-allowed'
                         : isFlashSaleLive
-                        ? 'bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white shadow-neon-orange animate-pulse'
-                        : 'bg-secondary hover:bg-secondary/90 text-white'
+                        ? 'bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white shadow-neon-orange animate-pulse cursor-pointer active:scale-95'
+                        : 'bg-secondary hover:bg-secondary/90 text-white cursor-pointer active:scale-95'
                     }`}
                   >
-                    <span>{hasMultiplePackages ? 'Chọn Gói' : (isFlashSaleLive ? 'Săn Sale' : 'Mua')}</span>
-                    <ChevronRight className="w-3.5 h-3.5" />
+                    {product.stock_quantity <= 0 ? (
+                      <span>Hết hàng</span>
+                    ) : (
+                      <>
+                        <span>{hasMultiplePackages ? 'Chọn gói' : (isFlashSaleLive ? 'Săn Sale' : 'Mua ngay')}</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </>
+                    )}
                   </button>
 
                   <button
@@ -584,8 +616,11 @@ export const StoreView: React.FC<StoreViewProps> = ({
                 </div>
 
                 {/* Bottom: Price in Core & 1-tap Buy button */}
-                <div className="pt-2 sm:pt-2.5 border-t border-border/50 flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 sm:gap-2">
-                  <div className="flex items-baseline justify-between sm:block">
+                <div
+                  className="pt-2 sm:pt-2.5 border-t border-border/50 flex items-center justify-between gap-1.5 sm:gap-2"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="min-w-0 flex-1">
                     <div className="flex items-baseline gap-1 flex-wrap">
                       {hasMultiplePackages && <span className="text-[10px] text-muted-foreground font-medium">Từ</span>}
                       <span className="font-display font-black text-xs sm:text-sm md:text-base text-emerald-400">
@@ -630,25 +665,10 @@ export const StoreView: React.FC<StoreViewProps> = ({
                   </div>
 
                   <button
+                    type="button"
                     disabled={product.stock_quantity <= 0}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (product.stock_quantity <= 0) {
-                        onShowToast(
-                          'Hết hàng',
-                          'Gói code này hiện đã hết hàng trong kho. Vui lòng quay lại sau.',
-                          'error'
-                        );
-                        return;
-                      }
-                      if (!currentUser && !hasMultiplePackages && onOpenAuth) {
-                        onOpenAuth();
-                        onShowToast('Cần đăng nhập', 'Vui lòng đăng nhập để mua gói code.', 'info');
-                      } else {
-                        onSelectProduct({ ...product, current_price: effectivePrice, discount_percent: effectiveDiscount });
-                      }
-                    }}
-                    className={`w-full sm:w-auto px-2 sm:px-3 py-1.5 min-h-[30px] sm:min-h-[34px] rounded-lg sm:rounded-xl font-bold text-[11px] sm:text-xs shadow-sm transition-all flex items-center justify-center gap-1 shrink-0 ${
+                    onClick={(e) => handleProductAction(product, e)}
+                    className={`min-h-[44px] px-2.5 sm:px-3.5 py-2 rounded-xl font-bold text-xs shadow-sm transition-all flex items-center justify-center gap-1 shrink-0 ${
                       product.stock_quantity <= 0
                         ? 'bg-slate-800 text-slate-500 border border-slate-700/60 cursor-not-allowed'
                         : isFlashSaleLive
@@ -658,15 +678,10 @@ export const StoreView: React.FC<StoreViewProps> = ({
                   >
                     {product.stock_quantity <= 0 ? (
                       <span>Hết hàng</span>
-                    ) : !currentUser && !hasMultiplePackages ? (
-                      <>
-                        <LogIn className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                        <span>{isFlashSaleLive ? 'Săn Sale' : 'Mua'}</span>
-                      </>
                     ) : (
                       <>
-                        <span>{hasMultiplePackages ? 'Chọn Gói' : (isFlashSaleLive ? 'Săn Sale Ngay' : 'Mua Ngay')}</span>
-                        <ChevronRight className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                        <span>{hasMultiplePackages ? 'Chọn gói' : (isFlashSaleLive ? 'Săn Sale' : 'Mua ngay')}</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
                       </>
                     )}
                   </button>

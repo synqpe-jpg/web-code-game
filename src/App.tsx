@@ -1767,6 +1767,18 @@ export const App: React.FC = () => {
             {currentTab === 'store' && (
               <StoreView
                 onSelectProduct={(prod) => setSelectedProduct(prod)}
+                onDirectCheckout={(prod, pkg) => {
+                  setSelectedProduct(null);
+                  setSelectedPackageIdParam(null);
+                  if (!currentUser) {
+                    setIsAuthModalOpen(true);
+                    showToast('Cần đăng nhập', 'Vui lòng đăng nhập để thanh toán.', 'info');
+                  } else {
+                    setCheckoutProduct(prod);
+                    setCheckoutPackage(pkg || null);
+                    setCheckoutQuantity(1);
+                  }
+                }}
                 onShowToast={showToast}
                 currentUser={currentUser}
                 onOpenAuth={() => setIsAuthModalOpen(true)}

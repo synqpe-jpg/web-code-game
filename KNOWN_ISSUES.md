@@ -10,6 +10,23 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-242: Bẫy Chặn Ảnh QR Do Thiếu referrerPolicy="no-referrer", Không Có Cơ Chế Chuyển Fallback Khi primary Lỗi & Vùng Chạm Mobile Dưới 44px
+- **Triệu chứng & Rủi ro**:
+  1. Trong bảng thanh toán QR, URL ảnh QR chính (`qr.sepay.vn`) khi mở riêng ở tab khác tải đúng (file PNG 360x360 hợp lệ), nhưng trong thẻ `<img>` của modal chỉ hiện ô trắng kèm icon ảnh lỗi (alt "VietQR Payment"). Khách không quét được mã QR mà buộc phải copy thông tin chuyển khoản tay.
+  2. Nguyên nhân do thẻ `<img>` gửi kèm header `Referer` khiến trình duyệt có chế độ bảo mật nghiêm ngặt (như Cốc Cốc Privacy Shield, Chrome Brave/AdBlock) chặn tải ảnh từ domain bên thứ ba.
+  3. Cú pháp `src={qrOrder.qrUrls?.primary || qrOrder.qrUrls?.fallback}` trong JSX chỉ đánh giá toán tử `||` một lần ở cấp JavaScript. Khi link `primary` truthy nhưng tải ảnh thất bại tại runtime mạng/trình duyệt (`onError`), trình duyệt không tự chuyển sang `fallback` dẫn tới hiển thị ảnh lỗi vĩnh viễn.
+  4. Nút mua trên điện thoại nếu có chiều cao dưới 44px (`min-h-[30px]`) sẽ vi phạm hướng dẫn giao diện cảm ứng (Apple HIG / WCAG), gây khó bấm cho người dùng trên màn hình nhỏ.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Thêm `referrerPolicy="no-referrer"` và `crossOrigin="anonymous"` vào thẻ `<img>` để trình duyệt không gửi header Referer khi tải ảnh QR từ SePay/VietQR.
+  2. Xây dựng cơ chế Multi-tier Fallback tự động: State `currentQrImageSrc` kèm bộ đếm `qrAttemptStep`. Khi `primary` (`qr.sepay.vn`) kích hoạt `onError`, component tự động chuyển sang `fallback` (`img.vietqr.io` định dạng `qr_only`), nếu tiếp tục lỗi thì chuyển sang client VietQR format `compact2`. Nếu toàn bộ lỗi do adblocker, hiển thị hộp cảnh báo kèm nút "Tải lại mã QR" (cho phép bấm thử lại bất kỳ lúc nào) mà vẫn giữ nguyên 100% bảng thông tin STK, chủ tài khoản, số tiền và nội dung để khách chuyển khoản tay.
+  3. Bổ sung `qrUrls` ở cả cấp top-level lẫn bên trong `order.qrUrls` tại API `create-qr.ts`.
+  4. Tối ưu giao diện mobile: Gán `min-h-[44px]` chuẩn mực cho nút Mua, đưa nút nằm cùng hàng với giá sản phẩm ở cả Grid Mode và List Mode. Hỗ trợ 1-tap checkout: Gói 1 mã đi thẳng vào `ProductCheckoutModal` (bỏ qua bước trung gian `ProductDetailModal`), gói nhiều mã mở `ProductDetailModal` để chọn gói. Khi hết hàng, hiển thị nhãn "Hết hàng" bị vô hiệu (`disabled`), tuyệt đối không ẩn nút.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không dùng toán tử logic `src={primary || fallback}` để xử lý fallback ảnh runtime mạng (bắt buộc phải dùng sự kiện `onError`).*
+  - ❌ *Không nhúng ảnh thanh toán từ bên thứ ba mà thiếu thuộc tính `referrerPolicy="no-referrer"`.*
+  - ❌ *Không thiết kế nút bấm hành động chính trên mobile có chiều cao cảm ứng nhỏ hơn 44px.*
+  - ❌ *Không ẩn nút Mua khi sản phẩm hết hàng (phải giữ nút ở trạng thái Disabled kèm chữ "Hết hàng").*
+
 ### ISSUE-241: Bẫy Ghép Lệnh Logging Vào ACID Batch Giao Dịch Đơn Hàng & Bẫy Thiếu Cột target_user Trong Bảng security_logs
 - **Triệu chứng & Rủi ro**:
   1. Khi đưa câu lệnh `INSERT INTO security_logs` vào chung danh sách `stmts` của `db.batch(stmts)`, nếu câu lệnh ghi log gặp bất kỳ lỗi nào (như sai tên cột, thiếu cột `id`, sai giá trị CHECK constraint `severity`), toàn bộ giao dịch nghiệp vụ cốt lõi (giữ mã kho, trừ tồn kho sản phẩm, tạo đơn hàng) sẽ bị rollback và trả lỗi 500 về phía khách hàng.

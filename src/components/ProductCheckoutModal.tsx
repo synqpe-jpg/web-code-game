@@ -100,8 +100,83 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
   const [qrStatus, setQrStatus] = useState<'idle' | 'creating' | 'waiting' | 'paid' | 'expired' | 'error'>('idle');
   const [qrSecondsLeft, setQrSecondsLeft] = useState<number>(900);
   const [qrCopiedField, setQrCopiedField] = useState<string | null>(null);
+  const [currentQrImageSrc, setCurrentQrImageSrc] = useState<string>('');
+  const [qrImageLoadFailed, setQrImageLoadFailed] = useState<boolean>(false);
+  const [isQrImageLoading, setIsQrImageLoading] = useState<boolean>(true);
+  const [qrAttemptStep, setQrAttemptStep] = useState<number>(0);
   const pollTimerRef = React.useRef<any>(null);
   const countdownTimerRef = React.useRef<any>(null);
+
+  const getClientQrFallbackUrl = (order: any, template = 'compact2') => {
+    if (!order?.bankInfo) return '';
+    const cleanBank = String(order.bankInfo.bankName || 'TPBank').replace(/\s+/g, '');
+    const cleanAcc = String(order.bankInfo.accountNumber || '').replace(/\s+/g, '');
+    const amount = Number(order.bankInfo.amount) || 0;
+    const memo = encodeURIComponent(order.bankInfo.content || '');
+    const accName = encodeURIComponent(order.bankInfo.bankAccount || '');
+    return `https://img.vietqr.io/image/${cleanBank}-${cleanAcc}-${template}.png?amount=${amount}&addInfo=${memo}&accountName=${accName}`;
+  };
+
+  useEffect(() => {
+    if (qrOrder) {
+      const primary = qrOrder.qrUrls?.primary || '';
+      const fallback = qrOrder.qrUrls?.fallback || '';
+      const clientFallback = getClientQrFallbackUrl(qrOrder);
+      setCurrentQrImageSrc(primary || fallback || clientFallback);
+      setQrImageLoadFailed(false);
+      setIsQrImageLoading(true);
+      setQrAttemptStep(0);
+    } else {
+      setCurrentQrImageSrc('');
+      setQrImageLoadFailed(false);
+      setIsQrImageLoading(false);
+      setQrAttemptStep(0);
+    }
+  }, [qrOrder]);
+
+  const handleQrImageError = () => {
+    if (!qrOrder) {
+      setQrImageLoadFailed(true);
+      setIsQrImageLoading(false);
+      return;
+    }
+
+    if (qrAttemptStep === 0) {
+      // Step 0: Primary SePay QR thất bại -> tự động chuyển sang server fallback (VietQR.io qr_only)
+      const fallbackUrl = qrOrder.qrUrls?.fallback;
+      if (fallbackUrl && fallbackUrl !== currentQrImageSrc) {
+        setQrAttemptStep(1);
+        setIsQrImageLoading(true);
+        setCurrentQrImageSrc(fallbackUrl);
+        return;
+      }
+    }
+
+    if (qrAttemptStep <= 1) {
+      // Step 1: Server fallback thất bại -> tự động tạo URL VietQR trực tiếp từ bankInfo client
+      const clientFallback = getClientQrFallbackUrl(qrOrder, 'compact2');
+      if (clientFallback && clientFallback !== currentQrImageSrc) {
+        setQrAttemptStep(2);
+        setIsQrImageLoading(true);
+        setCurrentQrImageSrc(clientFallback);
+        return;
+      }
+    }
+
+    // Tất cả link tự động đều thất bại (có thể do adblocker / trình chặn quảng cáo chặn ảnh thứ 3)
+    setQrImageLoadFailed(true);
+    setIsQrImageLoading(false);
+  };
+
+  const handleReloadQrImage = () => {
+    if (!qrOrder) return;
+    setQrImageLoadFailed(false);
+    setIsQrImageLoading(true);
+    const base = qrOrder.qrUrls?.fallback || getClientQrFallbackUrl(qrOrder, 'compact2');
+    const separator = base.includes('?') ? '&' : '?';
+    setQrAttemptStep(1);
+    setCurrentQrImageSrc(`${base}${separator}_t=${Date.now()}`);
+  };
 
   const [priceEscalatedDialog, setPriceEscalatedDialog] = useState<{
     isOpen: boolean;
@@ -430,7 +505,11 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
         onShowToast('Lỗi tạo mã QR', data.message || 'Không thể khởi tạo mã QR thanh toán.', 'error');
         return;
       }
-      setQrOrder(data.order);
+      const orderData = data.order || {};
+      if (data.qrUrls && !orderData.qrUrls) {
+        orderData.qrUrls = data.qrUrls;
+      }
+      setQrOrder(orderData);
       setQrStatus('waiting');
       const expiresAtMs = data.order?.expiresAt ? new Date(data.order.expiresAt).getTime() : Date.now() + 15 * 60 * 1000;
       setQrSecondsLeft(Math.max(0, Math.floor((expiresAtMs - Date.now()) / 1000)));
@@ -1185,18 +1264,75 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
                         </span>
                       </div>
 
-                      {/* VietQR Image */}
+                      {/* VietQR Image with Automatic Multi-tier Fallback & no-referrer */}
                       <div className="text-center space-y-2">
-                        <div className="inline-block p-2 rounded-2xl bg-white border-2 border-emerald-500/50 shadow-xl shadow-emerald-500/10">
-                          <img
-                            src={qrOrder.qrUrls?.primary || qrOrder.qrUrls?.fallback}
-                            alt="VietQR Payment"
-                            className="w-48 h-48 sm:w-56 sm:h-56 mx-auto object-contain rounded-xl"
-                          />
+                        <div className="inline-block p-2 rounded-2xl bg-white border-2 border-emerald-500/50 shadow-xl shadow-emerald-500/10 min-w-[200px] min-h-[200px]">
+                          {qrImageLoadFailed ? (
+                            <div className="w-48 h-48 sm:w-56 sm:h-56 mx-auto flex flex-col items-center justify-center p-3 rounded-xl bg-slate-900 border border-amber-500/30 text-center space-y-2.5">
+                              <AlertCircle className="w-8 h-8 text-amber-400" />
+                              <p className="text-[11px] text-amber-200 font-medium leading-tight">
+                                Không thể tải ảnh mã QR (có thể do trình duyệt hoặc trình chặn quảng cáo chặn ảnh thứ 3).
+                              </p>
+                              <button
+                                type="button"
+                                onClick={handleReloadQrImage}
+                                className="px-3 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-[11px] font-bold flex items-center gap-1.5 cursor-pointer transition-all active:scale-95 mx-auto"
+                              >
+                                <RefreshCw className="w-3.5 h-3.5" />
+                                <span>Tải lại mã QR</span>
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="relative w-48 h-48 sm:w-56 sm:h-56 mx-auto flex items-center justify-center">
+                              {isQrImageLoading && (
+                                <div className="absolute inset-0 flex items-center justify-center bg-white/90 rounded-xl z-10">
+                                  <div className="flex flex-col items-center gap-1.5 text-slate-700">
+                                    <RefreshCw className="w-5 h-5 animate-spin text-emerald-600" />
+                                    <span className="text-[10px] font-semibold text-muted-foreground">Đang tải QR...</span>
+                                  </div>
+                                </div>
+                              )}
+                              {currentQrImageSrc && (
+                                <img
+                                  src={currentQrImageSrc}
+                                  alt="VietQR Payment"
+                                  referrerPolicy="no-referrer"
+                                  crossOrigin="anonymous"
+                                  onLoad={() => {
+                                    setIsQrImageLoading(false);
+                                    setQrImageLoadFailed(false);
+                                  }}
+                                  onError={handleQrImageError}
+                                  className="w-full h-full object-contain rounded-xl"
+                                />
+                              )}
+                            </div>
+                          )}
                         </div>
-                        <p className="text-[11px] text-muted-foreground italic">
-                          Mở App Ngân Hàng hoặc Ví Điện Tử quét mã QR ở trên
-                        </p>
+                        <div className="flex items-center justify-center gap-2">
+                          <p className="text-[11px] text-muted-foreground italic">
+                            {qrImageLoadFailed
+                              ? 'Quý khách vẫn có thể thanh toán bằng thông tin STK và nội dung bên dưới'
+                              : 'Mở App Ngân Hàng hoặc Ví Điện Tử quét mã QR ở trên'}
+                          </p>
+                          {!qrImageLoadFailed && qrAttemptStep === 0 && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const fallback = qrOrder.qrUrls?.fallback || getClientQrFallbackUrl(qrOrder);
+                                if (fallback) {
+                                  setQrAttemptStep(1);
+                                  setIsQrImageLoading(true);
+                                  setCurrentQrImageSrc(fallback);
+                                }
+                              }}
+                              className="text-[10px] text-emerald-400 hover:text-emerald-300 underline cursor-pointer ml-1"
+                              title="Dùng link dự phòng nếu mã QR tải chậm"
+                            >
+                              (Đổi QR dự phòng)
+                            </button>
+                          )}
+                        </div>
                       </div>
 
                       {/* Bank Details Table with Fast Copy */}
