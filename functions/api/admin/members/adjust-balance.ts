@@ -134,29 +134,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
     await ensureSchemaUpgrades(env.DB);
 
-    // 4. Chống bấm đúp (Idempotency Guard trong vòng 60 giây)
-    if (idempotencyKey) {
-      const recentLog = await env.DB.prepare(
-        "SELECT details, created_at FROM security_logs WHERE details LIKE ? AND created_at >= datetime('now', '-60 seconds') LIMIT 1"
-      ).bind(`%"idempotencyKey":"${idempotencyKey}"%`).first<any>();
-
-      if (recentLog && recentLog.details) {
-        let parsedDetails: any = {};
-        try { parsedDetails = JSON.parse(recentLog.details); } catch {}
-        return new Response(
-          JSON.stringify({
-            success: true,
-            message: 'Giao dịch đã được xử lý thành công trước đó (Idempotent Guard).',
-            isDuplicate: true,
-            member: parsedDetails.member || { id: memberId },
-            transaction: parsedDetails.transaction || null,
-          }),
-          { status: 200, headers: CORS_HEADERS }
-        );
-      }
-    }
-
-    // 5. Tra cứu thành viên trong D1 SQL
+    // 4. Tra cứu thành viên trong D1 SQL trước để có member.id chuẩn xác
     const member = await env.DB.prepare(`
       SELECT id, username, display_name, email, phone, role, balance, total_spent, status
       FROM members
@@ -176,6 +154,53 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         JSON.stringify({ success: false, error: 'Tài khoản thành viên này đã bị khóa (BANNED).' }),
         { status: 403, headers: CORS_HEADERS }
       );
+    }
+
+    // 5. Chống bấm đúp (Idempotency Guard trong vòng 60 giây - Safe & Non-blocking)
+    // TUYỆT ĐỐI KHÔNG dùng toán tử LIKE trên cột details để tránh lỗi SQLite "LIKE or GLOB pattern too complex"
+    if (idempotencyKey) {
+      try {
+        const recentLogs = await env.DB.prepare(`
+          SELECT details, created_at 
+          FROM security_logs 
+          WHERE action = 'ADJUST_MEMBER_BALANCE' 
+            AND target_id = ? 
+            AND created_at >= datetime('now', '-60 seconds') 
+          ORDER BY created_at DESC 
+          LIMIT 5
+        `).bind(member.id).all<any>();
+
+        if (recentLogs?.results && recentLogs.results.length > 0) {
+          for (const row of recentLogs.results) {
+            if (!row.details) continue;
+            try {
+              const parsedDetails = JSON.parse(row.details);
+              if (parsedDetails && parsedDetails.idempotencyKey === idempotencyKey) {
+                return new Response(
+                  JSON.stringify({
+                    success: true,
+                    message: 'Giao dịch đã được xử lý thành công trước đó (Idempotent Guard).',
+                    isDuplicate: true,
+                    member: parsedDetails.member || {
+                      id: member.id,
+                      username: member.username,
+                      displayName: member.display_name || member.username,
+                      email: member.email,
+                      balance: member.balance,
+                    },
+                    transaction: parsedDetails.transaction || null,
+                  }),
+                  { status: 200, headers: CORS_HEADERS }
+                );
+              }
+            } catch {
+              // Bỏ qua lỗi parse JSON đơn lẻ
+            }
+          }
+        }
+      } catch (idempError) {
+        console.warn('[Adjust Balance] Idempotency check error (non-fatal):', idempError);
+      }
     }
 
     // 6. Tính toán số dư mới
@@ -242,17 +267,22 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       },
     });
 
+    // Thực thi batch tài chính cốt lõi (Cập nhật số dư thành viên + Ghi nhận sổ cái ví)
     await env.DB.batch([
       env.DB.prepare('UPDATE members SET balance = ?, updated_at = ? WHERE id = ?').bind(balanceAfter, nowIso, member.id),
       env.DB.prepare(`
         INSERT INTO wallet_transactions (id, member_id, member_email, type, amount, balance_before, balance_after, description, status, created_at)
         VALUES (?, ?, ?, 'ADMIN_ADJUST', ?, ?, ?, ?, 'COMPLETED', ?)
-      `).bind(txId, member.id, member.email, delta, balanceBefore, balanceAfter, noteText, nowIso),
-      env.DB.prepare(`
-        INSERT INTO security_logs (id, actor_name, actor_email, action, target_id, ip_address, severity, details, created_at)
-        VALUES (?, ?, ?, 'ADJUST_MEMBER_BALANCE', ?, ?, 'CRITICAL', ?, ?)
-      `).bind(logId, actorName, actorEmail, member.id, clientIp, logDetails, nowIso),
+      `).bind(txId, member.id, member.email || '', delta, balanceBefore, balanceAfter, noteText, nowIso),
     ]);
+
+    // Zero-impact audit logging: Ghi log kiểm toán sau khi batch tài chính thành công (không làm gián đoạn phản hồi API)
+    await env.DB.prepare(`
+      INSERT INTO security_logs (id, actor_name, actor_email, action, target_id, ip_address, severity, details, created_at)
+      VALUES (?, ?, ?, 'ADJUST_MEMBER_BALANCE', ?, ?, 'CRITICAL', ?, ?)
+    `).bind(logId, actorName, actorEmail, member.id, clientIp, logDetails, nowIso).run().catch((logErr) => {
+      console.warn('[Adjust Balance] Non-fatal security log insert error:', logErr);
+    });
 
     // 8. Tự động đồng bộ vào wcg_admin_members_v4 trong system_settings (nếu có cache)
     try {

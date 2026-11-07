@@ -10,6 +10,24 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-244: Bẫy Dùng Toán Tử LIKE %...% Trên Cột JSON/TEXT Lớn Trong SQLite Cloudflare D1 Gây Lỗi "LIKE or GLOB pattern too complex" & Bẫy Chặn Luồng Giao Dịch Do Khối Idempotency Ném Ngoại Lệ
+- **Triệu chứng & Rủi ro**:
+  1. Trong SQLite (Cloudflare D1), khi thực hiện so khớp mẫu `WHERE column LIKE '%...%'` trên cột văn bản không index lưu chuỗi JSON dài hoặc payload phức tạp (như cột `details` của bảng `security_logs`), engine SQLite giới hạn độ phức tạp của thuật toán tìm kiếm non-deterministic substring. Khi số lượng hàng tăng hoặc độ dài bản ghi lớn, SQLite ném ngay ngoại lệ: `D1_ERROR: LIKE or GLOB pattern too complex: SQLITE_ERROR`.
+  2. Bất kỳ giao dịch nào đi qua endpoint này (như điều chỉnh số dư ví thành viên trong `functions/api/admin/members/adjust-balance.ts`) đều bị sập với lỗi 500, Admin nhận toast đỏ "Lỗi máy chủ khi điều chỉnh số dư ví" và không thể cộng hoặc trừ Core cho người dùng.
+  3. Cơ chế Idempotency Guard (chống bấm đúp) là một tiện ích an toàn thứ cấp; nếu không bọc trong khối `try...catch` an toàn, bất kỳ ngoại lệ nào phát sinh từ việc đọc log kiểm toán sẽ làm sập toàn bộ giao dịch tiền bạc cốt lõi.
+  4. Đưa câu lệnh ghi log `INSERT INTO security_logs` vào chung ACID batch tài chính sẽ khiến giao dịch nghiệp vụ cốt lõi bị rollback nếu bảng log có bất kỳ thay đổi nào.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Tuyệt đối **KHÔNG dùng toán tử `LIKE %...%`** trên các cột lưu JSON hoặc TEXT dài trong Cloudflare D1 SQL.
+  2. Thay thế bằng truy vấn có điều kiện định danh chính xác, có index và giới hạn thời gian:
+     `SELECT details, created_at FROM security_logs WHERE action = 'ADJUST_MEMBER_BALANCE' AND target_id = ? AND created_at >= datetime('now', '-60 seconds') ORDER BY created_at DESC LIMIT 5`.
+  3. Lấy kết quả về và parse JSON trong JavaScript engine: `JSON.parse(row.details)`, sau đó so khớp giá trị `parsedDetails.idempotencyKey === idempotencyKey`.
+  4. Luôn bọc khối kiểm tra Idempotency trong `try { ... } catch (err) { console.warn(...); }` để đảm bảo cơ chế phụ trợ không bao giờ được phép chặn luồng giao dịch cốt lõi (Fail-safe idempotency pattern).
+  5. Luôn tách `INSERT INTO security_logs` ra khỏi `env.DB.batch` tài chính cốt lõi (Zero-impact audit logging pattern).
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không dùng `WHERE details LIKE ?` hoặc `GLOB` trên các cột TEXT lớn / JSON trong SQLite D1.*
+  - ❌ *Không để khối Idempotency ném ngoại lệ làm crash API giao dịch tài chính.*
+  - ❌ *Không đưa lệnh ghi audit log vào chung transaction batch với các lệnh cập nhật số dư ví.*
+
 ### ISSUE-243: Bẫy Xóa Trắng API Key SePay Do Vòng Lặp Client Sync Snapshot, Bẫy Missing Fallback Key Khi Máy Chủ Chưa Cấu Hình SEPAY_API_KEY & Bẫy Subquery balance_before Trong D1 Batch
 - **Triệu chứng & Rủi ro**:
   1. Trong `functions/api/sync.ts`, `GET /api/sync` làm sạch `apiKey` khỏi cấu hình SePay để bảo mật phía client, nhưng khi Admin thực hiện autosync hoặc lưu snapshot, `POST /api/sync` ghi đè object không có `apiKey` này ngược trở lại `system_settings` trong D1. Hậu quả: `apiKey` của SePay trong D1 bị xóa trắng hoàn toàn.

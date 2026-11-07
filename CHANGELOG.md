@@ -7,6 +7,35 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-07]
 
+### 345. Sửa Triệt Để Lỗi "LIKE or GLOB pattern too complex" Khi Admin Điều Chỉnh Số Dư Ví Thành Viên (Chuyển Idempotency Sang Tra Cứu Cột Chuẩn & Tách Logging Ra Khỏi ACID Batch)
+- **Triệu chứng & Bối cảnh**:
+  - Tại trang Quản trị Shop mục Thành Viên (`admin-code-game-shop.pages.dev/admin#/members`) hoặc Quản lý Ví (`#/wallets`), khi Quản trị viên thực hiện Cộng Tiền hoặc Trừ Tiền ví cho thành viên (ví dụ: cộng +70.000 Core cho thành viên Minhhu `usr_1792759505915_tzfh` với lý do "Thưởng sự kiện thành viên tích cực") và bấm "Xác Nhận Thay Đổi Số Dư", giao diện báo toast đỏ:
+    `Thất bại — Lỗi máy chủ khi điều chỉnh số dư ví: D1_ERROR: LIKE or GLOB pattern too complex: SQLITE_ERROR`.
+  - Thao tác bị hủy bỏ, số dư của thành viên không thay đổi và không thể thực hiện bất kỳ giao dịch cộng/trừ Core nào.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Lỗi SQLite Pattern Matching trên Cột JSON Lớn*:
+     - Trong `functions/api/admin/members/adjust-balance.ts`, cơ chế chống bấm đúp (Idempotency Guard) sử dụng câu lệnh:
+       `SELECT details, created_at FROM security_logs WHERE details LIKE ? AND created_at >= datetime('now', '-60 seconds') LIMIT 1` với bind param `%"idempotencyKey":"..."%`.
+     - Bảng `security_logs` chứa rất nhiều bản ghi nhật ký hệ thống với cột `details` là các chuỗi JSON lớn (chứa snapshot, payload, ký tự đặc biệt). Khi SQLite engine của Cloudflare D1 thực hiện quét toàn bảng (full scan) và so khớp toán tử `LIKE %...%` không có index trên các chuỗi văn bản dài, thuật toán so khớp của SQLite vượt quá giới hạn độ phức tạp nội bộ (`SQLITE_LIMIT_LIKE_PATTERN_LENGTH` / recursion depth limit) và ném ra ngoại lệ: `SQLITE_ERROR: LIKE or GLOB pattern too complex`.
+  2. *Thiếu Khối try...catch Bảo Vệ Kiểm Tra Idempotency*:
+     - Cơ chế chống bấm đúp là một lớp phòng vệ phụ trợ. Việc không bọc `try...catch` khiến bất kỳ ngoại lệ nào phát sinh từ việc kiểm tra log bảo mật cũng lập tức đánh sập toàn bộ request giao dịch tài chính cốt lõi của người quản trị.
+  3. *Lệnh Ghi Log Nằm Trong Batch Giao Dịch Cốt Lõi*:
+     - Câu lệnh `INSERT INTO security_logs` được đặt chung trong cùng `env.DB.batch` với `UPDATE members` và `INSERT INTO wallet_transactions`, vi phạm khuyến nghị Zero-impact Logging (ISSUE-241).
+- **Giải pháp triệt để đã triển khai (Solution Applied)**:
+  1. *Loại Bỏ Hoàn Toàn Toán Tử LIKE Trên Cột details*:
+     - Thay thế câu lệnh SQL bằng truy vấn có điều kiện định danh chính xác, có index và giới hạn thời gian:
+       `SELECT details, created_at FROM security_logs WHERE action = 'ADJUST_MEMBER_BALANCE' AND target_id = ? AND created_at >= datetime('now', '-60 seconds') ORDER BY created_at DESC LIMIT 5`
+     - Bind trực tiếp khóa chính `member.id` chuẩn xác (được tra cứu từ trước).
+     - Phân tích cú pháp JSON từng bản ghi trong JavaScript V8 runtime (`JSON.parse(row.details)`) và so sánh chính xác tuyệt đối `parsedDetails.idempotencyKey === idempotencyKey`.
+  2. *Bọc An Toàn try...catch Chống Crash Luồng Tài Chính*:
+     - Bọc toàn bộ khối kiểm tra Idempotency trong `try { ... } catch (err) { console.warn(...); }`. Nếu việc đọc log gặp trục trặc, hệ thống sẽ bỏ qua và tiếp tục thực hiện giao dịch tài chính một cách an toàn mà không làm gián đoạn Quản trị viên.
+  3. *Tách Rời Audit Logging Ra Khỏi ACID Batch*:
+     - `env.DB.batch` chỉ thực thi 2 câu lệnh tài chính nguyên tử: `UPDATE members SET balance` và `INSERT INTO wallet_transactions`.
+     - Lệnh `INSERT INTO security_logs` được thực thi sau khi batch thành công và gắn `.catch(...)` để đảm bảo nhật ký kiểm toán không bao giờ có thể ảnh hưởng tiêu cực đến giao dịch đã hoàn tất.
+  4. *Đảm Bảo Phòng Vệ Kiểu Dữ Liệu*:
+     - Đảm bảo `member.email || ''` luôn có giá trị chuỗi an toàn, ngăn chặn lỗi `NOT NULL constraint failed`.
+- **Kiểm thử & Nghiệm thu**: Vượt qua 100% các bài kiểm thử đơn vị (`test_adjust_balance_fix.cjs`), kiểm thử hồi quy (`test_credit_type_safety.cjs`, `test_sepay_deposit_fix.cjs`, `test_qr_payment_logic.cjs`).
+
 ### 344. Chuyển Duy Nhất 1 Nút Mua Ngay Vào Khối Mô Tả Ghim Cố Định & Chống Chồng Đè Giá Trên Thẻ Gói Mobile
 - **Triệu chứng & Bối cảnh**:
   - Trong bảng chi tiết gói (`ProductDetailModal.tsx`), người dùng phản ánh tồn tại 2 nút mua ("Mua ngay" dưới khối giá và "Mua ngay" ở cuối bảng sau phần chọn số lượng) gây dư thừa, phân mảnh trải nghiệm.
