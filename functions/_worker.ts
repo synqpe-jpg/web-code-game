@@ -60,6 +60,7 @@ import * as telegramManageApi from './api/telegram/manage';
 import * as telegramUserApi from './api/telegram/user';
 import * as firstPurchaseAdminApi from './api/admin/first-purchase';
 import * as auditLogAdminApi from './api/admin/audit-log';
+import * as adminMembersAdjustBalanceApi from './api/admin/members/adjust-balance';
 import * as storeMyOfferApi from './api/store/my-offer';
 import * as escalatingApi from './api/store/escalating';
 import { getMultipleSettingsD1 } from './services/d1_service';
@@ -611,6 +612,19 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
       if (pathname === '/api/admin/audit-log') {
         if (method === 'OPTIONS') return await auditLogAdminApi.onRequestOptions();
         return await auditLogAdminApi.onRequestGet(context);
+      }
+
+      // 8c-7. /api/admin/members/adjust-balance (Admin Member Balance Adjustment API)
+      if (
+        pathname === '/api/admin/members/adjust-balance' ||
+        pathname === '/api/admin/members/adjust'
+      ) {
+        if (method === 'OPTIONS') return await adminMembersAdjustBalanceApi.onRequestOptions();
+        if (method === 'POST') return await adminMembersAdjustBalanceApi.onRequestPost(context);
+        return new Response(JSON.stringify({ success: false, error: 'Method not allowed' }), {
+          status: 405,
+          headers: { 'Content-Type': 'application/json' },
+        });
       }
 
       // 8d. /api/crawl-article (AI Article Crawler & Extractor)

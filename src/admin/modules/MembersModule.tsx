@@ -34,9 +34,10 @@ export const MembersModule: React.FC<MembersModuleProps> = ({ onShowToast }) => 
 
   // Wallet adjustment modal state
   const [adjustingMember, setAdjustingMember] = useState<MemberRecord | null>(null);
-  const [adjAmount, setAdjAmount] = useState<number>(50000);
+  const [adjAmount, setAdjAmount] = useState<number>(100);
   const [adjType, setAdjType] = useState<'ADD' | 'SUBTRACT'>('ADD');
   const [adjReason, setAdjReason] = useState('Thưởng sự kiện thành viên tích cực');
+  const [isSubmittingAdjust, setIsSubmittingAdjust] = useState<boolean>(false);
 
   // Step 2 Security Verification (2FA Confirmation)
   const [step2Action, setStep2Action] = useState<{
@@ -197,20 +198,39 @@ export const MembersModule: React.FC<MembersModuleProps> = ({ onShowToast }) => 
     });
   };
 
-  const handleStep2Success = () => {
-    if (!step2Action) return;
+  const handleStep2Success = async () => {
+    if (!step2Action || isSubmittingAdjust) return;
     const { member, amount, reason } = step2Action;
-    const updated = adminDataService.adjustMemberBalance(member.id, amount, reason);
+    setIsSubmittingAdjust(true);
 
-    if (updated) {
+    try {
+      const type: 'ADD' | 'SUBTRACT' = amount >= 0 ? 'ADD' : 'SUBTRACT';
+      const result = await adminDataService.adjustMemberBalanceRemote(
+        member.id,
+        Math.abs(amount),
+        type,
+        reason,
+        `adj_${member.id}_${Date.now()}`
+      );
+
+      if (!result.success) {
+        onShowToast('Thất bại', result.error || 'Không thể điều chỉnh số dư ví của thành viên.', 'error');
+        return;
+      }
+
+      const balanceAfter = result.member?.balance ?? result.transaction?.balanceAfter ?? 0;
       onShowToast(
         'Đã điều chỉnh số dư ví',
-        `Xác thực bước 2 thành công! Số dư của ${member.displayName} hiện là ${formatVnd(updated.balance)}.`,
+        `Xác thực bước 2 thành công! Đã ${type === 'ADD' ? 'cộng' : 'trừ'} ${formatCore(Math.abs(amount))}. Số dư của ${member.displayName} hiện là ${formatCore(balanceAfter)}.`,
         'success'
       );
       setAdjustingMember(null);
       setStep2Action(null);
       setRefreshTrigger((prev) => prev + 1);
+    } catch (err: any) {
+      onShowToast('Lỗi', `Đã xảy ra sự cố: ${err.message || 'Không xác định'}`, 'error');
+    } finally {
+      setIsSubmittingAdjust(false);
     }
   };
 
@@ -487,7 +507,8 @@ export const MembersModule: React.FC<MembersModuleProps> = ({ onShowToast }) => 
           <div className="rounded-xl bg-slate-50 p-3 text-xs dark:bg-slate-800/60">
             <p className="text-slate-500 dark:text-slate-400">Số dư hiện tại:</p>
             <p className="text-lg font-mono font-bold text-emerald-600 dark:text-emerald-400">
-              {formatVnd(Number(adjustingMember?.balance) || 0)}
+              {formatCore(Number(adjustingMember?.balance) || 0)}{' '}
+              <span className="text-xs font-normal text-slate-500">(~{formatVnd(Number(adjustingMember?.balance) || 0)})</span>
             </p>
           </div>
 
@@ -518,15 +539,15 @@ export const MembersModule: React.FC<MembersModuleProps> = ({ onShowToast }) => 
 
           <div>
             <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-              Số Tiền (VND) <span className="text-rose-500">*</span>
+              Số Tiền Core (1 Core = 1 VND) <span className="text-rose-500">*</span>
             </label>
             <input
               type="number"
-              min={1000}
-              step={1000}
+              min={1}
+              step={1}
               required
               value={adjAmount}
-              onChange={(e) => setAdjAmount(Number(e.target.value))}
+              onChange={(e) => setAdjAmount(Math.max(1, Math.floor(Number(e.target.value))))}
               className="mt-1 w-full font-mono text-sm font-bold rounded-xl border border-slate-200 bg-white p-2.5 text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
             />
           </div>
@@ -555,10 +576,11 @@ export const MembersModule: React.FC<MembersModuleProps> = ({ onShowToast }) => 
             </button>
             <button
               type="submit"
-              className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-5 py-2 text-xs font-bold text-white shadow-sm hover:bg-indigo-700 cursor-pointer"
+              disabled={isSubmittingAdjust || adjAmount <= 0}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-5 py-2 text-xs font-bold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50 cursor-pointer"
             >
               <Save className="h-4 w-4" />
-              <span>Xác Nhận Thay Đổi Số Dư</span>
+              <span>{isSubmittingAdjust ? 'Đang xử lý...' : 'Xác Nhận Thay Đổi Số Dư'}</span>
             </button>
           </div>
         </form>
@@ -647,15 +669,16 @@ export const MembersModule: React.FC<MembersModuleProps> = ({ onShowToast }) => 
               <p>
                 Biến động:{' '}
                 <strong className={step2Action.amount >= 0 ? 'text-emerald-600 dark:text-emerald-400 font-mono' : 'text-rose-600 dark:text-rose-400 font-mono'}>
-                  {step2Action.amount >= 0 ? '+' : ''}{formatVnd(step2Action.amount)}
-                </strong>
+                  {step2Action.amount >= 0 ? '+' : ''}{formatCore(step2Action.amount)}
+                </strong>{' '}
+                <span className="text-slate-400 text-[10px]">({step2Action.amount >= 0 ? '+' : ''}{formatVnd(step2Action.amount)})</span>
               </p>
               <p>
                 Số dư sau điều chỉnh:{' '}
                 <strong className="text-slate-900 dark:text-white font-mono">
-                  {formatVnd(Math.max(0, (Number(step2Action.member.balance) || 0) + step2Action.amount))}
+                  {formatCore(Math.max(0, (Number(step2Action.member.balance) || 0) + step2Action.amount))}
                 </strong>{' '}
-                <span className="text-slate-400 text-[10px]">(Trước: {formatVnd(step2Action.member.balance)})</span>
+                <span className="text-slate-400 text-[10px]">(Trước: {formatCore(step2Action.member.balance)})</span>
               </p>
               <p>
                 Lý do: <em>{step2Action.reason}</em>

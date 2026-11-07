@@ -1010,7 +1010,7 @@ class AdminDataService {
   private getAuthHeaders(): Record<string, string> {
     let token =
       (typeof window !== 'undefined'
-        ? localStorage.getItem('wcg_auth_token') || sessionStorage.getItem('wcg_auth_token')
+        ? localStorage.getItem('wcg_admin_token') || localStorage.getItem('wcg_auth_token') || sessionStorage.getItem('wcg_admin_token') || sessionStorage.getItem('wcg_auth_token')
         : '') || '';
     let syncKey =
       (typeof window !== 'undefined'
@@ -2456,6 +2456,93 @@ class AdminDataService {
     });
 
     return member;
+  }
+
+  /**
+   * Điều chỉnh số dư ví thành viên trực tiếp vào Cloudflare D1 SQL (Server-Authoritative).
+   * Ghi nhận đồng thời vào sổ cái wallet_transactions và security_logs.
+   */
+  public async adjustMemberBalanceRemote(
+    memberId: string,
+    amount: number,
+    type: 'ADD' | 'SUBTRACT',
+    reason: string,
+    idempotencyKey?: string
+  ): Promise<{ success: boolean; member?: MemberRecord; transaction?: any; error?: string }> {
+    const headers = this.getAuthHeaders();
+    headers['Content-Type'] = 'application/json';
+
+    try {
+      const res = await fetch('/api/admin/members/adjust-balance', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          memberId,
+          amount: Math.abs(amount),
+          type,
+          reason,
+          idempotencyKey: idempotencyKey || `adj_${memberId}_${Date.now()}`,
+        }),
+      });
+
+      let resData: any = null;
+      try {
+        resData = await res.json();
+      } catch {
+        resData = null;
+      }
+
+      if (!res.ok || !resData || !resData.success) {
+        const errorMsg =
+          resData?.error || resData?.message || `Lỗi máy chủ (${res.status}): Không thể điều chỉnh số dư ví`;
+        return { success: false, error: errorMsg };
+      }
+
+      // Success: update local in-memory and storage
+      const member = this.members.find(
+        (m) => m.id === memberId || m.username === memberId || m.email === memberId
+      );
+      if (member && resData.member?.balanceAfter !== undefined) {
+        member.balance = resData.member.balanceAfter;
+        this.saveMembers();
+      }
+
+      if (resData.transaction) {
+        const serverTx = resData.transaction;
+        const tx: WalletTransaction = {
+          id: serverTx.id || `tx_${Date.now()}`,
+          referenceId: `ADJ-${Date.now().toString().slice(-6)}`,
+          memberId: resData.member?.id || memberId,
+          memberEmail: resData.member?.email || member?.email || '',
+          type: 'ADMIN_ADJUST',
+          amount: serverTx.amount,
+          balanceBefore: serverTx.balanceBefore,
+          balanceAfter: serverTx.balanceAfter,
+          status: 'COMPLETED',
+          note: serverTx.description || reason,
+          createdAt: serverTx.createdAt || new Date().toISOString(),
+        };
+        this.walletTransactions.unshift(tx);
+        this.saveTransactions();
+      }
+
+      this.logAction('ADJUST_WALLET_BALANCE', memberId, 'CRITICAL', {
+        memberEmail: resData.member?.email || member?.email,
+        amount,
+        type,
+        balanceBefore: resData.member?.balanceBefore,
+        balanceAfter: resData.member?.balanceAfter,
+        reason,
+      });
+
+      return {
+        success: true,
+        member: member || (resData.member as any),
+        transaction: resData.transaction,
+      };
+    } catch (e: any) {
+      return { success: false, error: `Lỗi kết nối mạng: ${e.message || 'Không thể gửi yêu cầu'}` };
+    }
   }
 
   public resetAllMembersBalanceToZero(note: string = 'Admin điều chỉnh toàn bộ ví về 0 đồng'): void {

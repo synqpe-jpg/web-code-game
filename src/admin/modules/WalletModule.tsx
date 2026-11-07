@@ -280,17 +280,27 @@ export const WalletModule: React.FC<WalletModuleProps> = ({ onShowToast }) => {
       onShowToast('Thành công', 'Đã xác minh mật khẩu bước 2! Đã reset toàn bộ ví thành viên, sổ cái và tổng doanh thu về 0 đồng.', 'success');
     } else if (step2Action.type === 'ADJUST_BALANCE' && step2Action.payload) {
       const { targetMemberId, amount, adjReason } = step2Action.payload;
-      const updated = adminDataService.adjustMemberBalance(targetMemberId, amount, adjReason);
+      const type: 'ADD' | 'SUBTRACT' = amount >= 0 ? 'ADD' : 'SUBTRACT';
+      const result = await adminDataService.adjustMemberBalanceRemote(
+        targetMemberId,
+        Math.abs(amount),
+        type,
+        adjReason,
+        `adj_${targetMemberId}_${Date.now()}`
+      );
 
-      if (updated) {
+      if (result.success) {
+        const balanceAfter = result.member?.balance ?? result.transaction?.balanceAfter ?? 0;
         onShowToast(
           'Đã ghi nhận sổ cái',
-          `Xác thực bước 2 thành công! Đã điều chỉnh cho ${updated.displayName}. Số dư mới: ${formatVnd(updated.balance)}.`,
+          `Xác thực bước 2 thành công! Đã ${type === 'ADD' ? 'cộng' : 'trừ'} ${formatCore(Math.abs(amount))} cho ${result.member?.displayName || targetMemberId}. Số dư mới: ${formatCore(balanceAfter)}.`,
           'success'
         );
         setIsAdjustModalOpen(false);
         setMembers(adminDataService.getMembers());
         loadTransactions();
+      } else {
+        onShowToast('Thất bại', result.error || 'Không thể điều chỉnh số dư ví.', 'error');
       }
     }
 
@@ -697,15 +707,15 @@ export const WalletModule: React.FC<WalletModuleProps> = ({ onShowToast }) => {
 
           <div>
             <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-              Số Tiền (VND) <span className="text-rose-500">*</span>
+              Số Tiền Core (1 Core = 1 VND) <span className="text-rose-500">*</span>
             </label>
             <input
               type="number"
-              min={1000}
-              step={1000}
+              min={1}
+              step={1}
               required
               value={adjAmount}
-              onChange={(e) => setAdjAmount(Number(e.target.value))}
+              onChange={(e) => setAdjAmount(Math.max(1, Math.floor(Number(e.target.value))))}
               className="mt-1 w-full font-mono text-sm font-bold rounded-xl border border-slate-200 bg-white p-2.5 text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
             />
           </div>

@@ -7,6 +7,40 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-07]
 
+### 336. Khắc Phục Triệt Để Lỗi Cộng Core Cho Thành Viên Trong Admin Không Tăng Số Dư Khách Hàng (Tạo Endpoint D1 Batch Server-Authoritative, Ghi Sổ Cái Ví & Nhật Ký Kiểm Toán)
+- **Bối cảnh & Triệu chứng**:
+  - Chủ shop thực hiện cộng Core cho khách trong trang Quản Lý Người Dùng (`admin#/members` hoặc `admin#/wallet`), hệ thống thông báo thành công xanh nhưng số dư của khách hàng hoàn toàn KHÔNG tăng trên web khách, header tài khoản, bảng thanh toán và database Cloudflare D1.
+  - Chiều ngược lại (mua hàng, trừ tiền) vẫn hoạt động chính xác vì chạy qua D1 ACID engine (`purchaseOrderD1`).
+- **Nguyên nhân gốc rễ (Root Cause) & Phân tích chuyên sâu**:
+  1. *Thiếu Endpoint API Backend*: Thao tác điều chỉnh số dư trong `MembersModule.tsx` và `WalletModule.tsx` trước đây chỉ gọi `adminDataService.adjustMemberBalance(member.id, amount, reason)` cập nhật mảng local in-memory của Admin, lưu vào `localStorage`, rồi gọi `pushFullStateToKV()` gửi snapshot chung qua `/api/sync`. Hoàn toàn không có bất kỳ lời gọi API nào trực tiếp ghi số dư vào Cloudflare D1!
+  2. *Cơ chế bảo vệ số dư trong `syncMembersToD1` phản tác dụng*: Tại `functions/services/d1_service.ts`, câu lệnh SQL `syncMembersToD1` có điều kiện `balance = CASE WHEN (SELECT COUNT(*) FROM wallet_transactions WHERE member_id = members.id) > 0 THEN members.balance ELSE excluded.balance END`. Do các tài khoản thật đều đã có giao dịch, D1 bỏ qua toàn bộ trường `balance` mới gửi từ snapshot của Admin để chống ghi đè bừa bãi.
+  3. *Lệch nguồn sự thật (SSOT)*: Web khách và API `/api/auth/me` đọc số dư trực tiếp từ bảng `members` trong D1. Vì D1 không đổi nên số dư khách hiển thị luôn giữ nguyên số cũ. Đồng thời khi Admin tải lại trang, dữ liệu nạp từ D1 ghi đè ngược lại làm mất luôn số dư vừa sửa ở LocalStorage của Admin.
+  4. *Rào cản giao diện `min={1000}` & `step={1000}`*: Cả 2 modal điều chỉnh số dư đặt ràng buộc HTML input `min={1000}`, ngăn cản Admin nạp các mức Core nhỏ (như 50 Core, 100 Core, v.v.).
+- **Giải pháp triệt để đã triển khai (Solution Applied)**:
+  1. *Xây dựng API Backend Server-Authoritative (`functions/api/admin/members/adjust-balance.ts`)*:
+     - Hỗ trợ `POST /api/admin/members/adjust-balance` (alias `/api/admin/members/adjust`).
+     - Xác thực quyền quản trị nghiêm ngặt qua `verifyAdminAuth(request, env, 'MEMBERS_FULL')` (hỗ trợ Bearer token, X-Sync-Key, X-Admin-Key, session token D1, master secrets).
+     - Validation tham số chặt chẽ: `memberId` bắt buộc, `amount` là số nguyên dương $> 0$ (chặn số âm, số 0, NaN, chuỗi ký tự), `type` ('ADD' hoặc 'SUBTRACT'). Nếu trừ tiền, kiểm tra số dư hiện tại đủ để trừ, từ chối giao dịch nếu không đủ Core (HTTP 400).
+     - Chống bấm đúp (Idempotency Guard): Kiểm tra `idempotencyKey` trong 60 giây gần nhất, trả về kết quả thành công trước đó nếu phát hiện trùng lặp.
+     - Thực thi ACID Batch Transaction trên Cloudflare D1: Cập nhật `members.balance = ?`, thêm bản ghi vào `wallet_transactions` (`type: 'ADMIN_ADJUST'`), và ghi nhật ký kiểm toán vào `security_logs` (`action: 'ADJUST_MEMBER_BALANCE'`, `severity: 'CRITICAL'`).
+     - Tự động đồng bộ cache `wcg_admin_members_v4` và phát sóng sự kiện nạp Core qua `realEventsHub`.
+  2. *Đăng ký route tập trung trên Cloudflare Pages Edge Worker (`functions/_worker.ts`)*:
+     - Khai báo route `/api/admin/members/adjust-balance` và `/api/admin/members/adjust`, chấm dứt tình trạng fallback về HTML SPA 200.
+  3. *Bổ sung `adjustMemberBalanceRemote` trong `adminDataService.ts`*:
+     - Tích hợp gọi API server-authoritative, xử lý lỗi mạng / lỗi server thật, chỉ cập nhật state in-memory và localStorage khi server trả về HTTP 200 `success: true`.
+     - Tự động lấy token quản trị từ `wcg_admin_token`, `wcg_auth_token` hoặc `ADMIN_SYNC_KEY`.
+  4. *Cập nhật Giao Diện Quản Trị `MembersModule.tsx` & `WalletModule.tsx`*:
+     - Thay thế luồng gọi hàm local bằng `await adminDataService.adjustMemberBalanceRemote(...)`.
+     - Thêm trạng thái `isSubmittingAdjust` để khóa nút bấm chống click liên tục trong khi request đang bay.
+     - Sửa input thành `min={1}`, `step={1}`, nhãn rõ ràng "Số Tiền Core (1 Core = 1 VND)".
+     - Hiển thị cả Core và VND trong modal và bảng xác nhận Bước 2.
+  5. *Đồng bộ Quyền API Mới Theo Rule 8*:
+     - Scope `MEMBERS_FULL` được hỗ trợ toàn diện trong `hasScope` (`functions/services/mission_service.ts`).
+     - Bổ sung tài liệu cURL và hướng dẫn mẫu Mẫu 11 trong `ApiKeysModule.tsx`.
+- **Kết quả nghiệm thu**:
+  - Biên dịch toàn dự án đạt 100% không phát sinh lỗi.
+  - Zero Test Artifacts on Production đạt 100%.
+
 ### 335. Cấu Hình Ưu Đãi Mua Lần Đầu & Nâng Giá Theo Từng Gói Riêng Biệt, Khắc Phục 4 Lỗi Hiển Thị Khi Mua Hàng
 - **Bối cảnh & Yêu cầu nghiệp vụ**:
   - Người dùng yêu cầu cho phép cấu hình "Ưu đãi mua lần đầu" và "Nâng Giá" riêng biệt cho từng gói sản phẩm trong trang quản trị (`CodeInventoryModule.tsx`) và qua API (`/api/store/manage`).

@@ -10,6 +10,22 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-238: Bẫy Sửa Số Dư Ví Chỉ Lưu Client LocalStorage/KV Mà Bỏ Quên D1 SQL, Bẫy SQL Preservation Trong syncMembersToD1 & Bẫy min=1000 Chặn Nạp Số Core Nhỏ
+- **Triệu chứng & Rủi ro**:
+  1. Khi Admin bấm cộng tiền / trừ tiền cho thành viên trong giao diện Quản Lý Người Dùng (`MembersModule.tsx` hoặc `WalletModule.tsx`), hệ thống báo thành công với toast xanh, nhưng số dư của thành viên không tăng một Core nào trên trang web khách (`/api/auth/me`), header hay bảng thanh toán.
+  2. Nguyên nhân do giao diện chỉ gọi hàm local `adminDataService.adjustMemberBalance` cập nhật mảng bộ nhớ và lưu vào `localStorage`, sau đó gửi snapshot qua `/api/sync`.
+  3. Tại `/api/sync`, hàm `syncMembersToD1` có câu lệnh `balance = CASE WHEN (SELECT COUNT(*) FROM wallet_transactions WHERE member_id = members.id) > 0 THEN members.balance ELSE excluded.balance END` để bảo vệ số dư database khỏi bị ghi đè bởi client state. Vì vậy số dư trong D1 hoàn toàn không đổi. Khi Admin tải lại trang hoặc khách tải trang, số dư từ D1 ghi đè lại khiến thao tác của Admin bị biến mất 100%.
+  4. Trong các modal nhập số tiền, thuộc tính `min={1000}` và `step={1000}` khiến Admin không thể nhập số Core lẻ hoặc nhỏ hơn 1.000 (ví dụ cộng thử 100 Core).
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Xây dựng endpoint chuyên biệt server-authoritative `POST /api/admin/members/adjust-balance` chạy trực tiếp câu lệnh ACID Batch trên Cloudflare D1: cập nhật `members.balance`, ghi sổ cái vào `wallet_transactions` (`type: 'ADMIN_ADJUST'`), và lưu nhật ký kiểm toán `security_logs` (`action: 'ADJUST_MEMBER_BALANCE'`, `severity: 'CRITICAL'`).
+  2. Đăng ký route tập trung trên `functions/_worker.ts` để chặn triệt để tình trạng fallback về HTML SPA.
+  3. Xây dựng phương thức `adminDataService.adjustMemberBalanceRemote` gọi API máy chủ, bắt lỗi HTTP/network thật, chỉ cập nhật state giao diện khi backend phản hồi thành công `success: true`.
+  4. Chỉnh sửa form input thành `min={1}`, `step={1}`, hỗ trợ nhập bất kỳ số Core hợp lệ nào, khóa nút bấm (`disabled={isSubmittingAdjust}`) khi đang xử lý để chống bấm đúp (double-click).
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không cập nhật số dư ví tài chính của người dùng ở cấp Client LocalStorage hay KV mà không có endpoint D1 SQL Server-Authoritative.*
+  - ❌ *Không hiển thị thông báo thành công cho Admin khi chưa có phản hồi xác nhận 200 OK từ API máy chủ.*
+  - ❌ *Không đặt `min={1000}` trên ô nhập số tiền Core làm hạn chế các mức điều chỉnh nhỏ hơn 1.000 Core.*
+
 ### ISSUE-237: Bẫy Nhấp Nháy Giá Do Render Trước Khi My-Offer Trả Về, Sai Cơ Số Tính % Giảm & Bẫy Disabled Nút Nạp Core Trong Bảng Thanh Toán
 - **Triệu chứng & Rủi ro**:
   1. Khi khách mở bảng chọn gói (`ProductDetailModal`), gói đã chọn hiển thị 2.600 Core rồi sau 200ms tự nhảy sang 2.000 Core. Nguyên nhân do `offerData` khởi tạo rỗng `{ offers: {} }` và phụ thuộc vào API `/api/store/my-offer` trả về.

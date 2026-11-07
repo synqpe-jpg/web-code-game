@@ -1809,6 +1809,38 @@ curl -X GET "https://codegame.shop/api/admin/audit-log?scope=escalating&page=1&l
   -H "X-API-Key: YOUR_API_KEY_HERE"`}
                 </pre>
               </div>
+
+              {/* Mẫu 11: Member Wallet Balance Adjustment */}
+              <div>
+                <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Users className="w-4 h-4 text-blue-400" />
+                  Mẫu 11: Điều Chỉnh Số Dư Ví Thành Viên — Nạp / Trừ Core (Scope: MEMBERS_FULL / ADMIN_FULL)
+                </h4>
+                <pre className="mt-2 p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto">
+{`# 1. Cộng Core cho thành viên (type: ADD)
+curl -X POST "https://codegame.shop/api/admin/members/adjust-balance" \\
+  -H "Content-Type: application/json" \\
+  -H "X-API-Key: YOUR_API_KEY_HERE" \\
+  -d '{
+    "memberId": "usr_1793366379892_cb88",
+    "amount": 100,
+    "type": "ADD",
+    "reason": "Thưởng sự kiện thành viên tích cực",
+    "idempotencyKey": "adj_muse_reward_001"
+  }'
+
+# 2. Trừ Core của thành viên (type: SUBTRACT)
+curl -X POST "https://codegame.shop/api/admin/members/adjust-balance" \\
+  -H "Content-Type: application/json" \\
+  -H "X-API-Key: YOUR_API_KEY_HERE" \\
+  -d '{
+    "memberId": "muse@synqp.com",
+    "amount": 50,
+    "type": "SUBTRACT",
+    "reason": "Thu hồi Core nạp nhầm"
+  }'`}
+                </pre>
+              </div>
             </div>
           )}
 
