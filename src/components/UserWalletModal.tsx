@@ -41,7 +41,7 @@ interface UserWalletModalProps {
   onOpenAuth?: () => void;
 }
 
-const MIN_TOPUP = 10000;
+const DEFAULT_MIN_TOPUP = 2000;
 
 export const UserWalletModal: React.FC<UserWalletModalProps> = ({
   isOpen,
@@ -56,6 +56,7 @@ export const UserWalletModal: React.FC<UserWalletModalProps> = ({
   const [isInputFocused, setIsInputFocused] = useState<boolean>(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [sepayConfig, setSepayConfig] = useState(() => dataService.getSePayConfig());
+  const MIN_TOPUP = Number(sepayConfig?.minQrAmount || DEFAULT_MIN_TOPUP);
   const [depositHistory, setDepositHistory] = useState<any[]>([]);
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   useLockBodyScroll(isOpen);
@@ -238,6 +239,8 @@ export const UserWalletModal: React.FC<UserWalletModalProps> = ({
   if (!isOpen) return null;
 
   const quickAmounts = [
+    { core: 2000 },
+    { core: 5000 },
     { core: 10000 },
     { core: 20000 },
     { core: 50000 },

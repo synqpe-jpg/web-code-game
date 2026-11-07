@@ -3940,6 +3940,8 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
     bankName?: string;
     paymentPrefix?: string;
     autoCreditCoreRatio?: number;
+    minQrAmount?: number;
+    qrOrderExpiryMinutes?: number;
   } {
     try {
       const saved = localStorage.getItem('wcg_admin_sepay_v4');
@@ -3954,6 +3956,8 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
             bankName: isDummy ? 'TPBank' : (parsed.bankName || 'TPBank'),
             paymentPrefix: parsed.paymentPrefix || 'WCG',
             autoCreditCoreRatio: parsed.autoCreditCoreRatio || 1,
+            minQrAmount: Number(parsed.minQrAmount) > 0 ? Number(parsed.minQrAmount) : 2000,
+            qrOrderExpiryMinutes: Number(parsed.qrOrderExpiryMinutes) > 0 ? Number(parsed.qrOrderExpiryMinutes) : 15,
           };
         }
       }
@@ -3965,6 +3969,8 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
       bankName: 'TPBank',
       paymentPrefix: 'WCG',
       autoCreditCoreRatio: 1,
+      minQrAmount: 2000,
+      qrOrderExpiryMinutes: 15,
     };
   }
 

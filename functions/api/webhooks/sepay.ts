@@ -1,5 +1,10 @@
 import { getRealEventsHub, saveRealEventsHub } from '../../services/realEventsHub';
-import { ensureSchemaUpgrades } from '../../services/d1_service';
+import {
+  ensureSchemaUpgrades,
+  completeQrOrderD1,
+  recordSepayExceptionD1,
+  checkAndExpireOrdersD1,
+} from '../../services/d1_service';
 
 interface Env {
   DB: D1Database;
@@ -238,9 +243,157 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       );
     }
 
-    // 5. Trích xuất tài khoản thành viên từ nội dung chuyển khoản
-    // Cú pháp chuẩn: WCG <mã thành viên>
     const cleanContent = content.replace(/\u00a0/g, ' ').trim();
+
+    // 4b. Kiểm tra xem giao dịch có phải là thanh toán ĐƠN HÀNG TRỰC TIẾP (Direct QR Order) hay không
+    // Cú pháp: WCG ORD-QR-... hoặc ORD-QR-... hoặc WCG ORD-...
+    const orderIdMatch = cleanContent.match(/\b(ORD(?:-QR)?-[A-Za-z0-9_-]+)\b/i) ||
+      cleanContent.match(/(?:WCG|COD)\s*[:\-\s]?\s*(ORD[A-Za-z0-9_-]+)/i);
+
+    if (orderIdMatch) {
+      const orderId = orderIdMatch[1].trim();
+      const matchedOrder = await env.DB.prepare(
+        "SELECT * FROM orders WHERE id = ? COLLATE NOCASE LIMIT 1"
+      ).bind(orderId).first<any>();
+
+      if (matchedOrder) {
+        // TÌNH HUỐNG 1: Đơn hàng đã hoàn tất trước đó (Khách chuyển trùng / chuyển lần 2)
+        // Quy tắc: 1 lần thanh toán chỉ giao 1 mã. Không giao mã lần 2, ghi nhận FAILED/DUPLICATE_PAYMENT để admin xử lý thủ công.
+        if (matchedOrder.status === 'COMPLETED' || matchedOrder.payment_status === 'PAID') {
+          await recordSepayExceptionD1(env.DB, {
+            transactionId,
+            gateway,
+            accountNumber,
+            amount,
+            content,
+            orderId: matchedOrder.id,
+            memberId: matchedOrder.member_id,
+            status: 'FAILED',
+            note: `DUPLICATE_PAYMENT: Đơn hàng ${matchedOrder.id} đã hoàn tất trước đó, khách chuyển tiền lần 2 (+${amount.toLocaleString('vi-VN')}đ). Không giao thêm mã. Chờ admin xử lý.`,
+            action: 'SEPAY_DUPLICATE_PAYMENT',
+          });
+
+          return new Response(
+            JSON.stringify({
+              success: true,
+              status: 'DUPLICATE_PAYMENT',
+              message: `Đơn hàng ${matchedOrder.id} đã hoàn tất trước đó. Không giao thêm mã. Ghi nhận giao dịch lần 2 để quản trị viên xử lý thủ công.`,
+              transactionId,
+              orderId: matchedOrder.id,
+            }),
+            { status: 200, headers: CORS_HEADERS }
+          );
+        }
+
+        // TÌNH HUỐNG 2: Đơn hàng đã hết hạn (> 15 phút) hoặc đã bị hủy
+        // Quy tắc: Không giao mã (vì mã đã được trả về kho hoặc bán cho người khác), ghi nhận EXPIRED_PAYMENT để admin xử lý thủ công.
+        const isOrderExpired = matchedOrder.status === 'CANCELLED' ||
+          matchedOrder.payment_status === 'EXPIRED' ||
+          (matchedOrder.expires_at && new Date(matchedOrder.expires_at).getTime() <= Date.now());
+
+        if (isOrderExpired) {
+          await checkAndExpireOrdersD1(env.DB, matchedOrder.id);
+          await recordSepayExceptionD1(env.DB, {
+            transactionId,
+            gateway,
+            accountNumber,
+            amount,
+            content,
+            orderId: matchedOrder.id,
+            memberId: matchedOrder.member_id,
+            status: 'FAILED',
+            note: `EXPIRED_PAYMENT: Khách chuyển tiền (+${amount.toLocaleString('vi-VN')}đ) sau khi đơn hàng ${matchedOrder.id} đã hết hạn 15 phút (mã đã trả về kho). Không giao mã. Chờ admin xử lý.`,
+            action: 'SEPAY_EXPIRED_PAYMENT',
+          });
+
+          return new Response(
+            JSON.stringify({
+              success: true,
+              status: 'EXPIRED_PAYMENT',
+              message: `Đơn hàng ${matchedOrder.id} đã hết hạn (quá 15 phút). Không giao mã. Đã ghi nhận khoản tiền để quản trị viên xử lý thủ công.`,
+              transactionId,
+              orderId: matchedOrder.id,
+            }),
+            { status: 200, headers: CORS_HEADERS }
+          );
+        }
+
+        // TÌNH HUỐNG 3: Chuyển thiếu tiền
+        // Quy tắc: Không hoàn tất đơn, không giao mã, ghi nhận UNDERPAID để quản trị viên xử lý thủ công.
+        const requiredAmount = Number(matchedOrder.total_amount || 0);
+        if (amount < requiredAmount) {
+          await recordSepayExceptionD1(env.DB, {
+            transactionId,
+            gateway,
+            accountNumber,
+            amount,
+            content,
+            orderId: matchedOrder.id,
+            memberId: matchedOrder.member_id,
+            status: 'FAILED',
+            note: `UNDERPAID: Chuyển thiếu tiền cho đơn ${matchedOrder.id} (nhận ${amount.toLocaleString('vi-VN')}đ, cần ${requiredAmount.toLocaleString('vi-VN')}đ). Không giao mã. Chờ admin xử lý.`,
+            action: 'SEPAY_UNDERPAID',
+          });
+
+          return new Response(
+            JSON.stringify({
+              success: true,
+              status: 'UNDERPAID',
+              message: `Số tiền chuyển (${amount.toLocaleString('vi-VN')}đ) không đủ đơn hàng (${requiredAmount.toLocaleString('vi-VN')}đ). Đã ghi nhận để quản trị viên xử lý thủ công.`,
+              transactionId,
+              orderId: matchedOrder.id,
+              received: amount,
+              required: requiredAmount,
+            }),
+            { status: 200, headers: CORS_HEADERS }
+          );
+        }
+
+        // TÌNH HUỐNG 4: Chuyển đúng tiền, đúng hạn
+        // Quy tắc: Hoàn tất đơn, giao mã ngay vào kho khách, số dư Core không đổi.
+        const completeResult = await completeQrOrderD1(env.DB, {
+          orderId: matchedOrder.id,
+          sepayTxId: transactionId,
+          amount,
+          gateway,
+          accountNumber,
+          content,
+        });
+
+        if (completeResult.success) {
+          const buyer = await env.DB.prepare("SELECT * FROM members WHERE id = ?").bind(matchedOrder.member_id).first<any>();
+          if (buyer) {
+            await broadcastRealDepositToHub(env, buyer, amount, amount);
+          }
+
+          return new Response(
+            JSON.stringify({
+              success: true,
+              status: 'COMPLETED',
+              message: `Thanh toán đơn hàng QR thành công! Đã giao ${completeResult.deliveredCodes?.length || 1} mã quà tặng cho khách.`,
+              transactionId,
+              orderId: matchedOrder.id,
+              deliveredCodes: completeResult.deliveredCodes,
+            }),
+            { status: 200, headers: CORS_HEADERS }
+          );
+        } else {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              status: completeResult.reason || 'FAILED',
+              message: `Không thể hoàn tất đơn hàng QR: ${completeResult.reason}`,
+              transactionId,
+              orderId: matchedOrder.id,
+            }),
+            { status: 200, headers: CORS_HEADERS }
+          );
+        }
+      }
+    }
+
+    // 5. Trích xuất tài khoản thành viên từ nội dung chuyển khoản (Luồng nạp Core ví truyền thống)
+    // Cú pháp chuẩn: WCG <mã thành viên>
     const escapedPrefix = configuredPrefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const prefixRegex = new RegExp(`(?:^|\\s|[^A-Za-z0-9])${escapedPrefix}\\s+([A-Za-z0-9_\\-\\.\\@]+)`, 'i');
     const fallbackPrefixRegex = new RegExp(`(?:^|\\s|[^A-Za-z0-9])${escapedPrefix}\\s*([A-Za-z0-9_\\-\\.\\@]+)`, 'i');

@@ -853,6 +853,26 @@ export async function ensureSchemaUpgrades(db: D1Database): Promise<void> {
       console.warn('[Migration first_purchase_per_package_v1 error]', e);
     }
 
+    // Migration direct_qr_payment_v1: Hỗ trợ thanh toán QR trực tiếp theo giá sản phẩm, bảo lưu mã kho và xử lý ngoại lệ SePay
+    try {
+      const qrMigDone = await db.prepare("SELECT 1 FROM schema_migrations WHERE id = 'direct_qr_payment_v1' LIMIT 1").first().catch(() => null);
+      if (!qrMigDone) {
+        await db.prepare("ALTER TABLE orders ADD COLUMN payment_method TEXT DEFAULT 'WALLET';").run().catch(() => {});
+        await db.prepare("ALTER TABLE orders ADD COLUMN expires_at TEXT;").run().catch(() => {});
+        await db.prepare("ALTER TABLE orders ADD COLUMN paid_at TEXT;").run().catch(() => {});
+        await db.prepare("ALTER TABLE orders ADD COLUMN sepay_transaction_id TEXT;").run().catch(() => {});
+        await db.prepare("ALTER TABLE orders ADD COLUMN payment_status TEXT DEFAULT 'PAID';").run().catch(() => {});
+        await db.prepare("ALTER TABLE sepay_transactions ADD COLUMN order_id TEXT;").run().catch(() => {});
+        await db.prepare("ALTER TABLE sepay_transactions ADD COLUMN note TEXT;").run().catch(() => {});
+        await db.prepare("CREATE INDEX IF NOT EXISTS idx_orders_payment_method ON orders(payment_method);").run().catch(() => {});
+        await db.prepare("CREATE INDEX IF NOT EXISTS idx_orders_payment_status ON orders(payment_status);").run().catch(() => {});
+        await db.prepare("CREATE INDEX IF NOT EXISTS idx_sepay_order_id ON sepay_transactions(order_id);").run().catch(() => {});
+        await db.prepare("INSERT OR IGNORE INTO schema_migrations (id) VALUES ('direct_qr_payment_v1');").run().catch(() => {});
+      }
+    } catch (e) {
+      console.warn('[Migration direct_qr_payment_v1 error]', e);
+    }
+
     try {
       // Fast 1-subrequest check: If wcg_virtual_layer_tables_v1 exists, all schema migrations are already done
       const check = await db.prepare("SELECT 1 FROM schema_migrations WHERE id = 'wcg_virtual_layer_tables_v1' LIMIT 1").first().catch(() => null);
@@ -4404,6 +4424,449 @@ export async function getEscalatingPurchasesHistoryD1(
     total_completed: orders.length,
   };
 }
+
+// ============================================================================
+// DIRECT QR PAYMENT (VIETQR / SEPAY) ARCHITECTURE - EDGE D1 ENGINE
+// ============================================================================
+
+export interface CreateQrOrderParams {
+  orderId?: string;
+  userId: string;
+  buyerEmail: string;
+  productId: string;
+  productTitle: string;
+  quantity: number;
+  unitPrice: number;
+  totalAmount: number;
+  expiryMinutes?: number;
+  idempotencyKey?: string;
+  originalPrice?: number;
+  pricePaid?: number;
+  discountType?: string;
+  discountAmount?: number;
+  priceRule?: string;
+}
+
+export interface CreateQrOrderResult {
+  success: boolean;
+  orderId?: string;
+  expiresAt?: string;
+  totalAmount?: number;
+  productTitle?: string;
+  error?: string;
+  code?: string;
+}
+
+/**
+ * Khởi tạo đơn hàng thanh toán trực tiếp bằng mã QR (VietQR / SePay).
+ * Tự động giữ chỗ mã kho (status='RESERVED'), trừ tồn kho tạm thời, tạo đơn PENDING_PAYMENT.
+ */
+export async function createQrOrderD1(db: D1Database, params: CreateQrOrderParams): Promise<CreateQrOrderResult> {
+  await ensureSchemaUpgrades(db);
+
+  const {
+    userId,
+    buyerEmail,
+    productId,
+    productTitle,
+    quantity = 1,
+    unitPrice,
+    totalAmount,
+    expiryMinutes = 15,
+    idempotencyKey,
+    originalPrice = unitPrice,
+    pricePaid = totalAmount,
+    discountType = 'none',
+    discountAmount = 0,
+    priceRule,
+  } = params;
+
+  const qty = Math.max(1, Math.min(999, Math.floor(quantity)));
+
+  // 1. Kiểm tra Idempotency nếu client đã gửi trước đó
+  if (idempotencyKey) {
+    const existing = await db.prepare(`
+      SELECT id, status, payment_status, expires_at, total_amount, product_title 
+      FROM orders 
+      WHERE idempotency_key = ? AND member_id = ?
+      LIMIT 1
+    `).bind(idempotencyKey, userId).first<any>();
+
+    if (existing) {
+      const isExpired = existing.payment_status === 'EXPIRED' ||
+        existing.status === 'CANCELLED' ||
+        (existing.expires_at && new Date(existing.expires_at).getTime() <= Date.now());
+
+      if (!isExpired) {
+        return {
+          success: true,
+          orderId: String(existing.id),
+          expiresAt: String(existing.expires_at),
+          totalAmount: Number(existing.total_amount),
+          productTitle: String(existing.product_title || productTitle),
+        };
+      }
+    }
+  }
+
+  // 2. Kiểm tra tồn kho khả dụng và lấy mã AVAILABLE để tạm giữ
+  const availableCodes = await db.prepare(`
+    SELECT id, code_content 
+    FROM inventory_codes 
+    WHERE (product_id = ? OR product_id = (SELECT id FROM store_products WHERE id = ?))
+      AND status = 'AVAILABLE' 
+    LIMIT ?
+  `).bind(productId, productId, qty).all<any>();
+
+  if (!availableCodes?.results || availableCodes.results.length < qty) {
+    return {
+      success: false,
+      error: 'Sản phẩm tạm thời không đủ số lượng mã trong kho.',
+      code: 'OUT_OF_STOCK',
+    };
+  }
+
+  // 3. Đọc số dư hiện tại của khách (số dư Core KHÔNG BỊ TRỪ khi chọn QR)
+  const user = await db.prepare("SELECT balance FROM members WHERE id = ?").bind(userId).first<any>();
+  const currentBalance = Number(user?.balance || 0);
+
+  // 4. Sinh mã đơn hàng và thời hạn hết hạn (mặc định 15 phút)
+  const orderId = params.orderId || `ORD-QR-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+  const expiryMins = Math.max(5, Math.min(60, expiryMinutes || 15));
+  const expiresAt = new Date(Date.now() + expiryMins * 60 * 1000).toISOString();
+  const selectedCodeIds = availableCodes.results.map((c: any) => String(c.id));
+
+  // 5. Thực thi Batch Atomic D1:
+  // - Khóa mã kho: status = 'RESERVED', order_id = orderId
+  // - Trừ tồn kho tạm thời trong store_products
+  // - Tạo bản ghi đơn hàng với payment_status = 'PENDING_PAYMENT', payment_method = 'vietqr'
+  // - Ghi nhật ký kiểm toán security_logs
+  const stmts: any[] = [];
+
+  for (const cId of selectedCodeIds) {
+    stmts.push(
+      db.prepare("UPDATE inventory_codes SET status = 'RESERVED', order_id = ? WHERE id = ? AND status = 'AVAILABLE'").bind(orderId, cId)
+    );
+  }
+
+  stmts.push(
+    db.prepare("UPDATE store_products SET stock_quantity = MAX(0, stock_quantity - ?) WHERE id = ?").bind(qty, productId)
+  );
+
+  stmts.push(
+    db.prepare(`
+      INSERT INTO orders (
+        id, member_id, buyer_email, product_id, product_title,
+        quantity, unit_price, total_amount, status,
+        balance_before, balance_after, delivered_codes,
+        idempotency_key, payment_method, expires_at,
+        payment_status, original_price, price_paid,
+        discount_type, discount_amount, price_rule, created_at
+      ) VALUES (
+        ?, ?, ?, ?, ?,
+        ?, ?, ?, 'PENDING',
+        ?, ?, '',
+        ?, 'vietqr', ?,
+        'PENDING_PAYMENT', ?, ?,
+        ?, ?, ?, datetime('now')
+      )
+    `).bind(
+      orderId,
+      userId,
+      buyerEmail,
+      productId,
+      productTitle,
+      qty,
+      unitPrice,
+      totalAmount,
+      currentBalance,
+      currentBalance, // Giữ nguyên số dư Core
+      idempotencyKey || null,
+      expiresAt,
+      originalPrice,
+      pricePaid,
+      discountType,
+      discountAmount,
+      priceRule || null
+    )
+  );
+
+  stmts.push(
+    db.prepare(`
+      INSERT INTO security_logs (action, target_user, details, severity, ip_address, created_at)
+      VALUES ('ORDER_QR_CREATED', ?, ?, 'INFO', 'cloudflare-edge', datetime('now'))
+    `).bind(userId, JSON.stringify({
+      orderId,
+      productId,
+      productTitle,
+      quantity: qty,
+      totalAmount,
+      expiresAt,
+      reservedCodeCount: selectedCodeIds.length,
+    }))
+  );
+
+  await db.batch(stmts);
+
+  return {
+    success: true,
+    orderId,
+    expiresAt,
+    totalAmount,
+    productTitle,
+  };
+}
+
+/**
+ * Tự động kiểm tra và hủy các đơn QR đã hết hạn (> 15 phút chưa thanh toán).
+ * Hoàn trả lại mã quà về trạng thái AVAILABLE và bù lại stock_quantity cho store_products.
+ */
+export async function checkAndExpireOrdersD1(db: D1Database, targetOrderId?: string): Promise<number> {
+  await ensureSchemaUpgrades(db);
+  const nowIso = new Date().toISOString();
+
+  let query = `
+    SELECT id, product_id, quantity, expires_at 
+    FROM orders 
+    WHERE payment_method = 'vietqr' 
+      AND (payment_status = 'PENDING_PAYMENT' OR status = 'PENDING')
+      AND (datetime(expires_at) <= datetime('now') OR expires_at <= ?)
+  `;
+  const binds: any[] = [nowIso];
+
+  if (targetOrderId) {
+    query += ` AND id = ?`;
+    binds.push(targetOrderId);
+  }
+
+  const expiredRes = await db.prepare(query).bind(...binds).all<any>();
+  if (!expiredRes?.results || expiredRes.results.length === 0) {
+    return 0;
+  }
+
+  let count = 0;
+  for (const ord of expiredRes.results) {
+    const oId = String(ord.id);
+    const pId = String(ord.product_id);
+    const qty = Number(ord.quantity) || 1;
+
+    try {
+      const stmtOrder = db.prepare(`
+        UPDATE orders 
+        SET status = 'CANCELLED', payment_status = 'EXPIRED' 
+        WHERE id = ? AND (payment_status = 'PENDING_PAYMENT' OR status = 'PENDING')
+      `).bind(oId);
+
+      const stmtCodes = db.prepare(`
+        UPDATE inventory_codes 
+        SET status = 'AVAILABLE', order_id = NULL 
+        WHERE order_id = ? AND status = 'RESERVED'
+      `).bind(oId);
+
+      const stmtStock = db.prepare(`
+        UPDATE store_products 
+        SET stock_quantity = stock_quantity + ? 
+        WHERE id = ?
+      `).bind(qty, pId);
+
+      const stmtLog = db.prepare(`
+        INSERT INTO security_logs (action, target_user, details, severity, ip_address, created_at)
+        VALUES ('ORDER_QR_EXPIRED', ?, ?, 'INFO', 'cloudflare-edge', datetime('now'))
+      `).bind(oId, JSON.stringify({
+        orderId: oId,
+        productId: pId,
+        quantity: qty,
+        reason: 'Quá hạn 15 phút chưa nhận được thanh toán. Đã hoàn trả mã kho.',
+      }));
+
+      await db.batch([stmtOrder, stmtCodes, stmtStock, stmtLog]);
+      count++;
+    } catch (err) {
+      console.warn(`[ExpireOrder] Error expiring order ${oId}:`, err);
+    }
+  }
+
+  return count;
+}
+
+/**
+ * Hoàn tất đơn hàng thanh toán QR khi SePay Webhook xác nhận đã nhận đủ tiền đúng hạn.
+ * Chuyển mã sang SOLD, cập nhật orders sang COMPLETED, tăng sold_count, ghi log SePay.
+ */
+export async function completeQrOrderD1(db: D1Database, params: {
+  orderId: string;
+  sepayTxId: string;
+  amount: number;
+  gateway: string;
+  accountNumber: string;
+  content: string;
+}): Promise<{
+  success: boolean;
+  order?: any;
+  deliveredCodes?: string[];
+  reason?: string;
+}> {
+  await ensureSchemaUpgrades(db);
+  const { orderId, sepayTxId, amount, gateway, accountNumber, content } = params;
+
+  // 1. Lấy thông tin đơn hàng
+  const order = await db.prepare("SELECT * FROM orders WHERE id = ? COLLATE NOCASE LIMIT 1").bind(orderId).first<any>();
+  if (!order) {
+    return { success: false, reason: 'ORDER_NOT_FOUND' };
+  }
+
+  // 2. Nếu đơn đã xong trước đó
+  if (order.status === 'COMPLETED' || order.payment_status === 'PAID') {
+    let codes: string[] = [];
+    try {
+      codes = typeof order.delivered_codes === 'string' ? JSON.parse(order.delivered_codes) : (Array.isArray(order.delivered_codes) ? order.delivered_codes : []);
+    } catch {
+      codes = order.delivered_codes ? [String(order.delivered_codes)] : [];
+    }
+    return { success: false, reason: 'ALREADY_COMPLETED', order, deliveredCodes: codes };
+  }
+
+  // 3. Nếu đơn đã bị hủy hoặc hết hạn
+  const isExpired = order.status === 'CANCELLED' ||
+    order.payment_status === 'EXPIRED' ||
+    (order.expires_at && new Date(order.expires_at).getTime() <= Date.now());
+
+  if (isExpired) {
+    await checkAndExpireOrdersD1(db, orderId);
+    return { success: false, reason: 'EXPIRED', order };
+  }
+
+  // 4. Lấy mã đã giữ chỗ (RESERVED) cho đơn hàng này
+  const reservedCodes = await db.prepare(`
+    SELECT id, code_content 
+    FROM inventory_codes 
+    WHERE order_id = ? AND status = 'RESERVED'
+  `).bind(orderId).all<any>();
+
+  let codeList = (reservedCodes?.results || []).map((c: any) => String(c.code_content || ''));
+  const codeIds = (reservedCodes?.results || []).map((c: any) => String(c.id));
+
+  // Dự phòng trường hợp mã RESERVED bị thiếu
+  if (codeList.length < order.quantity) {
+    const needed = order.quantity - codeList.length;
+    const moreCodes = await db.prepare(`
+      SELECT id, code_content 
+      FROM inventory_codes 
+      WHERE product_id = ? AND status = 'AVAILABLE' 
+      LIMIT ?
+    `).bind(order.product_id, needed).all<any>();
+
+    if (moreCodes?.results && moreCodes.results.length > 0) {
+      for (const mc of moreCodes.results) {
+        codeList.push(String(mc.code_content || ''));
+        codeIds.push(String(mc.id));
+      }
+    }
+  }
+
+  const deliveredJson = JSON.stringify(codeList);
+
+  // 5. Thực thi Batch hoàn tất đơn
+  const stmts: any[] = [];
+
+  for (const cId of codeIds) {
+    stmts.push(
+      db.prepare("UPDATE inventory_codes SET status = 'SOLD', sold_at = datetime('now') WHERE id = ?").bind(cId)
+    );
+  }
+
+  stmts.push(
+    db.prepare(`
+      UPDATE orders 
+      SET status = 'COMPLETED',
+          payment_status = 'PAID',
+          paid_at = datetime('now'),
+          sepay_transaction_id = ?,
+          delivered_codes = ?
+      WHERE id = ?
+    `).bind(sepayTxId, deliveredJson, orderId)
+  );
+
+  stmts.push(
+    db.prepare("UPDATE store_products SET sold_count = sold_count + ? WHERE id = ?").bind(order.quantity, order.product_id)
+  );
+
+  stmts.push(
+    db.prepare(`
+      INSERT INTO sepay_transactions (
+        transaction_id, gateway, account_number, amount_in,
+        transaction_content, member_id, order_id, status, note, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, 'SUCCESS', 'Đã thanh toán đơn QR thành công', datetime('now'))
+    `).bind(sepayTxId, gateway, accountNumber, amount, content, order.member_id, orderId)
+  );
+
+  stmts.push(
+    db.prepare(`
+      INSERT INTO security_logs (action, target_user, details, severity, ip_address, created_at)
+      VALUES ('ORDER_QR_PAID', ?, ?, 'INFO', 'sepay-webhook', datetime('now'))
+    `).bind(order.member_id, JSON.stringify({
+      orderId,
+      productId: order.product_id,
+      quantity: order.quantity,
+      amount,
+      sepayTxId,
+      deliveredCount: codeList.length,
+    }))
+  );
+
+  await db.batch(stmts);
+
+  return {
+    success: true,
+    order: { ...order, status: 'COMPLETED', payment_status: 'PAID', delivered_codes: deliveredJson },
+    deliveredCodes: codeList,
+  };
+}
+
+/**
+ * Ghi nhận ngoại lệ thanh toán SePay (Chuyển thiếu tiền, chuyển sau khi hết hạn, chuyển trùng lặp lần 2).
+ * Tuyệt đối không giao mã, không tự hoàn tiền, lưu lại đầy đủ để quản trị viên xử lý thủ công.
+ */
+export async function recordSepayExceptionD1(db: D1Database, params: {
+  transactionId: string;
+  gateway: string;
+  accountNumber: string;
+  amount: number;
+  content: string;
+  orderId?: string;
+  memberId?: string;
+  status: 'FAILED' | 'UNMATCHED';
+  note: string;
+  action: 'SEPAY_UNDERPAID' | 'SEPAY_EXPIRED_PAYMENT' | 'SEPAY_DUPLICATE_PAYMENT' | 'SEPAY_EXCEPTION';
+}): Promise<void> {
+  const { transactionId, gateway, accountNumber, amount, content, orderId, memberId, status, note, action } = params;
+
+  try {
+    const existingTx = await db.prepare("SELECT id FROM sepay_transactions WHERE transaction_id = ? LIMIT 1").bind(transactionId).first<any>();
+
+    if (existingTx) {
+      await db.prepare(`
+        UPDATE sepay_transactions
+        SET status = ?, amount_in = ?, transaction_content = ?, gateway = ?, account_number = ?, order_id = ?, note = ?
+        WHERE transaction_id = ?
+      `).bind(status, amount, content, gateway, accountNumber, orderId || null, note, transactionId).run().catch(() => {});
+    } else {
+      await db.prepare(`
+        INSERT INTO sepay_transactions (
+          transaction_id, gateway, account_number, amount_in, transaction_content, member_id, order_id, status, note, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+      `).bind(transactionId, gateway, accountNumber, amount, content, memberId || null, orderId || null, status, note).run().catch(() => {});
+    }
+
+    await db.prepare(`
+      INSERT INTO security_logs (action, target_user, details, severity, ip_address, created_at)
+      VALUES (?, ?, ?, 'WARNING', 'sepay-webhook', datetime('now'))
+    `).bind(action, orderId || memberId || 'SEPAY', JSON.stringify({ transactionId, amount, content, orderId, note })).run().catch(() => {});
+  } catch (e) {
+    console.warn('[recordSepayExceptionD1 error]', e);
+  }
+}
+
 
 
 

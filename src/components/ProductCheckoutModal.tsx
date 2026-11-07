@@ -19,6 +19,9 @@ import {
   TrendingUp,
   BookOpen,
   ExternalLink,
+  QrCode,
+  Clock,
+  RefreshCw,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { CyberLoader } from './CyberLoader';
@@ -88,6 +91,17 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
     }
     return null;
   });
+
+  const [sepayConfig] = useState(() => dataService.getSePayConfig());
+  const minQrAmount = Number(sepayConfig?.minQrAmount || 2000);
+  const [paymentMethod, setPaymentMethod] = useState<'wallet' | 'vietqr'>('wallet');
+
+  const [qrOrder, setQrOrder] = useState<any | null>(null);
+  const [qrStatus, setQrStatus] = useState<'idle' | 'creating' | 'waiting' | 'paid' | 'expired' | 'error'>('idle');
+  const [qrSecondsLeft, setQrSecondsLeft] = useState<number>(900);
+  const [qrCopiedField, setQrCopiedField] = useState<string | null>(null);
+  const pollTimerRef = React.useRef<any>(null);
+  const countdownTimerRef = React.useRef<any>(null);
 
   const [priceEscalatedDialog, setPriceEscalatedDialog] = useState<{
     isOpen: boolean;
@@ -287,6 +301,144 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
   const isPriceValid = !isNaN(totalPrice) && totalPrice > 0;
   const isBalanceEnough = isPriceValid && (userBalance >= totalPrice);
   const checkoutDisplayStock = realStock <= 0 ? 0 : marketingService.getDisplayStock(effectiveTargetId, realStock);
+
+  useEffect(() => {
+    return () => {
+      if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+      if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+    };
+  }, []);
+
+  const isQrAvailable = isPriceValid && (totalPrice >= minQrAmount);
+
+  useEffect(() => {
+    if (!isQrAvailable && paymentMethod === 'vietqr') {
+      setPaymentMethod('wallet');
+      if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+      if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+      setQrStatus('idle');
+    }
+  }, [isQrAvailable, paymentMethod]);
+
+  const handleCopyQrField = (text: string, fieldName: string) => {
+    navigator.clipboard.writeText(text);
+    setQrCopiedField(fieldName);
+    setTimeout(() => setQrCopiedField(null), 1500);
+    onShowToast('Đã sao chép!', text, 'info');
+  };
+
+  const formatCountdown = (totalSec: number) => {
+    const mins = Math.floor(totalSec / 60);
+    const secs = totalSec % 60;
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  };
+
+  const startQrPolling = (orderId: string, expiresAtMs: number) => {
+    if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+    if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+
+    countdownTimerRef.current = setInterval(() => {
+      const left = Math.max(0, Math.floor((expiresAtMs - Date.now()) / 1000));
+      setQrSecondsLeft(left);
+      if (left <= 0) {
+        clearInterval(countdownTimerRef.current);
+        clearInterval(pollTimerRef.current);
+        setQrStatus('expired');
+      }
+    }, 1000);
+
+    pollTimerRef.current = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/orders/status?order_id=${encodeURIComponent(orderId)}&t=${Date.now()}`);
+        if (!res.ok) return;
+        const data = await res.json().catch(() => ({}));
+        if (data.status === 'COMPLETED') {
+          clearInterval(pollTimerRef.current);
+          clearInterval(countdownTimerRef.current);
+          setQrStatus('paid');
+
+          confetti({
+            particleCount: 90,
+            spread: 70,
+            origin: { y: 0.6 },
+          });
+
+          onShowToast('Thanh Toán Thành Công!', 'Đơn hàng QR đã hoàn tất, mã quà đã được giao vào kho của bạn.', 'success');
+
+          const codeList = data.order?.deliveredCodes || [];
+          setCompletedOrder({
+            id: data.order.id,
+            orderCode: data.order.id,
+            productId: effectiveTargetId,
+            product_id: effectiveTargetId,
+            productTitle: liveProduct?.title,
+            product_title: liveProduct?.title,
+            game_name: liveProduct?.game_name || 'Game',
+            amount: data.order.totalAmount,
+            quantity: safeQty,
+            unit_price: Math.round(data.order.totalAmount / safeQty),
+            code_content: codeList.join('\n'),
+            code_items: codeList,
+            deliveredCodes: codeList,
+            status: 'completed',
+            created_at: new Date().toISOString(),
+            createdAt: new Date().toISOString(),
+            payment_method: 'vietqr',
+          } as any);
+        } else if (data.status === 'EXPIRED') {
+          clearInterval(pollTimerRef.current);
+          clearInterval(countdownTimerRef.current);
+          setQrStatus('expired');
+        }
+      } catch {}
+    }, 2500);
+  };
+
+  const handleCreateQrOrder = async () => {
+    if (!user) {
+      if (onOpenAuth) onOpenAuth();
+      onShowToast('Cần đăng nhập', 'Vui lòng đăng nhập tài khoản để thanh toán.', 'info');
+      return;
+    }
+    if (maxStock <= 0) {
+      onShowToast('Hết hàng', 'Sản phẩm tạm thời hết hàng trong kho.', 'error');
+      return;
+    }
+    setQrStatus('creating');
+    try {
+      const token = user.session_token || localStorage.getItem('wcg_auth_token') || '';
+      const res = await fetch('/api/orders/create-qr', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'Idempotency-Key': idempotencyKey,
+        },
+        body: JSON.stringify({
+          productId: effectiveTargetId,
+          productTitle: liveProduct?.title,
+          quantity: safeQty,
+          expected_price: totalPrice,
+          idempotencyKey,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        setQrStatus('error');
+        onShowToast('Lỗi tạo mã QR', data.message || 'Không thể khởi tạo mã QR thanh toán.', 'error');
+        return;
+      }
+      setQrOrder(data.order);
+      setQrStatus('waiting');
+      const expiresAtMs = data.order?.expiresAt ? new Date(data.order.expiresAt).getTime() : Date.now() + 15 * 60 * 1000;
+      setQrSecondsLeft(Math.max(0, Math.floor((expiresAtMs - Date.now()) / 1000)));
+
+      startQrPolling(data.order.id, expiresAtMs);
+    } catch (err: any) {
+      setQrStatus('error');
+      onShowToast('Lỗi kết nối', err?.message || 'Không thể kết nối đến máy chủ.', 'error');
+    }
+  };
 
   const handleDecreaseQty = () => {
     if (isEscalating || maxStock <= 0) return;
@@ -909,7 +1061,260 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
                 </div>
               )}
 
-              {/* Wallet Method & Balance Box */}
+                            {/* Payment Method Selector (Chỉ hiện khi đơn hàng >= ngưỡng minQrAmount, mặc định 2.000) */}
+              {isQrAvailable && (
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block">
+                    Phương Thức Thanh Toán
+                  </label>
+                  <div className="grid grid-cols-2 gap-2 p-1 bg-muted/50 border border-border/80 rounded-2xl">
+                    <button
+                      type="button"
+                      onClick={() => setPaymentMethod('wallet')}
+                      className={`py-2.5 px-3 rounded-xl flex items-center justify-center gap-2 font-bold text-xs transition-all cursor-pointer ${
+                        paymentMethod === 'wallet'
+                          ? 'bg-card text-foreground shadow-sm border border-border font-black'
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      <Wallet className="w-4 h-4 text-amber-400" />
+                      <span className="truncate">Số Dư Core ({formatCore(userBalance)})</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPaymentMethod('vietqr')}
+                      className={`py-2.5 px-3 rounded-xl flex items-center justify-center gap-2 font-bold text-xs transition-all cursor-pointer ${
+                        paymentMethod === 'vietqr'
+                          ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-sm font-black'
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      <QrCode className="w-4 h-4 text-emerald-300" />
+                      <span className="truncate">Mã VietQR ({totalPrice.toLocaleString('vi-VN')}đ)</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {paymentMethod === 'vietqr' ? (
+                <div className="space-y-3.5">
+                  {/* Summary Box */}
+                  <div className="p-4 rounded-2xl bg-card border border-border space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="p-2 rounded-xl bg-emerald-500/15 text-emerald-400">
+                          <QrCode className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <span className="text-xs font-bold text-foreground block">Thanh Toán Bằng VietQR</span>
+                          <span className="text-[11px] text-muted-foreground">Tự động nhận qua SePay</span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider block">Tỷ giá quy đổi</span>
+                        <span className="text-xs font-bold font-mono text-emerald-400">1 VND = 1 Core</span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="p-2.5 rounded-xl bg-muted/40 border border-border flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">Số lượng mua:</span>
+                        <span className="font-mono font-bold text-foreground">{safeQty} gói</span>
+                      </div>
+                      <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between text-xs">
+                        <span className="font-bold text-foreground">Số tiền thanh toán:</span>
+                        <span className="font-display font-black text-base text-emerald-400">
+                          {totalPrice.toLocaleString('vi-VN')} đ
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* QR States Container */}
+                  {qrStatus === 'idle' && (
+                    <div className="p-4 rounded-2xl bg-card border border-emerald-500/30 space-y-3 text-xs">
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/30">
+                          <QrCode className="w-5 h-5" />
+                        </div>
+                        <div className="space-y-1">
+                          <p className="font-bold text-foreground text-sm">Thanh Toán Trực Tiếp Không Cần Nạp Core</p>
+                          <p className="text-muted-foreground leading-relaxed">
+                            Quét mã bằng ứng dụng ngân hàng bất kỳ để thanh toán đúng <strong>{totalPrice.toLocaleString('vi-VN')} đ</strong>. Hệ thống tự động giao mã ngay trong 3 giây khi tiền vào tài khoản shop.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="p-2.5 rounded-xl bg-muted/40 border border-border/80 flex items-center justify-between font-mono text-[11px]">
+                        <span className="text-muted-foreground">Thời hạn giữ chỗ mã kho:</span>
+                        <span className="font-bold text-emerald-400 flex items-center gap-1">
+                          <Clock className="w-3.5 h-3.5" /> 15 phút
+                        </span>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleCreateQrOrder}
+                        disabled={maxStock <= 0 || !isPriceValid}
+                        className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 hover:opacity-95 text-slate-950 font-black text-sm transition-all cursor-pointer shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2"
+                      >
+                        <QrCode className="w-4 h-4" />
+                        <span>Tạo Mã VietQR Thanh Toán • {totalPrice.toLocaleString('vi-VN')} đ</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {qrStatus === 'creating' && (
+                    <div className="p-6 rounded-2xl bg-card border border-emerald-500/30 text-center space-y-3">
+                      <CyberLoader isOverlay={false} title="ĐANG TẠO MÃ QR..." subText="Hệ thống đang tạm giữ mã quà tặng trong kho bảo mật cho bạn..." />
+                    </div>
+                  )}
+
+                  {qrStatus === 'waiting' && qrOrder && (
+                    <div className="p-4 rounded-2xl bg-card border border-emerald-500/40 space-y-4 text-xs animate-scale-in">
+                      {/* Countdown Header */}
+                      <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 text-amber-400 font-bold">
+                          <Clock className="w-4 h-4 animate-pulse" />
+                          <span>Hết hạn sau:</span>
+                        </div>
+                        <span className="font-mono font-black text-base text-amber-300">
+                          {formatCountdown(qrSecondsLeft)}
+                        </span>
+                      </div>
+
+                      {/* VietQR Image */}
+                      <div className="text-center space-y-2">
+                        <div className="inline-block p-2 rounded-2xl bg-white border-2 border-emerald-500/50 shadow-xl shadow-emerald-500/10">
+                          <img
+                            src={qrOrder.qrUrls?.primary || qrOrder.qrUrls?.fallback}
+                            alt="VietQR Payment"
+                            className="w-48 h-48 sm:w-56 sm:h-56 mx-auto object-contain rounded-xl"
+                          />
+                        </div>
+                        <p className="text-[11px] text-muted-foreground italic">
+                          Mở App Ngân Hàng hoặc Ví Điện Tử quét mã QR ở trên
+                        </p>
+                      </div>
+
+                      {/* Bank Details Table with Fast Copy */}
+                      <div className="p-3 rounded-xl bg-muted/60 border border-border/80 space-y-2 text-xs">
+                        <div className="flex items-center justify-between pb-1.5 border-b border-border/50">
+                          <span className="text-muted-foreground">Ngân hàng:</span>
+                          <span className="font-bold text-foreground">{qrOrder.bankInfo?.bankName}</span>
+                        </div>
+
+                        <div className="flex items-center justify-between pb-1.5 border-b border-border/50">
+                          <span className="text-muted-foreground">Số tài khoản:</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono font-bold text-primary-light">{qrOrder.bankInfo?.accountNumber}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleCopyQrField(qrOrder.bankInfo?.accountNumber, 'acc')}
+                              className="p-1 rounded bg-muted hover:bg-muted-foreground/20 text-muted-foreground hover:text-foreground transition-all cursor-pointer"
+                              title="Sao chép STK"
+                            >
+                              {qrCopiedField === 'acc' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between pb-1.5 border-b border-border/50">
+                          <span className="text-muted-foreground">Chủ tài khoản:</span>
+                          <span className="font-bold text-foreground">{qrOrder.bankInfo?.bankAccount}</span>
+                        </div>
+
+                        <div className="flex items-center justify-between pb-1.5 border-b border-border/50">
+                          <span className="text-muted-foreground">Số tiền:</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono font-black text-emerald-400 text-sm">
+                              {Number(qrOrder.bankInfo?.amount).toLocaleString('vi-VN')} đ
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleCopyQrField(String(qrOrder.bankInfo?.amount), 'amt')}
+                              className="p-1 rounded bg-muted hover:bg-muted-foreground/20 text-muted-foreground hover:text-foreground transition-all cursor-pointer"
+                              title="Sao chép số tiền"
+                            >
+                              {qrCopiedField === 'amt' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-0.5">
+                          <span className="text-muted-foreground">Nội dung CK:</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono font-bold text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                              {qrOrder.bankInfo?.content}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleCopyQrField(qrOrder.bankInfo?.content, 'memo')}
+                              className="p-1 rounded bg-muted hover:bg-muted-foreground/20 text-muted-foreground hover:text-foreground transition-all cursor-pointer"
+                              title="Sao chép nội dung chuyển khoản"
+                            >
+                              {qrCopiedField === 'memo' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Listening Indicator */}
+                      <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center gap-2 text-emerald-400 font-semibold text-xs animate-pulse">
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Hệ thống đang chờ nhận tiền để tự động giao mã (2-5 giây)...</span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1">
+                        <span>Mã đơn: <strong className="font-mono text-foreground">{qrOrder.id}</strong></span>
+                        <button
+                          type="button"
+                          onClick={handleCreateQrOrder}
+                          className="text-secondary hover:underline cursor-pointer flex items-center gap-1 font-semibold"
+                        >
+                          <RefreshCw className="w-3 h-3" /> Tạo lại mã khác
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {qrStatus === 'expired' && (
+                    <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-center space-y-3 text-xs animate-scale-in">
+                      <div className="w-10 h-10 rounded-xl bg-rose-500/20 text-rose-400 flex items-center justify-center mx-auto border border-rose-500/30">
+                        <AlertCircle className="w-5 h-5" />
+                      </div>
+                      <div className="space-y-1">
+                        <p className="font-bold text-foreground text-sm">Mã QR Đã Hết Hạn</p>
+                        <p className="text-muted-foreground leading-relaxed">
+                          Đơn hàng đã hết hạn sau 15 phút. Mã quà tặng đã được hoàn trả lại vào kho. Nếu bạn đã chuyển khoản muộn, vui lòng liên hệ admin kèm biên lai để được hỗ trợ.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleCreateQrOrder}
+                        className="w-full py-3 rounded-xl bg-gradient-to-r from-secondary to-primary hover:opacity-95 text-white font-bold text-xs transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" />
+                        <span>Tạo Mã VietQR Mới</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Guarantees */}
+                  <div className="grid grid-cols-2 gap-2.5 text-[11px] text-muted-foreground">
+                    <div className="p-2.5 rounded-xl bg-muted/30 border border-border flex items-center gap-1.5">
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                      <span>Bảo hành hoàn tiền 100%</span>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-muted/30 border border-border flex items-center gap-1.5">
+                      <Zap className="w-3.5 h-3.5 text-secondary shrink-0" />
+                      <span>Giao mã tự động ngay</span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <>
+{/* Wallet Method & Balance Box */}
               <div className="p-4 rounded-2xl bg-card border border-border space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -1061,6 +1466,8 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
                     : `Xác Nhận Mua ${safeQty > 1 ? `(${safeQty} Gói)` : ''} • ${formatCore(totalPrice)}`}
                 </span>
               </button>
+                </>
+              )}
             </div>
           )}
         </div>

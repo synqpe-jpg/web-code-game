@@ -24,6 +24,7 @@ interface OrdersModuleProps {
 export const OrdersModule: React.FC<OrdersModuleProps> = ({ onShowToast }) => {
   const [orders, setOrders] = useState<AdminOrderRecord[]>([]);
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [methodFilter, setMethodFilter] = useState('ALL');
   const [viewingOrder, setViewingOrder] = useState<AdminOrderRecord | null>(null);
   const [refundingOrder, setRefundingOrder] = useState<AdminOrderRecord | null>(null);
   const [refundReason] = useState('Mã thẻ không nạp được / Lỗi từ phía nhà phát hành');
@@ -73,14 +74,23 @@ export const OrdersModule: React.FC<OrdersModuleProps> = ({ onShowToast }) => {
       channel?.close();
       window.removeEventListener('wcg_admin_data_updated', onDataUpdated);
     };
-  }, [statusFilter]);
+  }, [statusFilter, methodFilter]);
 
   const loadOrders = () => {
     setIsLoading(true);
     const filterObj: any = {};
     if (statusFilter !== 'ALL') filterObj.status = statusFilter;
 
-    const data = adminDataService.getOrders(filterObj);
+    let data = adminDataService.getOrders(filterObj);
+    if (statusFilter === 'PENDING') {
+      data = data.filter((o) => o.status === 'PENDING' || (o as any).payment_status === 'PENDING_PAYMENT');
+    }
+    if (methodFilter !== 'ALL') {
+      data = data.filter((o) => {
+        const isQr = o.paymentMethod === 'VIETQR' || (o as any).payment_method === 'vietqr' || o.id?.startsWith('ORD-QR');
+        return methodFilter === 'VIETQR' ? isQr : !isQr;
+      });
+    }
     setOrders(data);
     setIsLoading(false);
   };
@@ -198,17 +208,43 @@ export const OrdersModule: React.FC<OrdersModuleProps> = ({ onShowToast }) => {
     {
       key: 'paymentMethod',
       header: 'Phương Thức',
-      render: (item) => (
-        <span className="rounded-lg bg-slate-100 px-2 py-1 text-[11px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-          {item.paymentMethod === 'WALLET' ? 'Ví Thành Viên' : 'SePay Chuyển Khoản'}
-        </span>
-      ),
+      render: (item) => {
+        const isQr = item.paymentMethod === 'VIETQR' || (item as any).payment_method === 'vietqr' || item.id?.startsWith('ORD-QR');
+        return (
+          <span className={`rounded-lg px-2 py-1 text-[11px] font-semibold ${
+            isQr 
+              ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+              : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+          }`}>
+            {isQr ? '⚡ VietQR Trực Tiếp' : 'Ví Thành Viên'}
+          </span>
+        );
+      },
     },
     {
       key: 'status',
       header: 'Trạng Thái',
       sortable: true,
-      render: (item) => <StatusBadge status={item.status} size="sm" />,
+      render: (item) => {
+        const pStatus = (item as any).payment_status || (item as any).paymentStatus;
+        const isPendingQr = pStatus === 'PENDING_PAYMENT' || item.status === 'PENDING';
+        const isExpiredQr = pStatus === 'EXPIRED' || item.status === 'CANCELLED';
+        if (isPendingQr) {
+          return (
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-600 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200 dark:border-amber-800 animate-pulse">
+              Chờ thanh toán QR
+            </span>
+          );
+        }
+        if (isExpiredQr) {
+          return (
+            <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-bold text-rose-600 dark:bg-rose-950/40 dark:text-rose-400 border border-rose-200 dark:border-rose-800">
+              Đã hết hạn / Hủy
+            </span>
+          );
+        }
+        return <StatusBadge status={item.status} size="sm" />;
+      },
     },
     {
       key: 'createdAt',
@@ -296,11 +332,22 @@ export const OrdersModule: React.FC<OrdersModuleProps> = ({ onShowToast }) => {
             options: [
               { label: 'Tất cả trạng thái', value: 'ALL' },
               { label: 'Hoàn thành (COMPLETED)', value: 'COMPLETED' },
-              { label: 'Đang xử lý (PROCESSING)', value: 'PROCESSING' },
+              { label: 'Chờ thanh toán QR (PENDING)', value: 'PENDING' },
+              { label: 'Hết hạn / Đã hủy (CANCELLED)', value: 'CANCELLED' },
               { label: 'Đã hoàn tiền (REFUNDED)', value: 'REFUNDED' },
-              { label: 'Đã hủy (CANCELLED)', value: 'CANCELLED' },
             ],
             onChange: setStatusFilter,
+          },
+          {
+            key: 'paymentMethod',
+            label: 'Phương thức',
+            selectedValue: methodFilter,
+            options: [
+              { label: 'Tất cả phương thức', value: 'ALL' },
+              { label: 'Ví Thành Viên', value: 'WALLET' },
+              { label: 'VietQR Trực Tiếp', value: 'VIETQR' },
+            ],
+            onChange: setMethodFilter,
           },
         ]}
       />

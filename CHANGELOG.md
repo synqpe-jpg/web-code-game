@@ -7,6 +7,43 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-07]
 
+### 337. Thanh Toán Trực Tiếp Bằng Mã VietQR Theo Đúng Giá Sản Phẩm + Mở Ngưỡng Nạp/Thanh Toán Từ 2.000 Core/VND
+- **Bối cảnh & Yêu cầu nghiệp vụ**:
+  - Khách hàng có nhu cầu mua gói sản phẩm trực tiếp bằng mã QR (VietQR / SePay) với đúng số tiền thực trả của gói đó (đã áp dụng ưu đãi mua lần đầu hoặc Nâng Giá nếu có), không cần nạp Core vào ví trước.
+  - Mở rộng ngưỡng nạp tiền và thanh toán QR trực tiếp từ 2.000 trở lên (mặc định 2.000 Core/VND, có thể điều chỉnh linh hoạt trong trang quản trị). Đơn hàng dưới ngưỡng 2.000 Core sẽ ẩn tab QR và chỉ thanh toán bằng số dư Core như cũ.
+  - Tỷ giá quy đổi chuẩn hóa cố định toàn hệ thống: **1 VND = 1 Core** (không tự ý đặt tỷ giá khác).
+  - Quản lý vòng đời đơn QR: Thời hạn thanh toán mặc định 15 phút (`expires_at`), có đồng hồ đếm ngược trực quan. Quá hạn hệ thống tự động hủy đơn (`CANCELLED` / `EXPIRED`), hoàn trả mã quà về tồn kho (`AVAILABLE`) và khôi phục tồn kho sản phẩm (`stock_quantity`).
+  - Cơ chế giữ chỗ mã kho (Inventory Reservation): Khi tạo đơn QR chờ thanh toán (`PENDING_PAYMENT`), lập tức tạm giữ 1 mã kho (`RESERVED`) và gán `order_id` để tránh tranh chấp tồn kho với người khác trong thời gian 15 phút.
+  - Xử lý toàn diện các kịch bản Webhook SePay:
+    1. Chuyển khoản đúng tiền, đúng hạn: Hoàn tất đơn (`COMPLETED`), giao ngay mã vào kho khách và màn hình thành công, số dư Core không đổi.
+    2. Chuyển khoản thiếu tiền: Không hoàn tất đơn, không giao mã, ghi nhận `UNDERPAID` vào `sepay_transactions` và `security_logs`.
+    3. Chuyển khoản sau khi hết hạn 15 phút: Không giao mã (mã đã nhả về kho), ghi nhận `EXPIRED_PAYMENT` để chủ shop xử lý thủ công.
+    4. Chuyển khoản 2 lần cho cùng 1 đơn: Giao đúng 1 mã ở lần đầu; lần 2 chặn tuyệt đối không giao thêm mã (`DUPLICATE_PAYMENT`), webhook trùng transaction trả về `DUPLICATE_IDEMPOTENT`. Tuyệt đối không tự động hoàn tiền.
+    5. Luồng nạp Core qua QR: Áp dụng ngưỡng nạp mới từ 2.000 trở lên, cộng ngay Core khả dụng vào ví (không áp giữ 168h).
+  - Quản trị & Nhật ký: OrdersModule hiển thị phương thức `⚡ VietQR Trực Tiếp` / `Ví Thành Viên`, lọc theo phương thức và đơn hết hạn; SePayModule hiển thị chi tiết badge và mã đơn ngoại lệ (`UNDERPAID`, `EXPIRED_PAYMENT`, `DUPLICATE_PAYMENT`).
+- **Chi tiết triển khai kỹ thuật**:
+  1. *Cơ sở dữ liệu D1 (`functions/services/d1_service.ts`)*:
+     - Migration `direct_qr_payment_v1`: Bổ sung `payment_method TEXT DEFAULT 'WALLET'`, `expires_at TEXT`, `paid_at TEXT`, `sepay_transaction_id TEXT`, `payment_status TEXT DEFAULT 'PAID'` vào bảng `orders`; bổ sung `order_id TEXT`, `note TEXT` vào `sepay_transactions` kèm đánh index phục vụ truy vấn tốc độ cao.
+     - Hàm `createQrOrderD1`: Nguyên tử hóa việc tìm mã `AVAILABLE`, đổi sang `RESERVED`, trừ `stock_quantity`, tạo đơn `PENDING` (`payment_status = 'PENDING_PAYMENT'`).
+     - Hàm `checkAndExpireOrdersD1`: Quét các đơn QR quá hạn, tự động đưa trạng thái về `CANCELLED`/`EXPIRED`, hoàn trả mã về `AVAILABLE` và cộng lại `stock_quantity`.
+     - Hàm `completeQrOrderD1`: Xác nhận thanh toán, chuyển đơn sang `COMPLETED`/`PAID`, giao mã `SOLD`, tăng `sold_count`, ghi nhận bản ghi `sepay_transactions` và `security_logs`.
+     - Hàm `recordSepayExceptionD1`: Ghi log ngoại lệ SePay với note cụ thể.
+  2. *Cloudflare Pages Edge Endpoints*:
+     - `POST /api/orders/create-qr`: Xác thực session, tính giá máy chủ (hỗ trợ Nâng Giá & Mua lần đầu), kiểm tra ngưỡng $\ge 2.000$, gọi `createQrOrderD1`, sinh URL VietQR chuẩn format Quick Link (`img.vietqr.io`).
+     - `GET /api/orders/status`: Kích hoạt `checkAndExpireOrdersD1`, trả về trạng thái đơn hàng và mã sản phẩm đã giao khi hoàn tất.
+     - `functions/_worker.ts`: Đăng ký hai route mới trực tiếp trên Edge Worker.
+  3. *Webhook SePay Server-Side (`functions/api/webhooks/sepay.ts`)*:
+     - Bổ sung Regex nhận dạng mã đơn `\b(ORD(?:-QR)?-[A-Za-z0-9_-]+)\b`.
+     - Xử lý 4 kịch bản thanh toán đơn hàng QR trực tiếp và mở ngưỡng nạp ví Core từ 2.000 VND.
+  4. *Giao diện Khách hàng & Quản trị*:
+     - `ProductCheckoutModal.tsx`: Tích hợp tab thanh toán VietQR trực tiếp khi đơn $\ge 2.000$, hiển thị QR code, thông tin chuyển khoản (kèm nút sao chép nhanh), đếm ngược 15 phút, tự động polling trạng thái mỗi 2.5s và hiển thị mã quà tặng ngay khi hoàn tất.
+     - `UserWalletModal.tsx`: Chuyển mức nạp tối thiểu sang dynamic từ config SePay (mặc định 2.000 Core), bổ sung mức 2.000 và 5.000 vào quick amounts.
+     - `OrdersModule.tsx` & `SePayModule.tsx`: Cung cấp bộ lọc, badge trạng thái và theo dõi chi tiết các giao dịch QR.
+- **Kết quả nghiệm thu**:
+  - Biên dịch toàn dự án đạt 100% không phát sinh lỗi.
+  - Toàn bộ 13/13 bài kiểm thử logic, ngoại lệ SePay và state machine đạt 100%.
+  - Zero Test Artifacts on Production đạt 100%.
+
 ### 336. Khắc Phục Triệt Để Lỗi Cộng Core Cho Thành Viên Trong Admin Không Tăng Số Dư Khách Hàng (Tạo Endpoint D1 Batch Server-Authoritative, Ghi Sổ Cái Ví & Nhật Ký Kiểm Toán)
 - **Bối cảnh & Triệu chứng**:
   - Chủ shop thực hiện cộng Core cho khách trong trang Quản Lý Người Dùng (`admin#/members` hoặc `admin#/wallet`), hệ thống thông báo thành công xanh nhưng số dư của khách hàng hoàn toàn KHÔNG tăng trên web khách, header tài khoản, bảng thanh toán và database Cloudflare D1.

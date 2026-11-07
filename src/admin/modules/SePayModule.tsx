@@ -59,6 +59,8 @@ export const SePayModule: React.FC<SePayModuleProps> = ({ onShowToast }) => {
   const [accountNumber, setAccountNumber] = useState('');
   const [bankName, setBankName] = useState('MBBank');
   const [paymentPrefix, setPaymentPrefix] = useState('WCG');
+  const [minQrAmount, setMinQrAmount] = useState(2000);
+  const [qrOrderExpiryMinutes, setQrOrderExpiryMinutes] = useState(15);
   const [isSavingConfig, setIsSavingConfig] = useState(false);
   const [isStep2ConfigModalOpen, setIsStep2ConfigModalOpen] = useState(false);
   const [isTestingApiKey, setIsTestingApiKey] = useState(false);
@@ -98,6 +100,8 @@ export const SePayModule: React.FC<SePayModuleProps> = ({ onShowToast }) => {
       setAccountNumber(cfg.accountNumber || '0987654321');
       setBankName(cfg.bankName || 'MBBank');
       setPaymentPrefix(cfg.paymentPrefix || 'WCG');
+      setMinQrAmount(cfg.minQrAmount || 2000);
+      setQrOrderExpiryMinutes(cfg.qrOrderExpiryMinutes || 15);
     }
     const l = adminDataService.getSePayLogs();
     setLogs(l);
@@ -137,6 +141,8 @@ export const SePayModule: React.FC<SePayModuleProps> = ({ onShowToast }) => {
         accountNumber: accountNumber.trim(),
         bankName: bankName,
         paymentPrefix: paymentPrefix.trim() || 'WCG',
+        minQrAmount: Number(minQrAmount) > 0 ? Number(minQrAmount) : 2000,
+        qrOrderExpiryMinutes: Number(qrOrderExpiryMinutes) > 0 ? Number(qrOrderExpiryMinutes) : 15,
         isConnected: Boolean(apiKey.trim()),
         webhookSecretSet: true,
         autoCreditCoreRatio: 1,
@@ -346,7 +352,25 @@ export const SePayModule: React.FC<SePayModuleProps> = ({ onShowToast }) => {
       key: 'status',
       header: 'Trạng Thái',
       sortable: true,
-      render: (item) => <StatusBadge status={item.status} size="sm" />,
+      render: (item) => (
+        <div>
+          <StatusBadge status={item.status} size="sm" />
+          {item.note && (
+            <p className="text-[10px] text-amber-500 font-mono mt-0.5 max-w-[200px] truncate" title={item.note}>
+              {item.note.includes('UNDERPAID')
+                ? '⚠️ Chuyển thiếu tiền'
+                : item.note.includes('EXPIRED_PAYMENT')
+                ? '⏰ Hết hạn 15p'
+                : item.note.includes('DUPLICATE_PAYMENT')
+                ? '🔁 Chuyển tiền đúp'
+                : item.note}
+            </p>
+          )}
+          {item.orderId && (
+            <p className="text-[10px] text-indigo-400 font-mono">Đơn: {item.orderId}</p>
+          )}
+        </div>
+      ),
     },
     {
       key: 'processedAt',
@@ -640,6 +664,40 @@ export const SePayModule: React.FC<SePayModuleProps> = ({ onShowToast }) => {
                   onChange={(e) => setPaymentPrefix(e.target.value.toUpperCase())}
                   className="mt-1 w-full font-mono text-xs uppercase font-bold rounded-xl border border-slate-200 bg-white p-2.5 text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                 />
+              </div>
+
+              {/* Ngưỡng nạp & thanh toán QR tối thiểu */}
+              <div>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Ngưỡng Nạp & Thanh Toán QR Tối Thiểu (VND/Core) <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  required
+                  min={100}
+                  step={100}
+                  value={minQrAmount}
+                  onChange={(e) => setMinQrAmount(Math.max(100, Number(e.target.value) || 2000))}
+                  className="mt-1 w-full font-mono text-xs font-bold rounded-xl border border-slate-200 bg-white p-2.5 text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                />
+                <span className="text-[10px] text-slate-400">Đơn hàng hoặc nạp ví dưới mức này sẽ không hiện QR (mặc định 2.000).</span>
+              </div>
+
+              {/* Thời gian hết hạn đơn QR */}
+              <div>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Thời Gian Hết Hạn Đơn Hàng QR (Phút) <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  required
+                  min={5}
+                  max={60}
+                  value={qrOrderExpiryMinutes}
+                  onChange={(e) => setQrOrderExpiryMinutes(Math.max(5, Math.min(60, Number(e.target.value) || 15)))}
+                  className="mt-1 w-full font-mono text-xs font-bold rounded-xl border border-slate-200 bg-white p-2.5 text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                />
+                <span className="text-[10px] text-slate-400">Thời gian giữ chỗ mã quà trong kho trước khi tự hủy (mặc định 15 phút).</span>
               </div>
             </div>
 

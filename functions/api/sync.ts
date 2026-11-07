@@ -1193,7 +1193,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
               return { results: [] as any[] };
             }),
             loadAllMembersD1(env.DB, true).catch(() => []),
-            env.DB.prepare("SELECT id, transaction_id as transactionId, gateway, account_number as accountNumber, amount_in as transferAmount, transaction_content as content, member_id as memberId, status, created_at as processedAt FROM sepay_transactions ORDER BY created_at DESC LIMIT 200").all().catch(() => ({ results: [] as any[] })),
+            env.DB.prepare("SELECT id, transaction_id as transactionId, gateway, account_number as accountNumber, amount_in as transferAmount, transaction_content as content, member_id as memberId, order_id as orderId, status, note, created_at as processedAt FROM sepay_transactions ORDER BY created_at DESC LIMIT 200").all().catch(() => ({ results: [] as any[] })),
           ]);
           if (d1InvRes && d1InvRes.results) {
             responsePayload.inventory = d1InvRes.results.map((i: any) => ({
@@ -1242,7 +1242,12 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
                 quantity: Number(o.quantity) || 1,
                 unitPrice: Number(o.unit_price ?? o.unitPrice) || 0,
                 amount: Number(o.total_amount ?? o.amount) || 0,
-                paymentMethod: 'WALLET',
+                paymentMethod: (o.payment_method || 'WALLET').toUpperCase() === 'VIETQR' ? 'VIETQR' : 'WALLET',
+                payment_method: o.payment_method || 'wallet',
+                payment_status: o.payment_status || (o.status === 'COMPLETED' ? 'PAID' : (o.status === 'CANCELLED' ? 'EXPIRED' : 'PENDING_PAYMENT')),
+                expires_at: o.expires_at || null,
+                paid_at: o.paid_at || null,
+                sepay_transaction_id: o.sepay_transaction_id || null,
                 deliveredCodes: delCodes,
                 status: o.status || 'COMPLETED',
                 createdAt: o.created_at || o.createdAt || new Date().toISOString(),

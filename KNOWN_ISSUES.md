@@ -10,6 +10,23 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-239: Bẫy CHECK Constraint Orders Status Trong SQLite D1, Bẫy Mất Tồn Kho Khi Đơn QR Hết Hạn & Bẫy Double-Delivery Khi Khách Chuyển Khoản Hai Lần
+- **Triệu chứng & Rủi ro**:
+  1. Khi bổ sung trạng thái đơn hàng QR, nếu cố tình đặt `orders.status = 'PENDING_PAYMENT'`, cơ sở dữ liệu Cloudflare D1 sẽ văng lỗi `CHECK constraint failed: status IN ('PENDING', 'COMPLETED', 'FAILED', 'CANCELLED')` khiến đơn hàng không thể tạo được.
+  2. Khi khách tạo đơn QR nhưng không thanh toán trong 15 phút, nếu hệ thống không có routine quét `checkAndExpireOrdersD1` để chuyển đơn sang `CANCELLED` và trả mã kho về `AVAILABLE`, mã sản phẩm sẽ bị giữ vĩnh viễn ở trạng thái `RESERVED` và sản phẩm bị hụt mất tồn kho bán hàng (`stock_quantity`).
+  3. Khi khách chuyển khoản 2 lần cho cùng 1 đơn hàng (hoặc webhook SePay bị retry lặp lại), nếu không kiểm tra `order.status === 'COMPLETED'`, hệ thống có thể giao thêm 1 mã quà tặng nữa cho khách mà không thu thêm tiền thật.
+  4. Nếu webhook tự động hoàn tiền khi gặp giao dịch trễ hạn hoặc thiếu tiền, shop sẽ đối mặt nguy cơ bị kẻ gian lợi dụng trục lợi tài khoản ngân hàng.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Giữ nguyên `orders.status` tuân thủ CHECK constraint (`'PENDING'`, `'COMPLETED'`, `'CANCELLED'`), đồng thời bổ sung cột riêng `payment_status` (`'PENDING_PAYMENT'`, `'PAID'`, `'EXPIRED'`) và `payment_method` (`'WALLET'`, `'VIETQR'`).
+  2. Xây dựng hàm nguyên tử `checkAndExpireOrdersD1`: tự động kích hoạt mỗi khi kiểm tra trạng thái đơn qua `/api/orders/status`. Khi đơn quá hạn `expires_at`, tự động chuyển đơn sang `CANCELLED` / `EXPIRED`, đưa mã kho từ `RESERVED` về `AVAILABLE`, xóa `order_id` và cộng bù lại `stock_quantity`.
+  3. Khóa chống giao mã đúp (Double-Delivery Guard): Webhook SePay kiểm tra ngay `order.status`. Nếu đã `COMPLETED`, tuyệt đối không lấy thêm mã từ kho, ghi nhận `sepay_transactions` trạng thái `FAILED` kèm note `DUPLICATE_PAYMENT` và ghi `security_logs`. Nếu webhook gửi cùng 1 `transaction_id`, trả ngay HTTP 200 idempotent `DUPLICATE_IDEMPOTENT`.
+  4. Đối với tiền chuyển thiếu (`UNDERPAID`) hoặc chuyển trễ hạn (`EXPIRED_PAYMENT`), ghi nhận đầy đủ vào database và báo cáo trên Admin SePayModule để chủ shop xử lý thủ công, tuyệt đối không tự động hoàn tiền.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không gán giá trị lạ vào cột `orders.status` mà vi phạm CHECK constraint của SQLite D1.*
+  - ❌ *Không giữ mã quà ở trạng thái `RESERVED` mà không có cơ chế hoàn trả tự động khi đơn hàng hết hạn 15 phút.*
+  - ❌ *Không giao mã quà thứ hai khi nhận thêm tiền cho đơn hàng đã hoàn tất.*
+  - ❌ *Không tự động hoàn tiền ngân hàng qua webhook.*
+
 ### ISSUE-238: Bẫy Sửa Số Dư Ví Chỉ Lưu Client LocalStorage/KV Mà Bỏ Quên D1 SQL, Bẫy SQL Preservation Trong syncMembersToD1 & Bẫy min=1000 Chặn Nạp Số Core Nhỏ
 - **Triệu chứng & Rủi ro**:
   1. Khi Admin bấm cộng tiền / trừ tiền cho thành viên trong giao diện Quản Lý Người Dùng (`MembersModule.tsx` hoặc `WalletModule.tsx`), hệ thống báo thành công với toast xanh, nhưng số dư của thành viên không tăng một Core nào trên trang web khách (`/api/auth/me`), header hay bảng thanh toán.

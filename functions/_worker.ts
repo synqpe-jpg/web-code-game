@@ -8,6 +8,8 @@ import * as meApi from './api/auth/me';
 import * as resetPasswordApi from './api/auth/reset-password';
 import * as verifyEmailApi from './api/auth/verify-email';
 import * as ordersCreateApi from './api/orders/create';
+import * as ordersCreateQrApi from './api/orders/create-qr';
+import * as ordersStatusApi from './api/orders/status';
 import * as sepayWebhookApi from './api/webhooks/sepay';
 import * as giveawaysClaimApi from './api/giveaways/claim';
 import * as giveawaysSimulateApi from './api/giveaways/simulate';
@@ -456,6 +458,20 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
       }
 
       // 5. /api/orders/*
+      if (pathname === '/api/orders/create-qr') {
+        if (method === 'OPTIONS' && ordersCreateQrApi.onRequestOptions) return await ordersCreateQrApi.onRequestOptions(context);
+        if (method === 'POST') {
+          const res = await ordersCreateQrApi.onRequestPost(context);
+          if (res.status === 200) {
+            await invalidateCatalogEdgeCache(ctx, request, env);
+          }
+          return res;
+        }
+      }
+      if (pathname === '/api/orders/status') {
+        if (method === 'OPTIONS' && ordersStatusApi.onRequestOptions) return await ordersStatusApi.onRequestOptions(context);
+        if (method === 'GET' && ordersStatusApi.onRequestGet) return await ordersStatusApi.onRequestGet(context);
+      }
       if (pathname === '/api/orders/create' || pathname === '/api/orders') {
         if (method === 'POST') {
           const res = await ordersCreateApi.onRequestPost(context);
