@@ -10,6 +10,21 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-241: Bẫy Ghép Lệnh Logging Vào ACID Batch Giao Dịch Đơn Hàng & Bẫy Thiếu Cột target_user Trong Bảng security_logs
+- **Triệu chứng & Rủi ro**:
+  1. Khi đưa câu lệnh `INSERT INTO security_logs` vào chung danh sách `stmts` của `db.batch(stmts)`, nếu câu lệnh ghi log gặp bất kỳ lỗi nào (như sai tên cột, thiếu cột `id`, sai giá trị CHECK constraint `severity`), toàn bộ giao dịch nghiệp vụ cốt lõi (giữ mã kho, trừ tồn kho sản phẩm, tạo đơn hàng) sẽ bị rollback và trả lỗi 500 về phía khách hàng.
+  2. Việc dùng cột không tồn tại (`target_user`) thay vì `target_id` khiến SQLite D1 báo lỗi `D1_ERROR: table security_logs has no column named target_user`.
+  3. Giá trị `severity` trong `security_logs` có ràng buộc `CHECK (severity IN ('INFO', 'WARN', 'CRITICAL'))`. Dùng chuỗi `'WARNING'` thay vì `'WARN'` sẽ làm lệnh INSERT thất bại ngay lập tức.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Nguyên tắc cốt lõi: **Logging không bao giờ được phép làm ảnh hưởng hoặc chặn giao dịch nghiệp vụ chính**. Toàn bộ các thao tác ghi log kiểm toán bắt buộc phải tách ra khỏi `db.batch`, thực hiện sau khi batch nghiệp vụ thành công và luôn được bọc trong `.catch(...)`.
+  2. Bổ sung migration D1 `ALTER TABLE security_logs ADD COLUMN target_user TEXT;` và đồng bộ trong `CREATE TABLE IF NOT EXISTS security_logs`.
+  3. Luôn sinh `id` định danh duy nhất (dạng `sec_...`) khi ghi log vào bảng có `id TEXT PRIMARY KEY`.
+  4. Tuân thủ nghiêm ngặt các giá trị severity hợp lệ: `'INFO'`, `'WARN'`, `'CRITICAL'`.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không bao giờ gộp lệnh INSERT log kiểm toán vào trong cùng `db.batch` của đơn hàng.*
+  - ❌ *Không dùng giá trị `'WARNING'` trong `security_logs` (phải là `'WARN'`).*
+  - ❌ *Không bỏ qua khóa chính `id` khi bảng yêu cầu `id TEXT PRIMARY KEY`.*
+
 ### ISSUE-240: Bẫy Sai Chữ Ký Hàm isProductExcludedFromFirstPurchase (Truyền 3 Tham Số) & Bẫy Ẩn Nút Tạo Mã QR Khi Bị Lỗi
 - **Triệu chứng & Rủi ro**:
   1. Khi gọi `isProductExcludedFromFirstPurchase(product.id, product.title, campaignConfig)`, do hàm chỉ nhận 2 tham số `(product, excludedList)`, tham số `excludedList` nhận nhầm chuỗi `product.title`. Khi thực thi `excludedList.some(...)`, JavaScript ném lỗi `TypeError: excludedList.some is not a function`.

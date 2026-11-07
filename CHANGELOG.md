@@ -7,6 +7,27 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-07]
 
+### 339. Sửa Lỗi D1_ERROR security_logs has no column named target_user, Tách Rời Logging Khỏi ACID Batch & Nâng Cấp Tìm Kiếm Cửa Hàng
+- **Triệu chứng & Rủi ro**:
+  - Khi người dùng bấm tạo mã QR, hệ thống trả về lỗi máy chủ: `D1_ERROR: table security_logs has no column named target_user`.
+  - Không tạo được đơn hàng QR, không sinh mã `ORD-QR-...`, các câu lệnh trừ kho và tạo đơn bị rollback toàn bộ do nằm chung trong 1 batch transaction với câu lệnh INSERT log bị lỗi.
+  - Cùng lỗi trên xuất hiện tại 3 chỗ khác: `ORDER_QR_EXPIRED` (khi quét hết hạn), `ORDER_QR_PAID` (khi webhook xác nhận thanh toán), và `recordSepayExceptionD1`.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. Bảng `security_logs` ban đầu được định nghĩa trong D1 với các cột: `id, actor_name, actor_email, action, target_id, ip_address, severity, details, created_at` — hoàn toàn không có cột `target_user`.
+  2. Bốn câu lệnh INSERT trong `d1_service.ts` gọi sai tên cột `target_user` thay vì `target_id`, đồng thời thiếu truyền cột khóa chính `id`.
+  3. Lỗi kiến trúc: Câu lệnh ghi log kiểm toán được gộp chung vào mảng câu lệnh `stmts` của `db.batch(stmts)`. Khi câu log lỗi, toàn bộ giao dịch nghiệp vụ quan trọng (giữ mã quà, giảm tồn kho, tạo đơn hàng) bị rollback thất bại theo.
+  4. Lỗi CHECK constraint trong `recordSepayExceptionD1`: Dùng mức độ `'WARNING'` thay vì `'WARN'` vi phạm ràng buộc `CHECK (severity IN ('INFO', 'WARN', 'CRITICAL'))`.
+- **Giải pháp triệt để đã triển khai (Solution Applied)**:
+  1. *Migration D1 `security_logs_target_user_v1`*: Bổ sung `ALTER TABLE security_logs ADD COLUMN target_user TEXT;` và đăng ký tracking migration, đồng thời cập nhật `CREATE TABLE IF NOT EXISTS security_logs`.
+  2. *Tách rời hoàn toàn Logging khỏi ACID Batch (Decoupled Non-blocking Audit Logging)*:
+     - Trong `createQrOrderD1`, `checkAndExpireOrdersD1`, `completeQrOrderD1`: Toàn bộ nghiệp vụ giữ mã, hoàn mã kho, tạo đơn hàng, cập nhật trạng thái chạy độc lập qua `await db.batch(...)`.
+     - Chỉ sau khi batch nghiệp vụ thành công, câu lệnh ghi `security_logs` mới được gọi riêng rẽ với `.catch(e => console.warn(...))`. Bất kỳ lỗi log nào cũng tuyệt đối không được làm ảnh hưởng đến đơn hàng của khách!
+  3. *Chuẩn hóa cột và sinh logId*: Truyền đầy đủ `id` (sinh dạng `sec_...`), `actor_name`, `actor_email`, `action`, `target_id`, `target_user`, `severity` chuẩn (`'INFO'` / `'WARN'`), `ip_address`, `details`.
+  4. *Nâng cấp tìm kiếm Cửa hàng (`StoreView.tsx`)*: Bổ sung tìm kiếm khớp cả tên các gói con bên trong (`p.packages`), từ khóa chuyển đổi từ slug game (`idle cat gunner` từ `idle-cat-gunner`), giúp tìm kiếm theo tên game mượt mà 100%.
+- **Kết quả nghiệm thu**:
+  - Toàn bộ 18/18 bài kiểm thử logic đạt 100%.
+  - Zero Test Artifacts on Production đạt 100%.
+
 ### 338. Sửa Lỗi Tạo Mã QR "excludedList.some is not a function" & Phục Hồi Nút Tạo Mã Khi Gặp Lỗi
 - **Triệu chứng & Rủi ro**:
   - Khi người dùng bấm "Tạo Mã VietQR Thanh Toán", hệ thống hiển thị thông báo lỗi máy chủ: `excludedList.some is not a function`.

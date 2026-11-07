@@ -875,6 +875,17 @@ export async function ensureSchemaUpgrades(db: D1Database): Promise<void> {
       console.warn('[Migration direct_qr_payment_v1 error]', e);
     }
 
+    // Migration security_logs_target_user_v1: Thêm cột target_user cho bảng security_logs
+    try {
+      const secMigDone = await db.prepare("SELECT 1 FROM schema_migrations WHERE id = 'security_logs_target_user_v1' LIMIT 1").first().catch(() => null);
+      if (!secMigDone) {
+        await db.prepare("ALTER TABLE security_logs ADD COLUMN target_user TEXT;").run().catch(() => {});
+        await db.prepare("INSERT OR IGNORE INTO schema_migrations (id) VALUES ('security_logs_target_user_v1');").run().catch(() => {});
+      }
+    } catch (e) {
+      console.warn('[Migration security_logs_target_user_v1 error]', e);
+    }
+
     try {
       // Fast 1-subrequest check: If wcg_virtual_layer_tables_v1 exists, all schema migrations are already done
       const check = await db.prepare("SELECT 1 FROM schema_migrations WHERE id = 'wcg_virtual_layer_tables_v1' LIMIT 1").first().catch(() => null);
@@ -1106,6 +1117,7 @@ export async function ensureSchemaUpgrades(db: D1Database): Promise<void> {
         actor_email TEXT,
         action TEXT NOT NULL,
         target_id TEXT,
+        target_user TEXT,
         ip_address TEXT,
         severity TEXT NOT NULL DEFAULT 'INFO' CHECK (severity IN ('INFO', 'WARN', 'CRITICAL')),
         details TEXT,
@@ -4593,22 +4605,27 @@ export async function createQrOrderD1(db: D1Database, params: CreateQrOrderParam
     )
   );
 
-  stmts.push(
-    db.prepare(`
-      INSERT INTO security_logs (action, target_user, details, severity, ip_address, created_at)
-      VALUES ('ORDER_QR_CREATED', ?, ?, 'INFO', 'cloudflare-edge', datetime('now'))
-    `).bind(userId, JSON.stringify({
-      orderId,
-      productId,
-      productTitle,
-      quantity: qty,
-      totalAmount,
-      expiresAt,
-      reservedCodeCount: selectedCodeIds.length,
-    }))
-  );
-
+  // 1. Thực thi batch nguyên tử cho nghiệp vụ kho và đơn hàng (giữ mã + giảm stock + tạo đơn)
   await db.batch(stmts);
+
+  // 2. Ghi nhật ký kiểm toán bất đồng bộ (tách biệt hoàn toàn, không chặn hoặc rollback đơn hàng)
+  const logId = 'sec_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+  const logDetails = JSON.stringify({
+    orderId,
+    productId,
+    productTitle,
+    quantity: qty,
+    totalAmount,
+    expiresAt,
+    reservedCodeCount: selectedCodeIds.length,
+  });
+
+  db.prepare(`
+    INSERT INTO security_logs (id, actor_name, actor_email, action, target_id, target_user, severity, ip_address, details, created_at)
+    VALUES (?, ?, ?, 'ORDER_QR_CREATED', ?, ?, 'INFO', 'cloudflare-edge', ?, datetime('now'))
+  `).bind(logId, userId, buyerEmail || '', orderId, userId, logDetails)
+  .run()
+  .catch((e) => console.warn('[Log ORDER_QR_CREATED non-blocking error]', e));
 
   return {
     success: true,
@@ -4671,18 +4688,25 @@ export async function checkAndExpireOrdersD1(db: D1Database, targetOrderId?: str
         WHERE id = ?
       `).bind(qty, pId);
 
-      const stmtLog = db.prepare(`
-        INSERT INTO security_logs (action, target_user, details, severity, ip_address, created_at)
-        VALUES ('ORDER_QR_EXPIRED', ?, ?, 'INFO', 'cloudflare-edge', datetime('now'))
-      `).bind(oId, JSON.stringify({
+      // 1. Thực thi batch hoàn trả mã kho và hủy đơn quá hạn
+      await db.batch([stmtOrder, stmtCodes, stmtStock]);
+      count++;
+
+      // 2. Ghi nhật ký kiểm toán bất đồng bộ
+      const logId = 'sec_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+      const logDetails = JSON.stringify({
         orderId: oId,
         productId: pId,
         quantity: qty,
         reason: 'Quá hạn 15 phút chưa nhận được thanh toán. Đã hoàn trả mã kho.',
-      }));
+      });
 
-      await db.batch([stmtOrder, stmtCodes, stmtStock, stmtLog]);
-      count++;
+      db.prepare(`
+        INSERT INTO security_logs (id, actor_name, actor_email, action, target_id, target_user, severity, ip_address, details, created_at)
+        VALUES (?, 'system', 'system@codegame.shop', 'ORDER_QR_EXPIRED', ?, ?, 'INFO', 'cloudflare-edge', ?, datetime('now'))
+      `).bind(logId, oId, oId, logDetails)
+      .run()
+      .catch((e) => console.warn('[Log ORDER_QR_EXPIRED non-blocking error]', e));
     } catch (err) {
       console.warn(`[ExpireOrder] Error expiring order ${oId}:`, err);
     }
@@ -4802,21 +4826,26 @@ export async function completeQrOrderD1(db: D1Database, params: {
     `).bind(sepayTxId, gateway, accountNumber, amount, content, order.member_id, orderId)
   );
 
-  stmts.push(
-    db.prepare(`
-      INSERT INTO security_logs (action, target_user, details, severity, ip_address, created_at)
-      VALUES ('ORDER_QR_PAID', ?, ?, 'INFO', 'sepay-webhook', datetime('now'))
-    `).bind(order.member_id, JSON.stringify({
-      orderId,
-      productId: order.product_id,
-      quantity: order.quantity,
-      amount,
-      sepayTxId,
-      deliveredCount: codeList.length,
-    }))
-  );
-
+  // 1. Thực thi batch hoàn tất đơn, giao mã và ghi sổ cái SePay
   await db.batch(stmts);
+
+  // 2. Ghi nhật ký kiểm toán bất đồng bộ
+  const logId = 'sec_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+  const logDetails = JSON.stringify({
+    orderId,
+    productId: order.product_id,
+    quantity: order.quantity,
+    amount,
+    sepayTxId,
+    deliveredCount: codeList.length,
+  });
+
+  db.prepare(`
+    INSERT INTO security_logs (id, actor_name, actor_email, action, target_id, target_user, severity, ip_address, details, created_at)
+    VALUES (?, ?, ?, 'ORDER_QR_PAID', ?, ?, 'INFO', 'sepay-webhook', ?, datetime('now'))
+  `).bind(logId, order.member_id || 'customer', order.buyer_email || '', orderId, order.member_id || '', logDetails)
+  .run()
+  .catch((e) => console.warn('[Log ORDER_QR_PAID non-blocking error]', e));
 
   return {
     success: true,
@@ -4860,10 +4889,11 @@ export async function recordSepayExceptionD1(db: D1Database, params: {
       `).bind(transactionId, gateway, accountNumber, amount, content, memberId || null, orderId || null, status, note).run().catch(() => {});
     }
 
+    const logId = 'sec_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
     await db.prepare(`
-      INSERT INTO security_logs (action, target_user, details, severity, ip_address, created_at)
-      VALUES (?, ?, ?, 'WARNING', 'sepay-webhook', datetime('now'))
-    `).bind(action, orderId || memberId || 'SEPAY', JSON.stringify({ transactionId, amount, content, orderId, note })).run().catch(() => {});
+      INSERT INTO security_logs (id, actor_name, actor_email, action, target_id, target_user, severity, ip_address, details, created_at)
+      VALUES (?, 'sepay-webhook', 'sepay@codegame.shop', ?, ?, ?, 'WARN', 'sepay-webhook', ?, datetime('now'))
+    `).bind(logId, action, orderId || memberId || 'SEPAY', orderId || memberId || 'SEPAY', JSON.stringify({ transactionId, amount, content, orderId, note })).run().catch(() => {});
   } catch (e) {
     console.warn('[recordSepayExceptionD1 error]', e);
   }

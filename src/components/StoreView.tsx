@@ -144,8 +144,21 @@ export const StoreView: React.FC<StoreViewProps> = ({
         if (!matches) return false;
       }
       if (!search.trim()) return true;
+      const childNames = Array.isArray(p.packages) ? p.packages.map((pkg) => pkg.name) : [];
+      const gameSlugWords = p.game_slug ? p.game_slug.replace(/[-_]/g, ' ') : '';
       return smartVietnameseMatch(
-        [p.title, p.game_name, p.game_slug, p.description, p.package_type, p.category, p.category_label, p.badge],
+        [
+          p.title,
+          p.game_name,
+          p.game_slug,
+          gameSlugWords,
+          p.description,
+          p.package_type,
+          p.category,
+          p.category_label,
+          p.badge,
+          ...childNames,
+        ],
         search
       );
     })
