@@ -421,11 +421,24 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       const isActive = body.is_active !== undefined ? (body.is_active ? 1 : 0) : 1;
       const virtualSoldCount = Math.max(0, Number(body.virtual_sold_count ?? body.virtualSoldCount ?? 0));
       const showSoldCount = body.show_sold_count !== false ? 1 : 0;
-      const saleMode = String(body.sale_mode || body.saleMode || 'normal').trim().toLowerCase() === 'escalating' ? 'escalating' : 'normal';
+      const rawSaleMode = String(body.sale_mode || body.saleMode || 'normal').trim().toLowerCase();
+      const isEscalatingReq = rawSaleMode === 'escalating';
+      const saleMode = isEscalatingReq ? 'escalating' : 'normal';
       const escalatingBasePrice = saleMode === 'escalating' ? Math.max(0, Number(body.escalating_base_price ?? body.escalatingBasePrice ?? currentPrice)) : null;
       const escalatingStep = saleMode === 'escalating' ? Math.max(0, Number(body.escalating_step ?? body.escalatingStep ?? 0)) : null;
       const escalatingMaxPrice = saleMode === 'escalating' && body.escalating_max_price !== undefined && body.escalating_max_price !== null && String(body.escalating_max_price).trim() !== ''
         ? Math.max(0, Number(body.escalating_max_price ?? body.escalatingMaxPrice))
+        : null;
+
+      // Ưu đãi mua lần đầu theo gói: Nếu bật Nâng Giá thì first_purchase_enabled tự động = 0
+      const firstPurchaseEnabled = isEscalatingReq
+        ? 0
+        : (body.first_purchase_enabled !== undefined ? (body.first_purchase_enabled ? 1 : 0) : 1);
+      const firstPurchasePrice = (firstPurchaseEnabled === 1 && body.first_purchase_price !== undefined && body.first_purchase_price !== null && String(body.first_purchase_price).trim() !== '')
+        ? Math.max(1, Number(body.first_purchase_price))
+        : null;
+      const firstPurchaseMaxPrice = (firstPurchaseEnabled === 1 && body.first_purchase_max_price !== undefined && body.first_purchase_max_price !== null && String(body.first_purchase_max_price).trim() !== '')
+        ? Math.max(1, Number(body.first_purchase_max_price))
         : null;
 
       // Sinh ID định danh duy nhất cho sản phẩm
@@ -441,8 +454,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           stock_quantity, sold_count, is_active, package_type, category, category_label,
           cover_image_url, game_icon_url, description, badge, virtual_sold_count, show_sold_count,
           sale_mode, escalating_base_price, escalating_step, escalating_max_price,
+          first_purchase_enabled, first_purchase_price, first_purchase_max_price,
           created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
           title = excluded.title,
           game_slug = excluded.game_slug,
@@ -464,6 +478,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           escalating_base_price = excluded.escalating_base_price,
           escalating_step = excluded.escalating_step,
           escalating_max_price = excluded.escalating_max_price,
+          first_purchase_enabled = excluded.first_purchase_enabled,
+          first_purchase_price = excluded.first_purchase_price,
+          first_purchase_max_price = excluded.first_purchase_max_price,
           updated_at = excluded.updated_at
       `).bind(
         productId,
@@ -487,6 +504,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         escalatingBasePrice,
         escalatingStep,
         escalatingMaxPrice,
+        firstPurchaseEnabled,
+        firstPurchasePrice,
+        firstPurchaseMaxPrice,
         nowIso,
         nowIso
       ).run();
@@ -523,6 +543,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         escalating_base_price: escalatingBasePrice,
         escalating_step: escalatingStep,
         escalating_max_price: escalatingMaxPrice,
+        first_purchase_enabled: firstPurchaseEnabled === 1,
+        first_purchase_price: firstPurchasePrice,
+        first_purchase_max_price: firstPurchaseMaxPrice,
         created_at: nowIso,
         updated_at: nowIso,
       };
@@ -606,9 +629,32 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       const isActive = body.is_active !== undefined ? (body.is_active ? 1 : 0) : existingRow.is_active;
       const virtualSoldCount = body.virtual_sold_count !== undefined ? Math.max(0, Number(body.virtual_sold_count)) : existingRow.virtual_sold_count;
       const showSoldCount = body.show_sold_count !== undefined ? (body.show_sold_count ? 1 : 0) : existingRow.show_sold_count;
-      const saleMode = body.sale_mode !== undefined || body.saleMode !== undefined
-        ? (String(body.sale_mode || body.saleMode || 'normal').trim().toLowerCase() === 'escalating' ? 'escalating' : 'normal')
-        : (existingRow.sale_mode || 'normal');
+      // 1. Phân giải trạng thái hình thức mua (Thường / Ưu Đãi Lần Đầu / Nâng Giá - Mỗi gói chỉ 1 hình thức)
+      let finalSaleMode = existingRow.sale_mode || 'normal';
+      let finalFpEnabled = existingRow.first_purchase_enabled !== undefined && existingRow.first_purchase_enabled !== null
+        ? (existingRow.first_purchase_enabled === 1 || existingRow.first_purchase_enabled === true || String(existingRow.first_purchase_enabled) === '1' ? 1 : 0)
+        : 1;
+
+      // Nếu client gửi sale_mode
+      if (body.sale_mode !== undefined || body.saleMode !== undefined) {
+        const rawSale = String(body.sale_mode || body.saleMode || 'normal').trim().toLowerCase();
+        if (rawSale === 'escalating') {
+          finalSaleMode = 'escalating';
+          finalFpEnabled = 0; // Bật Nâng Giá -> Tự động tắt Ưu đãi lần đầu
+        } else {
+          finalSaleMode = 'normal';
+        }
+      }
+
+      // Nếu client gửi first_purchase_enabled
+      if (body.first_purchase_enabled !== undefined) {
+        finalFpEnabled = body.first_purchase_enabled ? 1 : 0;
+        if (finalFpEnabled === 1) {
+          finalSaleMode = 'normal'; // Bật Ưu đãi lần đầu -> Tự động tắt Nâng Giá
+        }
+      }
+
+      const saleMode = finalSaleMode;
       const escalatingBasePrice = saleMode === 'escalating'
         ? (body.escalating_base_price !== undefined || body.escalatingBasePrice !== undefined
             ? Math.max(0, Number(body.escalating_base_price ?? body.escalatingBasePrice ?? currentPrice))
@@ -623,6 +669,15 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       const escalatingMaxPrice = saleMode === 'escalating' && rawMax !== null && rawMax !== undefined && String(rawMax).trim() !== ''
         ? Math.max(0, Number(rawMax))
         : null;
+
+      // Ưu đãi mua lần đầu theo gói: Giá riêng và Trần riêng
+      const firstPurchasePrice = (finalFpEnabled === 1 && body.first_purchase_price !== undefined)
+        ? (body.first_purchase_price !== null && String(body.first_purchase_price).trim() !== '' ? Math.max(1, Number(body.first_purchase_price)) : null)
+        : (finalFpEnabled === 1 ? existingRow.first_purchase_price : null);
+
+      const firstPurchaseMaxPrice = (finalFpEnabled === 1 && body.first_purchase_max_price !== undefined)
+        ? (body.first_purchase_max_price !== null && String(body.first_purchase_max_price).trim() !== '' ? Math.max(1, Number(body.first_purchase_max_price)) : null)
+        : (finalFpEnabled === 1 ? existingRow.first_purchase_max_price : null);
 
       const nowIso = new Date().toISOString();
 
@@ -648,6 +703,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           escalating_base_price = ?,
           escalating_step = ?,
           escalating_max_price = ?,
+          first_purchase_enabled = ?,
+          first_purchase_price = ?,
+          first_purchase_max_price = ?,
           updated_at = ?
         WHERE id = ?
       `).bind(
@@ -671,6 +729,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         escalatingBasePrice,
         escalatingStep,
         escalatingMaxPrice,
+        finalFpEnabled,
+        firstPurchasePrice,
+        firstPurchaseMaxPrice,
         nowIso,
         productId
       ).run();
@@ -699,6 +760,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         escalating_base_price: escalatingBasePrice,
         escalating_step: escalatingStep,
         escalating_max_price: escalatingMaxPrice,
+        first_purchase_enabled: finalFpEnabled === 1,
+        first_purchase_price: firstPurchasePrice,
+        first_purchase_max_price: firstPurchaseMaxPrice,
         product_images: body.product_images !== undefined ? body.product_images : (existingMetaList[metaIdx]?.product_images || [coverImageUrl]),
         guide_links: body.guide_links !== undefined ? body.guide_links : (existingMetaList[metaIdx]?.guide_links || []),
         guide_url: body.guide_url !== undefined ? body.guide_url : (existingMetaList[metaIdx]?.guide_url || ''),

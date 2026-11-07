@@ -208,6 +208,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
     // 8. Store Products & Categories
     const delStoreSet = new Set(Array.isArray(d1Settings['wcg_deleted_store_products']) ? d1Settings['wcg_deleted_store_products'] : []);
+    delStoreSet.add('sp_idle-cat-gunner_mw5yrnka');
     const savedStoreProductsRaw = d1Settings['wcg_admin_store_products_v4'];
     const savedStoreMap = new Map<string, any>();
     if (Array.isArray(savedStoreProductsRaw)) {
@@ -256,6 +257,15 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           escalating_base_price: p.escalating_base_price !== undefined && p.escalating_base_price !== null ? Number(p.escalating_base_price) : (meta.escalating_base_price !== undefined && meta.escalating_base_price !== null ? Number(meta.escalating_base_price) : null),
           escalating_step: p.escalating_step !== undefined && p.escalating_step !== null ? Number(p.escalating_step) : (meta.escalating_step !== undefined && meta.escalating_step !== null ? Number(meta.escalating_step) : null),
           escalating_max_price: p.escalating_max_price !== undefined && p.escalating_max_price !== null ? Number(p.escalating_max_price) : (meta.escalating_max_price !== undefined && meta.escalating_max_price !== null ? Number(meta.escalating_max_price) : null),
+          first_purchase_enabled: p.first_purchase_enabled !== undefined && p.first_purchase_enabled !== null
+            ? (p.first_purchase_enabled === 1 || p.first_purchase_enabled === true || String(p.first_purchase_enabled) === '1')
+            : (meta.first_purchase_enabled !== undefined ? Boolean(meta.first_purchase_enabled) : true),
+          first_purchase_price: p.first_purchase_price !== undefined && p.first_purchase_price !== null
+            ? Number(p.first_purchase_price)
+            : (meta.first_purchase_price !== undefined && meta.first_purchase_price !== null ? Number(meta.first_purchase_price) : null),
+          first_purchase_max_price: p.first_purchase_max_price !== undefined && p.first_purchase_max_price !== null
+            ? Number(p.first_purchase_max_price)
+            : (meta.first_purchase_max_price !== undefined && meta.first_purchase_max_price !== null ? Number(meta.first_purchase_max_price) : null),
         };
       });
 

@@ -24,6 +24,7 @@ import confetti from 'canvas-confetti';
 import { CyberLoader } from './CyberLoader';
 import type { StoreProduct, OrderRecord, UserProfile } from '../types/game';
 import { dataService } from '../services/dataService';
+import { offerService } from '../services/offerService';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import { marketingService } from '../services/marketingService';
 import { formatCore } from '../utils/textUtils';
@@ -64,7 +65,29 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
     offer_price: number;
     discount_amount: number;
     escalating?: any;
-  } | null>(null);
+  } | null>(() => {
+    const targetId = selectedPackage?.id || liveProduct?.id;
+    if (targetId && liveProduct?.game_slug) {
+      const cached = offerService.getCached(liveProduct.game_slug);
+      const targetOffer = cached?.offers?.[targetId];
+      if (targetOffer) {
+        return {
+          eligible: Boolean(targetOffer.eligible),
+          offer_price: Number(targetOffer.offer_price) || 2000,
+          discount_amount: Number(targetOffer.discount_amount) || 0,
+          escalating: targetOffer.escalating || null,
+        };
+      }
+    }
+    if (selectedPackage?.isFirstPurchaseOffer) {
+      return {
+        eligible: true,
+        offer_price: Number(selectedPackage.price) || 2000,
+        discount_amount: Number(selectedPackage.discountAmount) || 0,
+      };
+    }
+    return null;
+  });
 
   const [priceEscalatedDialog, setPriceEscalatedDialog] = useState<{
     isOpen: boolean;
@@ -83,27 +106,12 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
       activeUser?.session_token ||
       '';
 
-    if (selectedPackage?.isFirstPurchaseOffer) {
-      setCheckoutOffer({
-        eligible: true,
-        offer_price: Number(selectedPackage.price) || 2000,
-        discount_amount: Number(selectedPackage.discountAmount) || 0,
-      });
-    }
-
     if (!liveProduct?.game_slug) return;
 
-    const headers: Record<string, string> = { 'Cache-Control': 'no-cache, no-store' };
-    if (token) {
-      headers['Authorization'] = 'Bearer ' + token;
-    }
-
-    fetch('/api/store/my-offer?game=' + encodeURIComponent(liveProduct.game_slug) + '&_t=' + Date.now(), {
-      headers,
-    })
-      .then((res) => (res.ok ? res.json() : null))
+    offerService
+      .fetchOffers(liveProduct.game_slug, token)
       .then((data) => {
-        if (!isMounted || !data?.success) return;
+        if (!isMounted || !data) return;
         const targetId = selectedPackage?.id || liveProduct.id;
         const targetOffer = data.offers?.[targetId];
         if (targetOffer) {
@@ -248,9 +256,19 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
     next_price: escNext,
   };
 
-  const isFirstPurchaseEligible = !isEscalating && Boolean(checkoutOffer?.eligible || selectedPackage?.isFirstPurchaseOffer);
+  const defaultPkgEligible = selectedPackage?.first_purchase_enabled !== false && !isEscalating;
+  const isFirstPurchaseEligible = !isEscalating && Boolean(
+    checkoutOffer !== null && checkoutOffer !== undefined
+      ? checkoutOffer.eligible
+      : (defaultPkgEligible || selectedPackage?.isFirstPurchaseOffer)
+  );
+
+  const customPkgPrice = selectedPackage?.first_purchase_price
+    ? Number(selectedPackage.first_purchase_price)
+    : null;
+
   const firstItemOfferPrice = isFirstPurchaseEligible
-    ? (checkoutOffer?.offer_price ?? selectedPackage?.price ?? effectiveRegularPrice)
+    ? (checkoutOffer?.offer_price ?? customPkgPrice ?? 2000)
     : effectiveRegularPrice;
   const firstItemActualPrice = Math.min(effectiveRegularPrice, firstItemOfferPrice);
 
@@ -473,6 +491,8 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
     onClose();
     if (onOpenWallet) {
       onOpenWallet();
+    } else if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('wcg_open_wallet_modal'));
     }
   };
 
@@ -1010,15 +1030,19 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
 
               {/* Action Button */}
               <button
-                onClick={handlePayWithWallet}
-                disabled={isProcessing || maxStock <= 0 || !isPriceValid || !isBalanceEnough}
+                onClick={!isBalanceEnough ? handleOpenTopup : handlePayWithWallet}
+                disabled={isProcessing || maxStock <= 0 || !isPriceValid}
                 className={`w-full py-3.5 rounded-2xl font-display font-bold text-sm transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2 ${
-                  isEscalating
+                  !isBalanceEnough
+                    ? 'bg-gradient-to-r from-amber-500 via-amber-600 to-orange-500 hover:opacity-95 text-slate-950 font-black shadow-amber-500/20'
+                    : isEscalating
                     ? 'bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-400 hover:to-orange-500 text-slate-950 font-black shadow-amber-500/30'
                     : 'bg-gradient-to-r from-secondary to-primary hover:opacity-95 text-white shadow-glow-primary'
                 }`}
               >
-                {isEscalating ? (
+                {!isBalanceEnough ? (
+                  <PlusCircle className="w-4 h-4 text-slate-950" />
+                ) : isEscalating ? (
                   <Zap className="w-4 h-4 fill-slate-950 text-slate-950" />
                 ) : (
                   <Sparkles className="w-4 h-4 text-amber-300" />

@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Zap,
+  Sparkles,
 } from 'lucide-react';
 import type { StoreProduct, ProductPackageVariant } from '../types/game';
 import { formatCore } from '../utils/textUtils';
@@ -221,6 +222,12 @@ export const PackageShareModal: React.FC<PackageShareModalProps> = ({
                 <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 shrink-0 flex items-center gap-1">
                   <Zap className="w-2.5 h-2.5 text-amber-400" />
                   Nâng Giá (+{formatCore(packageItem.escalating_step || 0)}/lượt)
+                </span>
+              )}
+              {!isEscalating && packageItem.first_purchase_enabled !== false && (
+                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 shrink-0 flex items-center gap-1">
+                  <Sparkles className="w-2.5 h-2.5 text-rose-400" />
+                  Mua lần đầu {formatCore(packageItem.first_purchase_price ? Number(packageItem.first_purchase_price) : 2000)}
                 </span>
               )}
               {packageItem.badge && (

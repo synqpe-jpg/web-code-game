@@ -184,6 +184,9 @@ export interface ProductPackageVariant {
   escalating_completed_count?: number;
   escalating_current_price?: number;
   escalating_next_price?: number;
+  first_purchase_enabled?: boolean;
+  first_purchase_price?: number | null;
+  first_purchase_max_price?: number | null;
 }
 
 // Store Product / Paid Code Model
@@ -227,6 +230,9 @@ export interface StoreProduct {
   escalating_completed_count?: number;
   escalating_current_price?: number;
   escalating_next_price?: number;
+  first_purchase_enabled?: boolean;
+  first_purchase_price?: number | null;
+  first_purchase_max_price?: number | null;
 }
 
 // Store Category Model (Danh Mục Gói Code / Cửa Hàng)
@@ -304,6 +310,9 @@ export interface UtilityProduct {
   escalating_completed_count?: number;
   escalating_current_price?: number;
   escalating_next_price?: number;
+  first_purchase_enabled?: boolean;
+  first_purchase_price?: number | null;
+  first_purchase_max_price?: number | null;
 }
 
 // Utility Category Model (Danh Mục Tiện Ích)

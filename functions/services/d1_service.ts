@@ -85,10 +85,22 @@ export async function getFirstPurchaseConfigD1(db: D1Database): Promise<FirstPur
 }
 
 export function isProductExcludedFromFirstPurchase(
-  product: { id?: string; title?: string; sku?: string } | null | undefined,
+  product: { id?: string; title?: string; sku?: string; first_purchase_enabled?: any } | null | undefined,
   excludedList: string[]
 ): boolean {
-  if (!product || !excludedList || excludedList.length === 0) return false;
+  if (!product) return false;
+
+  // Nguồn sự thật cấp gói: Nếu gói có trường first_purchase_enabled cụ thể
+  if (product.first_purchase_enabled !== undefined && product.first_purchase_enabled !== null) {
+    const isExplicitlyDisabled =
+      product.first_purchase_enabled === 0 ||
+      product.first_purchase_enabled === false ||
+      String(product.first_purchase_enabled) === '0' ||
+      String(product.first_purchase_enabled) === 'false';
+    return isExplicitlyDisabled;
+  }
+
+  if (!excludedList || excludedList.length === 0) return false;
   const prodId = (product.id || '').trim().toLowerCase();
   const prodSku = (product.sku || '').trim().toLowerCase();
   const prodTitle = (product.title || '').trim().toLowerCase();
@@ -100,6 +112,66 @@ export function isProductExcludedFromFirstPurchase(
     if (prodTitle === clean || prodTitle.includes(clean)) return true;
     return false;
   });
+}
+
+/**
+ * Trả về thông tin ưu đãi mua lần đầu đã phân giải cho một gói cụ thể (SSOT)
+ */
+export function getProductFirstPurchaseOffer(
+  product: any,
+  campaignConfig: FirstPurchaseConfig
+): {
+  enabled: boolean;
+  offer_price: number;
+  max_original_price: number | null;
+} {
+  if (!campaignConfig || !campaignConfig.enabled) {
+    return {
+      enabled: false,
+      offer_price: campaignConfig?.offer_price || 2000,
+      max_original_price: campaignConfig?.max_original_price ?? 30000,
+    };
+  }
+
+  // Nếu là gói Nâng Giá: tuyệt đối không cộng dồn ưu đãi mua lần đầu
+  const saleMode = String(product?.sale_mode || '').toLowerCase();
+  if (saleMode === 'escalating') {
+    return {
+      enabled: false,
+      offer_price: campaignConfig.offer_price,
+      max_original_price: campaignConfig.max_original_price,
+    };
+  }
+
+  // Quyết định bật/tắt riêng cho từng gói
+  const isExcluded = isProductExcludedFromFirstPurchase(product, campaignConfig.excluded_products);
+  if (isExcluded) {
+    return {
+      enabled: false,
+      offer_price: campaignConfig.offer_price,
+      max_original_price: campaignConfig.max_original_price,
+    };
+  }
+
+  // Giá ưu đãi riêng (để trống/null = lấy giá chung)
+  const rawPrice = product?.first_purchase_price;
+  const parsedPrice = typeof rawPrice === 'number' ? rawPrice : (rawPrice ? Number(rawPrice) : NaN);
+  const offerPrice = (!isNaN(parsedPrice) && parsedPrice > 0)
+    ? Math.floor(parsedPrice)
+    : campaignConfig.offer_price;
+
+  // Trần giá gốc riêng (để trống/null = lấy trần chung)
+  const rawMax = product?.first_purchase_max_price;
+  const parsedMax = typeof rawMax === 'number' ? rawMax : (rawMax !== null && rawMax !== undefined && rawMax !== '' ? Number(rawMax) : NaN);
+  const maxOriginalPrice = (!isNaN(parsedMax) && parsedMax > 0)
+    ? Math.floor(parsedMax)
+    : campaignConfig.max_original_price;
+
+  return {
+    enabled: true,
+    offer_price: offerPrice,
+    max_original_price: maxOriginalPrice,
+  };
 }
 
 export function isMemberEmailVerified(member: any): boolean {
@@ -741,6 +813,44 @@ export async function ensureSchemaUpgrades(db: D1Database): Promise<void> {
       }
     } catch (e) {
       console.warn('[Migration escalating_price_v1 error]', e);
+    }
+
+    // Migration 0016: First Purchase Per Package v1 (Separate settings per package)
+    try {
+      const fppCheck = await db.prepare("SELECT 1 FROM schema_migrations WHERE id = 'first_purchase_per_package_v1' LIMIT 1").first().catch(() => null);
+      if (!fppCheck) {
+        // 1. Thêm 3 cột cài đặt ưu đãi mua lần đầu riêng cho từng gói
+        await db.prepare('ALTER TABLE store_products ADD COLUMN first_purchase_enabled INTEGER DEFAULT 1;').run().catch(() => {});
+        await db.prepare('ALTER TABLE store_products ADD COLUMN first_purchase_price INTEGER;').run().catch(() => {});
+        await db.prepare('ALTER TABLE store_products ADD COLUMN first_purchase_max_price INTEGER;').run().catch(() => {});
+
+        // 2. Chuyển đổi danh sách loại trừ chung (excluded_product_ids) sang trường riêng từng gói:
+        // Đặt first_purchase_enabled = 0 cho 2 gói BỘ CODE và CODE HIẾM
+        await db.prepare(`
+          UPDATE store_products 
+          SET first_purchase_enabled = 0 
+          WHERE id IN ('sp_1793943215070_fxm', 'sp_1793943027022_n4c')
+             OR title LIKE '%BỘ CODE%' 
+             OR title LIKE '%CODE HIẾM%';
+        `).run().catch(() => {});
+
+        // 8 gói Hiệp Khách Hành còn lại hưởng ưu đãi lần đầu mặc định:
+        await db.prepare(`
+          UPDATE store_products 
+          SET first_purchase_enabled = 1 
+          WHERE id NOT IN ('sp_1793943215070_fxm', 'sp_1793943027022_n4c')
+            AND title NOT LIKE '%BỘ CODE%' 
+            AND title NOT LIKE '%CODE HIẾM%'
+            AND (first_purchase_enabled IS NULL OR first_purchase_enabled = 1);
+        `).run().catch(() => {});
+
+        // 3. Xóa dứt điểm gói test đã xóa 'sp_idle-cat-gunner_mw5yrnka' khỏi bảng store_products
+        await db.prepare("DELETE FROM store_products WHERE id = 'sp_idle-cat-gunner_mw5yrnka' OR id LIKE '%idle-cat-gunner%';").run().catch(() => {});
+
+        await db.prepare("INSERT OR IGNORE INTO schema_migrations (id) VALUES ('first_purchase_per_package_v1')").run().catch(() => {});
+      }
+    } catch (e) {
+      console.warn('[Migration first_purchase_per_package_v1 error]', e);
     }
 
     try {
@@ -2405,14 +2515,31 @@ export async function syncProductsToD1(db: D1Database, products: any[]): Promise
       const badge = String(p.badge || '').trim();
       const virtualSoldCount = Math.max(0, Number(p.virtual_sold_count || 0));
       const showSoldCount = p.show_sold_count === false ? 0 : 1;
+      const rawSaleMode = String(p.sale_mode || 'normal').toLowerCase();
+      const isEsc = rawSaleMode === 'escalating';
+      const saleMode = isEsc ? 'escalating' : 'normal';
+      const escBase = isEsc ? Math.max(0, Number(p.escalating_base_price ?? currPrice)) : null;
+      const escStep = isEsc ? Math.max(0, Number(p.escalating_step ?? 0)) : null;
+      const escMax = isEsc && p.escalating_max_price !== undefined && p.escalating_max_price !== null && String(p.escalating_max_price).trim() !== ''
+        ? Math.max(0, Number(p.escalating_max_price))
+        : null;
+      const fpEnabled = isEsc ? 0 : (p.first_purchase_enabled !== undefined ? (p.first_purchase_enabled ? 1 : 0) : 1);
+      const fpPrice = (fpEnabled === 1 && p.first_purchase_price !== undefined && p.first_purchase_price !== null && String(p.first_purchase_price).trim() !== '')
+        ? Math.max(1, Number(p.first_purchase_price))
+        : null;
+      const fpMaxPrice = (fpEnabled === 1 && p.first_purchase_max_price !== undefined && p.first_purchase_max_price !== null && String(p.first_purchase_max_price).trim() !== '')
+        ? Math.max(1, Number(p.first_purchase_max_price))
+        : null;
 
       stmts.push(
         db.prepare(`
           INSERT INTO store_products (
             id, title, game_slug, game_name, original_price, discount_percent, current_price, stock_quantity, sold_count, is_active,
-            package_type, category, category_label, cover_image_url, game_icon_url, description, badge, virtual_sold_count, show_sold_count
+            package_type, category, category_label, cover_image_url, game_icon_url, description, badge, virtual_sold_count, show_sold_count,
+            sale_mode, escalating_base_price, escalating_step, escalating_max_price,
+            first_purchase_enabled, first_purchase_price, first_purchase_max_price
           )
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(id) DO UPDATE SET
             title = excluded.title,
             game_slug = excluded.game_slug,
@@ -2431,10 +2558,18 @@ export async function syncProductsToD1(db: D1Database, products: any[]): Promise
             description = excluded.description,
             badge = excluded.badge,
             virtual_sold_count = excluded.virtual_sold_count,
-            show_sold_count = excluded.show_sold_count
+            show_sold_count = excluded.show_sold_count,
+            sale_mode = excluded.sale_mode,
+            escalating_base_price = excluded.escalating_base_price,
+            escalating_step = excluded.escalating_step,
+            escalating_max_price = excluded.escalating_max_price,
+            first_purchase_enabled = excluded.first_purchase_enabled,
+            first_purchase_price = excluded.first_purchase_price,
+            first_purchase_max_price = excluded.first_purchase_max_price
         `).bind(
           pId, title, gameSlug, gameName, origPrice, discPercent, currPrice, stockQty, soldCnt, isActive,
-          pkgType, category, categoryLabel, coverImageUrl, gameIconUrl, description, badge, virtualSoldCount, showSoldCount
+          pkgType, category, categoryLabel, coverImageUrl, gameIconUrl, description, badge, virtualSoldCount, showSoldCount,
+          saleMode, escBase, escStep, escMax, fpEnabled, fpPrice, fpMaxPrice
         )
       );
     }
@@ -3081,6 +3216,9 @@ export async function loadAllStoreProductsD1(db: D1Database): Promise<any[]> {
         sp.escalating_base_price,
         sp.escalating_step,
         sp.escalating_max_price,
+        COALESCE(sp.first_purchase_enabled, 1) AS first_purchase_enabled,
+        sp.first_purchase_price,
+        sp.first_purchase_max_price,
         sp.created_at
       FROM store_products sp
       LEFT JOIN (

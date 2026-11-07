@@ -18,6 +18,7 @@ import type { StoreProduct, UserProfile } from '../types/game';
 import { EventCountdownBadge } from './countdown/EventCountdownBadge';
 import { eventSchedulerService } from '../services/eventSchedulerService';
 import { templateService } from '../services/templateService';
+import { offerService } from '../services/offerService';
 
 interface StoreViewProps {
   onSelectProduct: (product: StoreProduct) => void;
@@ -71,6 +72,7 @@ export const StoreView: React.FC<StoreViewProps> = ({
       );
     };
     dataService.syncWithCloudflareKV().catch(() => {});
+    offerService.fetchOffers().catch(() => {});
     const unsub = dataService.subscribe(handleUpdate);
     const unsubTpl = templateService.subscribe(handleUpdate);
     const unsubStock = marketingService.subscribeStockChange(handleUpdate);

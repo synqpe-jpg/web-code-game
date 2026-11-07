@@ -10,6 +10,22 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-237: Bẫy Nhấp Nháy Giá Do Render Trước Khi My-Offer Trả Về, Sai Cơ Số Tính % Giảm & Bẫy Disabled Nút Nạp Core Trong Bảng Thanh Toán
+- **Triệu chứng & Rủi ro**:
+  1. Khi khách mở bảng chọn gói (`ProductDetailModal`), gói đã chọn hiển thị 2.600 Core rồi sau 200ms tự nhảy sang 2.000 Core. Nguyên nhân do `offerData` khởi tạo rỗng `{ offers: {} }` và phụ thuộc vào API `/api/store/my-offer` trả về.
+  2. Thẻ ngoài danh sách hiển thị `-87%` (tính từ giá gốc 20.000 $\rightarrow$ 2.600), nhưng trong bảng chọn gói lại hiển thị `-23%` vì nhầm lẫn lấy giá bán 2.600 làm cơ số tính giá gốc thay vì `originalPrice` (20.000).
+  3. Ở chân bảng thanh toán (`ProductCheckoutModal`), khi số dư ví không đủ, nút hiển thị chữ *"Thiếu X Core • Nạp Core Ngay"* nhưng thuộc tính `disabled` lại chứa `!isBalanceEnough`, khiến người dùng không thể bấm vào nút để mở nạp tiền.
+  4. Gói test đã xóa (như `sp_idle-cat-gunner_mw5yrnka`) vẫn có thể xuất hiện lại trong vài giây đầu do client đọc `localStorage` cũ trước khi `sync-lite` phản hồi.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Tạo `offerService.ts` quản lý bộ nhớ đệm và prefetch `/api/store/my-offer` ngay khi khách vào `/store`. Đồng thời trong `ProductDetailModal`, dự đoán `isEligible = true` ngay trên frame render đầu tiên nếu gói có `first_purchase_enabled !== false`, loại bỏ 100% hiện tượng giật nhấp nháy giá.
+  2. Luôn sử dụng `originalPrice` thật (20.000 Core) làm cơ số tính `%` giảm giá và hiển thị giá gạch ngang, đảm bảo thẻ ngoài và modal bên trong hiển thị số liệu đồng nhất 100%.
+  3. Tách bạch `disabled` của nút thanh toán: chỉ disabled khi đang xử lý đơn (`isProcessing`), hết hàng (`maxStock <= 0`) hoặc giá không hợp lệ (`!isPriceValid`). Khi `!isBalanceEnough`, nút chuyển sang trạng thái nạp tiền và click sẽ mở trực tiếp modal nạp ví (`onOpenWalletModal` + custom event).
+  4. Luôn thêm các ID gói test vào danh sách `deletedSet` mặc định trong `dataService.ts` và thực thi lệnh SQL dọn dẹp vĩnh viễn trong D1 migration.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không khởi tạo state ưu đãi rỗng và để giá hiển thị rơi về fallback cũ rồi mới đổi lại.*
+  - ❌ *Không lấy `currentPrice` làm cơ số tính giá gốc của `displayOriginalPrice` khi tính % giảm giá.*
+  - ❌ *Không gắn `disabled={!isBalanceEnough}` vào nút có nhãn kêu gọi người dùng nạp tiền.*
+
 ### ISSUE-236: Bẫy Thiếu Top-level Flattened Fields Trong Admin API, Bỏ Quên Register Route Audit Log Trong _worker.ts & Lệch Trạng Thái Default Email Verification
 - **Triệu chứng & Rủi ro**:
   1. Khi client bên ngoài hoặc AI Agent gọi `GET /api/admin/first-purchase`, nếu API chỉ trả về object lồng nhau `{ success: true, config: { ... } }` mà thiếu các trường top-level (`enabled`, `offer_price`, `max_original_price`, `require_verified_email`, `excluded_product_ids`, `updated_at`, `updated_by`), các script tích hợp tự động hoặc client chuẩn REST sẽ không đọc được trường cấu hình hoặc báo thiếu dữ liệu.

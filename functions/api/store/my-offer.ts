@@ -2,6 +2,7 @@ import {
   ensureSchemaUpgrades,
   getFirstPurchaseConfigD1,
   isProductExcludedFromFirstPurchase,
+  getProductFirstPurchaseOffer,
   isMemberEmailVerified,
   getEscalatingPriceD1,
 } from '../../services/d1_service';
@@ -73,7 +74,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
     // 2. Fetch products for this game (or all active products if no slug provided)
     let productRows: any[] = [];
-    const selectFields = 'id, title, game_slug, game_name, current_price, original_price, is_active, sale_mode, escalating_base_price, escalating_step, escalating_max_price';
+    const selectFields = 'id, title, game_slug, game_name, current_price, original_price, is_active, sale_mode, escalating_base_price, escalating_step, escalating_max_price, first_purchase_enabled, first_purchase_price, first_purchase_max_price';
     if (gameSlug) {
       const res = await env.DB.prepare(
         `SELECT ${selectFields} FROM store_products WHERE game_slug = ? AND is_active = 1`
@@ -81,7 +82,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       productRows = res.results || [];
     } else {
       const res = await env.DB.prepare(
-        `SELECT ${selectFields} FROM store_products WHERE is_active = 1 LIMIT 200`
+        `SELECT ${selectFields} FROM store_products WHERE is_active = 1 LIMIT 500`
       ).all<any>();
       productRows = res.results || [];
     }
@@ -108,6 +109,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           };
         }
 
+        const fpOffer = getProductFirstPurchaseOffer(prod, fpConfig);
+
         let eligible = false;
         let reason: string | null = null;
         let offerPrice = prodPrice;
@@ -118,15 +121,13 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           reason = 'escalating_mode';
           offerPrice = prodPrice;
           discountAmount = 0;
-        } else if (!fpConfig.enabled) {
-          reason = 'campaign_disabled';
-        } else if (isProductExcludedFromFirstPurchase(prod, fpConfig.excluded_products)) {
-          reason = 'excluded';
-        } else if (fpConfig.max_original_price !== null && prodPrice > fpConfig.max_original_price) {
+        } else if (!fpOffer.enabled) {
+          reason = !fpConfig.enabled ? 'campaign_disabled' : 'excluded';
+        } else if (fpOffer.max_original_price !== null && prodPrice > fpOffer.max_original_price) {
           reason = 'exceeds_max_price';
         } else {
           reason = 'login_required';
-          offerPrice = Math.min(prodPrice, fpConfig.offer_price);
+          offerPrice = Math.min(prodPrice, fpOffer.offer_price);
           discountAmount = Math.max(0, prodPrice - offerPrice);
         }
 
@@ -135,6 +136,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           current_price: prodPrice,
           offer_price: offerPrice,
           discount_amount: discountAmount,
+          first_purchase_enabled: fpOffer.enabled,
+          first_purchase_price: prod.first_purchase_price !== undefined ? prod.first_purchase_price : null,
+          first_purchase_max_price: prod.first_purchase_max_price !== undefined ? prod.first_purchase_max_price : null,
           reason,
           escalating: escalatingData,
         };
@@ -180,6 +184,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       current_price: number;
       offer_price: number;
       discount_amount: number;
+      first_purchase_enabled?: boolean;
+      first_purchase_price?: number | null;
+      first_purchase_max_price?: number | null;
       reason: string | null;
       escalating?: any;
     }> = {};
@@ -203,6 +210,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         };
       }
 
+      const fpOffer = getProductFirstPurchaseOffer(prod, fpConfig);
+
       let eligible = false;
       let reason: string | null = null;
       let offerPrice = prodPrice;
@@ -213,11 +222,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         reason = 'escalating_mode';
         offerPrice = prodPrice;
         discountAmount = 0;
-      } else if (!fpConfig.enabled) {
-        reason = 'campaign_disabled';
-      } else if (isProductExcludedFromFirstPurchase(prod, fpConfig.excluded_products)) {
-        reason = 'excluded';
-      } else if (fpConfig.max_original_price !== null && prodPrice > fpConfig.max_original_price) {
+      } else if (!fpOffer.enabled) {
+        reason = !fpConfig.enabled ? 'campaign_disabled' : 'excluded';
+      } else if (fpOffer.max_original_price !== null && prodPrice > fpOffer.max_original_price) {
         reason = 'exceeds_max_price';
       } else if (fpConfig.require_verified_email && !isEmailVerified) {
         reason = 'email_unverified';
@@ -225,7 +232,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         reason = 'already_purchased';
       } else {
         eligible = true;
-        offerPrice = Math.min(prodPrice, fpConfig.offer_price);
+        offerPrice = Math.min(prodPrice, fpOffer.offer_price);
         discountAmount = Math.max(0, prodPrice - offerPrice);
       }
 
@@ -234,6 +241,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         current_price: prodPrice,
         offer_price: offerPrice,
         discount_amount: discountAmount,
+        first_purchase_enabled: fpOffer.enabled,
+        first_purchase_price: prod.first_purchase_price !== undefined ? prod.first_purchase_price : null,
+        first_purchase_max_price: prod.first_purchase_max_price !== undefined ? prod.first_purchase_max_price : null,
         reason,
         escalating: escalatingData,
       };

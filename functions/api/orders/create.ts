@@ -3,6 +3,7 @@ import {
   ensureSchemaUpgrades,
   getFirstPurchaseConfigD1,
   isProductExcludedFromFirstPurchase,
+  getProductFirstPurchaseOffer,
   isMemberEmailVerified,
   getEscalatingPriceD1,
 } from '../../services/d1_service';
@@ -308,15 +309,15 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       effectiveUnitPrice = serverCalculatedPrice;
       priceRule = 'escalating';
     } else {
-      // 2.B. Gói Bình Thường: Kiểm tra chiến dịch Ưu đãi mua lần đầu (First Purchase Offer)
+      // 2.B. Gói Bình Thường: Kiểm tra chiến dịch Ưu đãi mua lần đầu (First Purchase Offer theo từng gói)
       const baseUnitPrice = Math.max(0, Number(product.current_price) || 0);
       const fpConfig = await getFirstPurchaseConfigD1(env.DB);
+      const perProductOffer = getProductFirstPurchaseOffer(product, fpConfig);
       let offerUnitPrice = baseUnitPrice;
 
       if (
-        fpConfig.enabled &&
-        !isProductExcludedFromFirstPurchase(product, fpConfig.excluded_products) &&
-        (fpConfig.max_original_price === null || baseUnitPrice <= fpConfig.max_original_price) &&
+        perProductOffer.enabled &&
+        (perProductOffer.max_original_price === null || baseUnitPrice <= perProductOffer.max_original_price) &&
         (!fpConfig.require_verified_email || isMemberEmailVerified(member))
       ) {
         // Đếm số đơn đã thanh toán của tài khoản này cho đúng gói này (sau lần reset gần nhất)
@@ -335,7 +336,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         const pastCount = Number(pastOrdersRow?.cnt) || 0;
         if (pastCount === 0) {
           isFirstPurchaseEligible = true;
-          offerUnitPrice = Math.min(baseUnitPrice, fpConfig.offer_price);
+          offerUnitPrice = Math.min(baseUnitPrice, perProductOffer.offer_price);
           discountAmount = Math.max(0, baseUnitPrice - offerUnitPrice);
           if (discountAmount > 0) {
             discountType = 'first_purchase';

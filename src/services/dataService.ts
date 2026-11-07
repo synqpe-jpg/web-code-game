@@ -620,6 +620,8 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
                       } catch {}
                     }
                     const delSet = new Set(delList);
+                    delSet.add('sp_idle-cat-gunner_mw5yrnka');
+                    localStorage.setItem('wcg_deleted_store_products', JSON.stringify(Array.from(delSet)));
                     const filtered = json.storeProducts.filter((p: any) => p && p.id && !delSet.has(p.id));
                     const currentSp = localStorage.getItem('wcg_admin_store_products_v4');
                     const newSp = JSON.stringify(filtered);
@@ -1056,7 +1058,7 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
               }
             }
             if (json.newsArticles && Array.isArray(json.newsArticles)) {
-              let deletedSet = new Set<string>();
+              let deletedSet = new Set<string>(['sp_idle-cat-gunner_mw5yrnka']);
               try {
                 const delRaw = localStorage.getItem('wcg_deleted_news_articles_v1');
                 if (delRaw) {
@@ -2823,7 +2825,7 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
   // --- STORE & PAID CODES SYSTEM ---
   getStoreProducts(): StoreProduct[] {
     let prods: StoreProduct[] | null = null;
-    let deletedSet = new Set<string>();
+    let deletedSet = new Set<string>(['sp_idle-cat-gunner_mw5yrnka']);
     try {
       const delRaw = localStorage.getItem('wcg_deleted_store_products');
       if (delRaw) {
@@ -3129,7 +3131,7 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
   // --- UTILITIES SYSTEM (TIỆN ÍCH & DỊCH VỤ SỐ NGOÀI LỀ) ---
   getUtilityProducts(): UtilityProduct[] {
     let utilities: UtilityProduct[] | null = null;
-    let deletedSet = new Set<string>();
+    let deletedSet = new Set<string>(['sp_idle-cat-gunner_mw5yrnka']);
     try {
       const delRaw = localStorage.getItem('wcg_deleted_utilities');
       if (delRaw) {
@@ -4369,7 +4371,7 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
         localStorage.setItem('wcg_admin_utility_categories_v1', JSON.stringify(snapshot.utilityCategories));
       }
       if (Array.isArray(snapshot.newsArticles)) {
-        let deletedSet = new Set<string>();
+        let deletedSet = new Set<string>(['sp_idle-cat-gunner_mw5yrnka']);
         try {
           const delRaw = localStorage.getItem('wcg_deleted_news_articles_v1');
           if (delRaw) {

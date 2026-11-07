@@ -27,6 +27,7 @@ import type { StoreProduct, UtilityProduct, UserProfile, ProductPackageVariant }
 import { formatCore } from '../utils/textUtils';
 import { marketingService } from '../services/marketingService';
 import { dataService } from '../services/dataService';
+import { offerService } from '../services/offerService';
 import { getProductPackages } from '../utils/productPackageUtils';
 import { GuideLinksBanner } from './GuideLinksBanner';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
@@ -61,7 +62,17 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const [offerData, setOfferData] = useState<{
     campaign?: { enabled: boolean; offer_price: number };
     offers: Record<string, { eligible: boolean; offer_price: number; discount_amount: number; reason: string | null }>;
-  }>({ offers: {} });
+  }>(() => {
+    const slug = (product as any)?.game_slug || '';
+    const cached = offerService.getCached(slug);
+    if (cached) {
+      return {
+        campaign: cached.campaign,
+        offers: cached.offers || {},
+      };
+    }
+    return { offers: {} };
+  });
   useLockBodyScroll(Boolean(product));
   const [, setTick] = useState(0);
 
@@ -114,17 +125,13 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     const fetchOffers = async () => {
       if (!product) return;
       try {
+        const slug = (product as any).game_slug || '';
         const token = (typeof localStorage !== 'undefined' && localStorage.getItem('wcg_auth_token')) ||
           (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('wcg_auth_token')) ||
           currentUser?.session_token || '';
 
-        const headers: Record<string, string> = {};
-        if (token) headers['Authorization'] = `Bearer ${token}`;
-
-        const slug = (product as any).game_slug || '';
-        const res = await fetch(`/api/store/my-offer?game=${encodeURIComponent(slug)}`, { headers });
-        const data = await res.json();
-        if (isMounted && data.success) {
+        const data = await offerService.fetchOffers(slug, token);
+        if (isMounted && data) {
           setOfferData({
             campaign: data.campaign,
             offers: data.offers || {},
@@ -252,16 +259,24 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     next_price: escNext,
   };
 
-  // Nếu là gói Nâng Giá: tuyệt đối không áp dụng ưu đãi mua lần đầu
-  const isSelectedOfferEligible = !isSelectedEscalating && Boolean(selectedOffer?.eligible);
+  // Kiểm tra ưu đãi mua lần đầu & hình thức Nâng Giá cho gói đang chọn
+  const defaultEligible = selectedPackage.first_purchase_enabled !== false && !isSelectedEscalating;
+  const isSelectedOfferEligible = !isSelectedEscalating && (
+    selectedOffer !== undefined ? Boolean(selectedOffer.eligible) : defaultEligible
+  );
+
+  const rawOfferPrice = selectedOffer?.offer_price ?? (
+    selectedPackage.first_purchase_price ? Number(selectedPackage.first_purchase_price) : 2000
+  );
 
   const displayCurrentPrice = isSelectedEscalating
     ? selectedEscData.current_price
-    : (isSelectedOfferEligible ? selectedOffer.offer_price : currentPrice);
+    : (isSelectedOfferEligible ? rawOfferPrice : currentPrice);
 
+  // Thống nhất cơ số tính % giảm dựa trên giá gốc thật originalPrice (tránh lệch 23% vs 87%)
   const displayOriginalPrice = isSelectedEscalating
     ? displayCurrentPrice
-    : (isSelectedOfferEligible ? currentPrice : originalPrice);
+    : (originalPrice > 0 ? originalPrice : currentPrice);
 
   const discountPercent =
     isSelectedEscalating
@@ -768,16 +783,23 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                         current_price: pkgEscCurrent,
                       };
 
-                      const isPkgOfferEligible = !isPkgEscalating && Boolean(pkgOffer?.eligible);
+                      const defaultPkgEligible = pkg.first_purchase_enabled !== false && !isPkgEscalating;
+                      const isPkgOfferEligible = !isPkgEscalating && (
+                        pkgOffer !== undefined ? Boolean(pkgOffer.eligible) : defaultPkgEligible
+                      );
                       const isPkgOfferUnverified = !isPkgEscalating && !isPkgOfferEligible && pkgOffer?.reason === 'email_unverified';
                       const isPkgOfferLoginReq = !isPkgEscalating && !isPkgOfferEligible && pkgOffer?.reason === 'login_required';
 
+                      const pkgRawOfferPrice = pkgOffer?.offer_price ?? (
+                        pkg.first_purchase_price ? Number(pkg.first_purchase_price) : 2000
+                      );
+
                       const pkgDisplayPrice = isPkgEscalating
                         ? pkgEscData.current_price
-                        : (isPkgOfferEligible ? pkgOffer.offer_price : pkg.price);
+                        : (isPkgOfferEligible ? pkgRawOfferPrice : pkg.price);
                       const pkgOriginalPrice = isPkgEscalating
                         ? pkgDisplayPrice
-                        : (isPkgOfferEligible ? pkg.price : (pkg.original_price || pkg.price));
+                        : (pkg.original_price || pkg.price);
 
                       return (
                         <div
@@ -817,19 +839,19 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                               {!isPkgEscalating && isPkgOfferEligible && (
                                 <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 shrink-0 flex items-center gap-1">
                                   <Sparkles className="w-2.5 h-2.5 text-rose-400" />
-                                  Mua lần đầu chỉ {formatCore(pkgOffer.offer_price)}
+                                  Mua lần đầu chỉ {formatCore(pkgRawOfferPrice)}
                                 </span>
                               )}
                               {!isPkgEscalating && isPkgOfferUnverified && (
                                 <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 shrink-0 flex items-center gap-1" title="Cần xác minh email để áp dụng giá ưu đãi">
                                   <Sparkles className="w-2.5 h-2.5 text-amber-400" />
-                                  Mua lần đầu chỉ {formatCore(pkgOffer?.offer_price || 2000)} (Cần xác minh email)
+                                  Mua lần đầu chỉ {formatCore(pkgRawOfferPrice)} (Cần xác minh email)
                                 </span>
                               )}
                               {!isPkgEscalating && isPkgOfferLoginReq && (
                                 <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 shrink-0 flex items-center gap-1">
                                   <Sparkles className="w-2.5 h-2.5 text-rose-400" />
-                                  Mua lần đầu chỉ {formatCore(pkgOffer?.offer_price || 2000)}
+                                  Mua lần đầu chỉ {formatCore(pkgRawOfferPrice)}
                                 </span>
                               )}
                               {pkg.badge && (

@@ -7,6 +7,38 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-07]
 
+### 335. Cấu Hình Ưu Đãi Mua Lần Đầu & Nâng Giá Theo Từng Gói Riêng Biệt, Khắc Phục 4 Lỗi Hiển Thị Khi Mua Hàng
+- **Bối cảnh & Yêu cầu nghiệp vụ**:
+  - Người dùng yêu cầu cho phép cấu hình "Ưu đãi mua lần đầu" và "Nâng Giá" riêng biệt cho từng gói sản phẩm trong trang quản trị (`CodeInventoryModule.tsx`) và qua API (`/api/store/manage`).
+  - Mỗi gói có 3 trường riêng: `first_purchase_enabled` (boolean), `first_purchase_price` (number | null), `first_purchase_max_price` (number | null). Cài đặt chung của chiến dịch đóng vai trò mặc định fallback.
+  - Quy tắc tương hỗ bắt buộc: 1 gói tại 1 thời điểm chỉ thuộc đúng 1 hình thức (Bình thường / Ưu đãi lần đầu / Nâng giá). Bật mục này tự động tắt mục kia kèm cảnh báo rõ ràng.
+  - Khắc phục 4 lỗi trải nghiệm mua hàng: (1) Giá nhấp nháy 2.600 $\rightarrow$ 2.000 Core lúc mở bảng chọn gói; (2) % giảm bị lệch (-87% ngoài thẻ vs -23% trong bảng) do sai cơ số tính; (3) Nút "Thiếu X Core • Nạp Core Ngay" ở chân bảng thanh toán bị disabled không bấm được; (4) Gói test cũ đã xóa bị nhấp nháy hiện lại do lưu vết trong localStorage.
+- **Nguyên nhân gốc rễ (Root Cause) & Phân tích chuyên sâu**:
+  1. *Lỗi nhấp nháy giá 2.600 $\rightarrow$ 2.000*: `ProductDetailModal` khởi tạo `offerData` rỗng `{ offers: {} }` và chỉ cập nhật khi fetch `/api/store/my-offer` trả về sau 200ms. Trong frame đầu tiên, `isSelectedOfferEligible` bị `false` khiến giá hiển thị fallback về `currentPrice` (2.600) rồi mới đổi sang `2.000`.
+  2. *Lỗi % giảm bị lệch*: `displayOriginalPrice` bị gán nhầm thành `currentPrice` (2.600) khi được hưởng ưu đãi lần đầu, dẫn tới `(2600 - 2000) / 2600 = 23%`, lệch so với thẻ ngoài tính trên `originalPrice` (20.000 $\rightarrow$ 2.600 là -87%).
+  3. *Lỗi nút Nạp Core bị disabled*: Button thanh toán có điều kiện `disabled={... || !isBalanceEnough}`, khiến khi thiếu Core, nút chuyển nhãn "Nạp Core Ngay" nhưng lại bị khóa không click được và `onClick` vẫn trỏ vào `handlePayWithWallet`.
+  4. *Lỗi gói test cũ hiện lại*: `getStoreProducts()` đọc từ `localStorage.getItem('wcg_admin_store_products_v4')` trước khi `sync-lite` phản hồi. Nếu gói test cũ không nằm trong danh sách tombstones thì vẫn được trả về.
+- **Giải pháp triệt để đã triển khai (Solution Applied)**:
+  1. *Cơ sở dữ liệu D1 & API Máy Chủ (`d1_service.ts`, `manage.ts`, `sync-lite.ts`, `my-offer.ts`, `orders/create.ts`)*:
+     - Migration `first_purchase_per_package_v1`: Thêm 3 cột `first_purchase_enabled`, `first_purchase_price`, `first_purchase_max_price` vào bảng `store_products`. Chuyển đổi BỘ CODE và CODE HIẾM thành `first_purchase_enabled = 0`, 8 gói Hiệp Khách Hành còn lại = `1`. Xóa vĩnh viễn gói test `sp_idle-cat-gunner_mw5yrnka`.
+     - Xây dựng hàm SSOT `getProductFirstPurchaseOffer(product, campaignConfig)` áp dụng đồng bộ cho `my-offer.ts` và `orders/create.ts`.
+     - Ràng buộc tương hỗ server-side trong `manage.ts` và `syncProductsToD1`: Bật Nâng Giá thì `first_purchase_enabled = 0`; Bật Ưu Đãi Lần Đầu thì `sale_mode = 'normal'`.
+     - `orders/create.ts` tính tiền đơn hàng theo đúng giá ưu đãi riêng của gói và bảo vệ bằng SQLite atomic guard.
+  2. *Giao diện Quản Trị `CodeInventoryModule.tsx`*:
+     - Tách riêng 2 mục cấu hình với icon `Gift` và `Zap`, công tắc Bật/Tắt độc lập.
+     - Logic chuyển đổi tương hỗ: Bật Ưu đãi tự động tắt Nâng Giá; Bật Nâng Giá tự động tắt Ưu đãi kèm cảnh báo màu hổ phách/tím.
+     - Ô nhập giá ưu đãi riêng và trần riêng có placeholder ghi rõ giá trị mặc định fallback.
+  3. *Khắc phục 4 lỗi hiển thị trên Web Khách*:
+     - Xây dựng dịch vụ `offerService.ts`: Cache in-memory và prefetch `/api/store/my-offer` ngay khi vào trang cửa hàng (`StoreView.tsx`).
+     - `ProductDetailModal.tsx`: Dự đoán eligibility trên frame đầu tiên kết hợp cache `offerService`, loại bỏ 100% hiện tượng nhấp nháy giá. Thống nhất cơ số tính % giảm luôn dựa trên `originalPrice` thật.
+     - `ProductCheckoutModal.tsx`: Bỏ `!isBalanceEnough` khỏi `disabled`, khi thiếu Core nút kích hoạt giao diện nạp tiền và gọi `handleOpenTopup` mở modal ví. Tính tiền theo giá ưu đãi riêng của gói.
+     - `dataService.ts`: Prune sạch gói test cũ `sp_idle-cat-gunner_mw5yrnka` khỏi `deletedSet` và cập nhật tombstones ngay lập tức.
+- **Kết quả nghiệm thu**:
+  - `npm run build` vượt qua 100% không phát sinh bất kỳ lỗi TypeScript hay Vite chunking nào.
+  - Zero Test Artifacts đạt 100%.
+  - Giữ nguyên trạng thái: 8 gói Hiệp Khách Hành ưu đãi 2.000 Core, BỘ CODE và CODE HIẾM loại trừ, 0 gói Nâng Giá.
+  - Tự động deploy lên Cloudflare Pages theo Rule 6.
+
 ### 334. Triển Khai Bộ API Quản Lý Chiến Dịch Mua Lần Đầu & Hình Thức Nâng Giá, Tự Động Ghi Nhật Ký Kiểm Toán & Đồng Bộ Quyền ESCALATING_MANAGE (Rule 8)
 - **Bối cảnh & Yêu cầu nghiệp vụ**:
   - Người dùng yêu cầu xây dựng API quản lý hoàn chỉnh cho 2 nhóm tính năng (Chiến dịch ưu đãi mua lần đầu & Hình thức Nâng Giá theo từng gói), sử dụng chung một chuẩn xác thực quản trị (`verifyAdminAuth`), đồng bộ 1 nguồn sự thật (D1 database), hỗ trợ ghi và đọc nhật ký kiểm toán (`security_logs`), giải quyết triệt để lỗi lưu cấu hình và đồng bộ quyền mới theo Rule 8.
