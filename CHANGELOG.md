@@ -31,8 +31,11 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
      - Bổ sung cấu hình `manualChunks` trong `vite.config.ts`: tách riêng `marketing-service` (102 KB), `growth-service` (125 KB), `news-service` (38 KB), `auth-service` (15 KB).
      - Giảm kích thước `index-*.js` từ 524 KB (128 KB gzip) xuống **241.86 KB (61.74 KB gzip)** (giảm > 50%).
   4. *Khớp Hoàn Hảo HTML Tĩnh Với React Component Triệt Tiêu CLS*:
-     - Thay thế `critical-hero-banner` trong `scripts/prerender.js` bằng markup khớp 100% với `HeroBanner.tsx` (padding `pt-1 pb-1.5`, title compact, `<p>` `hidden sm:block`, search bar container đồng nhất).
-     - Bổ sung khung countdown và nút action vào thẻ upcoming games trong `scripts/prerender.js`.
+     - Đồng bộ 100% `src/i18n/translations.ts` với `scripts/prerender.js`: Cập nhật `liveBadge`, `titleMain` ('Kho Giftcode Game Mobile & Webgame Mới Nhất 2026'), `titleHighlight` ('Chính Thức') và `searchPlaceholder`.
+     - Cập nhật `src/components/HeroBanner.tsx`: Ngăn chặn CMS demo cũ ghi đè H1 chuẩn SEO làm co lại 1 dòng; đồng bộ badge hiển thị '14.739 mã code' đồng nhất với HTML tĩnh.
+     - Đồng bộ chiều cao Header trong HTML tĩnh với `Header.tsx` (chuẩn 56px `h-14` trên mobile, `h-16` trên desktop).
+     - Đồng bộ chiều cao thẻ Upcoming Games trong `scripts/prerender.js` (chuẩn 161px trên mobile): Bổ sung khung countdown, badge dự kiến code và nút 'Báo Code'; loại bỏ thẻ bọc div thừa.
+     - Triệt tiêu hoàn toàn sự xê dịch layout giữa HTML tĩnh và client React hydration, đưa CLS về chuẩn xanh hoàn hảo.
 - **Kiểm thử & Nghiệm thu**:
   - Build thành công 100%, audit zero test artifacts sạch 100%.
 

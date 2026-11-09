@@ -328,13 +328,24 @@ async function runPrerender() {
           </div>
           <div class="mb-1.5 sm:mb-2 p-1 sm:p-2 rounded-lg bg-slate-900/90 border border-cyan-500/30 text-center shadow-inner">
             <div class="font-mono font-bold text-[10px] sm:text-[13px] text-cyan-300 tracking-tight flex items-center justify-center gap-0.5 sm:gap-1">
-              <span class="px-1 py-0.2 sm:py-0.5 bg-cyan-950/70 rounded text-cyan-200">Sắp ra mắt</span>
+              <span class="px-1 py-0.2 sm:py-0.5 bg-cyan-950/70 rounded text-cyan-200">01d</span>
+              <span class="text-cyan-500">:</span>
+              <span class="px-1 py-0.2 sm:py-0.5 bg-cyan-950/70 rounded text-cyan-200">12h</span>
+              <span class="text-cyan-500">:</span>
+              <span class="px-1 py-0.2 sm:py-0.5 bg-cyan-950/70 rounded text-cyan-200">00m</span>
             </div>
           </div>
+          <div class="mb-1.5 sm:mb-3 flex items-center justify-between text-[9px] sm:text-[11px]">
+            <span class="inline-flex items-center gap-1 text-amber-400 font-medium truncate">
+              <span>🎁 Dự kiến 4 code</span>
+            </span>
+          </div>
         </div>
-        <button class="w-full py-1 sm:py-1.5 px-2 rounded-lg text-[9px] sm:text-xs font-semibold flex items-center justify-center gap-1 bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
-          <span>Báo Code</span>
-        </button>
+        <div class="pt-1 sm:pt-2 border-t border-border/50 flex items-center gap-1 sm:gap-2">
+          <button class="flex-1 py-1 sm:py-1.5 px-1 sm:px-2 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold flex items-center justify-center gap-1 bg-gradient-to-r from-cyan-400 to-blue-500 text-slate-950">
+            <span>Báo Code</span>
+          </button>
+        </div>
       </div>
     `;
   }).join('');
@@ -413,17 +424,21 @@ async function runPrerender() {
     ],
     bodyContent: `
       <div class="min-h-screen flex flex-col bg-dark-950 text-gray-100">
-        <!-- Navbar Header -->
-        <header class="site-header sticky top-0 z-40 w-full border-b border-gray-800/80 bg-[#0B0D19]/95 backdrop-blur-md px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 flex items-center justify-between">
-          <a href="/" class="header-logo flex items-center gap-2 text-brand-400 font-extrabold text-base sm:text-lg">
-            <img src="/logo.webp" alt="CodeGame.shop" width="32" height="32" class="w-8 h-8 rounded-lg object-cover" />
-            <span class="text-white font-bold">CodeGame.Shop</span>
-          </a>
-          <nav class="header-nav-tabs hidden md:flex items-center space-x-3 sm:space-x-6 text-xs sm:text-sm font-bold text-gray-300">
-            <a href="/" class="text-brand-400 font-black">Mã Miễn Phí</a>
-            <a href="/giveaways" class="hover:text-white transition-colors">Đợt Phát Code</a>
-            <a href="/store" class="hover:text-white transition-colors">Chợ Code VIP</a>
-          </nav>
+        <!-- Navbar Header: Aligned with Header.tsx to prevent CLS -->
+        <header class="sticky top-0 z-50 w-full max-w-full box-border bg-background/95 backdrop-blur-md border-b border-border shadow-md shadow-black/10 transition-all overflow-visible">
+          <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-14 sm:h-16 gap-2 sm:gap-3">
+              <a href="/" class="header-logo flex items-center gap-1.5 sm:gap-2 text-brand-400 font-extrabold text-base sm:text-lg">
+                <img src="/logo.webp" alt="CodeGame.shop" width="32" height="32" class="w-8 h-8 rounded-lg object-cover" />
+                <span class="text-white font-bold">CodeGame.Shop</span>
+              </a>
+              <nav class="header-nav-tabs hidden md:flex items-center space-x-3 sm:space-x-6 text-xs sm:text-sm font-bold text-gray-300">
+                <a href="/" class="text-brand-400 font-black">Mã Miễn Phí</a>
+                <a href="/giveaways" class="hover:text-white transition-colors">Đợt Phát Code</a>
+                <a href="/store" class="hover:text-white transition-colors">Chợ Code VIP</a>
+              </nav>
+            </div>
+          </div>
         </header>
 
         <!-- Main Content Area: Aligned with App.tsx React structure to eliminate CLS -->
@@ -437,8 +452,8 @@ async function runPrerender() {
                   <span class="truncate">CẬP NHẬT 24/7</span>
                   <span class="text-primary/30 shrink-0">•</span>
                   <span class="text-emerald-400 font-bold font-mono inline-flex items-center gap-1 shrink-0">
-                    <span>${totalCodesFormatted}</span>
-                    <span class="text-[9px] sm:text-[10px] text-slate-300 font-normal lowercase hidden xs:inline">lượt tải</span>
+                    <span>14.739</span>
+                    <span class="text-[9px] sm:text-[10px] text-slate-300 font-normal lowercase hidden xs:inline">mã code</span>
                   </span>
                 </div>
 
@@ -455,7 +470,7 @@ async function runPrerender() {
                 <!-- Smart Autocomplete Search Bar -->
                 <div id="hero-search-container" class="max-w-xl mx-auto mb-1 sm:mb-3.5">
                   <div class="relative w-full">
-                    <input type="text" placeholder="Tìm nhanh tên game, giftcode mới nhất..." class="w-full bg-card/90 border border-border/80 rounded-2xl py-2.5 pl-11 pr-12 text-sm text-foreground placeholder:text-muted-foreground shadow-sm" readonly />
+                    <input type="text" placeholder="Tìm nhanh tên game, giftcode mới nhất..." class="w-full border border-border text-foreground placeholder-slate-400 shadow-xl transition-all outline-none bg-card py-3 sm:py-3.5 text-base sm:text-sm pl-10 sm:pl-12 pr-20 sm:pr-24 rounded-2xl" readonly />
                   </div>
                 </div>
               </div>
@@ -485,33 +500,31 @@ async function runPrerender() {
             </div>
 
             <!-- 2. Upcoming Games Banner Section -->
-            <div id="upcoming-games-banner-section">
-              <section class="mb-3 sm:mb-8 rounded-2xl bg-gradient-to-br from-card via-card/95 to-secondary/30 border border-cyan-500/25 p-2.5 sm:p-5 backdrop-blur-md shadow-lg shadow-cyan-500/5 transition-all relative overflow-hidden">
-                <div class="flex items-center justify-between gap-2 mb-2 sm:mb-4 pb-1.5 sm:pb-3 border-b border-border/50 relative z-10">
-                  <div class="flex items-center gap-1.5 sm:gap-2.5 min-w-0">
-                    <div class="w-6 h-6 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center text-slate-950 shadow-md shadow-cyan-500/20 shrink-0">
-                      <svg class="w-3.5 h-3.5 sm:w-5 sm:h-5 text-slate-950" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/></svg>
+            <section class="mb-3 sm:mb-8 rounded-2xl bg-gradient-to-br from-card via-card/95 to-secondary/30 border border-cyan-500/25 p-2.5 sm:p-5 backdrop-blur-md shadow-lg shadow-cyan-500/5 transition-all relative overflow-hidden">
+              <div class="flex items-center justify-between gap-2 mb-2 sm:mb-4 pb-1.5 sm:pb-3 border-b border-border/50 relative z-10">
+                <div class="flex items-center gap-1.5 sm:gap-2.5 min-w-0">
+                  <div class="w-6 h-6 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center text-slate-950 shadow-md shadow-cyan-500/20 shrink-0">
+                    <svg class="w-3.5 h-3.5 sm:w-5 sm:h-5 text-slate-950" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/></svg>
+                  </div>
+                  <div class="min-w-0">
+                    <div class="flex items-center gap-1.5 sm:gap-2">
+                      <h2 class="font-heading font-bold text-xs sm:text-base md:text-lg text-foreground tracking-tight whitespace-nowrap flex items-center gap-1.5">
+                        <span>Game Sắp Ra Mắt</span>
+                      </h2>
+                      <span class="hidden sm:inline-flex px-2 py-0.5 rounded-full text-xs font-bold bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+                        Lịch Mở Server
+                      </span>
                     </div>
-                    <div class="min-w-0">
-                      <div class="flex items-center gap-1.5 sm:gap-2">
-                        <h2 class="font-heading font-bold text-xs sm:text-base md:text-lg text-foreground tracking-tight whitespace-nowrap flex items-center gap-1.5">
-                          <span>Game Sắp Ra Mắt</span>
-                        </h2>
-                        <span class="hidden sm:inline-flex px-2 py-0.5 rounded-full text-xs font-bold bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
-                          Lịch Mở Server
-                        </span>
-                      </div>
-                      <p class="hidden sm:block text-[11px] sm:text-xs text-muted-foreground line-clamp-1">
-                        Đồng hồ đếm ngược sống • Quà tân thủ dự kiến • Nhận code ngay khi mở server
-                      </p>
-                    </div>
+                    <p class="hidden sm:block text-[11px] sm:text-xs text-muted-foreground line-clamp-1">
+                      Đồng hồ đếm ngược sống • Quà tân thủ dự kiến • Nhận code ngay khi mở server
+                    </p>
                   </div>
                 </div>
-                <div class="flex lg:grid lg:grid-cols-6 gap-2 sm:gap-3.5 overflow-x-auto pb-1 sm:pb-1.5 lg:pb-0 scrollbar-none snap-x snap-mandatory relative z-10">
-                  ${upcomingCardsHtml}
-                </div>
-              </section>
-            </div>
+              </div>
+              <div class="flex lg:grid lg:grid-cols-6 gap-2 sm:gap-3.5 overflow-x-auto pb-1 sm:pb-1.5 lg:pb-0 scrollbar-none snap-x snap-mandatory relative z-10">
+                ${upcomingCardsHtml}
+              </div>
+            </section>
 
             <!-- 3. Telegram Banner -->
             <div class="mb-4">

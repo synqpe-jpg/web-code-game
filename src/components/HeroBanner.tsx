@@ -78,9 +78,10 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
     'Free Fire',
   ];
 
+  const isDefaultDemoTitle = !cmsHero?.title || cmsHero.title === 'Kho Giftcode &' || cmsHero.title === 'Kho Giftcode & Mã Quà Tặng';
   const heroBadgeText = cmsHero?.extraData?.badge || t.hero.liveBadge;
-  const heroMainTitle = cmsHero?.title || t.hero.titleMain;
-  const heroHighlight = cmsHero?.extraData?.titleHighlight !== undefined ? cmsHero.extraData.titleHighlight : t.hero.titleHighlight;
+  const heroMainTitle = isDefaultDemoTitle ? t.hero.titleMain : (cmsHero?.title || t.hero.titleMain);
+  const heroHighlight = isDefaultDemoTitle ? t.hero.titleHighlight : (cmsHero?.extraData?.titleHighlight !== undefined ? cmsHero.extraData.titleHighlight : t.hero.titleHighlight);
   const heroDescription = cmsHero?.content || t.hero.subtitle;
 
   return (
@@ -99,8 +100,8 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
             <span className="text-primary/30 shrink-0">•</span>
             <span className="text-emerald-400 font-bold font-mono inline-flex items-center gap-1 shrink-0">
               <Zap className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-emerald-400 animate-pulse shrink-0" />
-              <span>{liveCopies.toLocaleString('vi-VN')}</span>
-              <span className="text-[9px] sm:text-[10px] text-slate-300 font-normal lowercase hidden xs:inline">lượt tải</span>
+              <span>14.739</span>
+              <span className="text-[9px] sm:text-[10px] text-slate-300 font-normal lowercase hidden xs:inline">mã code</span>
             </span>
           </div>
 
