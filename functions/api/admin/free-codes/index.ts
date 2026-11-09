@@ -55,34 +55,35 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     const params: any[] = [];
 
     if (gameSlug) {
-      conditions.push('game_slug = ?');
+      conditions.push('c.game_slug = ?');
       params.push(gameSlug);
     }
 
     if (status !== 'ALL' && status !== '') {
-      conditions.push('status = ?');
+      conditions.push('c.status = ?');
       params.push(status);
     }
 
     if (search) {
-      conditions.push('(code LIKE ? OR rewards LIKE ? OR game_name LIKE ? OR game_slug LIKE ?)');
+      conditions.push('(c.code LIKE ? OR c.rewards LIKE ? OR c.game_slug LIKE ? OR g.name LIKE ?)');
       const wild = `%${search}%`;
       params.push(wild, wild, wild, wild);
     }
 
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
-    const countSql = `SELECT COUNT(*) as total FROM codes ${whereClause}`;
+    const countSql = `SELECT COUNT(*) as total FROM codes c LEFT JOIN games g ON c.game_slug = g.slug ${whereClause}`;
     const totalRow = await env.DB.prepare(countSql).bind(...params).first<any>();
     const total = Number(totalRow?.total || 0);
     const totalPages = Math.ceil(total / limit) || 1;
     const offset = (page - 1) * limit;
 
     const dataSql = `
-      SELECT id, game_slug, game_name, code, rewards, status, expires_at, is_hot, created_at
-      FROM codes
+      SELECT c.id, c.game_slug, g.name as game_name, c.code, c.rewards, c.status, c.expires_at, c.created_at
+      FROM codes c
+      LEFT JOIN games g ON c.game_slug = g.slug
       ${whereClause}
-      ORDER BY id DESC
+      ORDER BY c.id DESC
       LIMIT ? OFFSET ?
     `;
     const rows = await env.DB.prepare(dataSql).bind(...params, limit, offset).all<any>();
@@ -90,12 +91,11 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     const codes = (rows?.results || []).map((c: any) => ({
       id: c.id,
       gameSlug: c.game_slug,
-      gameName: c.game_name || '',
+      gameName: c.game_name || c.game_slug,
       code: c.code,
       rewards: c.rewards || '',
       status: c.status || 'active',
       expiresAt: c.expires_at || null,
-      isHot: c.is_hot === 1 || c.is_hot === true,
       createdAt: c.created_at,
     }));
 
@@ -168,16 +168,17 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       );
     }
 
-    const res = await env.DB.prepare(`
-      INSERT INTO codes (game_slug, game_name, code, rewards, status, expires_at, is_hot, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
-    `).bind(gameSlug, gameName, code, rewards, status, expiresAt, isHot).run();
+    const newId = `code_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    await env.DB.prepare(`
+      INSERT INTO codes (id, game_slug, code, rewards, status, expires_at, source, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, 'admin', datetime('now'))
+    `).bind(newId, gameSlug, code, rewards, status, expiresAt).run();
 
     await logAdminAudit(env.DB, {
       actorName: auth.adminName || 'Admin',
       action: 'CREATE_FREE_CODE',
-      targetId: gameSlug,
-      details: { code, gameSlug, gameName, rewards },
+      targetId: newId,
+      details: { id: newId, code, gameSlug, gameName, rewards },
     });
 
     return new Response(
@@ -185,14 +186,13 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         success: true,
         message: `Đã thêm giftcode "${code}" cho tựa game "${gameName}" thành công.`,
         code: {
-          id: res.meta?.last_row_id || null,
+          id: newId,
           gameSlug,
           gameName,
           code,
           rewards,
           status,
           expiresAt,
-          isHot: isHot === 1,
         },
       }),
       { status: 201, headers: CORS_HEADERS }

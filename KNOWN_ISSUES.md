@@ -10,6 +10,17 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-249: Bẫy Giả Định Cột Dữ Liệu Ảo (buyer_name, amount trong orders & game_name, is_hot trong codes) Khiến API Backend Bị SQLite Error Trong Cloudflare D1
+- **Triệu chứng & Rủi ro**:
+  - Khi viết các truy vấn SQL cho bảng `orders` hoặc `codes`, nếu giả định các cột như `buyer_name` (thực tế chỉ có `buyer_email`), `amount` (thực tế là `total_amount`), `game_name` (thực tế nằm ở bảng `games`), hoặc `is_hot`:
+  - Máy chủ Cloudflare D1 sẽ trả về lỗi HTTP 500: `no such column: buyer_name` hoặc `no such column: game_name`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Với bảng `orders`: Luôn truy vấn cột `total_amount`, và gán `buyerName = buyer_email || 'Khách hàng'`.
+  2. Với bảng `codes`: Luôn thực hiện `LEFT JOIN games g ON c.game_slug = g.slug` để lấy `g.name as game_name`. Khi thêm hoặc sửa giftcode, chỉ thao tác trên các cột thực tế (`id`, `game_slug`, `code`, `rewards`, `status`, `expires_at`, `source`, `created_at`).
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không truy vấn trực tiếp cột `buyer_name` hay `amount` từ bảng `orders`.*
+  - ❌ *Không `INSERT` hoặc `UPDATE` cột `game_name` và `is_hot` vào bảng `codes`.*
+
 ### ISSUE-248: Bẫy Chỉ Phụ Thuộc Vào Snapshot /api/sync Cho Quản Trị Khiến Bên Ngoài Dùng API Key Không Gọi Được Dữ Liệu & Bẫy Cứng Nhắc Trong Phân Quyền Scope Khiến Khóa Cửa Hàng Bị 401 Khi Thao Tác Ví/Thành Viên
 - **Triệu chứng & Rủi ro**:
   1. Khi hệ thống chỉ chạy đồng bộ dữ liệu quản trị qua `/api/sync`, các trường dữ liệu nhạy cảm (như members, orders, walletTransactions, sepayLogs, giftcodeSubmissions) chỉ trả về khi có phiên đăng nhập admin (cookie/session). Các tác nhân AI hoặc script bên ngoài dùng API Key qua Bearer token hoàn toàn bị mù dữ liệu.

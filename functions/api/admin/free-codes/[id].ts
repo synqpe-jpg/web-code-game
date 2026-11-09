@@ -84,9 +84,7 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
     const newRewards = body.rewards !== undefined ? String(body.rewards).trim() : existing.rewards;
     const newStatus = body.status !== undefined ? String(body.status).toLowerCase().trim() : existing.status;
     const newExpiresAt = body.expires_at !== undefined ? body.expires_at : (body.expiresAt !== undefined ? body.expiresAt : existing.expires_at);
-    const newIsHot = body.is_hot !== undefined ? (body.is_hot ? 1 : 0) : (body.isHot !== undefined ? (body.isHot ? 1 : 0) : existing.is_hot);
     const newGameSlug = body.game_slug !== undefined ? String(body.game_slug).trim() : existing.game_slug;
-    const newGameName = body.game_name !== undefined ? String(body.game_name).trim() : existing.game_name;
 
     await env.DB.prepare(`
       UPDATE codes
@@ -94,11 +92,9 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
           rewards = ?,
           status = ?,
           expires_at = ?,
-          is_hot = ?,
-          game_slug = ?,
-          game_name = ?
+          game_slug = ?
       WHERE id = ?
-    `).bind(newCode, newRewards, newStatus, newExpiresAt, newIsHot, newGameSlug, newGameName, targetId).run();
+    `).bind(newCode, newRewards, newStatus, newExpiresAt, newGameSlug, targetId).run();
 
     await logAdminAudit(env.DB, {
       actorName: auth.adminName || 'Admin',
@@ -112,22 +108,27 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
       },
     });
 
-    const updated = await env.DB.prepare('SELECT * FROM codes WHERE id = ? LIMIT 1').bind(targetId).first<any>();
+    const updated = await env.DB.prepare(`
+      SELECT c.id, c.game_slug, g.name as game_name, c.code, c.rewards, c.status, c.expires_at, c.created_at
+      FROM codes c
+      LEFT JOIN games g ON c.game_slug = g.slug
+      WHERE c.id = ?
+      LIMIT 1
+    `).bind(targetId).first<any>();
 
     return new Response(
       JSON.stringify({
         success: true,
         message: 'Đã cập nhật giftcode thành công.',
         code: {
-          id: updated.id,
-          gameSlug: updated.game_slug,
-          gameName: updated.game_name,
-          code: updated.code,
-          rewards: updated.rewards,
-          status: updated.status,
-          expiresAt: updated.expires_at,
-          isHot: updated.is_hot === 1,
-          createdAt: updated.created_at,
+          id: updated?.id || targetId,
+          gameSlug: updated?.game_slug || newGameSlug,
+          gameName: updated?.game_name || newGameSlug,
+          code: updated?.code || newCode,
+          rewards: updated?.rewards || newRewards,
+          status: updated?.status || newStatus,
+          expiresAt: updated?.expires_at || newExpiresAt,
+          createdAt: updated?.created_at || existing.created_at,
         },
       }),
       { status: 200, headers: CORS_HEADERS }

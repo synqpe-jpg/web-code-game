@@ -87,7 +87,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       );
     }
 
-    const refundAmount = Number(order.price_paid !== null && order.price_paid !== undefined ? order.price_paid : order.amount) || 0;
+    const refundAmount = Number(order.price_paid !== null && order.price_paid !== undefined ? order.price_paid : (order.total_amount ?? order.amount)) || 0;
     const memberId = order.member_id;
 
     const stmts: D1PreparedStatement[] = [];

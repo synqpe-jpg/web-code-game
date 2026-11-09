@@ -65,9 +65,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     }
 
     if (search) {
-      conditions.push('(id LIKE ? OR buyer_name LIKE ? OR buyer_email LIKE ? OR product_title LIKE ? OR sepay_transaction_id LIKE ?)');
+      conditions.push('(id LIKE ? OR buyer_email LIKE ? OR product_title LIKE ? OR sepay_transaction_id LIKE ?)');
       const wild = `%${search}%`;
-      params.push(wild, wild, wild, wild, wild);
+      params.push(wild, wild, wild, wild);
     }
 
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -80,7 +80,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
     const dataSql = `
       SELECT 
-        id, member_id, buyer_name, buyer_email, product_id, product_title, amount,
+        id, member_id, buyer_email, product_id, product_title, total_amount,
         original_price, price_paid, discount_type, discount_amount, price_rule,
         payment_method, payment_status, status, expires_at, paid_at, sepay_transaction_id, created_at
       FROM orders
@@ -93,13 +93,14 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     const orders = (rows?.results || []).map((o: any) => ({
       id: o.id,
       memberId: o.member_id,
-      buyerName: o.buyer_name || 'Khách hàng',
+      buyerName: o.buyer_email || 'Khách hàng',
       buyerEmail: o.buyer_email || '',
       productId: o.product_id,
       productTitle: o.product_title || '',
-      amount: Number(o.amount || 0),
+      amount: Number(o.total_amount || 0),
+      totalAmount: Number(o.total_amount || 0),
       originalPrice: o.original_price !== null && o.original_price !== undefined ? Number(o.original_price) : null,
-      pricePaid: o.price_paid !== null && o.price_paid !== undefined ? Number(o.price_paid) : Number(o.amount || 0),
+      pricePaid: o.price_paid !== null && o.price_paid !== undefined ? Number(o.price_paid) : Number(o.total_amount || 0),
       discountType: o.discount_type || null,
       discountAmount: Number(o.discount_amount || 0),
       priceRule: o.price_rule || null,

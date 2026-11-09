@@ -85,10 +85,11 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     const rewards = String(sub.rewards || 'Mã quà tặng do thành viên đóng góp').trim();
 
     if (codeValue && gameSlug) {
+      const codeId = `code_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
       await env.DB.prepare(`
-        INSERT INTO codes (game_slug, game_name, code, rewards, status, expires_at, is_hot, created_at)
-        VALUES (?, ?, ?, ?, 'active', NULL, 0, datetime('now'))
-      `).bind(gameSlug, sub.gameName || gameSlug, codeValue, rewards).run().catch(() => {});
+        INSERT INTO codes (id, game_slug, code, rewards, status, expires_at, source, created_at)
+        VALUES (?, ?, ?, ?, 'active', NULL, 'submission', datetime('now'))
+      `).bind(codeId, gameSlug, codeValue, rewards).run().catch(() => {});
     }
 
     await logAdminAudit(env.DB, {

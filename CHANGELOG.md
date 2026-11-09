@@ -7,6 +7,29 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-09]
 
+### 350. Chuẩn Hóa Truy Vấn Bảng Orders Và Free-Codes Khớp 100% Schema Vật Lý Cloudflare D1 & Xác Nhận Triệt Tiêu Hai Lỗi UI (K.trim & LIKE pattern too complex)
+- **Triệu chứng & Bối cảnh**:
+  - Khi kiểm thử trực tiếp các endpoint API quản trị độc lập mới xây dựng:
+    1. Endpoint `GET /api/admin/orders` và `GET /api/admin/orders/:id`: Báo lỗi SQLite do câu truy vấn chứa các cột không có trong schema vật lý của bảng `orders` trên Cloudflare D1 (`buyer_name`, `amount`).
+    2. Endpoint `GET /api/admin/free-codes` và `POST/PUT /api/admin/free-codes`: Báo lỗi SQLite do câu truy vấn SELECT và INSERT/UPDATE gọi các cột không tồn tại trong bảng `codes` (`game_name`, `is_hot`), thiếu sinh khóa chính `id TEXT`.
+    3. Đồng thời xác nhận trạng thái của hai lỗi giao diện Quản trị mà người dùng gửi ảnh đối chiếu:
+       - Lỗi duyệt nạp SePay: Toast đỏ "Lỗi xử lý: K.trim is not a function" (đã giải quyết dứt điểm tại commit `6db6e3e`).
+       - Lỗi điều chỉnh số dư thành viên: Toast đỏ "Lỗi máy chủ khi điều chỉnh số dư ví: D1_ERROR: LIKE or GLOB pattern too complex: SQLITE_ERROR" (đã giải quyết dứt điểm tại commit `6acc021`).
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Bảng `orders` trong D1 chỉ lưu `buyer_email` và `total_amount` (không có cột `buyer_name` hay `amount`). Tên người mua thực tế được lấy từ `buyer_email` hoặc JOIN từ bảng `members`.
+  - Bảng `codes` trong D1 có schema tinh gọn `(id, game_slug, code, rewards, status, expires_at, source, added_at, created_at)`. Thuộc tính `game_name` thuộc về bảng `games` và phải liên kết qua `LEFT JOIN games g ON c.game_slug = g.slug`.
+- **Giải pháp triệt để đã triển khai (Solution Applied)**:
+  1. *Đồng Bộ Schema Cho Module Đơn Hàng (`orders`)*:
+     - Điều chỉnh câu query trong `functions/api/admin/orders/index.ts`, `functions/api/admin/orders/[id].ts` và `functions/api/admin/orders/[id]/refund.ts`:
+     - Sử dụng `total_amount` làm cột chuẩn, fallback `buyer_name = buyer_email || 'Khách hàng'`.
+     - Tối ưu hóa điều kiện tìm kiếm: `WHERE (id LIKE ? OR buyer_email LIKE ? OR product_title LIKE ? OR sepay_transaction_id LIKE ?)`.
+  2. *Đồng Bộ Schema Cho Module Code Miễn Phí (`free-codes`)*:
+     - Sử dụng `LEFT JOIN games g ON c.game_slug = g.slug` để đọc `g.name as game_name` chuẩn xác trong `GET /api/admin/free-codes` và `[id].ts`.
+     - Tìm kiếm liên bảng linh hoạt: `WHERE (c.code LIKE ? OR c.rewards LIKE ? OR c.game_slug LIKE ? OR g.name LIKE ?)`.
+     - Trong `POST /api/admin/free-codes` và `submissions/[id]/approve.ts`: Tự động sinh `id` định danh duy nhất (`code_${Date.now()}_${rand}`), chỉ ghi các cột thực tế của bảng `codes`.
+     - Trong `PUT /api/admin/free-codes/:id`: Chỉ cập nhật các cột tồn tại trong bảng `codes`.
+- **Kiểm thử & Nghiệm thu**: Vượt qua 100% bài kiểm tra build, prerender, và edge worker compiling.
+
 ### 349. Xây Dựng 9 Module API Quản Trị Chuyên Dụng Độc Lập & Cấp Bổ Sung Quyền MEMBERS_FULL, TELEGRAM_FULL Cho API Keys
 - **Triệu chứng & Bối cảnh**:
   - Trang Quản trị (Admin UI) trước đây chủ yếu lấy dữ liệu từ snapshot `/api/sync` kết hợp trạng thái local/KV. Khi các hệ thống bên ngoài hoặc AI Agents (như Muse) gọi bằng API Key qua Bearer token, các trường dữ liệu quản trị cốt lõi (members, orders, walletTransactions, sepayLogs, giftcodeSubmissions) không được trả về do yêu cầu phiên đăng nhập cookie/session admin.
