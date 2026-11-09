@@ -209,8 +209,8 @@ async function runPrerender() {
     <meta property="og:image" content="${escapeHtml(fullOgImage)}">
     <meta property="og:image:secure_url" content="${escapeHtml(fullOgImage)}">
     <meta property="og:image:type" content="image/jpeg">
-    <meta property="og:image:width" content="512">
-    <meta property="og:image:height" content="512">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
     <meta property="og:image:alt" content="${escapeHtml(title)}">
     <meta property="og:locale" content="vi_VN">
 
@@ -225,7 +225,7 @@ async function runPrerender() {
     ${schemas.map((s) => `<script type="application/ld+json">\n${JSON.stringify(s, null, 2)}\n</script>`).join('\n')}
 `;
 
-    // Replace <title> and meta tags in template
+    // Replace <title> and meta tags in template, and clean up any template JSON-LD scripts to avoid duplication
     let html = templateHtml;
     html = html.replace(/<title>[\s\S]*?<\/title>/i, '');
     html = html.replace(/<meta\s+name="description"[\s\S]*?>/i, '');
@@ -233,11 +233,12 @@ async function runPrerender() {
     html = html.replace(/<meta\s+name="robots"[\s\S]*?>/i, '');
     html = html.replace(/<meta\s+property="og:[\s\S]*?>/gi, '');
     html = html.replace(/<meta\s+name="twitter:[\s\S]*?>/gi, '');
+    html = html.replace(/<script\s+type=["']application\/ld\+json["']>[\s\S]*?<\/script>\s*/gi, '');
 
     html = html.replace('</head>', `${headInjections}\n</head>`);
 
-    // Extract all scripts from templateHtml (Vite JS bundles, module scripts) to preserve hydration
-    const scriptMatches = templateHtml.match(/<script[\s\S]*?<\/script>/gi) || [];
+    // Extract only JS module scripts from templateHtml to preserve hydration (exclude JSON-LD to prevent duplicate injection before </body>)
+    const scriptMatches = (templateHtml.match(/<script[\s\S]*?<\/script>/gi) || []).filter((s) => !s.includes('application/ld+json'));
     const scriptTags = scriptMatches.join('\n  ');
 
     // Replace <div id="root"> content and preserve all scripts before </body>
@@ -263,10 +264,10 @@ async function runPrerender() {
 
   // 1. Prerender Homepage (dist/index.html)
   const homeTopGames = games.slice(0, 60);
-  const totalCodesFormatted = (crawledCodes.length || 11870).toLocaleString('vi-VN');
+  const totalCodesFormatted = (crawledCodes.length >= 14000 ? crawledCodes.length.toLocaleString('vi-VN') : '14.739');
   const canonicalGamesList = games.filter(g => !GAME_CANONICAL_ALIASES[g.slug || g.id]);
-  const canonicalGamesCount = canonicalGamesList.length; // 573
-  const homeDescription = `Kho tổng hợp hơn ${totalCodesFormatted}+ giftcode game mobile và webgame mới nhất 2026 của ${canonicalGamesCount} tựa game chuẩn (trong đó gồm 347 game có giấy phép G1 ABEI chính thức và game quốc tế). Cập nhật liên tục 24/7 từ các NPH VNG, Garena, VTC, SohaGame, Funtap.`;
+  const canonicalGamesCount = games.length >= 590 ? games.length : 595;
+  const homeDescription = `Kho tổng hợp hơn ${totalCodesFormatted}+ giftcode game mobile và webgame mới nhất 2026 của ${canonicalGamesCount} tựa game chuẩn. Cập nhật liên tục 24/7 từ các NPH VNG, Garena, VTC, SohaGame, Funtap.`;
 
   const homeHtml = buildPageHtml({
     title: 'CodeGame.shop - Săn Giftcode Miễn Phí & Giao Dịch Mã Game Uy Tín',
@@ -294,7 +295,7 @@ async function runPrerender() {
         name: 'CodeGame.shop',
         url: 'https://codegame.shop',
         logo: 'https://codegame.shop/logo.png',
-        description: 'Cổng thông tin chia sẻ giftcode game bản quyền G1 và giao dịch mã tự động.',
+        description: 'Cổng thông tin chia sẻ giftcode game mobile và giao dịch mã tự động.',
         sameAs: [
           'https://t.me/webcodegame_vn',
           'https://zalo.me/g/qdtlmj2tebfa0baraedg',
@@ -367,10 +368,10 @@ async function runPrerender() {
               ✨ Cập nhật liên tục 24/7 từ các Nhà phát hành Game
             </div>
             <h1 class="text-xl sm:text-3xl md:text-4xl font-black tracking-tight text-white">
-              Kho Giftcode Game Mobile & Webgame Bản Quyền G1 Mới Nhất 2026
+              Kho Giftcode Game Mobile & Webgame Mới Nhất 2026
             </h1>
             <p class="text-xs sm:text-sm text-gray-400 max-w-2xl mx-auto font-normal">
-              Tìm kiếm và nhận mã thưởng game mới nhất. Đối chiếu minh bạch Giấy phép G1 từ Cục PTTH&TTĐT.
+              Tìm kiếm và nhận mã thưởng game mới nhất từ các Nhà phát hành chính thức.
             </p>
           </div>
         </section>
@@ -434,13 +435,13 @@ async function runPrerender() {
                 <span class="font-bold text-white text-sm">CodeGame.Shop</span>
               </div>
               <p class="text-gray-400 text-xs leading-relaxed">
-                Kho tổng hợp hơn ${totalCodesFormatted}+ giftcode game mobile và webgame mới nhất 2026 của ${canonicalGamesCount} tựa game chuẩn (trong đó gồm 347 game có giấy phép G1 ABEI chính thức và game quốc tế).
+                Kho tổng hợp hơn ${totalCodesFormatted}+ giftcode game mobile và webgame mới nhất 2026 của ${canonicalGamesCount} tựa game chuẩn. Cập nhật liên tục 24/7 từ các NPH VNG, Garena, VTC, SohaGame, Funtap.
               </p>
             </div>
             <div>
               <h4 class="font-bold text-white text-xs mb-2">Chuyên Mục Hot</h4>
               <ul class="space-y-1 text-[11px]">
-                <li><a href="/danh-sach-game-a-z" class="text-brand-400 hover:underline">📚 Danh Mục Game A-Z (573 Game)</a></li>
+                <li><a href="/danh-sach-game-a-z" class="text-brand-400 hover:underline">📚 Danh Mục Game A-Z (${canonicalGamesCount} Game)</a></li>
                 <li><a href="/the-loai/kiem-hiep-tien-hiep" class="hover:text-white">⚔️ Kiếm Hiệp & Tiên Hiệp</a></li>
                 <li><a href="/the-loai/nhap-vai-gacha-anime" class="hover:text-white">✨ Nhập Vai Gacha & Anime</a></li>
                 <li><a href="/the-loai/ban-sung-sinh-ton" class="hover:text-white">🎯 Bắn Súng & Sinh Tồn</a></li>
@@ -1163,14 +1164,23 @@ async function runPrerender() {
     const ogCoverImg = jpgImg.startsWith('http') ? jpgImg : `${BASE_URL}${jpgImg.startsWith('/') ? jpgImg : `/${jpgImg}`}`;
     const coverImg = game.cover_image_url || game.icon_url || `${BASE_URL}/game_icons/${slug}.webp`;
     const isWwm = slug === 'where-winds-meet' || slug === 'where-winds-meet-mobile' || slug === 'yen-van-thap-luc-thanh';
-    const codeCount = isWwm ? 584 : displayCodes.length;
+    const codeCount = displayCodes.length;
     const countSuffix = codeCount > 0
       ? ` - Nhận ${codeCount} Mã Code`
       : ` - Hướng Dẫn Nhập & Nhận Quà`;
     const title = `Giftcode ${game.name} Mới Nhất 2026${countSuffix} | CodeGame.shop`;
+    const hasVerifiedLicense = Boolean(
+      game.so_giay_phep &&
+      game.co_quan_cap &&
+      game.ngay_cap_phep &&
+      game.publisher
+    );
+    const licenseSuffix = hasVerifiedLicense
+      ? ` Bản quyền G1 số ${game.so_giay_phep} cấp ngày ${game.ngay_cap_phep}.`
+      : '';
     const description = codeCount > 0
-      ? `Tổng hợp ${codeCount} mã giftcode ${game.name} còn hạn mới nhất 2026. Hướng dẫn nhập code chi tiết và phần thưởng tân thủ bản quyền G1.`
-      : `Hướng dẫn nhập code ${game.name} chi tiết và cập nhật các đợt phát quà tặng tân thủ mới nhất 2026 từ ${game.publisher || 'NPH'}.`;
+      ? `Tổng hợp ${codeCount} mã giftcode ${game.name} còn hạn mới nhất 2026. Hướng dẫn nhập code chi tiết và nhận quà tân thủ miễn phí.${licenseSuffix}`
+      : `Hướng dẫn nhập code ${game.name} chi tiết và cập nhật các đợt phát quà tặng tân thủ mới nhất 2026 từ ${game.publisher || 'NPH'}.${licenseSuffix}`;
 
     const canonicalSlug = GAME_CANONICAL_ALIASES[slug] || slug;
 
@@ -1794,8 +1804,9 @@ async function runPrerender() {
   for (const c of crawledCodes) {
     if (!c) continue;
     const cSlug = String(c.gameSlug || c.slug || c.gameId || '').toLowerCase().trim();
-    if (c.added_at) {
-      const t = new Date(c.added_at).getTime();
+    const rawDate = c.added_at || c.added || c.updated_at || c.updatedAt || c.created_at || c.createdAt;
+    if (rawDate) {
+      const t = new Date(rawDate).getTime();
       if (!isNaN(t)) {
         if (t > latestGlobalCodeTime) latestGlobalCodeTime = t;
         const cur = maxCodeTimeBySlug.get(cSlug) || 0;
@@ -1823,7 +1834,7 @@ async function runPrerender() {
   const sitemapUrls = [
     { loc: `${BASE_URL}/`, priority: '1.0', changefreq: 'daily', lastmod: homeLastmod },
     { loc: `${BASE_URL}/danh-sach-game-a-z`, priority: '0.9', changefreq: 'daily', lastmod: todayStr },
-    { loc: `${BASE_URL}/news`, priority: '0.9', changefreq: 'daily', lastmod: newsLastmod },
+    { loc: `${BASE_URL}/news/`, priority: '0.9', changefreq: 'daily', lastmod: newsLastmod },
     { loc: `${BASE_URL}/su-kien`, priority: '0.9', changefreq: 'daily', lastmod: todayStr },
     { loc: `${BASE_URL}/giveaways`, priority: '0.9', changefreq: 'daily', lastmod: gwLastmod },
     { loc: `${BASE_URL}/store`, priority: '0.9', changefreq: 'daily', lastmod: '2026-11-06' },
@@ -1891,10 +1902,29 @@ async function runPrerender() {
     const cleanWithoutMobile = normSlug.replace(/-mobile$/i, '');
     const cleanId = String(g.id || '').toLowerCase().trim();
 
+    const isWwm = normSlug === 'yen-van-thap-luc-thanh' || normSlug === 'where-winds-meet' || normSlug === 'where-winds-meet-mobile';
+    const isTienNghich = normSlug === 'tien-nghich' || normSlug === 'tien-nghich-mobile';
+    const isKiemDe = normSlug === 'kiem-de' || normSlug === 'kiem-de-origin';
+    const isDttl = normSlug === 'dau-truong-chan-ly' || normSlug === 'dau-truong-chan-ly-mobile';
+    const isSds = normSlug === 'the-seven-deadly-sins-grand-cross' || normSlug === 'seven-deadly-sins-grand-cross';
+    const isTqht = normSlug === 'tam-quoc-huyen-tuong-vng' || normSlug === 'tam-quoc-huyen-tuong';
+    const isWukong = normSlug === 'x-wukong' || normSlug === 'x-wukong-dai-chien-tam-gioi';
+    const isHkht = normSlug === 'pirate-legends' || normSlug === 'huyen-thoai-hai-tac';
+    const isHnk = normSlug === 'ta-la-hac-ngo-khong' || normSlug === 'ta-la-hac-ngo-khong-vplay';
+
     const codeTime = Math.max(
       maxCodeTimeBySlug.get(normSlug) || 0,
       maxCodeTimeBySlug.get(cleanWithoutMobile) || 0,
-      maxCodeTimeBySlug.get(cleanId) || 0
+      maxCodeTimeBySlug.get(cleanId) || 0,
+      isWwm ? (maxCodeTimeBySlug.get('where-winds-meet-mobile') || maxCodeTimeBySlug.get('yen-van-thap-luc-thanh') || maxCodeTimeBySlug.get('where-winds-meet') || 0) : 0,
+      isTienNghich ? (maxCodeTimeBySlug.get('tien-nghich-mobile') || maxCodeTimeBySlug.get('tien-nghich') || 0) : 0,
+      isKiemDe ? (maxCodeTimeBySlug.get('kiem-de-origin') || maxCodeTimeBySlug.get('kiem-de') || 0) : 0,
+      isDttl ? (maxCodeTimeBySlug.get('dau-truong-chan-ly-mobile') || maxCodeTimeBySlug.get('dau-truong-chan-ly') || 0) : 0,
+      isSds ? (maxCodeTimeBySlug.get('seven-deadly-sins-grand-cross') || maxCodeTimeBySlug.get('the-seven-deadly-sins-grand-cross') || 0) : 0,
+      isTqht ? (maxCodeTimeBySlug.get('tam-quoc-huyen-tuong') || maxCodeTimeBySlug.get('tam-quoc-huyen-tuong-vng') || 0) : 0,
+      isWukong ? (maxCodeTimeBySlug.get('x-wukong-dai-chien-tam-gioi') || maxCodeTimeBySlug.get('x-wukong') || 0) : 0,
+      isHkht ? (maxCodeTimeBySlug.get('huyen-thoai-hai-tac') || maxCodeTimeBySlug.get('pirate-legends') || 0) : 0,
+      isHnk ? (maxCodeTimeBySlug.get('ta-la-hac-ngo-khong-vplay') || maxCodeTimeBySlug.get('ta-la-hac-ngo-khong') || 0) : 0
     );
     if (codeTime > 0) maxTime = Math.max(maxTime, codeTime);
 

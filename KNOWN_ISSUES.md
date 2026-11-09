@@ -10,6 +10,18 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-251: Bẫy Exclude "/sitemap.xml" Trong _routes.json Khiến Cloudflare Pages Worker Bị Bỏ Qua & Bẫy Gom Trùng Lặp Schema JSON-LD Vào Cuối Body
+- **Triệu chứng & Rủi ro**:
+  1. Khi cấu hình `_routes.json` chứa `"/sitemap.xml"` trong mảng `exclude`, Cloudflare Pages edge router mặc định phục vụ file tĩnh cũ `dist/sitemap.xml` lưu trong CDN storage và KHÔNG BAO GIỜ kích hoạt Cloudflare Pages Worker (`functions/_worker.ts`). Hậu quả là dù Worker đã lập trình `handleDynamicSitemap` lấy lastmod và game thời gian thực từ CSDL D1 thì client/crawler vẫn nhận file sitemap cũ kỹ.
+  2. Khi prerender HTML cho trang chủ và các trang tĩnh, nếu bộ lọc script gom tất cả thẻ `<script>` (kể cả `<script type="application/ld+json">`) để chèn trước `</body>`, các khối schema cấu trúc sẽ bị nhân bản nhiều lần (3 khối `WebSite` + 3 khối `Organization`), gây lỗi trùng lặp khi bot tìm kiếm thu thập dữ liệu (Google Search Console / Rich Results Test).
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Tuyệt đối **KHÔNG đưa `"/sitemap.xml"` vào `exclude` của `public/_routes.json`**; cho phép Worker Edge xử lý trực tiếp request sitemap động với header `X-Sitemap-Source: live-d1`.
+  2. Trong `scripts/prerender.js`, trước khi chèn schema mới, phải xóa bỏ toàn bộ `<script type="application/ld+json">` có sẵn trong template; và khi gom script bảo toàn hydration trước `</body>`, bắt buộc phải lọc bỏ `application/ld+json`.
+  3. Cung cấp đúng 1 WebSite + 1 Organization duy nhất trên trang chủ, kèm FAQPage và BreadcrumbList.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không thêm `"/sitemap.xml"` vào danh sách `exclude` của `_routes.json`.*
+  - ❌ *Không chèn lại thẻ `application/ld+json` vào cuối thẻ `<body>`.*
+
 ### ISSUE-250: Bẫy Thiếu Kế Thừa GAMES_FULL Và NEWS_FULL Cho Quyền STORE_FULL Khiến Khóa Cửa Hàng Bị 401 Khi Quản Lý Code Miễn Phí Và Nội Dung Web CMS
 - **Triệu chứng & Rủi ro**:
   - Khi phân quyền API Key bên ngoài cho khóa Cửa Hàng (`STORE_FULL`), nếu chỉ cho phép kế thừa các chức năng tài chính/kho hàng mà không mở rộng sang code miễn phí (`GAMES_FULL`, `FREE_CODES_FULL`, `SUBMISSIONS_FULL`) và nội dung CMS (`NEWS_FULL`, `CONTENT_FULL`):

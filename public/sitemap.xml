@@ -2,7 +2,7 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://codegame.shop/</loc>
-    <lastmod>2026-11-07</lastmod>
+    <lastmod>2026-11-09</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
@@ -13,8 +13,8 @@
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://codegame.shop/news</loc>
-    <lastmod>2026-10-31</lastmod>
+    <loc>https://codegame.shop/news/</loc>
+    <lastmod>2026-11-09</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
   </url>
@@ -44,43 +44,43 @@
   </url>
   <url>
     <loc>https://codegame.shop/the-loai/kiem-hiep-tien-hiep</loc>
-    <lastmod>2026-11-07</lastmod>
+    <lastmod>2026-11-09</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://codegame.shop/the-loai/nhap-vai-gacha-anime</loc>
-    <lastmod>2026-10-26</lastmod>
+    <lastmod>2026-11-09</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://codegame.shop/the-loai/ban-sung-sinh-ton</loc>
-    <lastmod>2026-10-20</lastmod>
+    <lastmod>2026-11-09</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://codegame.shop/the-loai/tam-quoc-chien-thuat</loc>
-    <lastmod>2026-11-05</lastmod>
+    <lastmod>2026-11-09</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://codegame.shop/the-loai/roblox-mini-game</loc>
-    <lastmod>2026-10-26</lastmod>
+    <lastmod>2026-11-09</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://codegame.shop/the-loai/nhap-vai-mmorpg</loc>
-    <lastmod>2026-11-06</lastmod>
+    <lastmod>2026-11-09</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/hiep-khach-hanh</loc>
-    <lastmod>2026-11-06</lastmod>
+    <lastmod>2026-11-09</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -128,7 +128,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/samkok-dai-nao-3q</loc>
-    <lastmod>2026-10-22</lastmod>
+    <lastmod>2026-11-04</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -146,7 +146,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/hai-tac-truyen-ky</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-11-06</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -164,7 +164,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/ta-la-hac-ngo-khong</loc>
-    <lastmod>2026-11-05</lastmod>
+    <lastmod>2026-11-07</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -176,7 +176,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/di-gioi-sinh-ton-oeg</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-10-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -188,13 +188,13 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/3q-dao-dao-dao</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-09</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/long-tuong-tam-quoc</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-10-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -206,7 +206,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/soul-strike</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-11-06</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -218,31 +218,31 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/tien-nghich-tan-tinh-kiem</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-10-11</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/gun-x-mobile</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-10-20</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/cau-ca-van-can</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-03</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/tam-quoc-tu-thoi-ca</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-11-03</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/apex-girls</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-11-07</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -260,7 +260,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/kiem-khach-truyen-ky</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-11-07</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -278,7 +278,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/tam-quoc-tranh-ba-thien-ha</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-04</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -296,7 +296,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/quan-nhi-ca</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-10-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -308,7 +308,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/hac-tay-du-chuong-cam</loc>
-    <lastmod>2026-10-21</lastmod>
+    <lastmod>2026-10-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -338,7 +338,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/loan-the-3q-than-ma-lenh-oeg</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-10-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -350,7 +350,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/phi-kiem-tru-thien-ma</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-06</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -362,7 +362,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/khe-uoc-rong</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-09</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -374,25 +374,25 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/dao-huu-tu-tien</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-11-09</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/anime-fighting-simulator-endless</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-04</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/anime-vanguards</loc>
-    <lastmod>2026-10-26</lastmod>
+    <lastmod>2026-11-05</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/3q-goi-tuong-di</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-10-12</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -404,7 +404,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/tam-quoc-chi-vuong-chien</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-04</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -416,7 +416,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/ark-recode</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-03</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -452,7 +452,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/capybara-go</loc>
-    <lastmod>2026-10-13</lastmod>
+    <lastmod>2026-10-14</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -470,13 +470,13 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/cookie-run-kingdom</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-11-05</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/gangstar-mirage-city-online</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-05</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -488,7 +488,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/lost-sword</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-04</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -506,13 +506,13 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/mongil-star-dive</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-05</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/kiem-vu-son-ha</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-10-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -530,7 +530,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/star-sailors</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-04</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -572,13 +572,13 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/chi-huy-toi-thuong</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-10-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/tap-tap-heroes</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-04</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -590,7 +590,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/tieu-cuong-3q</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-10-11</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -632,7 +632,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/bo-lac-3q</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-11-06</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -650,7 +650,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/ever-night-thuc-tinh-oeg</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-04</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -668,7 +668,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/tien-nghich-mobile</loc>
-    <lastmod>2026-11-07</lastmod>
+    <lastmod>2026-11-09</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -698,13 +698,13 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/infinity-kingdom</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-11-09</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/van-thang-nam-de</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-10-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -722,13 +722,13 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/dau-la-the-gioi-san-hon</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-06</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/van-dinh-tam-quoc</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-10-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -746,19 +746,19 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/than-thu-origin</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-04</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/dao-mong-anh-hung-2</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-06</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/vuon-hoa-hanh-phuc</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-10-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -788,7 +788,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/total-football-vng</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-10-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -800,7 +800,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/cookierun-banh-quy</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-10-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -824,19 +824,19 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/haunted-room</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-11-06</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/tam-quoc-36-ke</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-06</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/ta-la-cao-thu-vo-lam</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-10-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -872,7 +872,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/ballistic-hero</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-11-09</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -896,7 +896,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/ludus-quyet-dau</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-07</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -920,7 +920,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/legends-reborn</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-09</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -932,13 +932,13 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/kiem-de-origin</loc>
-    <lastmod>2026-11-06</lastmod>
+    <lastmod>2026-11-09</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/phong-hau-tam-quoc</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-10-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -980,7 +980,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/the-gioi-hoa-vien-cua-toi</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-03</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -998,7 +998,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/samkok-tam-quoc</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-06</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -1052,7 +1052,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/anh-hung-tien-len</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-04</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -1070,7 +1070,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/cherry-tale</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-10-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -1100,7 +1100,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/minh-chu-vo-lam</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-10-13</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -1118,19 +1118,19 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/bleach-soul-resonance</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-05</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/tan-kiem-hiep-tinh-1</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-03</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/ngoi-sao-thoi-trang</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-10-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -1148,7 +1148,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/thieu-nien-ca-hanh-khoi-dong</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-10-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -1160,7 +1160,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/mu-vinh-hang</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-03</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -1178,7 +1178,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/kiem-linh-nhap-vai-tu-tien</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-10-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -1214,7 +1214,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/phong-ma-tam-quoc</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-09</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -1232,13 +1232,13 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/crossfire-legends-mobile-vng</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-10-23</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/ta-lam-tong-su-trong-tien-mon</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-04</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -1250,7 +1250,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/anh-hung-bat-diet</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-03</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -1262,13 +1262,13 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/fc-mobile-vn</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-10-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/lang-tieu-chi</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-10-13</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -1286,7 +1286,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/tay-du-tam-bao</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-09</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -1304,7 +1304,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/mieu-de-tam-quoc</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-04</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -1316,7 +1316,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/palmon</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-11-04</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -1364,7 +1364,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/cong-thanh-truyen-ky-tam-quoc</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-09</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -1418,7 +1418,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/delta-force</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-11-03</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -1466,7 +1466,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/pet-samkok-bao-thu-3q</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-10-23</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -1562,7 +1562,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/tay-du-mobile-tam-gioi-chien</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-04</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -1640,13 +1640,13 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/endless-nightmare-6-reborn</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-06</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/thoi-dai-anh-hung</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-03</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -1658,7 +1658,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/tien-len-alita</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-07</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -1682,25 +1682,25 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/mukbang-tam-quoc</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-05</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/zenless-zone-zero</loc>
-    <lastmod>2026-10-26</lastmod>
+    <lastmod>2026-11-09</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/roblox</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-10-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/roblox-blox-fruits</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-10-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -1748,7 +1748,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/ghost-story-thien-nu</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-10-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -1820,7 +1820,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/nam-lun-tien-len</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-03</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -1832,13 +1832,13 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/tieu-yeu-tam-dao</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-11-09</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/super-snail</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-11-04</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -1886,13 +1886,13 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/genshin-impact</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-09</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/call-of-dragons</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-06</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -1904,7 +1904,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/honkai-star-rail</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-10-23</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -1946,37 +1946,37 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/chronicle-of-infinity</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-09</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/mech-arena</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-03</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/play-together</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-11-06</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/afk-arena</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-11-06</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/de-quoc-quat-khoi-tan-the-ky</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-10-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/nhat-niem-tieu-dao-gzone</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-11-07</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -1988,7 +1988,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/rise-of-kingdoms</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-11-06</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -2012,7 +2012,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/gunny-origin</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-10-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -2024,7 +2024,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/idle-gog</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-05</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -2048,13 +2048,13 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/tan-omg3q-vng</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-04</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/dai-chien-tam-quoc</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-10-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -2078,19 +2078,19 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/thieu-nien-3q-vng</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-04</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/mong-canh-tam-quoc</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-09</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/lords-mobile</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-10-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -2102,7 +2102,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/vo-lam-truyen-ky-1-mobile</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-11-03</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -2114,7 +2114,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/call-of-duty-mobile-vn</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-11-07</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -2126,19 +2126,19 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/lien-quan-mobile</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-10-23</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/pubg-mobile</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-11-06</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/the-seven-deadly-sins-grand-cross</loc>
-    <lastmod>2026-10-13</lastmod>
+    <lastmod>2026-11-06</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -2186,7 +2186,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/zingspeed-mobile</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-11-07</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -2198,13 +2198,13 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/free-fire</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-10-23</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/gunpow</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-10-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -2216,13 +2216,13 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/thien-menh-lac-hong</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-06</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/elpis-fallen-star</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-05</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -2264,13 +2264,13 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/norse-saga-cuu-gioi-thuc-tinh</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-11-05</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/nguyet-mong</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-09</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -2288,31 +2288,31 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/palworld-online</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-10-14</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/dawnbound-heroes</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-10-14</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/x-hero-save-animals</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-10-11</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/fireborn</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-10-14</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/kiem-rong-vtc-mobile</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-10-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -2324,7 +2324,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/be-a-pro-football</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-11-06</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -2336,7 +2336,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/beyond-god-ascension</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-10-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -2360,7 +2360,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/tam-quoc-thu-hoa</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-10-11</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -2384,19 +2384,19 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/co-gioi-chien-war-robots</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-03</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/draconia-saga</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-03</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/sword-of-convallaria</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-06</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -2426,7 +2426,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/yong-heroes-2</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-10-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -2438,13 +2438,13 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/tinh-linh-khoi-nguyen</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-06</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/omg-goddess-idle-legends</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-09</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -2456,19 +2456,19 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/chien-vi-vinh-quang</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-10-11</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/idle-angels</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-03</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/clash-of-critters</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-11-07</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -2486,7 +2486,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/cai-the-tranh-hung</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-10-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -2504,7 +2504,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/ares-the-iron-vanguard</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-08</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -2552,13 +2552,13 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/basketball-zero</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-05</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/sword-of-reborn</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-10-17</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -2588,7 +2588,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/star-blaster</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-03</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -2600,7 +2600,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/world-of-tanks-blitz</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-07</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -2612,13 +2612,13 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/dress-to-impress</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-03</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/mu-luc-dia-vng</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-11-09</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -2642,13 +2642,13 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/port-city</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-03</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/chien-thu-hon-chien</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-05</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -2672,7 +2672,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/fallen-souls-idle-rpg</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-05</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -2684,13 +2684,13 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/mong-thien-kiem</loc>
-    <lastmod>2026-10-22</lastmod>
+    <lastmod>2026-11-04</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/doomsday-last-survivors</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-11-07</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -2726,7 +2726,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/tam-quoc-quy-ke</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-11-09</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -2744,13 +2744,13 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/blox-fruits</loc>
-    <lastmod>2026-10-13</lastmod>
+    <lastmod>2026-11-03</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/solo-leveling-arise</loc>
-    <lastmod>2026-10-13</lastmod>
+    <lastmod>2026-10-14</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -2780,7 +2780,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/pet-simulator-99</loc>
-    <lastmod>2026-10-13</lastmod>
+    <lastmod>2026-11-07</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -2792,13 +2792,13 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/toilet-tower-defense</loc>
-    <lastmod>2026-10-13</lastmod>
+    <lastmod>2026-11-09</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/adopt-me</loc>
-    <lastmod>2026-10-13</lastmod>
+    <lastmod>2026-11-04</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -2822,25 +2822,25 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/fruit-battlegrounds</loc>
-    <lastmod>2026-10-13</lastmod>
+    <lastmod>2026-10-16</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/shindo-life</loc>
-    <lastmod>2026-10-13</lastmod>
+    <lastmod>2026-11-06</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/fisch-roblox</loc>
-    <lastmod>2026-10-13</lastmod>
+    <lastmod>2026-11-04</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/jujutsu-infinite</loc>
-    <lastmod>2026-10-13</lastmod>
+    <lastmod>2026-10-16</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -2864,25 +2864,25 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/roblox-rivals</loc>
-    <lastmod>2026-10-13</lastmod>
+    <lastmod>2026-11-09</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/nikke-goddess-of-victory</loc>
-    <lastmod>2026-10-13</lastmod>
+    <lastmod>2026-11-09</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/blue-archive</loc>
-    <lastmod>2026-10-13</lastmod>
+    <lastmod>2026-10-16</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/marvel-snap</loc>
-    <lastmod>2026-10-13</lastmod>
+    <lastmod>2026-11-07</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -2900,7 +2900,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/dragon-ball-legends</loc>
-    <lastmod>2026-10-13</lastmod>
+    <lastmod>2026-11-04</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -2948,13 +2948,13 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/black-clover-m</loc>
-    <lastmod>2026-10-13</lastmod>
+    <lastmod>2026-11-05</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/reverse-1999</loc>
-    <lastmod>2026-10-13</lastmod>
+    <lastmod>2026-11-04</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -2966,31 +2966,31 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/honkai-impact-3rd</loc>
-    <lastmod>2026-10-13</lastmod>
+    <lastmod>2026-11-05</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/astra-knights-of-veda</loc>
-    <lastmod>2026-10-13</lastmod>
+    <lastmod>2026-10-15</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/dunk-ing-simulator</loc>
-    <lastmod>2026-10-13</lastmod>
+    <lastmod>2026-10-16</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/type-soul</loc>
-    <lastmod>2026-10-26</lastmod>
+    <lastmod>2026-11-05</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/anime-defenders</loc>
-    <lastmod>2026-10-13</lastmod>
+    <lastmod>2026-11-03</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -3008,7 +3008,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/ragnarok-the-new-world</loc>
-    <lastmod>2026-10-13</lastmod>
+    <lastmod>2026-11-06</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -3020,7 +3020,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/subway-surfers</loc>
-    <lastmod>2026-10-13</lastmod>
+    <lastmod>2026-10-15</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -3050,7 +3050,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/nghich-thuy-han</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-10-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -3074,13 +3074,13 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/audition-vtc</loc>
-    <lastmod>2026-10-14</lastmod>
+    <lastmod>2026-11-03</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/dot-kich-vtc</loc>
-    <lastmod>2026-10-14</lastmod>
+    <lastmod>2026-11-09</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -3104,7 +3104,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/au-2</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-10-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -3140,13 +3140,13 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/state-of-survival-viet-nam</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-11-05</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/tru-tien-3d-mobile</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-10-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -3164,7 +3164,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/cuu-am-chan-kinh-mobile</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-10-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -3230,13 +3230,13 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/space-shooter-galaxy-attack</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-10-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/galaxy-attack-alien-shooting</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-11-03</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -3356,7 +3356,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/the-gioi-moi-ninja</loc>
-    <lastmod>2026-10-22</lastmod>
+    <lastmod>2026-11-04</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -3404,7 +3404,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/dau-truong-onmyoji</loc>
-    <lastmod>2026-10-22</lastmod>
+    <lastmod>2026-11-04</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -3536,19 +3536,253 @@
   </url>
   <url>
     <loc>https://codegame.shop/game/crossfire-legends</loc>
-    <lastmod>2026-10-20</lastmod>
+    <lastmod>2026-11-06</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/game/where-winds-meet</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-10-27</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://codegame.shop/game/tieu-doi-quay-ma</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://codegame.shop/game/idle-heroes-ky-nguyen-anh-hung</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://codegame.shop/game/ghost-soul-m</loc>
+    <lastmod>2026-11-06</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://codegame.shop/game/idle-cat-gunner</loc>
+    <lastmod>2026-11-05</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://codegame.shop/game/eileen-saga-the-crush-girl</loc>
+    <lastmod>2026-11-05</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://codegame.shop/game/sword-x-staff-funtap</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://codegame.shop/game/monster-hunter-outlanders</loc>
+    <lastmod>2026-10-31</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://codegame.shop/game/dawns-wake</loc>
+    <lastmod>2026-10-31</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://codegame.shop/game/age-of-stickman-evolution</loc>
+    <lastmod>2026-10-31</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://codegame.shop/game/wild-beast-town</loc>
+    <lastmod>2026-10-31</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://codegame.shop/news/my-hero-academia-ultra-rumble-mobile-chinh-thuc-cong-bo-hom-nay-09-11-battle-royale-24-nguoi-len-di-dong-mo-dang-ky-truoc-moc-300-000-nguoi-nhan-trang-phuc-ky-niem-100-trieu-ban</loc>
+    <lastmod>2026-11-09</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://codegame.shop/news/pubg-mobile-flash-chot-ngay-ra-mat-13-11-ban-nhe-duoi-1-gb-chung-tai-khoan-voi-pubg-mobile-erangel-tai-san</loc>
+    <lastmod>2026-11-09</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://codegame.shop/news/fpt-polytechnic-vo-dich-dau-truong-danh-vong-mua-dong-2026-nguoc-dong-thang-boom-esports-4-2-tan-vuong-lien-quan-mobile-sau-hon-7-nam</loc>
+    <lastmod>2026-11-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://codegame.shop/news/wuthering-waves-3-8-chot-ngay-ra-mat-12-11-resonator-5-sao-lily-do-bo-cot-truyen-soul-train-va-buoc-dem-toi-phien-ban-4-0</loc>
+    <lastmod>2026-11-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://codegame.shop/news/monster-hunter-outlanders-tung-ban-va-06-11-lam-lai-radiant-great-girros-noi-gioi-han-thu-thach-apex-sau-8-ngay-ra-mat-toan-cau</loc>
+    <lastmod>2026-11-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://codegame.shop/news/king-legacy-update-11-part-1-da-len-song-trai-erebus-phong-cach-chien-dau-v3-va-su-kien-halloween-voi-choi-dread-broom</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://codegame.shop/news/wuthering-waves-3-8-lilies-in-a-dying-dream-ra-mat-12-11-lily-5-sao-chuyen-tau-linh-hon-soul-train-va-loat-su-kien-moi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://codegame.shop/news/call-of-duty-mobile-season-10-ky-niem-7-nam-verdansk-chinh-thuc-do-bo-12-11-battle-royale-lot-xac-toan-dien</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://codegame.shop/news/pubg-mobile-4-7-chot-ngay-ra-mat-12-11-erangel-dong-bang-ky-nang-glyph-va-thu-cuoi-bay-aurora-pegasus</loc>
+    <lastmod>2026-11-06</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://codegame.shop/news/free-fire-mo-dau-truong-bao-to-hom-nay-06-11-don-chung-ket-the-gioi-ffws-2026-tai-bangkok-24-doi-tranh-1-2-trieu-usd</loc>
+    <lastmod>2026-11-06</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://codegame.shop/news/hiep-khach-hanh-chinh-thuc-mo-cua-hom-nay-06-11-giang-ho-vo-hiep-man-hinh-doc-cua-joygames-da-vao-game-duoc-tu-09-00</loc>
+    <lastmod>2026-11-06</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://codegame.shop/news/lien-quan-10-fest-chung-ket-dau-truong-danh-vong-mua-dong-2026-va-dai-nhac-hoi-10-tuoi-do-bo-my-dinh-cuoi-tuan-nay-7-8-11</loc>
+    <lastmod>2026-11-05</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://codegame.shop/news/wuthering-waves-dem-nguoc-toi-buoi-gioi-thieu-phien-ban-3-8-18-00-ngay-mai-06-11-nhan-vat-5-sao-lily-va-chang-cuoi-truoc-them-4-0</loc>
+    <lastmod>2026-11-05</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://codegame.shop/news/hiep-khach-hanh-dem-nguoc-1-ngay-09-00-ngay-mai-06-11-mo-cua-da-lot-top-game-nhap-vai-tren-app-store-viet-nam-truoc-gio-g</loc>
+    <lastmod>2026-11-05</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://codegame.shop/news/sword-x-staff-chinh-thuc-ra-mat-viet-nam-hom-nay-04-11-rpg-ranh-tay-cua-funtap-hon-10-trieu-nguoi-choi-toan-cau-va-collab-hoa-son-tai-khoi-tu-11-11</loc>
+    <lastmod>2026-11-05</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://codegame.shop/news/archeage-chronicles-chinh-thuc-mo-early-access-hom-nay-04-11-auroria-rong-gap-20-lan-ban-demo-mua-mot-lan-khong-pay-to-win</loc>
+    <lastmod>2026-11-05</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://codegame.shop/news/world-of-warcraft-forever-chinh-thuc-ra-mat-azeroth-nam-2004-tro-lai-voi-hon-1-000-nhiem-vu-moi-chung-toc-skyborne-va-9-ham-nguc-moi</loc>
+    <lastmod>2026-11-05</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://codegame.shop/news/clash-of-clans-hammer-jam-giam-nua-gia-nang-cap-toi-16-11-town-hall-19-ve-giua-thang-11</loc>
+    <lastmod>2026-11-05</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://codegame.shop/news/kof-legend-dem-nguoc-toi-04-11-game-the-tuong-the-king-of-fighters-ban-quyen-snk-ra-mat-dong-nam-a-dang-ky-truoc-nhan-ruong-dau-si-epic</loc>
+    <lastmod>2026-11-05</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://codegame.shop/news/genshin-impact-7-2-ra-mat-ngay-mai-04-11-mitya-va-valeriy-do-bo-hoi-nghi-bay-quoc-gia-mo-man-cao-trao-snezhnaya</loc>
+    <lastmod>2026-11-03</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://codegame.shop/news/clash-royale-mua-king-vs-king-daily-puzzles-mo-tu-hom-nay-2-11-tien-hoa-giant-va-mirror-cung-chung-ket-the-gioi-crl-6-8-11</loc>
+    <lastmod>2026-11-02</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://codegame.shop/news/sword-x-staff-dem-nguoc-toi-04-11-rpg-ranh-tay-cua-funtap-chuyen-nghe-tu-do-hon-200-ky-nang-va-qua-dang-ky-truoc-dac-biet</loc>
+    <lastmod>2026-11-05</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://codegame.shop/news/petit-planet-chot-ngay-ra-mat-04-12-game-song-cham-vu-tru-cua-hoyoverse-dang-ky-truoc-cham-moc-10-trieu-ban-switch-2-hen-nam-2027</loc>
+    <lastmod>2026-11-02</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://codegame.shop/news/honkai-star-rail-phien-ban-4-7-ra-mat-11-11-aeon-aha-chinh-thuc-choi-duoc-khep-lai-arc-planarcadia</loc>
+    <lastmod>2026-11-05</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://codegame.shop/news/hiep-khach-hanh-ra-mat-09-00-ngay-05-11-checklist-tai-truoc-giay-phep-va-luu-y-ve-ma-code</loc>
+    <lastmod>2026-11-05</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://codegame.shop/news/reroll-hiep-khach-hanh-sword-of-reborn-dau-game-moc-cap-104-ve-skill-30-ve-nhan-vat-va-cach-doi-server</loc>
+    <lastmod>2026-11-05</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://codegame.shop/news/hiep-khach-hanh-sword-of-reborn-6-skill-bac-s-nen-reroll-dau-game-theo-tier-list-ban-thai</loc>
+    <lastmod>2026-11-05</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://codegame.shop/news/brawl-stars-cong-bo-ban-cap-nhat-thang-11-thunderfrogs-cai-to-ranked-va-mua-brawl-vice-lay-cam-hung-gta</loc>
+    <lastmod>2026-11-05</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://codegame.shop/news/fortnite-x-one-piece-chinh-thuc-len-song-hom-nay-1-11-mua-treasure-hunters-dao-crossbones-isle-80-nguoi-choi-va-dan-nhan-vat-bang-mu-rom</loc>
+    <lastmod>2026-11-05</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/news/azur-promilia-chot-ngay-ra-mat-26-11-bom-tan-anime-the-gioi-mo-vuot-25-trieu-luot-dang-ky-truoc</loc>
-    <lastmod>2026-10-31</lastmod>
+    <lastmod>2026-11-05</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -3896,13 +4130,13 @@
   </url>
   <url>
     <loc>https://codegame.shop/news/no-man-s-sky-do-bo-iphone-ipad-ngay-28-10-tron-10-nam-noi-dung-choi-thu-mien-phi</loc>
-    <lastmod>2026-10-28</lastmod>
+    <lastmod>2026-11-05</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/news/vampir-netmarble-ra-mat-toan-cau-hom-nay-mmorpg-ma-ca-rong-choi-cheo-pc-mobile</loc>
-    <lastmod>2026-10-28</lastmod>
+    <lastmod>2026-11-05</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -4820,7 +5054,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/news/delta-force-cap-nhat-mua-giai-moi-va-bo-giftcode-tan-thu-2026</loc>
-    <lastmod>2026-10-11</lastmod>
+    <lastmod>2026-11-05</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -4832,7 +5066,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/news/genshin-impact-tong-hop-code-nguyen-thach-phien-ban-moi</loc>
-    <lastmod>2026-10-10</lastmod>
+    <lastmod>2026-11-05</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -4844,13 +5078,13 @@
   </url>
   <url>
     <loc>https://codegame.shop/news/dau-la-dai-luc-funtap-ra-mat-hon-su-moi-va-tang-code</loc>
-    <lastmod>2026-10-08</lastmod>
+    <lastmod>2026-11-05</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://codegame.shop/news/tien-nghich-tan-tinh-kiem-khai-mo-server-moi-tang-code</loc>
-    <lastmod>2026-10-07</lastmod>
+    <lastmod>2026-11-05</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>

@@ -7,6 +7,38 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-09]
 
+### 352. Tối Ưu Hóa SEO Toàn Diện Giai Đoạn P0: Sửa Lỗi Thiếu Trang & Lastmod Sai Trong Sitemap, Triệt Tiêu JSON-LD Trùng Lặp Trang Chủ, Chuẩn Hóa Meta Description Động
+- **Triệu chứng & Bối cảnh**:
+  - Sitemap trước đó chỉ có 847 URL (578 game + 224 news), thiếu 17 game và 29 bài news so với dữ liệu thực tế 595 game và 253 bài news trên live.
+  - Gọi `sitemap.xml?fresh=1` vẫn thấy lastmod cũ (tháng 9/tháng 10) cho các game vừa được cập nhật mã giftcode mới hôm nay (09/11): `3Q Đào Đào Đào`, `Khế Ước Rồng`, `Hiệp Khách Hành`, `Tiên Nghịch`, `Kiếm Đế`.
+  - HTML thô của trang chủ chứa 3 khối `WebSite` + 3 khối `Organization` (tổng cộng 7 khối schema).
+  - Meta description trên trang chủ và trang game chứa các con số gắn cứng cũ (11.870+, 578 game, 347 game G1, 584 mã Where Winds Meet) và gắn cứng "bản quyền G1" cho mọi game.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Sitemap Route Bypass*: `public/_routes.json` có dòng `"/sitemap.xml"` trong danh sách `exclude`, khiến Cloudflare Pages bỏ qua Edge Worker và phục vụ file tĩnh cũ `dist/sitemap.xml` sinh ra từ lúc build.
+  2. *Thiếu Trường Date*: Hàm tính thời gian mã trong Worker và Prerender chỉ kiểm tra `updatedAt`/`createdAt` mà thiếu `added_at`/`added` (nơi lưu timestamp của crawler ingest mã mới).
+  3. *Thiếu Nạp wcg_admin_games_v5*: 10 tựa game mới lưu trong `wcg_admin_games_v5` không được đọc vào `gamesBySlug` của sitemap. 7 game còn lại là bí danh (aliases 301) nên không được đưa vào sitemap.
+  4. *29 bài news thiếu trong prerender*: `seedNews.ts` và `canonical_backup_state.json` chỉ có 224 bài tĩnh, trong khi CSDL D1 đã có đủ 253 bài.
+  5. *JSON-LD Duplication*: `templateHtml` chứa script schema từ Vite, `buildPageHtml` inject thêm khối thứ hai, và đoạn script preservation lại gom cả script schema chèn trước `</body>` tạo ra khối thứ ba.
+- **Giải pháp triệt để đã triển khai (Solution Applied)**:
+  1. *Mở Route Worker Cho Sitemap*: Xóa `"/sitemap.xml"` khỏi `exclude` trong `public/_routes.json` để Worker `handleDynamicSitemap` trực tiếp phục vụ dynamic sitemap với header `X-Sitemap-Source: live-d1`.
+  2. *Nạp Đầy Đủ Nguồn Dữ Liệu & Mapping Bí Danh Hai Chiều*:
+     - Bổ sung `wcg_admin_games_v5` và `wcg_games_catalog_v2` vào `getMultipleSettingsD1`.
+     - Nhận diện toàn diện các trường thời gian mã: `added_at || added || updatedAt || updated_at || createdAt || created_at || timestamp`.
+     - Thiết lập alias mapping 2 chiều cho các game: `tien-nghich` $\leftrightarrow$ `tien-nghich-mobile`, `kiem-de` $\leftrightarrow$ `kiem-de-origin`, `where-winds-meet` $\leftrightarrow$ `yen-van-thap-luc-thanh`, `dau-truong-chan-ly`, v.v.
+     - Cập nhật URL `/news/` có trailing slash theo chuẩn P2-2.
+  3. *Đồng Bộ 253 Bài News & 595 Game Vào Dữ Liệu Gốc*:
+     - Cập nhật `src/data/seedNews.ts`, `canonical_backup_state.json`, `games188.json` và `crawled_codes_188.json` đồng bộ 100% với live D1.
+  4. *Triệt Tiêu Hoàn Toàn JSON-LD Trùng Lặp*:
+     - Trong `prerender.js`: xóa sạch schema cũ khỏi `templateHtml`, loại trừ `application/ld+json` khỏi script preservation.
+     - Trong `_worker.ts`: gộp về đúng 1 `WebSite` + 1 `Organization` duy nhất, giữ nguyên `FAQPage` + `BreadcrumbList`.
+  5. *Động Hóa Meta Description & Bỏ Gắn Cứng Bản Quyền G1*:
+     - Trang chủ: hiển thị chuẩn `Kho tổng hợp hơn 14.739+ giftcode game mobile và webgame mới nhất 2026 của 595 tựa game chuẩn...` trên cả `index.html`, `scripts/prerender.js`, và `functions/_worker.ts`.
+     - Trang game: chỉ gắn thông tin giấy phép khi game có đủ 4 trường xác minh; bỏ số 584 ghi cứng của Where Winds Meet.
+- **Kiểm thử & Nghiệm thu**:
+  - Prerender xuất bản thành công 595 trang game, 253 bài news, 886 liên kết sitemap.
+  - `dist/index.html` có đúng 4 khối JSON-LD chuẩn xác (1 WebSite, 1 Organization, 1 FAQPage, 1 BreadcrumbList).
+  - Lastmod của cả 5 game mẫu (`3Q Đào Đào Đào`, `Khế Ước Rồng`, `Hiệp Khách Hành`, `Tiên Nghịch`, `Kiếm Đế`) đều hiển thị đúng `2026-11-09`.
+
 ### 351. Mở Rộng Kế Thừa Quyền GAMES_FULL Và NEWS_FULL Cho Quyền STORE_FULL & Cấp Bổ Sung Scope Trong D1 Cho Khóa Cửa Hàng
 - **Triệu chứng & Bối cảnh**:
   - Sau khi triển khai hệ thống 9 module API quản trị độc lập (commit `ee9bb74`), người dùng kiểm tra trực tiếp và nhận thấy khóa Cửa Hàng hiện tại khi gọi 3 endpoint quản trị vẫn bị từ chối với mã lỗi HTTP 401 Unauthorized:

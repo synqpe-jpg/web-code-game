@@ -1481,6 +1481,8 @@ async function generateDynamicSitemapXml(env: Env): Promise<string> {
           'wcg_admin_free_codes_v5',
           'wcg_admin_free_codes_v4',
           'wcg_news_articles_v1',
+          'wcg_admin_games_v5',
+          'wcg_games_catalog_v2',
         ]),
 
         env.DB.prepare(
@@ -1508,7 +1510,7 @@ async function generateDynamicSitemapXml(env: Env): Promise<string> {
         if (Array.isArray(customCodes)) {
           for (const item of customCodes) {
             const s = String(item.gameSlug || item.game_slug || item.slug || '').trim().toLowerCase();
-            const t = parseDateMs(item.updatedAt || item.updated_at || item.createdAt || item.created_at);
+            const t = parseDateMs(item.added_at || item.added || item.updatedAt || item.updated_at || item.createdAt || item.created_at || item.timestamp);
             if (s && t > 0 && t > (maxCodeTimeBySlug.get(s) || 0)) {
               maxCodeTimeBySlug.set(s, t);
             }
@@ -1519,7 +1521,7 @@ async function generateDynamicSitemapXml(env: Env): Promise<string> {
         if (Array.isArray(d1CrawlerCodes)) {
           for (const item of d1CrawlerCodes) {
             const s = String(item.gameSlug || item.game_slug || item.slug || '').trim().toLowerCase();
-            const t = parseDateMs(item.updatedAt || item.updated_at || item.createdAt || item.created_at || item.added_at);
+            const t = parseDateMs(item.added_at || item.added || item.updatedAt || item.updated_at || item.createdAt || item.created_at || item.timestamp);
             if (s && t > 0 && t > (maxCodeTimeBySlug.get(s) || 0)) {
               maxCodeTimeBySlug.set(s, t);
             }
@@ -1529,10 +1531,19 @@ async function generateDynamicSitemapXml(env: Env): Promise<string> {
         if (Array.isArray(settings['wcg_news_articles_v1'])) {
           newsArticles = settings['wcg_news_articles_v1'];
         }
+
+        const d1AdminGames = settings['wcg_admin_games_v5'];
+        if (Array.isArray(d1AdminGames)) {
+          for (const ag of d1AdminGames) {
+            if (ag && (ag.slug || ag.id)) {
+              d1Games.push(ag);
+            }
+          }
+        }
       }
 
       if (gamesRes.status === 'fulfilled' && gamesRes.value?.results) {
-        d1Games = gamesRes.value.results;
+        d1Games.push(...gamesRes.value.results);
       }
 
       if (gwRes.status === 'fulfilled' && gwRes.value?.results) {
@@ -1549,12 +1560,29 @@ async function generateDynamicSitemapXml(env: Env): Promise<string> {
     const s3 = String(rawId || '').trim().toLowerCase();
     const canon = GAME_CANONICAL_ALIASES[s1] || s1;
     const isWwm = s1 === 'yen-van-thap-luc-thanh' || s1 === 'where-winds-meet' || s1 === 'where-winds-meet-mobile';
+    const isTienNghich = s1 === 'tien-nghich' || s1 === 'tien-nghich-mobile';
+    const isKiemDe = s1 === 'kiem-de' || s1 === 'kiem-de-origin';
+    const isDttl = s1 === 'dau-truong-chan-ly' || s1 === 'dau-truong-chan-ly-mobile';
+    const isSds = s1 === 'the-seven-deadly-sins-grand-cross' || s1 === 'seven-deadly-sins-grand-cross';
+    const isTqht = s1 === 'tam-quoc-huyen-tuong-vng' || s1 === 'tam-quoc-huyen-tuong';
+    const isWukong = s1 === 'x-wukong' || s1 === 'x-wukong-dai-chien-tam-gioi';
+    const isHkht = s1 === 'pirate-legends' || s1 === 'huyen-thoai-hai-tac';
+    const isHnk = s1 === 'ta-la-hac-ngo-khong' || s1 === 'ta-la-hac-ngo-khong-vplay';
+
     return Math.max(
       maxCodeTimeBySlug.get(s1) || 0,
       maxCodeTimeBySlug.get(s2) || 0,
       maxCodeTimeBySlug.get(s3) || 0,
       maxCodeTimeBySlug.get(canon) || 0,
-      isWwm ? (maxCodeTimeBySlug.get('where-winds-meet-mobile') || maxCodeTimeBySlug.get('yen-van-thap-luc-thanh') || maxCodeTimeBySlug.get('where-winds-meet') || 0) : 0
+      isWwm ? (maxCodeTimeBySlug.get('where-winds-meet-mobile') || maxCodeTimeBySlug.get('yen-van-thap-luc-thanh') || maxCodeTimeBySlug.get('where-winds-meet') || 0) : 0,
+      isTienNghich ? (maxCodeTimeBySlug.get('tien-nghich-mobile') || maxCodeTimeBySlug.get('tien-nghich') || 0) : 0,
+      isKiemDe ? (maxCodeTimeBySlug.get('kiem-de-origin') || maxCodeTimeBySlug.get('kiem-de') || 0) : 0,
+      isDttl ? (maxCodeTimeBySlug.get('dau-truong-chan-ly-mobile') || maxCodeTimeBySlug.get('dau-truong-chan-ly') || 0) : 0,
+      isSds ? (maxCodeTimeBySlug.get('seven-deadly-sins-grand-cross') || maxCodeTimeBySlug.get('the-seven-deadly-sins-grand-cross') || 0) : 0,
+      isTqht ? (maxCodeTimeBySlug.get('tam-quoc-huyen-tuong') || maxCodeTimeBySlug.get('tam-quoc-huyen-tuong-vng') || 0) : 0,
+      isWukong ? (maxCodeTimeBySlug.get('x-wukong-dai-chien-tam-gioi') || maxCodeTimeBySlug.get('x-wukong') || 0) : 0,
+      isHkht ? (maxCodeTimeBySlug.get('huyen-thoai-hai-tac') || maxCodeTimeBySlug.get('pirate-legends') || 0) : 0,
+      isHnk ? (maxCodeTimeBySlug.get('ta-la-hac-ngo-khong-vplay') || maxCodeTimeBySlug.get('ta-la-hac-ngo-khong') || 0) : 0
     );
   };
 
@@ -1679,7 +1707,7 @@ async function generateDynamicSitemapXml(env: Env): Promise<string> {
   // 1. Static Core Pages
   addEntry({ loc: `${BASE_URL}/`, priority: '1.0', changefreq: 'daily', lastmod: homeLastmod });
   addEntry({ loc: `${BASE_URL}/danh-sach-game-a-z`, priority: '0.9', changefreq: 'daily', lastmod: azLastmod });
-  addEntry({ loc: `${BASE_URL}/news`, priority: '0.9', changefreq: 'daily', lastmod: newsIndexLastmod });
+  addEntry({ loc: `${BASE_URL}/news/`, priority: '0.9', changefreq: 'daily', lastmod: newsIndexLastmod });
   addEntry({ loc: `${BASE_URL}/su-kien`, priority: '0.9', changefreq: 'daily', lastmod: suKienLastmod });
   addEntry({ loc: `${BASE_URL}/giveaways`, priority: '0.9', changefreq: 'daily', lastmod: gwIndexLastmod });
   addEntry({ loc: `${BASE_URL}/store`, priority: '0.9', changefreq: 'daily', lastmod: '2026-11-06' });
@@ -1808,8 +1836,8 @@ async function renderSeoHtml(
     const ogImageBlock = `<meta property="og:image" content="${fullOgImage}">\n` +
       `    <meta property="og:image:secure_url" content="${fullOgImage}">\n` +
       `    <meta property="og:image:type" content="image/jpeg">\n` +
-      `    <meta property="og:image:width" content="512">\n` +
-      `    <meta property="og:image:height" content="512">\n` +
+      `    <meta property="og:image:width" content="1200">\n` +
+      `    <meta property="og:image:height" content="630">\n` +
       `    <meta property="og:image:alt" content="${title}">`;
     html = html.replace(/(<meta\s+property="og:url"[^>]*>)/i, `$1\n    ${ogImageBlock}`);
 
@@ -1822,8 +1850,9 @@ async function renderSeoHtml(
       `    <meta name="twitter:image:alt" content="${title}">`;
     html = html.replace(/(<meta\s+name="twitter:url"[^>]*>)/i, `$1\n    ${twitterImageBlock}`);
 
-    // 6. Inject Schema.org JSON-LD
+    // 6. Inject Schema.org JSON-LD (Đảm bảo dọn sạch schema cũ để tránh trùng lặp WebSite/Organization)
     if (extraLdJson) {
+      html = html.replace(/<script\s+type=["']application\/ld\+json["']>[\s\S]*?<\/script>\s*/gi, '');
       const schemas = Array.isArray(extraLdJson) ? extraLdJson : [extraLdJson];
       const ldStr = `\n    <!-- Page-Specific Schema.org JSON-LD -->\n` +
         schemas.map(s => `    <script type="application/ld+json">\n${JSON.stringify(s, null, 2)}\n    </script>`).join('\n') +
@@ -1877,11 +1906,11 @@ async function renderSeoHtml(
           const activeCodes = displayCodes.filter((c: any) => !isCodeExpired(c));
           displayCodes = activeCodes.length > 0 ? activeCodes : displayCodes;
           game.codes = displayCodes;
-          game.codes_count = isWwmGame ? 584 : activeCodes.length;
-          game.active_codes_count = isWwmGame ? 584 : activeCodes.length;
-          game.free_codes_count = isWwmGame ? 584 : activeCodes.length;
-          game.expired_codes_count = isWwmGame ? 36 : (allCodes.length - activeCodes.length);
-          game.total_codes_count = isWwmGame ? 620 : allCodes.length;
+          game.codes_count = activeCodes.length;
+          game.active_codes_count = activeCodes.length;
+          game.free_codes_count = activeCodes.length;
+          game.expired_codes_count = (allCodes.length - activeCodes.length);
+          game.total_codes_count = allCodes.length;
         }
 
         // Tự động đối chiếu với fallbackGamesData nếu bảng games D1 còn giữ văn mẫu Avatar cũ
@@ -1906,11 +1935,11 @@ async function renderSeoHtml(
             const activeCodes = allResolved.filter((c: any) => !isCodeExpired(c));
             displayCodes = activeCodes.length > 0 ? activeCodes : allResolved;
             game.codes = displayCodes;
-            game.codes_count = isWwmGame ? 584 : activeCodes.length;
-            game.active_codes_count = isWwmGame ? 584 : activeCodes.length;
-            game.free_codes_count = isWwmGame ? 584 : activeCodes.length;
-            game.expired_codes_count = isWwmGame ? 36 : (allResolved.length - activeCodes.length);
-            game.total_codes_count = isWwmGame ? 620 : allResolved.length;
+            game.codes_count = activeCodes.length;
+            game.active_codes_count = activeCodes.length;
+            game.free_codes_count = activeCodes.length;
+            game.expired_codes_count = (allResolved.length - activeCodes.length);
+            game.total_codes_count = allResolved.length;
           }
         }
       } catch {}
@@ -1918,14 +1947,23 @@ async function renderSeoHtml(
 
     if (game) {
       const isWwm = isWwmGame || game.slug === 'where-winds-meet' || game.slug === 'where-winds-meet-mobile' || game.slug === 'yen-van-thap-luc-thanh';
-      const codeCount = isWwm ? 584 : (game.codes_count || game.active_codes_count || displayCodes.length || 0);
+      const codeCount = game.codes_count || game.active_codes_count || displayCodes.length || 0;
       const countSuffix = codeCount > 0
         ? ` - Nhận ${codeCount} Mã Code`
         : ` - Hướng Dẫn Nhập & Nhận Quà`;
       const title = `Giftcode ${game.name} Mới Nhất 2026${countSuffix} | CodeGame.shop`;
+      const hasVerifiedLicense = Boolean(
+        game.so_giay_phep &&
+        game.co_quan_cap &&
+        game.ngay_cap_phep &&
+        game.publisher
+      );
+      const licenseSuffix = hasVerifiedLicense
+        ? ` Bản quyền G1 số ${game.so_giay_phep} cấp ngày ${game.ngay_cap_phep}.`
+        : '';
       const description = codeCount > 0
-        ? `Tổng hợp ${codeCount} mã giftcode ${game.name} còn hạn mới nhất 2026. Hướng dẫn nhập code chi tiết và phần thưởng tân thủ bản quyền G1.`
-        : `Hướng dẫn nhập code ${game.name} chi tiết và cập nhật các đợt phát quà tặng tân thủ mới nhất 2026 từ ${game.publisher || 'NPH'}.`;
+        ? `Tổng hợp ${codeCount} mã giftcode ${game.name} còn hạn mới nhất 2026. Hướng dẫn nhập code chi tiết và nhận quà tân thủ miễn phí.${licenseSuffix}`
+        : `Hướng dẫn nhập code ${game.name} chi tiết và cập nhật các đợt phát quà tặng tân thủ mới nhất 2026 từ ${game.publisher || 'NPH'}.${licenseSuffix}`;
       const rawIcon = game.icon_url || (game.slug ? `/game_icons/${game.slug}.jpg` : '/og-image.jpg');
       const jpgIcon = rawIcon.replace(/\.webp$/i, '.jpg');
       const iconUrl = jpgIcon.startsWith('http') ? jpgIcon : `${origin}${jpgIcon.startsWith('/') ? jpgIcon : `/${jpgIcon}`}`;
@@ -2541,8 +2579,89 @@ async function renderSeoHtml(
     const pageNum = pageParam ? parseInt(pageParam, 10) : 1;
     const canonicalPath = pageNum > 1 ? `/?page=${pageNum}` : '/';
     const title = 'CodeGame.shop - Săn Giftcode Miễn Phí & Giao Dịch Mã Game Uy Tín';
-    const description = 'Kho tổng hợp hơn 12.600+ giftcode game mobile và webgame bản quyền G1/G234 mới nhất 2026 của 563+ tựa game. Cập nhật liên tục 24/7 từ các NPH VNG, Garena, VTC, SohaGame, Funtap.';
-    replaceTitleAndMeta(title, description, canonicalPath, '/og-image.jpg');
+    const description = 'Kho tổng hợp hơn 14.739+ giftcode game mobile và webgame mới nhất 2026 của 595 tựa game chuẩn. Cập nhật liên tục 24/7 từ các NPH VNG, Garena, VTC, SohaGame, Funtap.';
+    const homeSchema = [
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "@id": `${origin}/#website`,
+        "url": `${origin}/`,
+        "name": "CodeGame.shop",
+        "description": "Cổng tra cứu giftcode game mobile và webgame số 1 Việt Nam",
+        "potentialAction": {
+          "@type": "SearchAction",
+          "target": {
+            "@type": "EntryPoint",
+            "urlTemplate": `${origin}/?search={search_term_string}`
+          },
+          "query-input": "required name=search_term_string"
+        },
+        "inLanguage": "vi-VN"
+      },
+      {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "@id": `${origin}/#organization`,
+        "name": "CodeGame.shop",
+        "url": `${origin}/`,
+        "logo": {
+          "@type": "ImageObject",
+          "url": `${origin}/logo.png`,
+          "width": 512,
+          "height": 512
+        },
+        "sameAs": [
+          "https://t.me/webcodegame_vn",
+          "https://zalo.me/g/qdtlmj2tebfa0baraedg",
+          "https://zalo.me/0386767888"
+        ],
+        "contactPoint": {
+          "@type": "ContactPoint",
+          "telephone": "+84-386-767-888",
+          "contactType": "customer service",
+          "availableLanguage": ["Vietnamese", "English"]
+        }
+      },
+      {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "Giftcode trên CodeGame.shop có miễn phí không?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Tất cả mã giftcode trong mục Mã Miễn Phí và Đợt Phát Code đều hoàn toàn miễn phí 100%, được tổng hợp và kiểm duyệt từ các Nhà phát hành game chính thức tại Việt Nam."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Làm thế nào để sao chép mã code nhanh chóng?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Bạn chỉ cần nhấp vào nút Sao Chép bên cạnh mỗi mã giftcode hoặc chọn Sao Chép Toàn Bộ Mã Còn Hạn để lưu tất cả giftcode vào bộ nhớ tạm trong 1 giây."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Các tựa game trên CodeGame.shop có hợp pháp không?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Hệ thống cập nhật và đối soát thông tin phát hành game công khai đối với từng tựa game phát hành tại Việt Nam."
+            }
+          }
+        ]
+      },
+      {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Trang chủ", "item": `${origin}/` },
+          { "@type": "ListItem", "position": 2, "name": "Mã Miễn Phí", "item": `${origin}/` }
+        ]
+      }
+    ];
+    replaceTitleAndMeta(title, description, canonicalPath, '/og-image.jpg', homeSchema);
   }
 
   return new Response(html, {
