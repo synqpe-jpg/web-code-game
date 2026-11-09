@@ -488,6 +488,41 @@ async function runPrerender() {
                     <span class="px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[10px] sm:text-xs bg-card border border-border text-slate-200 font-medium shrink-0">Free Fire</span>
                   </div>
                 </div>
+
+                <!-- Stats Cards: Exactly matched with HeroBanner.tsx to eliminate Desktop CLS -->
+                <div class="hidden sm:grid grid-cols-4 gap-3 max-w-2xl mx-auto pt-1">
+                  <div class="p-3 rounded-xl bg-card/70 border border-border text-center shadow-sm">
+                    <div class="flex items-center justify-center gap-1 text-primary mb-0.5">
+                      <svg class="w-3.5 h-3.5 text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12v10H4V12"/><path d="M2 7h20v5H2z"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>
+                      <span class="font-display font-bold text-base text-foreground">${allGames.length > 0 ? allGames.length + '+' : '595+'}</span>
+                    </div>
+                    <span class="text-[11px] text-slate-300 font-medium">Tựa Game</span>
+                  </div>
+
+                  <div class="p-3 rounded-xl bg-card/70 border border-border text-center shadow-sm">
+                    <div class="flex items-center justify-center gap-1 text-secondary mb-0.5">
+                      <svg class="w-3.5 h-3.5 text-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                      <span class="font-display font-bold text-base text-foreground">11,700+</span>
+                    </div>
+                    <span class="text-[11px] text-slate-300 font-medium">Mã Giftcode</span>
+                  </div>
+
+                  <div class="p-3 rounded-xl bg-card/70 border border-border text-center shadow-sm">
+                    <div class="flex items-center justify-center gap-1 text-emerald-400 mb-0.5">
+                      <svg class="w-3.5 h-3.5 text-emerald-400 animate-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                      <span class="font-display font-bold text-base text-emerald-400 font-mono transition-all duration-300">107.509</span>
+                    </div>
+                    <span class="text-[11px] text-slate-300 font-medium">Tổng lượt sao chép</span>
+                  </div>
+
+                  <div class="p-3 rounded-xl bg-card/70 border border-border text-center shadow-sm">
+                    <div class="flex items-center justify-center gap-1 text-cyan-400 mb-0.5">
+                      <svg class="w-3.5 h-3.5 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                      <span class="font-display font-bold text-base text-foreground">Hôm nay</span>
+                    </div>
+                    <span class="text-[11px] text-slate-300 font-medium">Cập Nhật Mới Nhất</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
