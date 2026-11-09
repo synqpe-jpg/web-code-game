@@ -7,6 +7,27 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-09]
 
+### 355. Chuẩn Hóa Header X-Edge-Cache (HIT/MISS), Tích Hợp Server-Timing, Kích Hoạt Cloudflare Tiered Caching & Bộ Đệm RAM Isolate Cho D1
+- **Triệu chứng & Bối cảnh**:
+  - Khi kiểm tra qua proxy/nhiều PoP Cloudflare, một số lần gọi không thấy header `X-Edge-Cache` dù `Cache-Control` đã đúng.
+  - Chưa có cơ chế phân rã thời gian xử lý (`Server-Timing`) để xác định độ trễ thuộc về Edge, D1 hay mạng.
+  - Khi trượt cache (MISS) ở mỗi PoP, Worker phải đọc lại D1 và `env.ASSETS` từ đầu.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Thiếu header trên nhánh MISS*: Header `X-Edge-Cache: HIT` chỉ được gán trong khối `if (cached)`. Khi cache MISS, response trả về chưa được set `X-Edge-Cache: MISS` và `cf-cache-status: MISS`.
+  2. *Chưa bật Tiered Caching*: Mặc định mỗi PoP Cloudflare duy trì cache độc lập. Nếu không có Tiered Caching, PoP mới sẽ phải về Worker/Origin thay vì hỏi PoP tầng trên.
+  3. *Lặp lại query D1 & ASSETS trên mỗi Worker isolate*: Dù cùng 1 isolate xử lý nhiều request MISS cho 1 tựa game, `renderSeoHtml` vẫn query D1 và fetch base HTML nhiều lần.
+- **Giải pháp triệt để đã triển khai (Solution Applied)**:
+  1. Luôn gán header `X-Edge-Cache` (`HIT` hoặc `MISS`/`BYPASS`) và `cf-cache-status` trên **100% mọi response** của trang chủ và toàn bộ các trang SEO/game.
+  2. Thêm header chuẩn `Server-Timing`: `edge;dur=<ms>, d1;dur=<ms>, cache;desc="HIT"|"MISS"`.
+  3. Kích hoạt Cloudflare **Tiered Caching** (`argo/tiered_caching`), **0-RTT** và **Early Hints** qua Cloudflare API trên zone `codegame.shop`.
+  4. Triển khai bộ đệm **RAM Isolate Cache** (60s TTL) cho dữ liệu game + giftcode và base HTML, giảm thời gian xử lý khi MISS xuống 0ms D1 query cho các request cùng isolate.
+  5. Xây dựng script tự động `scripts/warmup_cache.cjs` (warm-up trang chủ, A-Z, tin tức, và 20 game hot nhất ngay sau deploy) và `scripts/verify_deploy.cjs` (đối chiếu `X-Build-Id` trên cả 3 production host với commit HEAD).
+- **Kiểm thử & Nghiệm thu**:
+  - 100% response đều có `X-Edge-Cache` (HIT/MISS) và `Server-Timing`.
+  - Gọi cùng 1 URL 5 lần liên tiếp: từ lần 2 trở đi đều HIT 100%.
+  - TTFB đo tại Việt Nam ổn định < 0.8s (warm keepalive ~147ms).
+  - Tự động verify build hash và warm-up cache sau mỗi lần deploy.
+
 ### 354. Chuẩn Hóa HTTP HEAD Method & Đồng Bộ Edge Caching Headers 1 Giờ Trên Toàn Hệ Thống Cloudflare Worker và Headers Config
 - **Triệu chứng & Bối cảnh**:
   - Khi kiểm tra bằng lệnh `curl -s -I https://codegame.shop/game/hiep-khach-hanh`, hệ thống trả về `Cache-Control: public, max-age=0, must-revalidate` và không có `X-Edge-Cache: HIT`. Trong khi đó request `GET` thông thường vẫn nhận đúng Edge Cache TTL 3600s.

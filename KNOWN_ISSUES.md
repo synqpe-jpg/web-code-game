@@ -10,6 +10,21 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-254: Bẫy Chỉ Gán Header Cache Khi HIT Khiến Response MISS Không Thể Nhận Diện & Bẫy Bỏ Quên Tiered Caching Trên Cloudflare
+- **Triệu chứng & Rủi ro**:
+  1. Khi chỉ set header `X-Edge-Cache: HIT` trong khối `if (cached)`, các response trượt cache (MISS) sẽ hoàn toàn không có header `X-Edge-Cache` hoặc `cf-cache-status`. Khi đo từ bên ngoài qua proxy hoặc các PoP biên khác nhau, client không thể phân biệt giữa "cache chưa hoạt động" với "cache hoạt động nhưng bị trượt lần đầu".
+  2. Cloudflare mặc định quản lý cache riêng lẻ tại từng PoP nếu chưa bật Tiered Caching. Người dùng ở các khu vực địa lý khác nhau sẽ luôn bị MISS lần đầu nếu không có cơ chế hỏi PoP tầng trên (Tiered Cache Topology).
+  3. Khi không có header `Server-Timing`, việc chẩn đoán nguyên nhân trễ (do Worker, query D1 hay độ trễ mạng) gặp nhiều khó khăn.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Luôn gán header trên 100% response*: Trúng cache set `X-Edge-Cache: HIT` + `cf-cache-status: HIT`; Trượt cache set `X-Edge-Cache: MISS` + `cf-cache-status: MISS`.
+  2. *Thêm Server-Timing*: `Server-Timing: edge;dur=<ms>, d1;dur=<ms>, cache;desc="HIT"|"MISS"`.
+  3. *Kích hoạt Cloudflare Tiered Caching qua API*: Gọi API Cloudflare kích hoạt `argo/tiered_caching` (value: "on"), `early_hints` và `0rtt`.
+  4. *Bộ đệm RAM Isolate Cache*: Lưu kết quả tra cứu game và giftcode trong isolate RAM (TTL 60s) để giảm thiểu D1 subrequest khi MISS.
+  5. *Warm-up sau deploy*: Chạy script `scripts/warmup_cache.cjs` để nạp ấm cache tầng trên cho các URL trọng điểm ngay sau khi deploy.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không chỉ gán header `X-Edge-Cache` khi cache HIT mà bỏ quên nhánh cache MISS.*
+  - ❌ *Không để deploy xong mà không kích hoạt warm-up cache và verify commit hash.*
+
 ### ISSUE-253: Bẫy Chỉ Kiểm Tra request.method === 'GET' Trong Cloudflare Edge Worker Khiến Request HEAD (curl -s -I) Bị Rơi Xuống Static Asset Và Trả Cache-Control Cũ
 - **Triệu chứng & Rủi ro**:
   1. Khi người dùng hoặc bot gửi request kiểm tra bằng lệnh `curl -s -I <url>` (gửi method HTTP `HEAD`), nếu Worker chỉ kiểm tra `if (request.method === 'GET')`, request `HEAD` sẽ không khớp route SEO / Edge Cache và rơi xuống bộ phục vụ static asset mặc định của Cloudflare Pages.

@@ -1126,6 +1126,7 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
 
       // Root Homepage HTML - Edge Cache TTL 3600s
       if ((request.method === 'GET' || request.method === 'HEAD') && (pathname === '/' || pathname === '/index.html')) {
+        const reqStart = performance.now();
         // Tự động chuyển hướng 301 về URL canonical /game/:slug nếu người dùng hoặc bot truy cập qua ?game= hoặc ?g=
         const gameQueryParam = url.searchParams.get('game') || url.searchParams.get('g');
         if (gameQueryParam) {
@@ -1147,9 +1148,11 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
           try {
             const cached = await cfCache.match(cacheKey);
             if (cached) {
+              const edgeDur = (performance.now() - reqStart).toFixed(1);
               const res = new Response(isHead ? null : cached.body, cached);
               res.headers.set('cf-cache-status', 'HIT');
               res.headers.set('X-Edge-Cache', 'HIT');
+              res.headers.set('Server-Timing', `edge;dur=${edgeDur}, cache;desc="HIT"`);
               return res;
             }
           } catch {}
@@ -1157,20 +1160,33 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
 
         const assetResponse = await env.ASSETS.fetch(isHead ? new Request(request.url, { method: 'GET' }) : request);
         if (assetResponse.status === 200) {
-          const headers = new Headers(assetResponse.headers);
-          headers.set('Cache-Control', 'public, max-age=120, s-maxage=3600, stale-while-revalidate=86400');
-          headers.delete('Pragma');
-          headers.delete('Expires');
-          const cacheRes = new Response(assetResponse.body, { status: 200, headers });
+          const edgeDur = (performance.now() - reqStart).toFixed(1);
+          const bodyText = await assetResponse.text();
+          const baseHeaders = new Headers(assetResponse.headers);
+          baseHeaders.set('Cache-Control', 'public, max-age=120, s-maxage=3600, stale-while-revalidate=86400');
+          baseHeaders.delete('Pragma');
+          baseHeaders.delete('Expires');
+
           if (cfCache && ctx.waitUntil) {
             try {
-              ctx.waitUntil(cfCache.put(cacheKey, cacheRes.clone()));
+              const toCacheHeaders = new Headers(baseHeaders);
+              toCacheHeaders.set('cf-cache-status', 'HIT');
+              toCacheHeaders.set('X-Edge-Cache', 'HIT');
+              toCacheHeaders.set('Server-Timing', `edge;dur=0.1, cache;desc="HIT"`);
+              ctx.waitUntil(cfCache.put(cacheKey, new Response(bodyText, { status: 200, headers: toCacheHeaders })));
             } catch {}
           }
+
+          const clientHeaders = new Headers(baseHeaders);
+          const cacheStatus = isFresh ? 'BYPASS' : 'MISS';
+          clientHeaders.set('cf-cache-status', cacheStatus);
+          clientHeaders.set('X-Edge-Cache', cacheStatus);
+          clientHeaders.set('Server-Timing', `edge;dur=${edgeDur}, cache;desc="${cacheStatus}"`);
+
           if (isHead) {
-            return new Response(null, { status: 200, headers });
+            return new Response(null, { status: 200, headers: clientHeaders });
           }
-          return cacheRes;
+          return new Response(bodyText, { status: 200, headers: clientHeaders });
         }
         return assetResponse;
       }
@@ -1179,6 +1195,7 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
       if ((request.method === 'GET' || request.method === 'HEAD') && (
         pathname.startsWith('/game/') ||
         pathname.startsWith('/g/') ||
+        pathname === '/news' ||
         pathname.startsWith('/news/') ||
         pathname.startsWith('/giveaways/') ||
         pathname.startsWith('/giveaway/') ||
@@ -1190,6 +1207,7 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
         pathname === '/missions' ||
         pathname.startsWith('/missions/')
       )) {
+        const reqStart = performance.now();
         const isFresh = url.searchParams.has('fresh') || url.searchParams.has('nocache') || url.searchParams.has('_t');
         const cfCache = (typeof caches !== 'undefined' && !isFresh) ? (caches as any).default : null;
         const cacheKey = new Request(`${url.origin}${url.pathname}`, { method: 'GET' });
@@ -1198,28 +1216,59 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
           try {
             const cached = await cfCache.match(cacheKey);
             if (cached) {
+              const edgeDur = (performance.now() - reqStart).toFixed(1);
               const res = new Response(isHead ? null : cached.body, cached);
               res.headers.set('cf-cache-status', 'HIT');
               res.headers.set('X-Edge-Cache', 'HIT');
+              res.headers.set('Server-Timing', `edge;dur=${edgeDur}, cache;desc="HIT"`);
               return res;
             }
           } catch {}
         }
 
         const seoRes = await renderSeoHtml(request, env, pathname);
+        const edgeDur = (performance.now() - reqStart).toFixed(1);
+        const d1Dur = (globalThis as any).__wcg_last_d1_dur || 0;
+        const cacheStatus = isFresh ? 'BYPASS' : 'MISS';
+
         if (cfCache && seoRes.status === 200 && ctx.waitUntil) {
           try {
-            ctx.waitUntil(cfCache.put(cacheKey, seoRes.clone()));
+            const toCacheHeaders = new Headers(seoRes.headers);
+            toCacheHeaders.set('Cache-Control', 'public, max-age=120, s-maxage=3600, stale-while-revalidate=86400');
+            toCacheHeaders.set('cf-cache-status', 'HIT');
+            toCacheHeaders.set('X-Edge-Cache', 'HIT');
+            toCacheHeaders.set('Server-Timing', `edge;dur=0.1, cache;desc="HIT"`);
+            const toCacheRes = new Response(seoRes.clone().body, {
+              status: seoRes.status,
+              statusText: seoRes.statusText,
+              headers: toCacheHeaders,
+            });
+            ctx.waitUntil(cfCache.put(cacheKey, toCacheRes));
           } catch {}
         }
+
+        const clientHeaders = new Headers(seoRes.headers);
+        clientHeaders.set('cf-cache-status', cacheStatus);
+        clientHeaders.set('X-Edge-Cache', cacheStatus);
+        const timingParts = [`edge;dur=${edgeDur}`];
+        if (d1Dur > 0) {
+          timingParts.push(`d1;dur=${d1Dur}`);
+        }
+        timingParts.push(`cache;desc="${cacheStatus}"`);
+        clientHeaders.set('Server-Timing', timingParts.join(', '));
+
         if (isHead) {
           return new Response(null, {
             status: seoRes.status,
             statusText: seoRes.statusText,
-            headers: seoRes.headers,
+            headers: clientHeaders,
           });
         }
-        return seoRes;
+        return new Response(seoRes.body, {
+          status: seoRes.status,
+          statusText: seoRes.statusText,
+          headers: clientHeaders,
+        });
       }
 
       // Phục vụ icon game động và tĩnh tại /game_icons/<slug>.<ext>
@@ -1810,18 +1859,28 @@ async function renderSeoHtml(
     pathname === '/events' ||
     pathname.startsWith('/events/') ||
     pathname === '/telegram' ||
-    pathname.startsWith('/telegram/')
+    pathname.startsWith('/telegram/') ||
+    pathname === '/news' ||
+    pathname === '/news/'
   ) {
     const cleanPath = pathname.replace(/\/$/, '');
     const assetUrl = new URL(`${cleanPath}.html`, request.url);
     const assetRes = await env.ASSETS.fetch(new Request(assetUrl.toString()));
     if (assetRes.status === 200) {
-      return assetRes;
+      const headers = new Headers(assetRes.headers);
+      headers.set('Cache-Control', 'public, max-age=120, s-maxage=3600, stale-while-revalidate=86400');
+      headers.set('Content-Type', 'text/html; charset=utf-8');
+      headers.set('X-Content-Type-Options', 'nosniff');
+      return new Response(assetRes.body, { status: 200, headers });
     }
     const idxUrl = new URL(`${cleanPath}/index.html`, request.url);
     const idxRes = await env.ASSETS.fetch(new Request(idxUrl.toString()));
     if (idxRes.status === 200) {
-      return idxRes;
+      const headers = new Headers(idxRes.headers);
+      headers.set('Cache-Control', 'public, max-age=120, s-maxage=3600, stale-while-revalidate=86400');
+      headers.set('Content-Type', 'text/html; charset=utf-8');
+      headers.set('X-Content-Type-Options', 'nosniff');
+      return new Response(idxRes.body, { status: 200, headers });
     }
   }
 
@@ -1833,13 +1892,17 @@ async function renderSeoHtml(
     }
   }
 
-  const indexUrl = new URL('/', request.url);
-  const baseRes = await env.ASSETS.fetch(new Request(indexUrl, request));
-  if (baseRes.status !== 200) {
-    return baseRes;
+  const gScope = globalThis as any;
+  let html = gScope.__wcg_base_html;
+  if (!html) {
+    const indexUrl = new URL('/', request.url);
+    const baseRes = await env.ASSETS.fetch(new Request(indexUrl, request));
+    if (baseRes.status !== 200) {
+      return baseRes;
+    }
+    html = await baseRes.text();
+    gScope.__wcg_base_html = html;
   }
-
-  let html = await baseRes.text();
 
   const replaceTitleAndMeta = (
     title: string,
@@ -1905,10 +1968,21 @@ async function renderSeoHtml(
     let displayCodes: any[] = [];
     const isWwmGame = slug === 'where-winds-meet' || slug === 'where-winds-meet-mobile' || slug === 'yen-van-thap-luc-thanh';
 
-    if (env.DB) {
+    const gScope = globalThis as any;
+    if (!gScope.__wcg_game_cache) gScope.__wcg_game_cache = new Map();
+    const lookupSlug = isWwmGame ? 'yen-van-thap-luc-thanh' : slug;
+    const ramKey = `game_${lookupSlug}_${cleanWithoutMobile}`;
+    const ramCached = gScope.__wcg_game_cache.get(ramKey);
+    const now = Date.now();
+
+    if (ramCached && (now - ramCached.ts < 60000)) {
+      game = JSON.parse(JSON.stringify(ramCached.game));
+      displayCodes = JSON.parse(JSON.stringify(ramCached.displayCodes));
+      gScope.__wcg_last_d1_dur = 0;
+    } else if (env.DB) {
       try {
+        const d1Start = performance.now();
         // 1. Tra cứu trực tiếp từ bảng games D1
-        const lookupSlug = isWwmGame ? 'yen-van-thap-luc-thanh' : slug;
         const gameRow = await env.DB.prepare(
           'SELECT * FROM games WHERE slug = ? OR id = ? OR slug = ? LIMIT 1'
         ).bind(lookupSlug, lookupSlug, cleanWithoutMobile).first<any>().catch(() => null);
@@ -1978,7 +2052,18 @@ async function renderSeoHtml(
             game.total_codes_count = allResolved.length;
           }
         }
-      } catch {}
+
+        if (game) {
+          gScope.__wcg_game_cache.set(ramKey, {
+            game: JSON.parse(JSON.stringify(game)),
+            displayCodes: JSON.parse(JSON.stringify(displayCodes)),
+            ts: now,
+          });
+        }
+        gScope.__wcg_last_d1_dur = Number((performance.now() - d1Start).toFixed(1));
+      } catch (err: any) {
+        gScope.__wcg_last_d1_dur = 0;
+      }
     }
 
     if (game) {
