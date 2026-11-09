@@ -326,7 +326,15 @@ async function runPrerender() {
               <p class="text-[9px] sm:text-[11px] text-muted-foreground truncate">${escapeHtml(g.publisher || 'NPH')}</p>
             </div>
           </div>
+          <div class="mb-1.5 sm:mb-2 p-1 sm:p-2 rounded-lg bg-slate-900/90 border border-cyan-500/30 text-center shadow-inner">
+            <div class="font-mono font-bold text-[10px] sm:text-[13px] text-cyan-300 tracking-tight flex items-center justify-center gap-0.5 sm:gap-1">
+              <span class="px-1 py-0.2 sm:py-0.5 bg-cyan-950/70 rounded text-cyan-200">Sắp ra mắt</span>
+            </div>
+          </div>
         </div>
+        <button class="w-full py-1 sm:py-1.5 px-2 rounded-lg text-[9px] sm:text-xs font-semibold flex items-center justify-center gap-1 bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+          <span>Báo Code</span>
+        </button>
       </div>
     `;
   }).join('');
@@ -420,20 +428,39 @@ async function runPrerender() {
 
         <!-- Main Content Area: Aligned with App.tsx React structure to eliminate CLS -->
         <main class="flex-1 pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-0">
-          <!-- Hero Section -->
-          <section class="critical-hero-banner py-6 sm:py-10 px-4 sm:px-6 lg:px-8 text-center bg-[#0e1222] text-gray-100 border-b border-gray-800/80">
-            <div class="max-w-4xl mx-auto space-y-3">
-              <div class="inline-block px-3 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-bold border border-emerald-500/30">
-                ✨ Cập nhật liên tục 24/7 từ các Nhà phát hành Game
+          <!-- Hero Section: Exactly matched with HeroBanner.tsx to prevent CLS -->
+          <div class="relative overflow-hidden pt-1 pb-1.5 sm:pt-7 sm:pb-7 border-b border-border/50">
+            <div class="max-w-5xl mx-auto px-3 sm:px-6 lg:px-8">
+              <div class="text-center max-w-2xl mx-auto">
+                <!-- Top Pill Badge (Single-line guaranteed without wrapping bugs) -->
+                <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full bg-primary/10 border border-primary/30 text-primary-light text-[9px] sm:text-xs font-semibold uppercase tracking-wider mb-1 sm:mb-3 shadow-sm max-w-full whitespace-nowrap overflow-hidden">
+                  <span class="truncate">CẬP NHẬT 24/7</span>
+                  <span class="text-primary/30 shrink-0">•</span>
+                  <span class="text-emerald-400 font-bold font-mono inline-flex items-center gap-1 shrink-0">
+                    <span>${totalCodesFormatted}</span>
+                    <span class="text-[9px] sm:text-[10px] text-slate-300 font-normal lowercase hidden xs:inline">lượt tải</span>
+                  </span>
+                </div>
+
+                <!-- Main Title - Compact on mobile -->
+                <h1 class="text-sm xs:text-base sm:text-3xl lg:text-4xl font-display font-extrabold tracking-tight text-foreground leading-snug mb-1 sm:mb-2.5">
+                  Kho Giftcode Game Mobile & Webgame Mới Nhất 2026 <span class="bg-gradient-to-r from-purple-400 via-primary-light to-cyan-400 bg-clip-text text-transparent">Chính Thức</span>
+                </h1>
+
+                <!-- Shortened Subtitle - Hidden on mobile to prioritize instant game visibility -->
+                <p class="hidden sm:block text-[11px] sm:text-sm text-slate-300 max-w-xl mx-auto leading-normal mb-2 sm:mb-3.5 font-sans px-1">
+                  Tổng hợp và chia sẻ mã quà tặng game mobile, webgame bản quyền chính hãng tại Việt Nam.
+                </p>
+
+                <!-- Smart Autocomplete Search Bar -->
+                <div id="hero-search-container" class="max-w-xl mx-auto mb-1 sm:mb-3.5">
+                  <div class="relative w-full">
+                    <input type="text" placeholder="Tìm nhanh tên game, giftcode mới nhất..." class="w-full bg-card/90 border border-border/80 rounded-2xl py-2.5 pl-11 pr-12 text-sm text-foreground placeholder:text-muted-foreground shadow-sm" readonly />
+                  </div>
+                </div>
               </div>
-              <h1 class="text-xl sm:text-3xl md:text-4xl font-black tracking-tight text-white">
-                Kho Giftcode Game Mobile & Webgame Mới Nhất 2026
-              </h1>
-              <p class="text-xs sm:text-sm text-gray-400 max-w-2xl mx-auto font-normal">
-                Tìm kiếm và nhận mã thưởng game mới nhất từ các Nhà phát hành chính thức.
-              </p>
             </div>
-          </section>
+          </div>
 
           <!-- Main Catalog Section Container: Exactly matches React DOM to prevent CLS -->
           <div id="game-catalog-section" class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-1.5 sm:py-8">

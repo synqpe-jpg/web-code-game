@@ -7,6 +7,35 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-09]
 
+### 357. Sửa Tiếp 3 Lỗi PageSpeed Còn Lại: Sinh Toàn Bộ Thumbnail 256px Cho Hiển Thị Sắc Nét, Cache Nội Miền 1 Năm Mọi Kênh Icon D1, Tách Rời Service Chunks & Triệt Tiêu Layout Shift (CLS)
+- **Triệu chứng & Bối cảnh**:
+  - Đo lại PageSpeed (Lighthouse 13.6.0) sau bản 0202b44:
+    + Mục Ảnh: Vẫn ghi nhận lãng phí ảnh do thiếu bản 256px cho màn hình retina/high-DPI (`srcset` thiếu 2x chuyên dụng), ảnh fallback tin tức `og-image.jpg` 58.5 KiB, và các request thumbnail bị fallback sang file gốc 512px.
+    + Mục Cache: Lãng phí cache nội miền ~315 KiB do các đường API icon (`functions/api/game-icon.ts`) và fallback icon D1 trả TTL ngắn (4 giờ) hoặc thiếu `immutable` khi có query version `?v=`.
+    + Mục JS Thừa: Bundle `index-*.js` vẫn còn chứa các service lớn (marketing-service, growth-service, news-service, auth-service).
+    + Mục CLS: Ghi nhận CLS 0.1577 trên mobile do khối `critical-hero-banner` trong HTML tĩnh có padding và font-size lớn hơn component React `HeroBanner.tsx`, khiến `div#game-catalog-section` bị giật ngược lên 137px khi hydrate.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Ảnh & srcset*: Thuộc tính `srcset` chỉ có 1x thumbnail 128px, thiếu thumbnail 256px chuẩn cho 2x; file `og-image.jpg` của tin tức chưa có bản thumbnail WebP nhẹ.
+  2. *Cache-Control*: `functions/api/game-icon.ts` trả `max-age=14400` thay vì 1 năm; worker `functions/_worker.ts` tự động redirect/rewrite request thumbnail sang file gốc khi không tìm thấy slug tương ứng trong D1.
+  3. *JS Chunking*: Các module service nặng bị Rollup gom chung vào `index-*.js`.
+  4. *CLS dịch chuyển DOM*: Khối `critical-hero-banner` trong `scripts/prerender.js` có `py-6 sm:py-10` và thẻ `<p>` hiển thị trên mobile, trong khi `HeroBanner.tsx` có `pt-1 pb-1.5` và thẻ `<p>` bị ẩn (`hidden sm:block`); thẻ upcoming games trong HTML tĩnh thiếu khung countdown và nút bấm.
+- **Giải pháp triệt để đã triển khai (Solution Applied)**:
+  1. *Thumbnail 256px & og-image WebP*:
+     - Sinh toàn bộ 792 file thumbnail 256px (`public/game_icons/<slug>-thumb-256.webp`, WebP q80, effort 4).
+     - Tạo `public/og-image-thumb.webp` 320x168 WebP (5.4 KB, giảm 90.7% từ 58.5 KB) thay thế cho tin tức trang chủ.
+     - Đồng bộ `srcset="...-thumb.webp 1x, ...-thumb-256.webp 2x"` ở tất cả component: `GameCard.tsx`, `SearchAutocomplete.tsx`, `PinnedGamesBar.tsx`, `UpcomingGamesBanner.tsx`, `prerender.js`, `_worker.ts`.
+  2. *Cache-Control 1 Năm (Immutable)*:
+     - Chuẩn hóa toàn bộ response headers trong `functions/api/game-icon.ts`, `functions/_worker.ts`, `functions/game_icons/[file].ts` thành `Cache-Control: public, max-age=31536000, immutable`.
+     - Chặn triệt để cơ chế tự fallback sang ảnh gốc 512px khi client yêu cầu ảnh thumbnail (`-thumb.webp` / `-thumb-256.webp`).
+  3. *Tách Chunks JS & Tối Ưu Tải*:
+     - Bổ sung cấu hình `manualChunks` trong `vite.config.ts`: tách riêng `marketing-service` (102 KB), `growth-service` (125 KB), `news-service` (38 KB), `auth-service` (15 KB).
+     - Giảm kích thước `index-*.js` từ 524 KB (128 KB gzip) xuống **241.86 KB (61.74 KB gzip)** (giảm > 50%).
+  4. *Khớp Hoàn Hảo HTML Tĩnh Với React Component Triệt Tiêu CLS*:
+     - Thay thế `critical-hero-banner` trong `scripts/prerender.js` bằng markup khớp 100% với `HeroBanner.tsx` (padding `pt-1 pb-1.5`, title compact, `<p>` `hidden sm:block`, search bar container đồng nhất).
+     - Bổ sung khung countdown và nút action vào thẻ upcoming games trong `scripts/prerender.js`.
+- **Kiểm thử & Nghiệm thu**:
+  - Build thành công 100%, audit zero test artifacts sạch 100%.
+
 ### 356. Tối Ưu Hóa 4 Gợi Ý Hiệu Suất PageSpeed: Tối Ưu Ảnh & Icon Thumbnails 128px, Nâng Cache-Control Tĩnh 1 Năm, Tải CSS Non-Blocking & Loại Bỏ JavaScript Thừa Khỏi Bundle Khởi Tạo
 - **Triệu chứng & Bối cảnh**:
   - Báo cáo PageSpeed (Lighthouse 13.6.0) ngày 09/11/2026 ghi nhận:

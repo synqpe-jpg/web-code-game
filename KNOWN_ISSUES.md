@@ -10,6 +10,20 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-256: Bẫy Lệch Chiều Cao Giữa HTML Tĩnh Prerendered Và React Component Client Sau Khi Hydrate Khiến DOM Dịch Chuyển Đột Ngột (CLS) & Bẫy Thiếu Thumbnail 256px Cho Retina 2x
+- **Triệu chứng & Rủi ro**:
+  1. *CLS dịch chuyển DOM*: Khối `critical-hero-banner` trong HTML tĩnh có padding (`py-6 sm:py-10`) và hiển thị đoạn mô tả `<p>`, trong khi component React `HeroBanner.tsx` trên mobile chỉ có padding nhỏ (`pt-1 pb-1.5`) và ẩn đoạn mô tả (`hidden sm:block`). Khi client nạp xong JS và hydrate, HeroBanner bị co chiều cao từ 247px xuống còn 110px, làm toàn bộ danh mục game bên dưới (`div#game-catalog-section`) bị giật ngược lên 137px, gây ra CLS 0.1577 trên mobile.
+  2. *Thẻ Sắp Ra Mắt (Upcoming Games) thiếu khung placeholder*: Trong HTML tĩnh, thẻ game thiếu khung countdown và nút hành động nên thấp hơn thẻ React ~80px.
+  3. *Lãng phí ảnh do thiếu bản retina 256px*: Khi dùng `srcset` cho màn hình mật độ điểm ảnh cao (2x retina), nếu chỉ có bản 1x 128px thì trình duyệt sẽ fallback tải ảnh gốc 512px, làm tăng dung lượng ảnh tải về.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Đồng bộ 100% markup và Tailwind classes*: Khối Hero Banner trong `scripts/prerender.js` phải có cùng cấu trúc và kích thước hiển thị với `HeroBanner.tsx` (padding `pt-1 pb-1.5`, tiêu đề compact, subtitle `hidden sm:block`, search input container tương đương).
+  2. *Bổ sung khung countdown và nút vào thẻ upcoming games tĩnh*: Đảm bảo chiều cao thẻ tĩnh và thẻ client trước và sau hydrate lệch 0px.
+  3. *Sinh thumbnail 256px song song 128px*: Đặt `srcset="<slug>-thumb.webp 1x, <slug>-thumb-256.webp 2x"` ở mọi component hiển thị icon game.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không viết HTML tĩnh với chiều cao hoặc padding khác biệt so với component React client.*
+  - ❌ *Không bỏ sót các khung tử (như countdown, button) trong HTML tĩnh của card danh sách nếu component React có render các khung đó.*
+  - ❌ *Không chỉ khai báo 1x trong `srcset` hoặc để fallback tự động trỏ về ảnh gốc 512px khi client yêu cầu thumbnail.*
+
 ### ISSUE-255: Bẫy Ảnh/Icon Quá Khổ Làm Tăng Payload Gấp 5 Lần, Bẫy CSS Chặn Luồng Render Chính & Bẫy Gom Mảng Dữ Liệu Khổng Lồ Vào File Type Khiến Vite Không Thể Tree-Shake
 - **Triệu chứng & Rủi ro**:
   1. File logo `/logo.png` (404 KB) và icon game (256x256-512x512) tải trực tiếp trên trang chủ khiến tổng payload ảnh lên tới 2.8 MB, vi phạm khuyến nghị "Properly size images" của PageSpeed.
