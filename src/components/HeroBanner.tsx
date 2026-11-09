@@ -78,11 +78,12 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
     'Free Fire',
   ];
 
-  const isDefaultDemoTitle = !cmsHero?.title || cmsHero.title === 'Kho Giftcode &' || cmsHero.title === 'Kho Giftcode & Mã Quà Tặng';
-  const heroBadgeText = cmsHero?.extraData?.badge || t.hero.liveBadge;
+  const isDefaultDemoTitle = !cmsHero?.title || cmsHero.title === 'Kho Giftcode &' || cmsHero.title === 'Kho Giftcode & Mã Quà Tặng' || cmsHero.title === 'Kho Giftcode Game Mobile & Webgame Mới Nhất 2026';
+  const heroBadgeText = (isDefaultDemoTitle || !cmsHero?.extraData?.badge || cmsHero.extraData.badge === 'CẬP NHẬT TỰ ĐỘNG 24/7') ? t.hero.liveBadge : cmsHero.extraData.badge;
   const heroMainTitle = isDefaultDemoTitle ? t.hero.titleMain : (cmsHero?.title || t.hero.titleMain);
   const heroHighlight = isDefaultDemoTitle ? t.hero.titleHighlight : (cmsHero?.extraData?.titleHighlight !== undefined ? cmsHero.extraData.titleHighlight : t.hero.titleHighlight);
-  const heroDescription = cmsHero?.content || t.hero.subtitle;
+  const isDefaultDemoDesc = !cmsHero?.content || cmsHero.content === 'Tra cứu mã code chuyên nghiệp';
+  const heroDescription = (isDefaultDemoTitle || isDefaultDemoDesc) ? t.hero.subtitle : cmsHero.content;
 
   return (
     <div className="relative overflow-hidden pt-1 pb-1.5 sm:pt-7 sm:pb-7 border-b border-border/50">

@@ -10,6 +10,21 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-257: Bẫy Bỏ Quên AnnouncementBar Trong HTML Tĩnh & Bẫy Để CMS Content Cũ Ghi Đè Hero Description Làm Co 1 Dòng Sau Hydration (Desktop CLS)
+- **Triệu chứng & Rủi ro**:
+  1. *Header bị đẩy xuống 36px*: Trong `src/App.tsx`, component `<AnnouncementBar />` nằm ngay trên `<Header />` và luôn render theo mặc định (chiều cao 36px trên desktop). Nhưng trong `scripts/prerender.js`, `<header>` lại nằm ở vị trí đầu tiên của trang. Khi client nạp xong JS và hydrate, `<AnnouncementBar />` xuất hiện ở đỉnh và đẩy `<header>` từ `top: 0` xuống `top: 36px`.
+  2. *Đoạn mô tả Hero co từ 2 dòng xuống 1 dòng*: HTML tĩnh render mô tả dài 89 ký tự (cao 40px), trong khi component React đọc `cmsHero.content` cũ là `"Tra cứu mã code chuyên nghiệp"` (29 ký tự, cao 20px). Khi hydrate, đoạn mô tả bị co lại 20px, kéo ngược danh mục game bên dưới lên 20px.
+  3. Cú giật kép giữa Header bị đẩy xuống và Hero subtitle co lên tạo ra sự dịch chuyển DOM 20px cho toàn bộ vùng tìm kiếm và catalog (`div#game-catalog-section`), gây ra CLS 0.12 - 0.15 trên Desktop.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Render tĩnh AnnouncementBar*: Nhúng toàn bộ markup của `<AnnouncementBar />` vào `scripts/prerender.js` ngay trên `<header>`, kèm critical CSS `.site-announcement-bar` cố định `36px` (desktop) và `32px` (mobile).
+  2. *Bảo vệ Description chuẩn trong HeroBanner.tsx*: Nếu CMS content là giá trị demo cũ (`'Tra cứu mã code chuyên nghiệp'` hoặc tiêu đề demo), luôn ưu tiên lấy `t.hero.subtitle` để đảm bảo văn bản hiển thị và số dòng trước/sau hydration khớp 100%.
+  3. *Critical CSS cho Search Input*: Khai báo chiều cao `50px` desktop / `48px` mobile cho `#hero-search-container input` trong critical inline CSS để ngăn input bị co giãn khi stylesheet ngoài tải xong.
+  4. *Đồng bộ icon SVG của Pill Badge và hàm sort Upcoming Games*: Đảm bảo tọa độ `x` của các badge và thẻ game không bị xê dịch khi client render.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không bỏ quên bất kỳ component nào xuất hiện trên đầu trang (như AnnouncementBar, Banner) khỏi file prerender HTML tĩnh.*
+  - ❌ *Không chỉ bảo vệ title trong component CMS mà bỏ quên description khiến số dòng text bị lệch pha hydration.*
+  - ❌ *Không để thẻ input tìm kiếm thiếu chiều cao cố định trong critical CSS khi dùng CSS non-blocking.*
+
 ### ISSUE-256: Bẫy Lệch Chiều Cao Giữa HTML Tĩnh Prerendered Và React Component Client Sau Khi Hydrate Khiến DOM Dịch Chuyển Đột Ngột (CLS) & Bẫy Thiếu Thumbnail 256px Cho Retina 2x
 - **Triệu chứng & Rủi ro**:
   1. *CLS dịch chuyển DOM*: Khối `critical-hero-banner` trong HTML tĩnh có padding (`py-6 sm:py-10`) và hiển thị đoạn mô tả `<p>`, trong khi component React `HeroBanner.tsx` trên mobile chỉ có padding nhỏ (`pt-1 pb-1.5`) và ẩn đoạn mô tả (`hidden sm:block`). Khi client nạp xong JS và hydrate, HeroBanner bị co chiều cao từ 247px xuống còn 110px, làm toàn bộ danh mục game bên dưới (`div#game-catalog-section`) bị giật ngược lên 137px, gây ra CLS 0.1577 trên mobile.

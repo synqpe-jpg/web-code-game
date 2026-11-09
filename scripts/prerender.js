@@ -299,6 +299,12 @@ async function runPrerender() {
         const now = Date.now();
         prerenderUpcoming = upList
           .filter(g => g && g.status !== 'CANCELLED' && g.status !== 'PENDING' && g.status !== 'LAUNCHED' && g.releaseDate && (now - new Date(g.releaseDate).getTime() <= ONE_DAY_MS))
+          .sort((a, b) => {
+            const timeA = a.releaseDate ? new Date(a.releaseDate).getTime() : NaN;
+            const timeB = b.releaseDate ? new Date(b.releaseDate).getTime() : NaN;
+            if (timeA !== timeB) return timeA - timeB;
+            return (a.order || 0) - (b.order || 0);
+          })
           .slice(0, 6);
       }
     }
@@ -311,7 +317,7 @@ async function runPrerender() {
     const thumb1x = `/game_icons/${slug}-thumb.webp`;
     const thumb2x = `/game_icons/${slug}-thumb-256.webp`;
     return `
-      <div class="min-w-[145px] max-w-[155px] sm:min-w-[240px] sm:max-w-[260px] lg:min-w-0 lg:max-w-none shrink-0 bg-background/90 border border-border/80 rounded-xl p-2 sm:p-3 flex flex-col justify-between">
+      <div class="min-w-[145px] max-w-[155px] sm:min-w-[240px] sm:max-w-[260px] lg:min-w-0 lg:max-w-none shrink-0 bg-background/90 hover:bg-background border border-border/80 hover:border-cyan-500/60 rounded-xl p-2 sm:p-3 flex flex-col justify-between transition-all duration-200 shadow-sm hover:shadow-lg hover:shadow-cyan-500/10 group cursor-pointer snap-start relative">
         <div>
           <div class="flex items-center justify-between gap-1 mb-1 sm:mb-2">
             <span class="text-[9px] sm:text-[10px] font-semibold text-muted-foreground truncate max-w-[85px] sm:max-w-[100px]">${escapeHtml(g.category || 'Game')}</span>
@@ -424,6 +430,37 @@ async function runPrerender() {
     ],
     bodyContent: `
       <div class="min-h-screen flex flex-col bg-dark-950 text-gray-100">
+        <!-- Announcement Bar: Exactly matches AnnouncementBar.tsx to eliminate Desktop/Mobile CLS -->
+        <div class="site-announcement-bar relative w-full max-w-full bg-gradient-to-r from-indigo-950 via-primary-dark to-purple-950 text-white border-b border-primary/30 text-xs z-30 shadow-md select-none overflow-hidden h-8 sm:h-9 flex items-center box-border" style="contain: paint;">
+          <div class="relative z-20 flex items-center gap-1.5 pl-3 pr-3.5 sm:pl-4 sm:pr-4 py-1 bg-gradient-to-r from-indigo-950 via-indigo-950/95 to-indigo-950/70 backdrop-blur-md shrink-0 border-r border-white/10 shadow-sm">
+            <div class="w-4 h-4 sm:w-5 sm:h-5 rounded-md bg-amber-400/20 flex items-center justify-center shrink-0">
+              <svg class="w-2.5 h-2.5 sm:w-3 sm:h-3 text-amber-400 animate-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>
+            </div>
+            <span class="text-[10px] sm:text-xs font-black uppercase tracking-wider text-amber-300">Thông báo</span>
+          </div>
+          <div class="relative flex-1 min-w-0 max-w-full overflow-hidden h-full flex items-center">
+            <div class="pointer-events-none absolute left-0 top-0 bottom-0 w-6 sm:w-10 bg-gradient-to-r from-indigo-950 to-transparent z-10"></div>
+            <div class="pointer-events-none absolute right-0 top-0 bottom-0 w-6 sm:w-10 bg-gradient-to-l from-purple-950 to-transparent z-10"></div>
+            <div class="flex w-max animate-marquee hover:[animation-play-state:paused] active:[animation-play-state:paused] cursor-pointer" title="Rê chuột hoặc chạm để tạm dừng đọc thông báo">
+              <div class="inline-flex items-center gap-3 px-6 whitespace-nowrap">
+                <span class="font-extrabold text-amber-200 tracking-wide drop-shadow-sm">Chào mừng đến với CodeGame.shop</span>
+                <span class="text-slate-100 font-medium">• Tra cứu và nhận mã giftcode miễn phí mới nhất.</span>
+                <span class="text-amber-400/70 font-bold px-2 select-none">✦</span>
+              </div>
+              <div class="inline-flex items-center gap-3 px-6 whitespace-nowrap">
+                <span class="font-extrabold text-amber-200 tracking-wide drop-shadow-sm">Chào mừng đến với CodeGame.shop</span>
+                <span class="text-slate-100 font-medium">• Tra cứu và nhận mã giftcode miễn phí mới nhất.</span>
+                <span class="text-amber-400/70 font-bold px-2 select-none">✦</span>
+              </div>
+              <div class="inline-flex items-center gap-3 px-6 whitespace-nowrap">
+                <span class="font-extrabold text-amber-200 tracking-wide drop-shadow-sm">Chào mừng đến với CodeGame.shop</span>
+                <span class="text-slate-100 font-medium">• Tra cứu và nhận mã giftcode miễn phí mới nhất.</span>
+                <span class="text-amber-400/70 font-bold px-2 select-none">✦</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Navbar Header: Aligned with Header.tsx to prevent CLS -->
         <header class="sticky top-0 z-50 w-full max-w-full box-border bg-background/95 backdrop-blur-md border-b border-border shadow-md shadow-black/10 transition-all overflow-visible">
           <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
@@ -449,9 +486,11 @@ async function runPrerender() {
               <div class="text-center max-w-2xl mx-auto">
                 <!-- Top Pill Badge (Single-line guaranteed without wrapping bugs) -->
                 <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full bg-primary/10 border border-primary/30 text-primary-light text-[9px] sm:text-xs font-semibold uppercase tracking-wider mb-1 sm:mb-3 shadow-sm max-w-full whitespace-nowrap overflow-hidden">
+                  <svg class="w-2.5 h-2.5 sm:w-3 sm:h-3 text-amber-400 animate-spin shrink-0" style="animation-duration: 6s;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>
                   <span class="truncate">CẬP NHẬT 24/7</span>
                   <span class="text-primary/30 shrink-0">•</span>
                   <span class="text-emerald-400 font-bold font-mono inline-flex items-center gap-1 shrink-0">
+                    <svg class="w-2.5 h-2.5 sm:w-3 sm:h-3 text-emerald-400 animate-pulse shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
                     <span>14.739</span>
                     <span class="text-[9px] sm:text-[10px] text-slate-300 font-normal lowercase hidden xs:inline">mã code</span>
                   </span>

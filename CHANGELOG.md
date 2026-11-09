@@ -7,6 +7,32 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-09]
 
+### 358. Triệt Tiêu Hoàn Toàn Layout Shift (CLS Desktop & Mobile < 0.003): Render Tĩnh AnnouncementBar, Đồng Bộ Hero Subtitle/Pill Icons & Critical CSS Input Size
+- **Triệu chứng & Bối cảnh**:
+  - Khi phân tích bằng CDP tracing trên Chrome (`scripts/debug_cls.cjs`), CLS desktop ghi nhận 0.128 - 0.152 và CLS mobile ghi nhận ~0.02.
+  - Snapshot DOM trước và sau hydration chỉ ra:
+    + Thẻ `<header>` tại `DOMContentLoaded` có `top = 0px`, nhưng sau khi React hydrate, component `<AnnouncementBar />` xuất hiện ở đỉnh trang, đẩy `<header>` và toàn bộ nội dung bên dưới xuống 36px (`top: 36px`).
+    + Đoạn mô tả Hero `<p>` trong HTML tĩnh dài 89 ký tự (2 dòng, cao 40px), trong khi component React đọc CMS demo cũ `"Tra cứu mã code chuyên nghiệp"` (1 dòng, cao 20px), khiến đoạn mô tả co lại 20px, giật ngược danh mục game bên dưới lên 20px.
+    + Thẻ tìm kiếm `#hero-search-container input` ban đầu chưa có CSS Tailwind ngoài nên cao 26px, sau đó nhảy lên 50px khi nạp xong stylesheet.
+    + Huy hiệu Top Pill Badge thiếu 2 icon SVG (`Sparkles`, `Zap`) trong HTML tĩnh và khác chuỗi text, khiến chiều rộng nhảy từ 181px lên 286px.
+    + Thẻ Upcoming Games trong HTML tĩnh không được sắp xếp theo ngày phát hành nên bị hoán đổi vị trí với component React.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Thiếu AnnouncementBar trong HTML tĩnh*: Component `<AnnouncementBar />` trong `src/App.tsx` luôn kích hoạt theo mặc định nhưng không có mặt trong `scripts/prerender.js`.
+  2. *Lỗi fallback mô tả trong HeroBanner.tsx*: `HeroBanner.tsx` chỉ bảo vệ `titleMain` và `titleHighlight` khi gặp tiêu đề demo cũ, nhưng `heroDescription` lại ưu tiên `cmsHero?.content` khiến chuỗi ngắn 29 ký tự ghi đè mô tả chuẩn 89 ký tự.
+  3. *Thiếu critical CSS cho ô tìm kiếm*: Thẻ `<input>` chỉ nhận kích thước từ Tailwind CSS tải bất đồng bộ (preload).
+  4. *Lệch thứ tự thẻ Upcoming Games*: `scripts/prerender.js` thiếu hàm `.sort()` theo `releaseDate` giống như `UpcomingGamesBanner.tsx`.
+- **Giải pháp triệt để đã triển khai (Solution Applied)**:
+  1. Bổ sung HTML tĩnh hoàn chỉnh của `<AnnouncementBar />` vào `scripts/prerender.js` ngay trên `<header>`, kèm critical CSS định danh `.site-announcement-bar` (36px desktop, 32px mobile).
+  2. Khắc phục logic fallback trong `src/components/HeroBanner.tsx` và đồng bộ `cnt_hero` trong `canonical_backup_state.json`: Giữ vững mô tả chuẩn `"Tổng hợp và chia sẻ mã quà tặng game mobile, webgame bản quyền chính hãng tại Việt Nam."` (40px) trước và sau hydration.
+  3. Thêm critical CSS `#hero-search-container input` cố định chiều cao 50px desktop / 48px mobile ngay từ frame đầu tiên.
+  4. Bổ sung SVG icon `Sparkles` và `Zap` vào HTML tĩnh của Top Pill Badge, đồng bộ chuỗi text `"CẬP NHẬT 24/7"`.
+  5. Đồng bộ hàm `.sort()` cho danh sách game sắp ra mắt trong `scripts/prerender.js`.
+- **Kiểm thử & Nghiệm thu**:
+  - Đo đạc trực tiếp bằng Chrome DevTools Protocol (`scripts/debug_cls.cjs`):
+    + Desktop CLS: **`0.00258`** (chuẩn xanh tuyệt đối, giảm 98.3% từ 0.1524).
+    + Mobile CLS: **`0.00182`** (chuẩn xanh tuyệt đối).
+  - Vị trí `header.top = 36px`, `p.height = 40px`, `search.height = 50px` hoàn toàn trùng khớp 0px delta giữa static DOM và hydrated DOM.
+
 ### 357. Sửa Tiếp 3 Lỗi PageSpeed Còn Lại: Sinh Toàn Bộ Thumbnail 256px Cho Hiển Thị Sắc Nét, Cache Nội Miền 1 Năm Mọi Kênh Icon D1, Tách Rời Service Chunks & Triệt Tiêu Layout Shift (CLS)
 - **Triệu chứng & Bối cảnh**:
   - Đo lại PageSpeed (Lighthouse 13.6.0) sau bản 0202b44:

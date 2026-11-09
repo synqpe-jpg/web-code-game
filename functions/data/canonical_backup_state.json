@@ -3004,15 +3004,15 @@
     {
       "id": "cnt_hero",
       "key": "hero_banner",
-      "title": "Kho Giftcode & Mã Quà Tặng",
-      "content": "Tra cứu mã code chuyên nghiệp",
+      "title": "Kho Giftcode Game Mobile & Webgame Mới Nhất 2026",
+      "content": "Tổng hợp và chia sẻ mã quà tặng game mobile, webgame bản quyền chính hãng tại Việt Nam.",
       "isActive": true,
       "type": "HERO",
       "extraData": {
-        "badge": "CẬP NHẬT TỰ ĐỘNG 24/7",
-        "titleHighlight": "Độc Quyền"
+        "badge": "CẬP NHẬT 24/7",
+        "titleHighlight": "Chính Thức"
       },
-      "updatedAt": "2026-10-23T02:50:03.611Z"
+      "updatedAt": "2026-11-09T23:00:00.000Z"
     },
     {
       "key": "floating_notification",
