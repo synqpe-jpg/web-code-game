@@ -5,6 +5,33 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ---
 
+## [2026-11-10]
+
+### 359. Hoàn Thiện Bộ 7 API Quản Trị Điều Khiển Từ Xa 100% (Headless / Remote Controlled) & Tự Động Đăng Ký Phân Quyền Hạt Nhân (Quy Tắc 8)
+- **Triệu chứng & Bối cảnh**:
+  - Nhằm cho phép hệ thống bot, AI Agent và client bên ngoài có thể vận hành và kiểm soát từ xa 100% website codegame.shop mà không cần đăng nhập giao diện web, hệ thống cần bổ sung 7 module API quản trị cốt lõi.
+  - Tuân thủ Quy tắc 8 (Auto-Register New API Permissions): Bất cứ khi nào mở thêm quyền/endpoint API mới, bắt buộc tự động đăng ký vào ALL_API_SCOPES trong ApiKeysModule.tsx, cập nhật hàm hasScope trong mission_service.ts, cập nhật modal Set Quyền / Tạo Khóa và cung cấp bảng tra cứu + tài liệu cURL/JS mẫu.
+- **Nguyên nhân gốc rễ & Nhu cầu cấu trúc**:
+  - Cần các API quản trị độc lập, chuyên sâu cho từng nghiệp vụ: Báo cáo thống kê, nạp kho mã bán theo lô, tiếp thị FOMO, crawler giftcode, thông báo email broadcast, tra cứu nhật ký kiểm toán và cấu hình bảo trì hệ thống.
+  - Mỗi API cần được phân quyền độc lập, chấp nhận cả Bearer API Token và X-Api-Key Header, hỗ trợ kế thừa thông minh từ ADMIN_FULL và STORE_FULL.
+- **Giải pháp triệt để đã triển khai (Solution Applied)**:
+  1. *Xây dựng trọn bộ 7 Module API Endpoints chuẩn RESTful*:
+     - **Mục 1 (Dashboard Stats)**: `GET /api/admin/dashboard/stats` (Scope: `DASHBOARD_STATS_FULL`).
+     - **Mục 2 (Inventory Codes Manage)**: `GET`, `POST`, `DELETE` tại `/api/admin/store/products/:id/codes` (Scope: `INVENTORY_ITEMS_MANAGE`).
+     - **Mục 3 (Marketing & FOMO)**: `GET`, `PUT` tại `/api/admin/marketing/config` và `POST` tại `/api/admin/marketing/trigger` (Scope: `MARKETING_FULL`).
+     - **Mục 4 (Crawler Sources & Trigger)**: `GET`, `POST` tại `/api/admin/crawler/sources`, `PUT`, `DELETE` tại `/api/admin/crawler/sources/:id`, và `POST` tại `/api/admin/crawler/trigger` (Scope: `CRAWLER_MANAGE`).
+     - **Mục 5 (Notifications & Broadcast)**: `GET`, `DELETE` tại `/api/admin/notifications/subscribers`, `POST` tại `/api/admin/notifications/broadcast`, và `GET`, `PUT` tại `/api/admin/notifications/settings` (Scope: `NOTIFICATIONS_FULL`).
+     - **Mục 6 (Security Logs & Audit)**: `GET`, `POST` tại `/api/admin/security-logs` (Scope: `SECURITY_LOGS_FULL`).
+     - **Mục 7 (System Settings & Maintenance)**: `GET`, `PUT` tại `/api/admin/settings` (Scope: `SYSTEM_SETTINGS_FULL`).
+  2. *Thực thi Quy tắc 8 (Auto-Register New API Permissions)*:
+     - Bổ sung 7 quyền mới vào union type `ApiKeyScope` và mảng `ALL_API_SCOPES` trong `src/admin/modules/ApiKeysModule.tsx`.
+     - Cập nhật hàm phân giải quyền `hasScope` trong `functions/services/mission_service.ts` kèm cơ chế kế thừa tối ưu (`ADMIN_FULL` có tất cả, `STORE_FULL` kế thừa kho bán và marketing, `GAMES_FULL` kế thừa crawler).
+     - Bổ sung tab tài liệu tương tác chuyên sâu "🚀 7 API Điều Khiển Từ Xa (Remote Control)" trong `ApiKeysModule.tsx` cung cấp đầy đủ hướng dẫn và cURL/JS code mẫu cho từng endpoint.
+- **Kiểm thử & Nghiệm thu**:
+  - Build hệ thống `npm run build` thành công 100% (Pass kiểm toán Zero Test Artifacts, Pass kiểm toán News Covers, Prerender 595 game & các trang chính, compiled Edge Worker bundle).
+
+---
+
 ## [2026-11-09]
 
 ### 358. Triệt Tiêu Hoàn Toàn Layout Shift (CLS Desktop & Mobile < 0.003): Render Tĩnh AnnouncementBar, Đồng Bộ Hero Subtitle/Pill Icons & Critical CSS Input Size

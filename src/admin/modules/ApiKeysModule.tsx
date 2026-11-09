@@ -46,6 +46,11 @@ import {
   Tag,
   Wrench,
   Inbox,
+  BarChart3,
+  Boxes,
+  Megaphone,
+  Globe,
+  Mail,
 } from 'lucide-react';
 
 export type ApiKeyScope =
@@ -72,7 +77,14 @@ export type ApiKeyScope =
   | 'CONTENT_FULL'
   | 'UTILITIES_FULL'
   | 'GROWTH_FULL'
-  | 'SYNC_FULL'
+  | 'DASHBOARD_STATS_FULL'
+  | 'INVENTORY_ITEMS_MANAGE'
+  | 'MARKETING_FULL'
+  | 'CRAWLER_MANAGE'
+  | 'NOTIFICATIONS_FULL'
+  | 'SECURITY_LOGS_FULL'
+  | 'SYSTEM_SETTINGS_FULL'
+  | 'SYNC_FULL' 
   | 'API_KEYS_FULL'
   | 'HISTORY_FULL'
   | 'ADMIN_FULL'
@@ -345,6 +357,83 @@ export const ALL_API_SCOPES: ScopeOption[] = [
     icon: TrendingUp,
   },
   {
+    id: 'DASHBOARD_STATS_FULL',
+    name: 'Báo Cáo & Thống Kê Tổng Quan (Dashboard Stats API)',
+    category: 'Báo Cáo & Thống Kê',
+    description: 'Truy xuất toàn bộ số liệu thống kê thời gian thực: doanh thu đơn hàng, dòng tiền SePay, số dư ví thành viên, dung lượng kho code bán, tổng thành viên và bài nộp nhiệm vụ qua GET /api/admin/dashboard/stats.',
+    color: 'emerald',
+    badgeBg: 'bg-emerald-500/10',
+    badgeText: 'text-emerald-400',
+    badgeBorder: 'border-emerald-500/20',
+    icon: BarChart3,
+  },
+  {
+    id: 'INVENTORY_ITEMS_MANAGE',
+    name: 'Nạp Kho Mã Bán Theo Lô & Quản Lý Mã Kho Bán (Inventory Codes API)',
+    category: 'Thương Mại & Kho',
+    description: 'Quản lý mã code thực tế trong từng gói sản phẩm bán: lấy danh sách mã kèm trạng thái AVAILABLE/SOLD (/api/admin/store/products/:id/codes), nạp kho hàng loạt mã chống trùng lặp, và xóa mã chưa bán tự động cập nhật base_stock.',
+    color: 'purple',
+    badgeBg: 'bg-purple-500/10',
+    badgeText: 'text-purple-400',
+    badgeBorder: 'border-purple-500/20',
+    icon: Boxes,
+  },
+  {
+    id: 'MARKETING_FULL',
+    name: 'Quản Trị Tiếp Thị & Sự Kiện Ảo FOMO (Marketing & FOMO Events API)',
+    category: 'Tiếp Thị & FOMO',
+    description: 'Đọc/ghi cấu hình pop-up mua hàng ảo (/api/admin/marketing/config) và kích hoạt broadcast sự kiện mua hàng tức thì lên toàn bộ màn hình người dùng qua POST /api/admin/marketing/trigger.',
+    color: 'rose',
+    badgeBg: 'bg-rose-500/10',
+    badgeText: 'text-rose-400',
+    badgeBorder: 'border-rose-500/20',
+    icon: Megaphone,
+  },
+  {
+    id: 'CRAWLER_MANAGE',
+    name: 'Cấu Hình & Vận Hành Crawler Tự Động (Crawler Sources & Trigger API)',
+    category: 'Tự Động Hóa AI',
+    description: 'Quản lý danh sách nguồn cào giftcode (/api/admin/crawler/sources) và kích hoạt tác vụ cào mã tức thì theo yêu cầu (/api/admin/crawler/trigger).',
+    color: 'cyan',
+    badgeBg: 'bg-cyan-500/10',
+    badgeText: 'text-cyan-400',
+    badgeBorder: 'border-cyan-500/20',
+    icon: Globe,
+  },
+  {
+    id: 'NOTIFICATIONS_FULL',
+    name: 'Quản Trị Email & Chiến Dịch Thông Báo (Notifications & Broadcast API)',
+    category: 'Thông Báo & Email',
+    description: 'Quản lý danh sách người dùng đăng ký nhận tin (/api/admin/notifications/subscribers), gửi email thông báo hàng loạt qua Resend/Brevo (/api/admin/notifications/broadcast), và cấu hình nhà cung cấp email (/api/admin/notifications/settings).',
+    color: 'indigo',
+    badgeBg: 'bg-indigo-500/10',
+    badgeText: 'text-indigo-400',
+    badgeBorder: 'border-indigo-500/20',
+    icon: Mail,
+  },
+  {
+    id: 'SECURITY_LOGS_FULL',
+    name: 'Tra Cứu Nhật Ký Bảo Mật & Audit Logs (Security & Audit Logs API)',
+    category: 'Bảo Mật',
+    description: 'Tra cứu lịch sử thao tác quản trị, sự kiện bảo mật hệ thống (/api/admin/security-logs) kèm bộ lọc đa năng (action, actor, severity, date) và cho phép remote agent ghi log kiểm toán.',
+    color: 'amber',
+    badgeBg: 'bg-amber-500/10',
+    badgeText: 'text-amber-500',
+    badgeBorder: 'border-amber-500/20',
+    icon: ShieldCheck,
+  },
+  {
+    id: 'SYSTEM_SETTINGS_FULL',
+    name: 'Cấu Hình Hệ Thống & Bảo Trì (System Settings & Maintenance API)',
+    category: 'Hệ Thống',
+    description: 'Đọc và cập nhật các thông số hệ thống toàn sàn: bật/tắt chế độ bảo trì, khuyến mãi nạp tiền %, thông báo thanh banner, kênh hỗ trợ Telegram/Zalo qua /api/admin/settings.',
+    color: 'blue',
+    badgeBg: 'bg-blue-500/10',
+    badgeText: 'text-blue-500',
+    badgeBorder: 'border-blue-500/20',
+    icon: Settings,
+  },
+  {
     id: 'SYNC_FULL',
     name: 'Đồng Bộ & Sao Lưu (Cloudflare KV/D1 Sync)',
     category: 'Hệ Thống',
@@ -457,7 +546,7 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
 
   // Active sub-tab
   const [activeTab, setActiveTab] = useState<'keys' | 'permissions' | 'docs'>('keys');
-  const [docCategory, setDocCategory] = useState<'universal' | 'store' | 'telegram' | 'news' | 'icons' | 'missions' | 'giveaways' | 'events' | 'games' | 'sync' | 'history'>('universal');
+  const [docCategory, setDocCategory] = useState<'universal' | 'remote' | 'store' | 'telegram' | 'news' | 'icons' | 'missions' | 'giveaways' | 'events' | 'games' | 'sync' | 'history'>('universal');
 
   const showToast = (msg: string, type: 'success' | 'error' | 'info' = 'success') => {
     if (onShowToast) {
@@ -1518,6 +1607,17 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
       {activeTab === 'docs' && (
         <div className="space-y-5">
           <div className="flex items-center gap-2 border-b border-border pb-2 overflow-x-auto scrollbar-none">
+            <button
+              onClick={() => setDocCategory('remote')}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                docCategory === 'remote'
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'bg-card border border-border text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Terminal className="w-3.5 h-3.5" />
+              🚀 7 API Điều Khiển Từ Xa (Remote Control)
+            </button>
             <button
               onClick={() => setDocCategory('universal')}
               className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
@@ -2827,6 +2927,229 @@ await fetch('https://codegame.shop/api/event-scheduler?id=ev_1793290359485_abc',
     'X-Api-Key': 'YOUR_EVENT_OR_ADMIN_KEY',
   },
 });`}
+                </pre>
+              </div>
+            </div>
+          )}
+          {docCategory === 'remote' && (
+            <div className="space-y-6 bg-card border border-border p-5 rounded-2xl">
+              <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs leading-relaxed space-y-2">
+                <div className="flex items-center gap-2 font-bold text-emerald-400 text-sm">
+                  <Terminal className="w-4 h-4" />
+                  <span>🚀 Bộ 7 API Điều Khiển Web Từ Xa (Remote Control & Headless APIs)</span>
+                </div>
+                <p>
+                  Toàn bộ 7 module API dưới đây được thiết kế chuẩn RESTful, hỗ trợ xác thực bằng mã API Bearer (Header <code>Authorization: Bearer &lt;KEY&gt;</code>) hoặc Header <code>X-Api-Key: &lt;KEY&gt;</code>, được bảo vệ theo cơ chế phân quyền hạt nhân độc lập và tự động ghi nhận kiểm toán an ninh.
+                </p>
+              </div>
+
+              {/* Module 1: Dashboard Stats */}
+              <div className="space-y-2">
+                <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <BarChart3 className="w-4 h-4 text-emerald-400" />
+                  1. Báo Cáo & Thống Kê Tổng Quan (Scope: DASHBOARD_STATS_FULL)
+                </h4>
+                <div className="text-xs text-muted-foreground">
+                  Truy xuất realtime doanh thu bán code, dòng tiền nạp SePay, số dư ví thành viên, tổng gói/mã tồn kho và bài nộp nhiệm vụ.
+                </div>
+                <pre className="p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto">
+{`# Lấy toàn bộ số liệu thống kê thời gian thực
+curl -X GET "https://codegame.shop/api/admin/dashboard/stats" \
+  -H "Authorization: Bearer YOUR_API_KEY"`}
+                </pre>
+              </div>
+
+              {/* Module 2: Inventory Items Manage */}
+              <div className="space-y-2">
+                <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Boxes className="w-4 h-4 text-purple-400" />
+                  2. Quản Lý Mã Kho Bán & Nạp Mã Theo Lô (Scope: INVENTORY_ITEMS_MANAGE)
+                </h4>
+                <div className="text-xs text-muted-foreground">
+                  Tra cứu danh sách mã, nạp mã hàng loạt chống trùng lặp, xóa mã tồn kho chưa bán (tự động cập nhật base_stock).
+                </div>
+                <pre className="p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto">
+{`# 1. Tra cứu danh sách mã code trong kho theo gói sản phẩm
+curl -X GET "https://codegame.shop/api/admin/store/products/sp_12345/codes?status=AVAILABLE&page=1&limit=50" \
+  -H "X-Api-Key: YOUR_API_KEY"
+
+# 2. Nạp hàng loạt mã code bán mới vào kho (tự động lọc trùng + cập nhật tồn kho)
+curl -X POST "https://codegame.shop/api/admin/store/products/sp_12345/codes" \
+  -H "Content-Type: application/json" \
+  -H "X-Api-Key: YOUR_API_KEY" \
+  -d '{
+    "codes": ["CODE_A1_XYZ", "CODE_B2_ABC", "CODE_C3_123"]
+  }'
+
+# 3. Xóa danh sách mã tồn kho chưa bán
+curl -X DELETE "https://codegame.shop/api/admin/store/products/sp_12345/codes" \
+  -H "Content-Type: application/json" \
+  -H "X-Api-Key: YOUR_API_KEY" \
+  -d '{
+    "code_ids": ["code_id_1", "code_id_2"]
+  }'`}
+                </pre>
+              </div>
+
+              {/* Module 3: Marketing FOMO */}
+              <div className="space-y-2">
+                <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Megaphone className="w-4 h-4 text-rose-400" />
+                  3. Quản Trị Tiếp Thị & Sự Kiện Ảo FOMO (Scope: MARKETING_FULL)
+                </h4>
+                <div className="text-xs text-muted-foreground">
+                  Đọc/ghi cấu hình thông báo đơn hàng ảo và kích hoạt sự kiện phát thông báo mua hàng tức thì tới người dùng.
+                </div>
+                <pre className="p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto">
+{`# 1. Đọc cấu hình tiếp thị FOMO hiện tại
+curl -X GET "https://codegame.shop/api/admin/marketing/config" \
+  -H "X-Api-Key: YOUR_API_KEY"
+
+# 2. Cập nhật cấu hình thông báo FOMO
+curl -X PUT "https://codegame.shop/api/admin/marketing/config" \
+  -H "Content-Type: application/json" \
+  -H "X-Api-Key: YOUR_API_KEY" \
+  -d '{
+    "fomo_enabled": true,
+    "fomo_interval_min": 10,
+    "fomo_interval_max": 30,
+    "virtual_buyers_count": 88
+  }'
+
+# 3. Kích hoạt phát sự kiện mua hàng ảo tức thì lên toàn website
+curl -X POST "https://codegame.shop/api/admin/marketing/trigger" \
+  -H "Content-Type: application/json" \
+  -H "X-Api-Key: YOUR_API_KEY" \
+  -d '{
+    "type": "PURCHASE_POPUP",
+    "buyer_name": "Game Thủ VIP ***9",
+    "product_name": "Gói 10.000 Kim Cương",
+    "game_slug": "3q-dao-dao-dao"
+  }'`}
+                </pre>
+              </div>
+
+              {/* Module 4: Crawler Sources */}
+              <div className="space-y-2">
+                <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Globe className="w-4 h-4 text-cyan-400" />
+                  4. Cấu Hình & Vận Hành Crawler Tự Động (Scope: CRAWLER_MANAGE)
+                </h4>
+                <div className="text-xs text-muted-foreground">
+                  Quản lý danh sách URL nguồn thu thập giftcode và kích hoạt cào mã tức thì theo yêu cầu.
+                </div>
+                <pre className="p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto">
+{`# 1. Lấy danh sách các nguồn cào giftcode
+curl -X GET "https://codegame.shop/api/admin/crawler/sources" \
+  -H "X-Api-Key: YOUR_API_KEY"
+
+# 2. Thêm nguồn cào mới
+curl -X POST "https://codegame.shop/api/admin/crawler/sources" \
+  -H "Content-Type: application/json" \
+  -H "X-Api-Key: YOUR_API_KEY" \
+  -d '{
+    "name": "Nguồn Giftcode GameK VIP",
+    "url": "https://gamek.vn/giftcode",
+    "game_slug": "3q-dao-dao-dao",
+    "active": true
+  }'
+
+# 3. Kích hoạt cào giftcode tức thì
+curl -X POST "https://codegame.shop/api/admin/crawler/trigger" \
+  -H "Content-Type: application/json" \
+  -H "X-Api-Key: YOUR_API_KEY" \
+  -d '{
+    "game_slug": "3q-dao-dao-dao",
+    "force": true
+  }'`}
+                </pre>
+              </div>
+
+              {/* Module 5: Notifications */}
+              <div className="space-y-2">
+                <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Mail className="w-4 h-4 text-indigo-400" />
+                  5. Quản Trị Email & Thông Báo Broadcast (Scope: NOTIFICATIONS_FULL)
+                </h4>
+                <div className="text-xs text-muted-foreground">
+                  Quản lý người đăng ký nhận tin, phát email hàng loạt qua Resend/Brevo và cấu hình email.
+                </div>
+                <pre className="p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto">
+{`# 1. Lấy danh sách email đăng ký nhận giftcode
+curl -X GET "https://codegame.shop/api/admin/notifications/subscribers?page=1&limit=50" \
+  -H "X-Api-Key: YOUR_API_KEY"
+
+# 2. Phát email thông báo hàng loạt (Broadcast)
+curl -X POST "https://codegame.shop/api/admin/notifications/broadcast" \
+  -H "Content-Type: application/json" \
+  -H "X-Api-Key: YOUR_API_KEY" \
+  -d '{
+    "subject": "🎁 Siêu Giftcode Mới Đã Cập Bến CodeGame.Shop!",
+    "content_html": "<h2>Chào bạn,</h2><p>Bộ giftcode VIP đã có sẵn, vào nhận ngay nhé!</p>",
+    "target_game_slug": "3q-dao-dao-dao"
+  }'
+
+# 3. Cập nhật cấu hình email provider
+curl -X PUT "https://codegame.shop/api/admin/notifications/settings" \
+  -H "Content-Type: application/json" \
+  -H "X-Api-Key: YOUR_API_KEY" \
+  -d '{
+    "provider": "resend",
+    "sender_name": "CodeGame.Shop",
+    "sender_email": "no-reply@codegame.shop"
+  }'`}
+                </pre>
+              </div>
+
+              {/* Module 6: Security Logs */}
+              <div className="space-y-2">
+                <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-amber-500" />
+                  6. Tra Cứu Nhật Ký Bảo Mật & Audit Logs (Scope: SECURITY_LOGS_FULL)
+                </h4>
+                <div className="text-xs text-muted-foreground">
+                  Tra cứu lịch sử an ninh, thao tác quản trị viên và ghi nhận log kiểm toán từ xa.
+                </div>
+                <pre className="p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto">
+{`# 1. Tra cứu nhật ký bảo mật (kèm lọc action, actor, severity)
+curl -X GET "https://codegame.shop/api/admin/security-logs?severity=WARNING&limit=30" \
+  -H "X-Api-Key: YOUR_API_KEY"
+
+# 2. Ghi nhận nhật ký kiểm toán mới từ remote agent
+curl -X POST "https://codegame.shop/api/admin/security-logs" \
+  -H "Content-Type: application/json" \
+  -H "X-Api-Key: YOUR_API_KEY" \
+  -d '{
+    "action": "REMOTE_MAINTENANCE_TRIGGER",
+    "severity": "INFO",
+    "details": { "module": "database_vacuum", "status": "COMPLETED" }
+  }'`}
+                </pre>
+              </div>
+
+              {/* Module 7: System Settings */}
+              <div className="space-y-2">
+                <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Settings className="w-4 h-4 text-blue-500" />
+                  7. Cấu Hình Hệ Thống & Bảo Trì Toàn Sàn (Scope: SYSTEM_SETTINGS_FULL)
+                </h4>
+                <div className="text-xs text-muted-foreground">
+                  Bật/tắt chế độ bảo trì, khuyến mãi nạp tiền %, thông báo thanh banner và kênh hỗ trợ.
+                </div>
+                <pre className="p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto">
+{`# 1. Đọc cấu hình hệ thống hiện tại
+curl -X GET "https://codegame.shop/api/admin/settings" \
+  -H "X-Api-Key: YOUR_API_KEY"
+
+# 2. Bật khuyến mãi nạp tiền hoặc bật chế độ bảo trì
+curl -X PUT "https://codegame.shop/api/admin/settings" \
+  -H "Content-Type: application/json" \
+  -H "X-Api-Key: YOUR_API_KEY" \
+  -d '{
+    "deposit_bonus_percent": 10,
+    "site_announcement": "🔥 Khuyến mãi nạp ví tặng 10% giá trị nạp trong tuần này!",
+    "site_announcement_enabled": true
+  }'`}
                 </pre>
               </div>
             </div>
