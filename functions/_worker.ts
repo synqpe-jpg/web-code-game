@@ -67,6 +67,38 @@ import * as auditLogAdminApi from './api/admin/audit-log';
 import * as adminMembersAdjustBalanceApi from './api/admin/members/adjust-balance';
 import * as storeMyOfferApi from './api/store/my-offer';
 import * as escalatingApi from './api/store/escalating';
+
+// Dedicated Admin APIs for 9 Modules
+import * as adminMembersIndexApi from './api/admin/members/index';
+import * as adminMembersIdApi from './api/admin/members/[id]';
+import * as adminMembersBanApi from './api/admin/members/[id]/ban';
+import * as adminMembersUnbanApi from './api/admin/members/[id]/unban';
+
+import * as adminWalletsTransactionsApi from './api/admin/wallets/transactions';
+import * as adminWalletsMemberIdApi from './api/admin/wallets/[memberId]';
+
+import * as adminOrdersIndexApi from './api/admin/orders/index';
+import * as adminOrdersIdApi from './api/admin/orders/[id]';
+import * as adminOrdersRefundApi from './api/admin/orders/[id]/refund';
+
+import * as adminSepayTransactionsApi from './api/admin/sepay/transactions';
+import * as adminSepayConfigApi from './api/admin/sepay/config';
+
+import * as adminFreeCodesIndexApi from './api/admin/free-codes/index';
+import * as adminFreeCodesIdApi from './api/admin/free-codes/[id]';
+
+import * as adminSubmissionsIndexApi from './api/admin/submissions/index';
+import * as adminSubmissionsApproveApi from './api/admin/submissions/[id]/approve';
+import * as adminSubmissionsRejectApi from './api/admin/submissions/[id]/reject';
+
+import * as adminContentIndexApi from './api/admin/content/index';
+import * as adminContentKeyApi from './api/admin/content/[key]';
+
+import * as adminUtilitiesIndexApi from './api/admin/utilities/index';
+import * as adminUtilitiesIdApi from './api/admin/utilities/[id]';
+import * as adminUtilitiesStockApi from './api/admin/utilities/[id]/stock';
+
+import * as adminGrowthApi from './api/admin/growth';
 import { getMultipleSettingsD1 } from './services/d1_service';
 import { invalidateCatalogEdgeCache } from './services/cache_service';
 import fallbackGiveawaysData from '../src/data/giveaways.json';
@@ -671,6 +703,155 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
           status: 405,
           headers: { 'Content-Type': 'application/json' },
         });
+      }
+
+      // 8c-10. /api/admin/members (Dedicated Members Management API)
+      if (pathname === '/api/admin/members') {
+        if (method === 'OPTIONS') return await adminMembersIndexApi.onRequestOptions();
+        if (method === 'GET') return await adminMembersIndexApi.onRequestGet(context);
+        return new Response(JSON.stringify({ success: false, error: 'Method not allowed' }), { status: 405, headers: { 'Content-Type': 'application/json' } });
+      }
+      if (pathname.startsWith('/api/admin/members/')) {
+        // Skip adjust-balance handled by 8c-7
+        if (pathname === '/api/admin/members/adjust-balance' || pathname === '/api/admin/members/adjust') {
+          // Handled in 8c-7
+        } else if (pathname.endsWith('/ban')) {
+          if (method === 'OPTIONS') return await adminMembersBanApi.onRequestOptions();
+          if (method === 'POST') return await adminMembersBanApi.onRequestPost(context);
+          return new Response(JSON.stringify({ success: false, error: 'Method not allowed' }), { status: 405, headers: { 'Content-Type': 'application/json' } });
+        } else if (pathname.endsWith('/unban')) {
+          if (method === 'OPTIONS') return await adminMembersUnbanApi.onRequestOptions();
+          if (method === 'POST') return await adminMembersUnbanApi.onRequestPost(context);
+          return new Response(JSON.stringify({ success: false, error: 'Method not allowed' }), { status: 405, headers: { 'Content-Type': 'application/json' } });
+        } else {
+          // /api/admin/members/:id
+          if (method === 'OPTIONS') return await adminMembersIdApi.onRequestOptions();
+          if (method === 'GET') return await adminMembersIdApi.onRequestGet(context);
+          if (method === 'PUT') return await adminMembersIdApi.onRequestPut(context);
+          return new Response(JSON.stringify({ success: false, error: 'Method not allowed' }), { status: 405, headers: { 'Content-Type': 'application/json' } });
+        }
+      }
+
+      // 8c-11. /api/admin/wallets (Dedicated Wallet & Ledger API)
+      if (pathname === '/api/admin/wallets/transactions') {
+        if (method === 'OPTIONS') return await adminWalletsTransactionsApi.onRequestOptions();
+        if (method === 'GET') return await adminWalletsTransactionsApi.onRequestGet(context);
+        return new Response(JSON.stringify({ success: false, error: 'Method not allowed' }), { status: 405, headers: { 'Content-Type': 'application/json' } });
+      }
+      if (pathname.startsWith('/api/admin/wallets/')) {
+        if (method === 'OPTIONS') return await adminWalletsMemberIdApi.onRequestOptions();
+        if (method === 'GET') return await adminWalletsMemberIdApi.onRequestGet(context);
+        return new Response(JSON.stringify({ success: false, error: 'Method not allowed' }), { status: 405, headers: { 'Content-Type': 'application/json' } });
+      }
+
+      // 8c-12. /api/admin/orders (Dedicated Orders API)
+      if (pathname === '/api/admin/orders') {
+        if (method === 'OPTIONS') return await adminOrdersIndexApi.onRequestOptions();
+        if (method === 'GET') return await adminOrdersIndexApi.onRequestGet(context);
+        return new Response(JSON.stringify({ success: false, error: 'Method not allowed' }), { status: 405, headers: { 'Content-Type': 'application/json' } });
+      }
+      if (pathname.startsWith('/api/admin/orders/')) {
+        if (pathname.endsWith('/refund')) {
+          if (method === 'OPTIONS') return await adminOrdersRefundApi.onRequestOptions();
+          if (method === 'POST') return await adminOrdersRefundApi.onRequestPost(context);
+          return new Response(JSON.stringify({ success: false, error: 'Method not allowed' }), { status: 405, headers: { 'Content-Type': 'application/json' } });
+        }
+        if (method === 'OPTIONS') return await adminOrdersIdApi.onRequestOptions();
+        if (method === 'GET') return await adminOrdersIdApi.onRequestGet(context);
+        return new Response(JSON.stringify({ success: false, error: 'Method not allowed' }), { status: 405, headers: { 'Content-Type': 'application/json' } });
+      }
+
+      // 8c-13. /api/admin/sepay (Dedicated SePay Transactions & Config API)
+      if (pathname === '/api/admin/sepay/transactions') {
+        if (method === 'OPTIONS') return await adminSepayTransactionsApi.onRequestOptions();
+        if (method === 'GET') return await adminSepayTransactionsApi.onRequestGet(context);
+        return new Response(JSON.stringify({ success: false, error: 'Method not allowed' }), { status: 405, headers: { 'Content-Type': 'application/json' } });
+      }
+      if (pathname === '/api/admin/sepay/config') {
+        if (method === 'OPTIONS') return await adminSepayConfigApi.onRequestOptions();
+        if (method === 'GET') return await adminSepayConfigApi.onRequestGet(context);
+        if (method === 'PUT') return await adminSepayConfigApi.onRequestPut(context);
+        return new Response(JSON.stringify({ success: false, error: 'Method not allowed' }), { status: 405, headers: { 'Content-Type': 'application/json' } });
+      }
+
+      // 8c-14. /api/admin/free-codes (Dedicated Free Giftcodes API)
+      if (pathname === '/api/admin/free-codes') {
+        if (method === 'OPTIONS') return await adminFreeCodesIndexApi.onRequestOptions();
+        if (method === 'GET') return await adminFreeCodesIndexApi.onRequestGet(context);
+        if (method === 'POST') return await adminFreeCodesIndexApi.onRequestPost(context);
+        if (method === 'DELETE') return await adminFreeCodesIndexApi.onRequestDelete(context);
+        return new Response(JSON.stringify({ success: false, error: 'Method not allowed' }), { status: 405, headers: { 'Content-Type': 'application/json' } });
+      }
+      if (pathname.startsWith('/api/admin/free-codes/')) {
+        if (method === 'OPTIONS') return await adminFreeCodesIdApi.onRequestOptions();
+        if (method === 'PUT') return await adminFreeCodesIdApi.onRequestPut(context);
+        if (method === 'DELETE') return await adminFreeCodesIdApi.onRequestDelete(context);
+        return new Response(JSON.stringify({ success: false, error: 'Method not allowed' }), { status: 405, headers: { 'Content-Type': 'application/json' } });
+      }
+
+      // 8c-15. /api/admin/submissions (Dedicated Giftcode Submissions API)
+      if (pathname === '/api/admin/submissions') {
+        if (method === 'OPTIONS') return await adminSubmissionsIndexApi.onRequestOptions();
+        if (method === 'GET') return await adminSubmissionsIndexApi.onRequestGet(context);
+        return new Response(JSON.stringify({ success: false, error: 'Method not allowed' }), { status: 405, headers: { 'Content-Type': 'application/json' } });
+      }
+      if (pathname.startsWith('/api/admin/submissions/')) {
+        if (pathname.endsWith('/approve')) {
+          if (method === 'OPTIONS') return await adminSubmissionsApproveApi.onRequestOptions();
+          if (method === 'POST') return await adminSubmissionsApproveApi.onRequestPost(context);
+          return new Response(JSON.stringify({ success: false, error: 'Method not allowed' }), { status: 405, headers: { 'Content-Type': 'application/json' } });
+        }
+        if (pathname.endsWith('/reject')) {
+          if (method === 'OPTIONS') return await adminSubmissionsRejectApi.onRequestOptions();
+          if (method === 'POST') return await adminSubmissionsRejectApi.onRequestPost(context);
+          return new Response(JSON.stringify({ success: false, error: 'Method not allowed' }), { status: 405, headers: { 'Content-Type': 'application/json' } });
+        }
+      }
+
+      // 8c-16. /api/admin/content (Dedicated Web CMS Content API)
+      if (pathname === '/api/admin/content') {
+        if (method === 'OPTIONS') return await adminContentIndexApi.onRequestOptions();
+        if (method === 'GET') return await adminContentIndexApi.onRequestGet(context);
+        return new Response(JSON.stringify({ success: false, error: 'Method not allowed' }), { status: 405, headers: { 'Content-Type': 'application/json' } });
+      }
+      if (pathname.startsWith('/api/admin/content/')) {
+        if (method === 'OPTIONS') return await adminContentKeyApi.onRequestOptions();
+        if (method === 'GET') return await adminContentKeyApi.onRequestGet(context);
+        if (method === 'PUT') return await adminContentKeyApi.onRequestPut(context);
+        return new Response(JSON.stringify({ success: false, error: 'Method not allowed' }), { status: 405, headers: { 'Content-Type': 'application/json' } });
+      }
+
+      // 8c-17. /api/admin/utilities (Dedicated Utilities Management API)
+      if (pathname === '/api/admin/utilities') {
+        if (method === 'OPTIONS') return await adminUtilitiesIndexApi.onRequestOptions();
+        if (method === 'GET') return await adminUtilitiesIndexApi.onRequestGet(context);
+        if (method === 'POST') return await adminUtilitiesIndexApi.onRequestPost(context);
+        return new Response(JSON.stringify({ success: false, error: 'Method not allowed' }), { status: 405, headers: { 'Content-Type': 'application/json' } });
+      }
+      if (pathname.startsWith('/api/admin/utilities/')) {
+        // Skip first-purchase handled in 8c-8
+        if (pathname === '/api/admin/utilities/first-purchase' || pathname.startsWith('/api/admin/utilities/first-purchase/')) {
+          // Handled in 8c-8
+        } else if (pathname.endsWith('/stock')) {
+          if (method === 'OPTIONS') return await adminUtilitiesStockApi.onRequestOptions();
+          if (method === 'PUT' || method === 'POST') return await adminUtilitiesStockApi.onRequestPut(context);
+          return new Response(JSON.stringify({ success: false, error: 'Method not allowed' }), { status: 405, headers: { 'Content-Type': 'application/json' } });
+        } else {
+          // /api/admin/utilities/:id
+          if (method === 'OPTIONS') return await adminUtilitiesIdApi.onRequestOptions();
+          if (method === 'GET') return await adminUtilitiesIdApi.onRequestGet(context);
+          if (method === 'PUT') return await adminUtilitiesIdApi.onRequestPut(context);
+          if (method === 'DELETE') return await adminUtilitiesIdApi.onRequestDelete(context);
+          return new Response(JSON.stringify({ success: false, error: 'Method not allowed' }), { status: 405, headers: { 'Content-Type': 'application/json' } });
+        }
+      }
+
+      // 8c-18. /api/admin/growth (Dedicated Growth & Viral API)
+      if (pathname === '/api/admin/growth') {
+        if (method === 'OPTIONS') return await adminGrowthApi.onRequestOptions();
+        if (method === 'GET') return await adminGrowthApi.onRequestGet(context);
+        if (method === 'PUT') return await adminGrowthApi.onRequestPut(context);
+        return new Response(JSON.stringify({ success: false, error: 'Method not allowed' }), { status: 405, headers: { 'Content-Type': 'application/json' } });
       }
 
       // 8d. /api/crawl-article (AI Article Crawler & Extractor)

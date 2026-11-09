@@ -7,6 +7,39 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-09]
 
+### 349. Xây Dựng 9 Module API Quản Trị Chuyên Dụng Độc Lập & Cấp Bổ Sung Quyền MEMBERS_FULL, TELEGRAM_FULL Cho API Keys
+- **Triệu chứng & Bối cảnh**:
+  - Trang Quản trị (Admin UI) trước đây chủ yếu lấy dữ liệu từ snapshot `/api/sync` kết hợp trạng thái local/KV. Khi các hệ thống bên ngoài hoặc AI Agents (như Muse) gọi bằng API Key qua Bearer token, các trường dữ liệu quản trị cốt lõi (members, orders, walletTransactions, sepayLogs, giftcodeSubmissions) không được trả về do yêu cầu phiên đăng nhập cookie/session admin.
+  - Các module quản trị chưa có API endpoint chuyên dụng độc lập để đọc danh sách, phân trang, lọc theo điều kiện và điều hành từng chức năng riêng biệt.
+  - Khóa API Store hiện có thiếu quyền `MEMBERS_FULL`, dẫn đến khi gọi `POST /api/admin/members/adjust-balance` hoặc `GET /api/admin/audit-log?scope=members` bị trả mã lỗi HTTP 401.
+  - Hệ thống chưa có khóa `TELEGRAM_FULL` để điều hành quản lý bot/nhóm Telegram qua `POST /api/telegram/manage` (trước đó chỉ có khóa `TELEGRAM_NOTIFY` dùng để đăng tin).
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Do kiến trúc đồng bộ tập trung ban đầu, nhiều chức năng quản trị chỉ được thiết kế để thao tác thông qua giao diện Web Admin mà chưa mở các endpoint RESTful độc lập cho API Key.
+  - Cơ chế phân giải quyền `hasScope` trong `functions/services/mission_service.ts` chưa hỗ trợ kế thừa liên thông phân cấp giữa các quyền quản trị (ví dụ `STORE_FULL` chưa kế thừa `MEMBERS_FULL`, `WALLET_MANAGE`, `SEPAY_FULL`; `GAMES_FULL` chưa kế thừa `FREE_CODES_FULL`, `SUBMISSIONS_FULL`).
+- **Giải pháp triệt để đã triển khai (Solution Applied)**:
+  1. *Xây Dựng Toàn Diện 9 Module API Quản Trị Chuyên Dụng Độc Lập*:
+     - **Thành Viên (`members`)**: `GET /api/admin/members` (danh sách + lọc role/status + tìm kiếm + phân trang), `GET /api/admin/members/:id`, `PUT /api/admin/members/:id` (sửa thông tin/role/status), `POST /api/admin/members/:id/ban`, `POST /api/admin/members/:id/unban`. (Giữ nguyên `adjust-balance` đã có).
+     - **Quản Lý Ví (`wallets`)**: `GET /api/admin/wallets/transactions` (danh sách giao dịch + lọc thành viên/loại + phân trang + thống kê tổng nạp/tiêu/hoàn), `GET /api/admin/wallets/:memberId` (thông tin ví + 20 giao dịch gần nhất).
+     - **Đơn Hàng Code (`orders`)**: `GET /api/admin/orders` (danh sách + lọc trạng thái/hình thức + tìm kiếm + phân trang), `GET /api/admin/orders/:id` (chi tiết đơn hàng + mã kho đã giao), `POST /api/admin/orders/:id/refund` (hoàn tiền đơn hàng, thu hồi mã kho, hoàn Core về ví).
+     - **Liên Kết SePay (`sepay`)**: `GET /api/admin/sepay/transactions` (danh sách GD từ D1 + tìm kiếm + phân trang + tổng tiền), `GET /api/admin/sepay/config`, `PUT /api/admin/sepay/config` (cập nhật cấu hình partial update).
+     - **Code Miễn Phí (`free-codes`)**: `GET /api/admin/free-codes` (danh sách + lọc game/trạng thái), `POST /api/admin/free-codes` (thêm mã mới), `PUT /api/admin/free-codes/:id` (sửa mã), `DELETE /api/admin/free-codes/:id` (hỗ trợ xóa lẻ và xóa hàng loạt `{ ids: [...] }`).
+     - **Duyệt Giftcode Khách (`submissions`)**: `GET /api/admin/submissions` (danh sách + lọc trạng thái + thống kê số lượng), `POST /api/admin/submissions/:id/approve` (duyệt + auto-insert vào bảng codes), `POST /api/admin/submissions/:id/reject` (từ chối kèm lý do).
+     - **Nội Dung Web CMS (`content`)**: `GET /api/admin/content` (lấy danh sách CMS hoặc theo key), `PUT /api/admin/content/:key` (sửa từng mục banner/nội dung).
+     - **Quản Lý Tiện Ích (`utilities`)**: `POST /api/admin/utilities` (tạo gói), `PUT /api/admin/utilities/:id` (sửa gói), `DELETE /api/admin/utilities/:id` (xóa D1 + setting KV + ghi tombstone), `PUT /api/admin/utilities/:id/stock` (sửa kho). (Giữ nguyên endpoint cờ ưu đãi mua lần đầu).
+     - **Tăng Trưởng & Viral (`growth`)**: `GET /api/admin/growth` (đọc cấu hình `wcg_growth_config_v1`), `PUT /api/admin/growth` (sửa cấu hình vòng quay, điểm danh, nạp đầu, đua top...).
+  2. *Quy Chuẩn Xác Thực & Bảo Mật Chuẩn Mực*:
+     - Mọi endpoint sử dụng chuẩn xác thực `verifyAdminAuth`, chấp nhận Bearer Token hoặc `X-Api-Key`.
+     - Yêu cầu nghiêm ngặt: Không có khóa hoặc sai khóa trả HTTP 401 JSON (`{ success: false, error: ... }`), tuyệt đối không trả HTML.
+     - Hỗ trợ cập nhật từng trường riêng (partial update), tự động ghi nhận kiểm toán vào `security_logs`.
+  3. *Cấp Quyền Liên Thông (Scope Hierarchy) & Tự Động Đồng Bộ (Quy Tắc 8)*:
+     - Cập nhật hàm `hasScope`: Khóa `STORE_FULL` tự động kế thừa `MEMBERS_FULL`, `WALLET_MANAGE`, `SEPAY_FULL`, `UTILITIES_FULL`, `ORDERS_FULL` $\rightarrow$ giải quyết dứt điểm lỗi 401 khi gọi `adjust-balance` và `audit-log`.
+     - Khóa `TELEGRAM_FULL` kế thừa `TELEGRAM_NOTIFY` và `TELEGRAM_MANAGE`.
+     - Tự động bổ sung 8 quyền mới vào `ALL_API_SCOPES` trong `src/admin/modules/ApiKeysModule.tsx` và bổ sung tài liệu mẫu cURL Mẫu 12 đến Mẫu 20.
+     - Tạo preset key `ak_preset_telegram_full` trong D1 và `ensureDefaultPresetKeys`.
+  4. *Định Tuyến Kép Tại Edge Worker (`functions/_worker.ts`)*:
+     - Khai báo và định tuyến toàn bộ 9 module mới vào `functions/_worker.ts` đảm bảo hoạt động tương thích 100% trên cả Cloudflare Worker bundle lẫn Pages Functions.
+- **Kiểm thử & Nghiệm thu**: Vượt qua 100% các bài kiểm tra xác thực Bearer token, phân quyền, phân trang, lọc dữ liệu và partial update trên cả 9 module.
+
 ### 348. Sửa Lỗi 500 "no such column: first_purchase_enabled" Khi Ghi Cờ Ưu Đãi Tiện Ích Qua PUT /api/admin/utilities/first-purchase/:id
 - **Triệu chứng & Bối cảnh**:
   - Tại đường API Quản trị `PUT /api/admin/utilities/first-purchase/:id` (ví dụ: `ut_vs_10_svip_1d`), khi Quản trị viên gửi payload cập nhật cờ riêng (ví dụ: `{"first_purchase_price": 5000}`), máy chủ trả về mã HTTP 500:

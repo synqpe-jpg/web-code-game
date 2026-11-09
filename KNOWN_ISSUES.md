@@ -10,6 +10,18 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-248: Bẫy Chỉ Phụ Thuộc Vào Snapshot /api/sync Cho Quản Trị Khiến Bên Ngoài Dùng API Key Không Gọi Được Dữ Liệu & Bẫy Cứng Nhắc Trong Phân Quyền Scope Khiến Khóa Cửa Hàng Bị 401 Khi Thao Tác Ví/Thành Viên
+- **Triệu chứng & Rủi ro**:
+  1. Khi hệ thống chỉ chạy đồng bộ dữ liệu quản trị qua `/api/sync`, các trường dữ liệu nhạy cảm (như members, orders, walletTransactions, sepayLogs, giftcodeSubmissions) chỉ trả về khi có phiên đăng nhập admin (cookie/session). Các tác nhân AI hoặc script bên ngoài dùng API Key qua Bearer token hoàn toàn bị mù dữ liệu.
+  2. Khi kiểm tra quyền API, nếu yêu cầu cứng nhắc 1 scope đơn lẻ mà không có quy tắc liên thông/kế thừa (ví dụ khóa cửa hàng có `STORE_FULL` nhưng bị từ chối 401 khi gọi `adjust-balance` hoặc `audit-log` vì thiếu `MEMBERS_FULL`), người dùng sẽ phải tạo nhiều khóa hoặc cấu hình lại phức tạp.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Xây dựng các endpoint RESTful độc lập (`/api/admin/...`) cho từng module, hỗ trợ lọc, phân trang, và partial update. Mọi endpoint trả JSON chuẩn và kiểm tra Bearer token nghiêm ngặt, sai khóa trả 401 JSON.
+  2. Áp dụng Scope Hierarchy trong `hasScope`: Khóa `STORE_FULL` tự động kế thừa `MEMBERS_FULL`, `WALLET_MANAGE`, `SEPAY_FULL`, `UTILITIES_FULL`, `ORDERS_FULL`. Khóa `TELEGRAM_FULL` kế thừa `TELEGRAM_NOTIFY` và `TELEGRAM_MANAGE`. Khóa `GAMES_FULL` kế thừa `FREE_CODES_FULL` và `SUBMISSIONS_FULL`. Khóa `NEWS_FULL` kế thừa `CONTENT_FULL`.
+  3. Định tuyến kép tại cả Pages Functions (`functions/api/admin/...`) và Edge Worker router (`functions/_worker.ts`) để đảm bảo tương thích 100% trong mọi môi trường triển khai Cloudflare Pages.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không chỉ trông cậy vào `/api/sync` cho các chức năng quản trị bên ngoài.*
+  - ❌ *Không áp dụng cơ chế phân quyền đơn lập rời rạc gây chặn 401 cho các khóa nghiệp vụ liên quan.*
+
 ### ISSUE-247: Bẫy Đặt Lệnh ALTER TABLE / Migration Sau Dòng Early Return "wcg_virtual_layer_tables_v1" Trong ensureSchemaUpgrades Khiến Cột Mới Không Bao Giờ Được Tạo Trên Production
 - **Triệu chứng & Rủi ro**:
   - Khi thêm cột mới vào các bảng SQLite/D1 (ví dụ: `first_purchase_enabled`, `first_purchase_price`, `first_purchase_max_price` vào bảng `utilities`), nếu đặt các câu lệnh `ALTER TABLE` ở nửa sau của hàm `ensureSchemaUpgrades`:

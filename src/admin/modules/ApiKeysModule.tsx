@@ -39,6 +39,13 @@ import {
   Bot,
   Settings,
   Send,
+  Coins,
+  CreditCard,
+  TrendingUp,
+  FileText,
+  Tag,
+  Wrench,
+  Inbox,
 } from 'lucide-react';
 
 export type ApiKeyScope =
@@ -57,6 +64,14 @@ export type ApiKeyScope =
   | 'FIRST_PURCHASE_MANAGE'
   | 'ESCALATING_MANAGE'
   | 'MEMBERS_FULL'
+  | 'WALLET_MANAGE'
+  | 'ORDERS_FULL'
+  | 'SEPAY_FULL'
+  | 'FREE_CODES_FULL'
+  | 'SUBMISSIONS_FULL'
+  | 'CONTENT_FULL'
+  | 'UTILITIES_FULL'
+  | 'GROWTH_FULL'
   | 'SYNC_FULL'
   | 'API_KEYS_FULL'
   | 'HISTORY_FULL'
@@ -232,14 +247,102 @@ export const ALL_API_SCOPES: ScopeOption[] = [
   },
   {
     id: 'MEMBERS_FULL',
-    name: 'Quản Lý Thành Viên & Ví (Members & Wallets API)',
+    name: 'Quản Lý Thành Viên (Members API)',
     category: 'Hệ Thống',
-    description: 'Tra cứu thông tin tài khoản, nạp/trừ số dư ví thành viên, xem lịch sử giao dịch.',
+    description: 'Tra cứu thông tin tài khoản, nạp/trừ số dư ví thành viên (/api/admin/members/adjust-balance), xem danh sách thành viên, cập nhật thông tin và khóa/mở tài khoản.',
     color: 'blue',
     badgeBg: 'bg-blue-500/10',
     badgeText: 'text-blue-500',
     badgeBorder: 'border-blue-500/20',
     icon: Users,
+  },
+  {
+    id: 'WALLET_MANAGE',
+    name: 'Quản Lý Ví & Giao Dịch (Wallets & Balance API)',
+    category: 'Tài Chính & Ví',
+    description: 'Toàn quyền tra cứu lịch sử giao dịch ví toàn sàn (/api/admin/wallets/transactions), xem chi tiết số dư thành viên (/api/admin/wallets/:memberId) và duyệt nạp tiền thủ công.',
+    color: 'emerald',
+    badgeBg: 'bg-emerald-500/10',
+    badgeText: 'text-emerald-400',
+    badgeBorder: 'border-emerald-500/20',
+    icon: Coins,
+  },
+  {
+    id: 'ORDERS_FULL',
+    name: 'Quản Lý Đơn Hàng Code (Orders & Refunds API)',
+    category: 'Thương Mại & Kho',
+    description: 'Tra cứu danh sách đơn hàng mua code (/api/admin/orders), xem chi tiết mã kho đã phát và thực hiện hoàn tiền đơn hàng (/api/admin/orders/:id/refund).',
+    color: 'amber',
+    badgeBg: 'bg-amber-500/10',
+    badgeText: 'text-amber-400',
+    badgeBorder: 'border-amber-500/20',
+    icon: ShoppingBag,
+  },
+  {
+    id: 'SEPAY_FULL',
+    name: 'Liên Kết SePay & Đối Soát (SePay Transactions & Config API)',
+    category: 'Tài Chính & Ví',
+    description: 'Xem lịch sử biến động số dư SePay D1 (/api/admin/sepay/transactions) và đọc/ghi cấu hình kết nối tài khoản ngân hàng SePay (/api/admin/sepay/config).',
+    color: 'teal',
+    badgeBg: 'bg-teal-500/10',
+    badgeText: 'text-teal-400',
+    badgeBorder: 'border-teal-500/20',
+    icon: CreditCard,
+  },
+  {
+    id: 'FREE_CODES_FULL',
+    name: 'Quản Lý Code Miễn Phí (Free Giftcodes API)',
+    category: 'Dữ Liệu',
+    description: 'Toàn quyền tra cứu danh sách (/api/admin/free-codes), thêm mới, cập nhật và xóa mã giftcode miễn phí (kèm xóa hàng loạt).',
+    color: 'indigo',
+    badgeBg: 'bg-indigo-500/10',
+    badgeText: 'text-indigo-400',
+    badgeBorder: 'border-indigo-500/20',
+    icon: Tag,
+  },
+  {
+    id: 'SUBMISSIONS_FULL',
+    name: 'Duyệt Giftcode Khách Đóng Góp (Submissions API)',
+    category: 'Vận Hành',
+    description: 'Xem danh sách giftcode do thành viên gửi lên (/api/admin/submissions), phê duyệt mã tự động nạp vào bảng codes (/approve) hoặc từ chối (/reject).',
+    color: 'sky',
+    badgeBg: 'bg-sky-500/10',
+    badgeText: 'text-sky-400',
+    badgeBorder: 'border-sky-500/20',
+    icon: Inbox,
+  },
+  {
+    id: 'CONTENT_FULL',
+    name: 'Quản Lý Nội Dung CMS Web (Web Content CMS API)',
+    category: 'Nội Dung',
+    description: 'Xem và cập nhật các khối nội dung, banner chiến dịch, thông báo nổi và chân trang website qua /api/admin/content.',
+    color: 'purple',
+    badgeBg: 'bg-purple-500/10',
+    badgeText: 'text-purple-400',
+    badgeBorder: 'border-purple-500/20',
+    icon: FileText,
+  },
+  {
+    id: 'UTILITIES_FULL',
+    name: 'Quản Lý Gói Tiện Ích & Kho (Utilities Management API)',
+    category: 'Thương Mại & Kho',
+    description: 'Tạo mới, chỉnh sửa, xóa vĩnh viễn và cập nhật kho hàng gói tiện ích qua /api/admin/utilities (kèm cờ ưu đãi mua lần đầu).',
+    color: 'cyan',
+    badgeBg: 'bg-cyan-500/10',
+    badgeText: 'text-cyan-400',
+    badgeBorder: 'border-cyan-500/20',
+    icon: Wrench,
+  },
+  {
+    id: 'GROWTH_FULL',
+    name: 'Cấu Hình Tăng Trưởng & Viral (Growth & Gamification API)',
+    category: 'Vận Hành',
+    description: 'Đọc và cập nhật các thông số tăng trưởng, gamification (vòng quay, điểm danh, nạp đầu, đua top) qua /api/admin/growth.',
+    color: 'emerald',
+    badgeBg: 'bg-emerald-500/10',
+    badgeText: 'text-emerald-400',
+    badgeBorder: 'border-emerald-500/20',
+    icon: TrendingUp,
   },
   {
     id: 'SYNC_FULL',
@@ -1862,6 +1965,237 @@ curl -X POST "https://codegame.shop/api/admin/members/adjust-balance" \\
     "type": "SUBTRACT",
     "reason": "Thu hồi Core nạp nhầm"
   }'`}
+                </pre>
+              </div>
+
+              {/* Mẫu 12: Members API */}
+              <div>
+                <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Users className="w-4 h-4 text-blue-400" />
+                  Mẫu 12: Quản Lý Danh Sách & Tài Khoản Thành Viên (Scope: MEMBERS_FULL)
+                </h4>
+                <pre className="mt-2 p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto">
+{`# 1. Danh sách thành viên (lọc theo role, status, tìm kiếm, phân trang)
+curl -X GET "https://codegame.shop/api/admin/members?page=1&limit=20&status=ACTIVE&search=minh" \\
+  -H "Authorization: Bearer YOUR_API_KEY_HERE"
+
+# 2. Xem chi tiết 1 thành viên
+curl -X GET "https://codegame.shop/api/admin/members/usr_1793366379892_cb88" \\
+  -H "Authorization: Bearer YOUR_API_KEY_HERE"
+
+# 3. Cập nhật thông tin thành viên (displayName, phone, status, role)
+curl -X PUT "https://codegame.shop/api/admin/members/usr_1793366379892_cb88" \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer YOUR_API_KEY_HERE" \\
+  -d '{"displayName": "Minh Huỳnh Pro", "phone": "0987654321"}'
+
+# 4. Khóa tài khoản thành viên
+curl -X POST "https://codegame.shop/api/admin/members/usr_1793366379892_cb88/ban" \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer YOUR_API_KEY_HERE" \\
+  -d '{"reason": "Gian lận nhiệm vụ"}'
+
+# 5. Mở khóa tài khoản thành viên
+curl -X POST "https://codegame.shop/api/admin/members/usr_1793366379892_cb88/unban" \\
+  -H "Authorization: Bearer YOUR_API_KEY_HERE"`}
+                </pre>
+              </div>
+
+              {/* Mẫu 13: Wallets API */}
+              <div>
+                <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Coins className="w-4 h-4 text-emerald-400" />
+                  Mẫu 13: Quản Lý Ví & Biến Động Số Dư (Scope: WALLET_MANAGE / MEMBERS_FULL)
+                </h4>
+                <pre className="mt-2 p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto">
+{`# 1. Tra cứu biến động số dư ví toàn sàn (lọc theo memberId, loại DEPOSIT/PURCHASE/REFUND, phân trang)
+curl -X GET "https://codegame.shop/api/admin/wallets/transactions?page=1&limit=20&type=DEPOSIT" \\
+  -H "Authorization: Bearer YOUR_API_KEY_HERE"
+
+# 2. Tra cứu số dư và 20 giao dịch gần nhất của 1 thành viên
+curl -X GET "https://codegame.shop/api/admin/wallets/usr_1793366379892_cb88" \\
+  -H "Authorization: Bearer YOUR_API_KEY_HERE"`}
+                </pre>
+              </div>
+
+              {/* Mẫu 14: Orders API */}
+              <div>
+                <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <ShoppingBag className="w-4 h-4 text-amber-400" />
+                  Mẫu 14: Quản Lý Đơn Hàng Code & Hoàn Tiền (Scope: ORDERS_FULL / STORE_FULL)
+                </h4>
+                <pre className="mt-2 p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto">
+{`# 1. Danh sách đơn hàng mua code (lọc trạng thái COMPLETED/REFUNDED, phân trang)
+curl -X GET "https://codegame.shop/api/admin/orders?page=1&limit=20&status=COMPLETED" \\
+  -H "Authorization: Bearer YOUR_API_KEY_HERE"
+
+# 2. Chi tiết 1 đơn hàng (kèm mã code kho đã phát cho khách)
+curl -X GET "https://codegame.shop/api/admin/orders/ORD-1793366379892" \\
+  -H "Authorization: Bearer YOUR_API_KEY_HERE"
+
+# 3. Hoàn tiền đơn hàng (hồi mã kho, hoàn Core về ví thành viên)
+curl -X POST "https://codegame.shop/api/admin/orders/ORD-1793366379892/refund" \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer YOUR_API_KEY_HERE" \\
+  -d '{"reason": "Khách mua nhầm gói, hoàn tiền theo yêu cầu"}'`}
+                </pre>
+              </div>
+
+              {/* Mẫu 15: SePay API */}
+              <div>
+                <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <CreditCard className="w-4 h-4 text-teal-400" />
+                  Mẫu 15: Liên Kết SePay & Cấu Hình Ngân Hàng (Scope: SEPAY_FULL / WALLET_MANAGE)
+                </h4>
+                <pre className="mt-2 p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto">
+{`# 1. Lịch sử giao dịch SePay D1 (phân trang, tìm kiếm mã GD/nội dung, tính tổng tiền)
+curl -X GET "https://codegame.shop/api/admin/sepay/transactions?page=1&limit=20&search=97104172" \\
+  -H "Authorization: Bearer YOUR_API_KEY_HERE"
+
+# 2. Xem cấu hình tài khoản nhận tiền SePay
+curl -X GET "https://codegame.shop/api/admin/sepay/config" \\
+  -H "Authorization: Bearer YOUR_API_KEY_HERE"
+
+# 3. Cập nhật cấu hình SePay (hỗ trợ cập nhật từng trường riêng)
+curl -X PUT "https://codegame.shop/api/admin/sepay/config" \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer YOUR_API_KEY_HERE" \\
+  -d '{"accountNumber": "10004681879", "bankName": "TPBank", "accountHolder": "CODEGAME SHOP"}'`}
+                </pre>
+              </div>
+
+              {/* Mẫu 16: Free Codes API */}
+              <div>
+                <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Tag className="w-4 h-4 text-indigo-400" />
+                  Mẫu 16: Quản Lý Giftcode Miễn Phí (Scope: FREE_CODES_FULL / GAMES_FULL)
+                </h4>
+                <pre className="mt-2 p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto">
+{`# 1. Danh sách giftcode miễn phí (lọc theo game_slug, status, tìm kiếm)
+curl -X GET "https://codegame.shop/api/admin/free-codes?game_slug=genshin-impact&status=ACTIVE&limit=20" \\
+  -H "Authorization: Bearer YOUR_API_KEY_HERE"
+
+# 2. Thêm mới 1 mã giftcode
+curl -X POST "https://codegame.shop/api/admin/free-codes" \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer YOUR_API_KEY_HERE" \\
+  -d '{"code": "GENSHIN2026", "game_slug": "genshin-impact", "rewards": "300 Nguyên Thạch", "status": "ACTIVE"}'
+
+# 3. Sửa mã giftcode
+curl -X PUT "https://codegame.shop/api/admin/free-codes/code_12345" \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer YOUR_API_KEY_HERE" \\
+  -d '{"rewards": "500 Nguyên Thạch + 50k Mora"}'
+
+# 4. Xóa lẻ 1 mã
+curl -X DELETE "https://codegame.shop/api/admin/free-codes/code_12345" \\
+  -H "Authorization: Bearer YOUR_API_KEY_HERE"
+
+# 5. Xóa hàng loạt danh sách mã
+curl -X DELETE "https://codegame.shop/api/admin/free-codes" \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer YOUR_API_KEY_HERE" \\
+  -d '{"ids": ["code_1", "code_2", "code_3"]}'`}
+                </pre>
+              </div>
+
+              {/* Mẫu 17: Submissions API */}
+              <div>
+                <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Inbox className="w-4 h-4 text-sky-400" />
+                  Mẫu 17: Duyệt Giftcode Khách Đóng Góp (Scope: SUBMISSIONS_FULL / GAMES_FULL)
+                </h4>
+                <pre className="mt-2 p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto">
+{`# 1. Danh sách mã khách gửi (lọc status: PENDING / APPROVED / REJECTED)
+curl -X GET "https://codegame.shop/api/admin/submissions?status=PENDING" \\
+  -H "Authorization: Bearer YOUR_API_KEY_HERE"
+
+# 2. Duyệt mã (tự động nạp vào bảng codes)
+curl -X POST "https://codegame.shop/api/admin/submissions/sub_1793366379892/approve" \\
+  -H "Authorization: Bearer YOUR_API_KEY_HERE"
+
+# 3. Từ chối mã kèm lý do
+curl -X POST "https://codegame.shop/api/admin/submissions/sub_1793366379892/reject" \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer YOUR_API_KEY_HERE" \\
+  -d '{"reason": "Mã đã hết hạn sử dụng"}'`}
+                </pre>
+              </div>
+
+              {/* Mẫu 18: Web Content CMS API */}
+              <div>
+                <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-purple-400" />
+                  Mẫu 18: Quản Lý Khối Nội Dung CMS Web (Scope: CONTENT_FULL / NEWS_FULL)
+                </h4>
+                <pre className="mt-2 p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto">
+{`# 1. Lấy toàn bộ danh sách khối nội dung CMS
+curl -X GET "https://codegame.shop/api/admin/content" \\
+  -H "Authorization: Bearer YOUR_API_KEY_HERE"
+
+# 2. Xem chi tiết khối nội dung theo key
+curl -X GET "https://codegame.shop/api/admin/content/hero_banner" \\
+  -H "Authorization: Bearer YOUR_API_KEY_HERE"
+
+# 3. Cập nhật khối nội dung CMS
+curl -X PUT "https://codegame.shop/api/admin/content/hero_banner" \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer YOUR_API_KEY_HERE" \\
+  -d '{"title": "Cổng Giftcode Game Số 1 Việt Nam 2026", "subtitle": "Cập nhật giftcode 24/7"}'`}
+                </pre>
+              </div>
+
+              {/* Mẫu 19: Utilities API */}
+              <div>
+                <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Wrench className="w-4 h-4 text-cyan-400" />
+                  Mẫu 19: Quản Lý Gói Tiện Ích & Kho Hàng (Scope: UTILITIES_FULL / STORE_FULL)
+                </h4>
+                <pre className="mt-2 p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto">
+{`# 1. Danh sách toàn bộ 18 tiện ích game
+curl -X GET "https://codegame.shop/api/admin/utilities" \\
+  -H "Authorization: Bearer YOUR_API_KEY_HERE"
+
+# 2. Tạo mới 1 gói tiện ích
+curl -X POST "https://codegame.shop/api/admin/utilities" \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer YOUR_API_KEY_HERE" \\
+  -d '{"id": "ut_custom_vpn", "title": "Gói VPN Game VIP 30 Ngày", "price": 45000, "stock": 100}'
+
+# 3. Cập nhật thông tin gói tiện ích
+curl -X PUT "https://codegame.shop/api/admin/utilities/ut_custom_vpn" \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer YOUR_API_KEY_HERE" \\
+  -d '{"price": 39000, "description": "VPN giảm ping siêu tốc"}'
+
+# 4. Cập nhật kho hàng tiện ích (đặt số tuyệt đối hoặc cộng/trừ delta)
+curl -X PUT "https://codegame.shop/api/admin/utilities/ut_custom_vpn/stock" \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer YOUR_API_KEY_HERE" \\
+  -d '{"stock_quantity": 250}'
+
+# 5. Xóa vĩnh viễn gói tiện ích khỏi CSDL và setting KV
+curl -X DELETE "https://codegame.shop/api/admin/utilities/ut_custom_vpn" \\
+  -H "Authorization: Bearer YOUR_API_KEY_HERE"`}
+                </pre>
+              </div>
+
+              {/* Mẫu 20: Growth & Viral API */}
+              <div>
+                <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-emerald-400" />
+                  Mẫu 20: Cấu Hình Tăng Trưởng & Viral (Scope: GROWTH_FULL / STORE_FULL)
+                </h4>
+                <pre className="mt-2 p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto">
+{`# 1. Đọc cấu hình tăng trưởng (vòng quay, điểm danh, nạp đầu, đua top)
+curl -X GET "https://codegame.shop/api/admin/growth" \\
+  -H "Authorization: Bearer YOUR_API_KEY_HERE"
+
+# 2. Cập nhật cấu hình tăng trưởng (hỗ trợ partial update)
+curl -X PUT "https://codegame.shop/api/admin/growth" \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer YOUR_API_KEY_HERE" \\
+  -d '{"lucky_wheel_enabled": true, "checkin_streak_bonus": 500}'`}
                 </pre>
               </div>
             </div>

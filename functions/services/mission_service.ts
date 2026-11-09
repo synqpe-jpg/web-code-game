@@ -125,16 +125,17 @@ export function hasScope(scopeStr: string | undefined | null, requiredScope: str
   const target = requiredScope.toUpperCase().trim();
   if (target === 'GAMES_MANAGE' && scopes.includes('GAMES_FULL')) return true;
   if (target === 'GAMES_FULL' && scopes.includes('GAMES_MANAGE')) return true;
-  if ((target === 'GAMES_UPDATE' || target === 'CODES_DELETE' || target === 'CRAWLER_WRITE') && (scopes.includes('GAMES_FULL') || scopes.includes('GAMES_MANAGE') || scopes.includes('ADMIN_FULL'))) return true;
-  if ((target === 'EVENTS_FULL' || target === 'EVENTS_MANAGE') && (scopes.includes('NEWS_FULL') || scopes.includes('ADMIN_FULL'))) return true;
-  if (target === 'NEWS_FULL' && scopes.includes('EVENTS_FULL')) return true;
+  if ((target === 'GAMES_UPDATE' || target === 'CODES_DELETE' || target === 'CRAWLER_WRITE' || target === 'FREE_CODES_FULL' || target === 'SUBMISSIONS_FULL') && (scopes.includes('GAMES_FULL') || scopes.includes('GAMES_MANAGE') || scopes.includes('ADMIN_FULL'))) return true;
+  if ((target === 'EVENTS_FULL' || target === 'EVENTS_MANAGE' || target === 'CONTENT_FULL') && (scopes.includes('NEWS_FULL') || scopes.includes('ADMIN_FULL'))) return true;
+  if (target === 'NEWS_FULL' && (scopes.includes('EVENTS_FULL') || scopes.includes('CONTENT_FULL'))) return true;
   if (target === 'GAME_ICONS_FULL' && (scopes.includes('NEWS_FULL') || scopes.includes('EVENTS_FULL') || scopes.includes('GAMES_FULL') || scopes.includes('GAMES_MANAGE') || scopes.includes('ADMIN_FULL'))) return true;
-  if (target === 'TELEGRAM_NOTIFY' && (scopes.includes('TELEGRAM_FULL') || scopes.includes('ADMIN_FULL'))) return true;
-  if (target === 'TELEGRAM_FULL' && scopes.includes('ADMIN_FULL')) return true;
-  if ((target === 'STORE_FULL' || target === 'STORE_PRODUCTS_FULL' || target === 'INVENTORY_FULL') && (scopes.includes('STORE_FULL') || scopes.includes('STORE_PRODUCTS_FULL') || scopes.includes('INVENTORY_FULL') || scopes.includes('ADMIN_FULL'))) return true;
+  if ((target === 'TELEGRAM_NOTIFY' || target === 'TELEGRAM_FULL' || target === 'TELEGRAM_MANAGE') && (scopes.includes('TELEGRAM_FULL') || scopes.includes('ADMIN_FULL'))) return true;
+  if ((target === 'STORE_FULL' || target === 'STORE_PRODUCTS_FULL' || target === 'INVENTORY_FULL' || target === 'UTILITIES_FULL' || target === 'ORDERS_FULL') && (scopes.includes('STORE_FULL') || scopes.includes('STORE_PRODUCTS_FULL') || scopes.includes('INVENTORY_FULL') || scopes.includes('ADMIN_FULL'))) return true;
   if ((target === 'FIRST_PURCHASE_MANAGE' || target === 'STORE_OFFERS') && (scopes.includes('FIRST_PURCHASE_MANAGE') || scopes.includes('STORE_FULL') || scopes.includes('ADMIN_FULL'))) return true;
   if ((target === 'ESCALATING_MANAGE' || target === 'ESCALATING_FULL') && (scopes.includes('ESCALATING_MANAGE') || scopes.includes('STORE_FULL') || scopes.includes('ADMIN_FULL'))) return true;
-  if ((target === 'MEMBERS_FULL' || target === 'MEMBERS_MANAGE' || target === 'WALLET_MANAGE') && (scopes.includes('MEMBERS_FULL') || scopes.includes('ADMIN_FULL'))) return true;
+  // Cấp MEMBERS_FULL, WALLET_MANAGE, SEPAY_FULL cho khóa có MEMBERS_FULL, STORE_FULL hoặc ADMIN_FULL
+  if ((target === 'MEMBERS_FULL' || target === 'MEMBERS_MANAGE' || target === 'WALLET_MANAGE' || target === 'SEPAY_FULL') && (scopes.includes('MEMBERS_FULL') || scopes.includes('STORE_FULL') || scopes.includes('ADMIN_FULL'))) return true;
+  if ((target === 'GROWTH_FULL' || target === 'GROWTH_MANAGE') && (scopes.includes('GROWTH_FULL') || scopes.includes('STORE_FULL') || scopes.includes('ADMIN_FULL'))) return true;
   return scopes.includes(target);
 }
 

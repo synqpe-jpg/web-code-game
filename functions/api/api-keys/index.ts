@@ -108,6 +108,18 @@ async function ensureDefaultPresetKeys(env: Env) {
     `).bind(keyHash, keyPrefix, expires90d, rawKey, nowIso).run().catch(() => {});
   }
 
+  // 8. Preset Telegram Full Key (Toàn Quyền Quản Lý & Điều Hành Telegram)
+  const hasTelegram = list.some((r) => String(r.scope).toUpperCase() === 'TELEGRAM_FULL' || r.id === 'ak_preset_telegram_full');
+  if (!hasTelegram) {
+    const rawKey = 'wcg_tg_9210eb71a403fd18c72b8901e52c4a9083f12a3d';
+    const keyHash = await computeSha256(rawKey);
+    const keyPrefix = 'wcg_tg_9210••••••••••••••••••••2a3d';
+    await env.DB.prepare(`
+      INSERT INTO mission_ai_api_keys (id, key_name, api_key_hash, key_prefix, scope, description, expires_at, raw_key, is_active, last_used_at, created_at)
+      VALUES ('ak_preset_telegram_full', 'Toàn Quyền Telegram (Telegram Full & Management)', ?, ?, 'TELEGRAM_FULL', 'Toàn quyền điều hành bot và nhóm Telegram qua POST /api/telegram/manage và đăng thông báo tự động.', ?, ?, 1, '', ?)
+    `).bind(keyHash, keyPrefix, expires90d, rawKey, nowIso).run().catch(() => {});
+  }
+
   // Update existing key if missing raw_key for easy copy
   const existingVjxp = list.find((r) => r.id === 'ak_1793169536801_vjxp');
   if (existingVjxp && !existingVjxp.raw_key) {

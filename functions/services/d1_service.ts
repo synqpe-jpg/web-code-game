@@ -702,6 +702,44 @@ export async function ensureUtilitiesSchema(db: D1Database): Promise<void> {
 }
 
 /**
+ * Ghi nhật ký kiểm toán quản trị (Admin Audit Logging) an toàn vào CSDL D1
+ */
+export async function logAdminAudit(
+  db: D1Database,
+  params: {
+    actorName?: string;
+    actorEmail?: string;
+    action: string;
+    targetId?: string;
+    targetUser?: string;
+    severity?: 'INFO' | 'WARN' | 'CRITICAL';
+    ipAddress?: string;
+    details?: any;
+  }
+): Promise<void> {
+  try {
+    const id = `sec_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const detailsStr = typeof params.details === 'string' ? params.details : JSON.stringify(params.details || {});
+    await db.prepare(`
+      INSERT INTO security_logs (id, actor_name, actor_email, action, target_id, target_user, severity, ip_address, details, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+    `).bind(
+      id,
+      params.actorName || 'Admin',
+      params.actorEmail || '',
+      params.action,
+      params.targetId || null,
+      params.targetUser || null,
+      params.severity || 'INFO',
+      params.ipAddress || 'cloudflare-edge',
+      detailsStr
+    ).run().catch(() => {});
+  } catch (e) {
+    console.warn('[logAdminAudit error]', e);
+  }
+}
+
+/**
  * Safe runtime schema upgrades / migrations
  */
 export async function ensureSchemaUpgrades(db: D1Database): Promise<void> {
@@ -930,6 +968,39 @@ export async function ensureSchemaUpgrades(db: D1Database): Promise<void> {
       }
     } catch (e) {
       console.warn('[Migration utilities_first_purchase_v1 error]', e);
+    }
+
+    // Migration admin_scope_and_telegram_full_v1: Cấp MEMBERS_FULL cho khóa Store và tạo preset Telegram Full key
+    try {
+      const scopeMig = await db.prepare("SELECT 1 FROM schema_migrations WHERE id = 'admin_scope_and_telegram_full_v1' LIMIT 1").first().catch(() => null);
+      if (!scopeMig) {
+        // Cấp scope MEMBERS_FULL cho các key store hiện có
+        await db.prepare(`
+          UPDATE mission_ai_api_keys 
+          SET scope = scope || ',MEMBERS_FULL' 
+          WHERE (scope LIKE '%STORE_FULL%' OR id LIKE '%store%' OR key_name LIKE '%cửa hàng%' OR key_name LIKE '%Store%') 
+            AND scope NOT LIKE '%MEMBERS_FULL%';
+        `).run().catch(() => {});
+
+        // Tạo preset key TELEGRAM_FULL nếu chưa có
+        const hasTg = await db.prepare("SELECT 1 FROM mission_ai_api_keys WHERE id = 'ak_preset_telegram_full' LIMIT 1").first().catch(() => null);
+        if (!hasTg) {
+          const tgRawKey = 'wcg_tg_9210eb71a403fd18c72b8901e52c4a9083f12a3d';
+          const msgUint8 = new TextEncoder().encode(tgRawKey);
+          const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
+          const hashArray = Array.from(new Uint8Array(hashBuffer));
+          const tgHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+          const tgPrefix = 'wcg_tg_9210••••••••••••••••••••2a3d';
+          await db.prepare(`
+            INSERT INTO mission_ai_api_keys (id, key_name, api_key_hash, key_prefix, scope, description, expires_at, raw_key, is_active, last_used_at, created_at)
+            VALUES ('ak_preset_telegram_full', 'Toàn Quyền Telegram (Telegram Full & Management)', ?, ?, 'TELEGRAM_FULL', 'Toàn quyền điều hành bot và nhóm Telegram qua POST /api/telegram/manage và đăng thông báo tự động.', '', ?, 1, '', datetime('now'))
+          `).bind(tgHash, tgPrefix, tgRawKey).run().catch(() => {});
+        }
+
+        await db.prepare("INSERT OR IGNORE INTO schema_migrations (id) VALUES ('admin_scope_and_telegram_full_v1');").run().catch(() => {});
+      }
+    } catch (e) {
+      console.warn('[Migration admin_scope_and_telegram_full_v1 error]', e);
     }
 
     try {
