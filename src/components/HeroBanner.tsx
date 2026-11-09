@@ -106,7 +106,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
           </div>
 
           {/* Main Title - Compact on mobile */}
-          <h1 className="text-sm xs:text-base sm:text-3xl lg:text-4xl font-display font-extrabold tracking-tight text-foreground leading-snug mb-1 sm:mb-2.5">
+          <h1 className="text-sm xs:text-base sm:text-3xl lg:text-4xl font-display font-extrabold tracking-tight text-foreground leading-snug mb-1 sm:mb-2.5 min-h-[44px] xs:min-h-[50px] sm:min-h-0">
             {heroMainTitle}{' '}
             {heroHighlight && (
               <span className="bg-gradient-to-r from-purple-400 via-primary-light to-cyan-400 bg-clip-text text-transparent">

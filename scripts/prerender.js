@@ -458,7 +458,7 @@ async function runPrerender() {
                 </div>
 
                 <!-- Main Title - Compact on mobile -->
-                <h1 class="text-sm xs:text-base sm:text-3xl lg:text-4xl font-display font-extrabold tracking-tight text-foreground leading-snug mb-1 sm:mb-2.5">
+                <h1 class="text-sm xs:text-base sm:text-3xl lg:text-4xl font-display font-extrabold tracking-tight text-foreground leading-snug mb-1 sm:mb-2.5 min-h-[44px] xs:min-h-[50px] sm:min-h-0">
                   Kho Giftcode Game Mobile & Webgame Mới Nhất 2026 <span class="bg-gradient-to-r from-purple-400 via-primary-light to-cyan-400 bg-clip-text text-transparent">Chính Thức</span>
                 </h1>
 
@@ -473,6 +473,21 @@ async function runPrerender() {
                     <input type="text" placeholder="Tìm nhanh tên game, giftcode mới nhất..." class="w-full border border-border text-foreground placeholder-slate-400 shadow-xl transition-all outline-none bg-card py-3 sm:py-3.5 text-base sm:text-sm pl-10 sm:pl-12 pr-20 sm:pr-24 rounded-2xl" readonly />
                   </div>
                 </div>
+
+                <!-- Quick search tags - Hidden on mobile, shown on desktop -->
+                <div class="hidden sm:block w-full max-w-full overflow-hidden mb-1 sm:mb-4">
+                  <div class="flex items-center gap-1 sm:gap-1.5 overflow-x-auto whitespace-nowrap flex-nowrap scrollbar-none py-0.5 sm:flex-wrap sm:justify-center w-full max-w-full">
+                    <span class="text-[10px] sm:text-xs text-slate-300 font-medium flex items-center gap-1 shrink-0">
+                      <svg class="w-3 h-3 text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg> Tìm nhanh:
+                    </span>
+                    <span class="px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[10px] sm:text-xs bg-card border border-border text-slate-200 font-medium shrink-0">Genshin Impact</span>
+                    <span class="px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[10px] sm:text-xs bg-card border border-border text-slate-200 font-medium shrink-0">Where Winds Meet</span>
+                    <span class="px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[10px] sm:text-xs bg-card border border-border text-slate-200 font-medium shrink-0">Delta Force</span>
+                    <span class="px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[10px] sm:text-xs bg-card border border-border text-slate-200 font-medium shrink-0">Liên Quân Mobile</span>
+                    <span class="px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[10px] sm:text-xs bg-card border border-border text-slate-200 font-medium shrink-0">Honkai: Star Rail</span>
+                    <span class="px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[10px] sm:text-xs bg-card border border-border text-slate-200 font-medium shrink-0">Free Fire</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -480,7 +495,7 @@ async function runPrerender() {
           <!-- Main Catalog Section Container: Exactly matches React DOM to prevent CLS -->
           <div id="game-catalog-section" class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-1.5 sm:py-8">
             <!-- 1. PinnedGamesBar Initial Invitation -->
-            <div class="mb-2 sm:mb-6 rounded-2xl bg-card/60 border border-border/60 p-2.5 sm:p-4 backdrop-blur-md shadow-sm transition-all">
+            <div class="mb-2.5 sm:mb-6 rounded-2xl bg-gradient-to-r from-amber-500/10 via-primary/5 to-cyan-500/10 border border-amber-500/20 p-2 sm:p-4 backdrop-blur-sm shadow-sm transition-all">
               <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-3">
                 <div class="flex items-center gap-2 sm:gap-3">
                   <div class="w-6 h-6 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0 shadow-inner">
@@ -496,35 +511,47 @@ async function runPrerender() {
                     </p>
                   </div>
                 </div>
+                <div class="px-2 py-0.5 sm:px-3.5 sm:py-1.5 rounded-lg sm:rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-[10px] sm:text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer whitespace-nowrap self-end sm:self-auto shrink-0 shadow-sm">
+                  <svg class="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/></svg>
+                  <span>Xem Game Sắp Ra Mắt</span>
+                  <svg class="w-3 h-3 sm:w-3.5 sm:h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+                </div>
               </div>
             </div>
 
             <!-- 2. Upcoming Games Banner Section -->
-            <section class="mb-3 sm:mb-8 rounded-2xl bg-gradient-to-br from-card via-card/95 to-secondary/30 border border-cyan-500/25 p-2.5 sm:p-5 backdrop-blur-md shadow-lg shadow-cyan-500/5 transition-all relative overflow-hidden">
-              <div class="flex items-center justify-between gap-2 mb-2 sm:mb-4 pb-1.5 sm:pb-3 border-b border-border/50 relative z-10">
-                <div class="flex items-center gap-1.5 sm:gap-2.5 min-w-0">
-                  <div class="w-6 h-6 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center text-slate-950 shadow-md shadow-cyan-500/20 shrink-0">
-                    <svg class="w-3.5 h-3.5 sm:w-5 sm:h-5 text-slate-950" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/></svg>
-                  </div>
-                  <div class="min-w-0">
-                    <div class="flex items-center gap-1.5 sm:gap-2">
-                      <h2 class="font-heading font-bold text-xs sm:text-base md:text-lg text-foreground tracking-tight whitespace-nowrap flex items-center gap-1.5">
-                        <span>Game Sắp Ra Mắt</span>
-                      </h2>
-                      <span class="hidden sm:inline-flex px-2 py-0.5 rounded-full text-xs font-bold bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
-                        Lịch Mở Server
-                      </span>
+            <div id="upcoming-games-banner-section">
+              <section class="mb-3 sm:mb-8 rounded-2xl bg-gradient-to-br from-card via-card/95 to-secondary/30 border border-cyan-500/25 p-2.5 sm:p-5 backdrop-blur-md shadow-lg shadow-cyan-500/5 transition-all relative overflow-hidden">
+                <div class="flex items-center justify-between gap-2 mb-2 sm:mb-4 pb-1.5 sm:pb-3 border-b border-border/50 relative z-10">
+                  <div class="flex items-center gap-1.5 sm:gap-2.5 min-w-0">
+                    <div class="w-6 h-6 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center text-slate-950 shadow-md shadow-cyan-500/20 shrink-0">
+                      <svg class="w-3.5 h-3.5 sm:w-5 sm:h-5 text-slate-950" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/></svg>
                     </div>
-                    <p class="hidden sm:block text-[11px] sm:text-xs text-muted-foreground line-clamp-1">
-                      Đồng hồ đếm ngược sống • Quà tân thủ dự kiến • Nhận code ngay khi mở server
-                    </p>
+                    <div class="min-w-0">
+                      <div class="flex items-center gap-1.5 sm:gap-2">
+                        <h2 class="font-heading font-bold text-xs sm:text-base md:text-lg text-foreground tracking-tight whitespace-nowrap flex items-center gap-1.5">
+                          <span>Game Sắp Ra Mắt</span>
+                        </h2>
+                        <span class="hidden sm:inline-flex px-2 py-0.5 rounded-full text-xs font-bold bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+                          Lịch Mở Server
+                        </span>
+                      </div>
+                      <p class="hidden sm:block text-[11px] sm:text-xs text-muted-foreground line-clamp-1">
+                        Đồng hồ đếm ngược sống • Quà tân thủ dự kiến • Nhận code ngay khi mở server
+                      </p>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-1 px-2 py-1 sm:px-3 sm:py-1.5 rounded-xl bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 text-[10px] sm:text-xs font-semibold whitespace-nowrap shrink-0 shadow-sm">
+                    <svg class="w-3 h-3 sm:w-3.5 sm:h-3.5 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
+                    <span>Xem tất cả (${prerenderUpcoming.length})</span>
+                    <svg class="w-3 h-3 sm:w-3.5 sm:h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
                   </div>
                 </div>
-              </div>
-              <div class="flex lg:grid lg:grid-cols-6 gap-2 sm:gap-3.5 overflow-x-auto pb-1 sm:pb-1.5 lg:pb-0 scrollbar-none snap-x snap-mandatory relative z-10">
-                ${upcomingCardsHtml}
-              </div>
-            </section>
+                <div class="flex lg:grid lg:grid-cols-6 gap-2 sm:gap-3.5 overflow-x-auto pb-1 sm:pb-1.5 lg:pb-0 scrollbar-none snap-x snap-mandatory relative z-10">
+                  ${upcomingCardsHtml}
+                </div>
+              </section>
+            </div>
 
             <!-- 3. Telegram Banner -->
             <div class="mb-4">
@@ -567,33 +594,42 @@ async function runPrerender() {
               </div>
             </div>
 
-            <!-- Legal Info Box -->
-            <div class="p-3.5 rounded-2xl bg-emerald-900/10 border border-emerald-500/20 text-xs text-emerald-300 mb-6">
-              <strong>Thông Tin Pháp Lý & Giấy Phép:</strong> Tra cứu thông tin phát hành và Giấy phép phê duyệt nội dung kịch bản G1 đối chiếu từ Cục Phát thanh, Truyền hình và Thông tin điện tử (giayphep.abei.gov.vn).
-            </div>
+            <!-- 5. GameGrid View Switcher Header Bar -->
+            <div class="space-y-4 sm:space-y-5 w-full max-w-full overflow-hidden box-border">
+              <div class="hidden sm:flex items-center justify-between gap-2.5 pb-1">
+                <div class="flex items-center gap-2 min-w-0">
+                  <span class="text-xs sm:text-sm text-muted-foreground truncate">
+                    Hiển thị <strong class="text-foreground font-bold">60</strong> / ${canonicalGamesCount} game tìm thấy
+                  </span>
+                </div>
+                <div class="flex items-center gap-0.5 sm:gap-1 bg-card/90 backdrop-blur-sm border border-border p-1 rounded-xl shadow-sm shrink-0">
+                  <div class="flex items-center gap-1.5 p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg text-xs font-semibold text-muted-foreground">
+                    <span class="hidden sm:inline text-[11px] sm:text-xs">Lưới thẻ</span>
+                  </div>
+                </div>
+              </div>
 
-            <h2 class="text-base sm:text-lg font-bold text-white mb-4 flex items-center space-x-2">
-              <span>Danh Sách Tựa Game Bản Quyền Có Giftcode Hoạt Động</span>
-            </h2>
-
-            <div class="critical-cards-grid grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5 sm:gap-4">
-              ${homeTopGames
-                .map(
-                  (g) => `
-                <a href="/game/${escapeHtml(g.slug)}" class="critical-card-item flex flex-col justify-between bg-[#11162B] hover:bg-[#161D36] p-2.5 sm:p-3 rounded-xl sm:rounded-2xl border border-gray-800/80 hover:border-emerald-500/40 transition-all text-left group">
-                  <div>
-                    <div class="flex items-start justify-between gap-1 mb-2">
-                      <img src="/game_icons/${escapeHtml(g.slug)}-thumb.webp" srcset="/game_icons/${escapeHtml(g.slug)}-thumb.webp 1x, /game_icons/${escapeHtml(g.slug)}-thumb-256.webp 2x" alt="${escapeHtml(g.name)}" width="48" height="48" loading="lazy" decoding="async" class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl object-cover border border-gray-700/60 shrink-0">
+              <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-3 w-full max-w-full box-border">
+                ${homeTopGames
+                  .map(
+                    (g) => `
+                  <a href="/game/${escapeHtml(g.slug)}" class="group relative flex flex-col justify-between bg-card hover:bg-card-hover rounded-xl sm:rounded-2xl border border-border/80 hover:border-primary/50 transition-all duration-200 p-2 sm:p-2.5 shadow-cyber-card cursor-pointer overflow-visible">
+                    <div>
+                      <div class="flex items-start justify-between gap-1 mb-1.5 relative">
+                        <img src="/game_icons/${escapeHtml(g.slug)}-thumb.webp" srcset="/game_icons/${escapeHtml(g.slug)}-thumb.webp 1x, /game_icons/${escapeHtml(g.slug)}-thumb-256.webp 2x" alt="${escapeHtml(g.name)}" width="48" height="48" loading="lazy" decoding="async" class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl object-cover border border-border/60 shrink-0">
+                      </div>
+                      <div class="min-w-0">
+                        <h3 class="font-bold text-xs sm:text-sm text-foreground line-clamp-1">${escapeHtml(g.name)}</h3>
+                        <span class="text-[10px] sm:text-[11px] text-muted-foreground truncate block mt-0.5">${escapeHtml(g.publisher || 'NPH Việt Nam')}</span>
+                      </div>
                     </div>
-                    <h3 class="font-bold text-xs sm:text-sm text-gray-100 group-hover:text-emerald-400 line-clamp-1">${escapeHtml(g.name)}</h3>
-                    <span class="text-[11px] text-gray-400 truncate block mt-0.5">${escapeHtml(g.publisher || 'NPH Việt Nam')}</span>
-                  </div>
-                  <div class="mt-2 text-[10px] font-bold text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded-md self-start border border-emerald-500/30">
-                    🎁 ${g.free_codes_count || 10}+ Giftcode
-                  </div>
-                </a>`
-                )
-                .join('')}
+                    <div class="mt-2 text-[10px] font-bold text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded-md self-start border border-emerald-500/30">
+                      🎁 ${g.free_codes_count || 10}+ Giftcode
+                    </div>
+                  </a>`
+                  )
+                  .join('')}
+              </div>
             </div>
 
             <!-- Tin Tức & Cẩm Nang Giftcode Mới Nhất (P2-3) -->
