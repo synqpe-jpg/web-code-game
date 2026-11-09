@@ -10,6 +10,21 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-247: Bẫy Đặt Lệnh ALTER TABLE / Migration Sau Dòng Early Return "wcg_virtual_layer_tables_v1" Trong ensureSchemaUpgrades Khiến Cột Mới Không Bao Giờ Được Tạo Trên Production
+- **Triệu chứng & Rủi ro**:
+  - Khi thêm cột mới vào các bảng SQLite/D1 (ví dụ: `first_purchase_enabled`, `first_purchase_price`, `first_purchase_max_price` vào bảng `utilities`), nếu đặt các câu lệnh `ALTER TABLE` ở nửa sau của hàm `ensureSchemaUpgrades`:
+  - Do cơ chế kiểm tra nhanh `const check = await db.prepare("SELECT 1 FROM schema_migrations WHERE id = 'wcg_virtual_layer_tables_v1' LIMIT 1").first(); if (check !== null) return;` đã tồn tại từ lâu, trên môi trường Production CSDL D1 đã có sẵn bản ghi này.
+  - Hàm `ensureSchemaUpgrades` sẽ lập tức thoát sớm (`return`), dẫn đến toàn bộ các câu lệnh `ALTER TABLE` bên dưới không bao giờ được chạy.
+  - Hậu quả: Khi API thực hiện câu lệnh `UPDATE utilities SET first_purchase_enabled = ?...`, máy chủ Cloudflare D1 văng lỗi HTTP 500: `D1_ERROR: no such column: first_purchase_enabled: SQLITE_ERROR`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Mọi migration CSDL mới bắt buộc phải được đặt **TRƯỚC** dòng kiểm tra fast check `wcg_virtual_layer_tables_v1` trong `ensureSchemaUpgrades`.
+  2. Phải gắn kèm mã định danh kiểm tra trong `schema_migrations` (ví dụ: `utilities_first_purchase_v1`) để kiểm soát thực thi đơn lẻ, không phụ thuộc vào các migration cũ.
+  3. Cung cấp hàm migration chuyên biệt (như `ensureUtilitiesSchema(db)`) và gọi trực tiếp tại đầu các handler API thao tác với bảng đó.
+  4. Cơ chế tự phục hồi (Auto-Recovery): Bọc lệnh UPDATE trong `try...catch`, nếu bắt được ngoại lệ `no such column`, lập tức chạy hàm tạo cột và thử lại (retry) lệnh UPDATE ngay trong cùng request.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không đặt các lệnh `ALTER TABLE` mới ở nửa sau hàm `ensureSchemaUpgrades` (sau dòng kiểm tra `wcg_virtual_layer_tables_v1`).*
+  - ❌ *Không giả định `ensureSchemaUpgrades` luôn chạy hết toàn bộ hàm mà không kiểm tra thứ tự thực thi.*
+
 ### ISSUE-246: Bẫy Mặc Định Kiểm Tra !== false Cho Trường Boolean Mới Sinh Gây Áp Nhầm Giá Ưu Đãi Trên Toàn Bộ Danh Mục & Bẫy Khuyết Cờ Khi Nhóm Theme Tiện Ích
 - **Triệu chứng & Rủi ro**:
   1. Khi một tính năng ưu đãi (như Mua Lần Đầu 2.000 Core) sử dụng logic kiểm tra điều kiện lỏng lẻo `defaultEligible = pkg.first_purchase_enabled !== false`:

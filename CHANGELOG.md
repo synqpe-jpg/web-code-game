@@ -7,6 +7,29 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-09]
 
+### 348. Sửa Lỗi 500 "no such column: first_purchase_enabled" Khi Ghi Cờ Ưu Đãi Tiện Ích Qua PUT /api/admin/utilities/first-purchase/:id
+- **Triệu chứng & Bối cảnh**:
+  - Tại đường API Quản trị `PUT /api/admin/utilities/first-purchase/:id` (ví dụ: `ut_vs_10_svip_1d`), khi Quản trị viên gửi payload cập nhật cờ riêng (ví dụ: `{"first_purchase_price": 5000}`), máy chủ trả về mã HTTP 500:
+    `D1_ERROR: no such column: first_purchase_enabled: SQLITE_ERROR`.
+  - Dữ liệu không được ghi vào CSDL D1. Đường `GET /api/admin/utilities/first-purchase` trả đủ 18 tiện ích nhưng các cờ chỉ lấy từ dữ liệu fallback mặc định vì bảng `utilities` trong D1 chưa có 3 cột này. Trong khi đó, đường cửa hàng `PUT /api/admin/store/first-purchase/:id` chạy hoàn toàn bình thường.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Trong `functions/services/d1_service.ts`, hàm `ensureSchemaUpgrades` có cơ chế tối ưu hóa fast subrequest check:
+    `const check = await db.prepare("SELECT 1 FROM schema_migrations WHERE id = 'wcg_virtual_layer_tables_v1' LIMIT 1").first(); if (check !== null) { schemaUpgradesDone = true; return; }`.
+  - Vì migration `wcg_virtual_layer_tables_v1` đã tồn tại từ trước trên CSDL D1 Production, hàm `ensureSchemaUpgrades` lập tức `return;` tại dòng này và **bỏ qua toàn bộ các câu lệnh ALTER TABLE / CREATE TABLE ở phía dưới**.
+  - Các lệnh `ALTER TABLE utilities ADD COLUMN first_purchase_enabled...` vô tình được đặt ở nửa sau (sau dòng early return), khiến bảng `utilities` trên production không bao giờ nhận được 3 cột mới khi khởi động Worker.
+  - Phía `store_products` chạy được vì migration `first_purchase_per_package_v1` được đặt trước dòng early return.
+- **Giải pháp triệt để đã triển khai (Solution Applied)**:
+  1. *Chuyển Migration Lên Vùng Thực Thi Bắt Buộc*:
+     - Tạo migration định danh chính thức `utilities_first_purchase_v1` và đặt ngay trước check early return trong `ensureSchemaUpgrades`.
+     - Tự động thực thi `ALTER TABLE utilities ADD COLUMN first_purchase_enabled INTEGER DEFAULT 0`, `first_purchase_price INTEGER`, `first_purchase_max_price INTEGER`, `updated_at TEXT` và `UPDATE utilities SET first_purchase_enabled = 0 WHERE first_purchase_enabled IS NULL;`.
+     - Ghi nhận vào bảng `schema_migrations` để theo dõi chuẩn mực.
+  2. *Bổ Sung Hàm Phòng Vệ Tự Động `ensureUtilitiesSchema`*:
+     - Export hàm độc lập `ensureUtilitiesSchema(db)` trong `d1_service.ts`.
+     - Gọi trực tiếp `ensureUtilitiesSchema` tại đầu `onRequestGet`, `onRequestPut` trong `functions/api/admin/utilities/first-purchase.ts` và bên trong `loadAllUtilitiesD1`.
+  3. *Cơ Chế Tự Phục Hồi (Auto-Recovery) Trong `onRequestPut`*:
+     - Bọc câu lệnh `UPDATE utilities` trong khối `try...catch`. Nếu gặp lỗi `no such column`, tự động kích hoạt `ensureUtilitiesSchema` thêm cột tức thì và thực thi lại câu lệnh UPDATE thành công trong cùng request.
+- **Kiểm thử & Nghiệm thu**: Vượt qua 100% các bài kiểm tra cấu trúc schema, build thành công và deploy live đồng thời lên Web Khách và Web Quản trị.
+
 ### 347. Bổ Sung API Quản Trị Ưu Đãi Mua Lần Đầu Riêng Từng Mục (Utilities & Store) & Sửa Lỗi Hiển Thị 2.000 Core Ở 6 Gói VS Phone
 - **Triệu chứng & Bối cảnh**:
   - Ưu đãi mua lần đầu (First Purchase Offer) ban đầu chỉ có cấu hình chung (bật, giá ưu đãi 2.000 Core, trần 30.000 Core) và cờ riêng cho gói ở cửa hàng (`store_products`).

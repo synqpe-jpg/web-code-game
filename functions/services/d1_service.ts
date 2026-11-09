@@ -249,6 +249,10 @@ CREATE TABLE IF NOT EXISTS store_products (
   badge TEXT DEFAULT '',
   virtual_sold_count INTEGER DEFAULT 0,
   show_sold_count INTEGER DEFAULT 1,
+  first_purchase_enabled INTEGER DEFAULT 0,
+  first_purchase_price INTEGER,
+  first_purchase_max_price INTEGER,
+  updated_at TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_store_products_active ON store_products(is_active);
@@ -421,6 +425,10 @@ CREATE TABLE IF NOT EXISTS utilities (
   instructions TEXT DEFAULT '',
   virtual_sold_count INTEGER DEFAULT 0,
   show_sold_count INTEGER DEFAULT 1,
+  first_purchase_enabled INTEGER DEFAULT 0,
+  first_purchase_price INTEGER,
+  first_purchase_max_price INTEGER,
+  updated_at TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_utilities_active ON utilities(is_active);
@@ -676,6 +684,24 @@ export async function ensureGiveawaySchema(db: D1Database): Promise<void> {
 }
 
 /**
+ * Safe runtime schema upgrades for utilities (first purchase offer flags)
+ */
+export async function ensureUtilitiesSchema(db: D1Database): Promise<void> {
+  try {
+    await db.prepare("ALTER TABLE utilities ADD COLUMN first_purchase_enabled INTEGER DEFAULT 0;").run().catch(() => {});
+  } catch {}
+  try {
+    await db.prepare("ALTER TABLE utilities ADD COLUMN first_purchase_price INTEGER;").run().catch(() => {});
+  } catch {}
+  try {
+    await db.prepare("ALTER TABLE utilities ADD COLUMN first_purchase_max_price INTEGER;").run().catch(() => {});
+  } catch {}
+  try {
+    await db.prepare("ALTER TABLE utilities ADD COLUMN updated_at TEXT;").run().catch(() => {});
+  } catch {}
+}
+
+/**
  * Safe runtime schema upgrades / migrations
  */
 export async function ensureSchemaUpgrades(db: D1Database): Promise<void> {
@@ -889,6 +915,21 @@ export async function ensureSchemaUpgrades(db: D1Database): Promise<void> {
       }
     } catch (e) {
       console.warn('[Migration security_logs_target_user_v1 error]', e);
+    }
+
+    // Migration utilities_first_purchase_v1: Thêm 3 cột cờ ưu đãi mua lần đầu cho bảng utilities
+    try {
+      const utFpDone = await db.prepare("SELECT 1 FROM schema_migrations WHERE id = 'utilities_first_purchase_v1' LIMIT 1").first().catch(() => null);
+      if (!utFpDone) {
+        await db.prepare("ALTER TABLE utilities ADD COLUMN first_purchase_enabled INTEGER DEFAULT 0;").run().catch(() => {});
+        await db.prepare("ALTER TABLE utilities ADD COLUMN first_purchase_price INTEGER;").run().catch(() => {});
+        await db.prepare("ALTER TABLE utilities ADD COLUMN first_purchase_max_price INTEGER;").run().catch(() => {});
+        await db.prepare("ALTER TABLE utilities ADD COLUMN updated_at TEXT;").run().catch(() => {});
+        await db.prepare("UPDATE utilities SET first_purchase_enabled = 0 WHERE first_purchase_enabled IS NULL;").run().catch(() => {});
+        await db.prepare("INSERT OR IGNORE INTO schema_migrations (id) VALUES ('utilities_first_purchase_v1');").run().catch(() => {});
+      }
+    } catch (e) {
+      console.warn('[Migration utilities_first_purchase_v1 error]', e);
     }
 
     try {
@@ -1217,17 +1258,7 @@ export async function ensureSchemaUpgrades(db: D1Database): Promise<void> {
     await db.prepare("ALTER TABLE utilities ADD COLUMN show_sold_count INTEGER DEFAULT 1;").run().catch(() => {});
   } catch {}
   try {
-    await db.prepare("ALTER TABLE utilities ADD COLUMN first_purchase_enabled INTEGER DEFAULT 0;").run().catch(() => {});
-  } catch {}
-  try {
-    await db.prepare("ALTER TABLE utilities ADD COLUMN first_purchase_price INTEGER;").run().catch(() => {});
-  } catch {}
-  try {
-    await db.prepare("ALTER TABLE utilities ADD COLUMN first_purchase_max_price INTEGER;").run().catch(() => {});
-  } catch {}
-  try {
-    // Đảm bảo toàn bộ tiện ích có first_purchase_enabled = 0 nếu còn NULL
-    await db.prepare("UPDATE utilities SET first_purchase_enabled = 0 WHERE first_purchase_enabled IS NULL;").run().catch(() => {});
+    await ensureUtilitiesSchema(db);
   } catch {}
   try {
     await db.prepare("ALTER TABLE store_products ADD COLUMN package_type TEXT DEFAULT 'pack';").run().catch(() => {});
@@ -3308,6 +3339,7 @@ export async function loadAllStoreProductsD1(db: D1Database): Promise<any[]> {
 export async function loadAllUtilitiesD1(db: D1Database): Promise<any[]> {
   try {
     await ensureSchemaUpgrades(db);
+    await ensureUtilitiesSchema(db);
     const metaSetting = await getSettingD1(db, 'wcg_admin_utilities_v4').catch(() => null);
     const metaMap = new Map<string, any>();
     if (Array.isArray(metaSetting)) {

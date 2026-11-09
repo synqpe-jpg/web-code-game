@@ -1,5 +1,6 @@
 import {
   ensureSchemaUpgrades,
+  ensureUtilitiesSchema,
   loadAllUtilitiesD1,
   getSettingD1,
   setSettingD1,
@@ -61,6 +62,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     }
 
     await ensureSchemaUpgrades(env.DB);
+    await ensureUtilitiesSchema(env.DB);
 
     const d1Utils = await loadAllUtilitiesD1(env.DB);
     const delUtilsRaw = await getSettingD1(env.DB, 'wcg_deleted_utilities').catch(() => []);
@@ -135,6 +137,7 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
     }
 
     await ensureSchemaUpgrades(env.DB);
+    await ensureUtilitiesSchema(env.DB);
 
     // Extract utility id from path params, query params, or URL
     const url = new URL(request.url);
@@ -236,14 +239,30 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
     }
 
     // 3. Cập nhật bảng utilities trong SQLite D1
-    await env.DB.prepare(`
-      UPDATE utilities
-      SET first_purchase_enabled = ?,
-          first_purchase_price = ?,
-          first_purchase_max_price = ?,
-          updated_at = datetime('now')
-      WHERE id = ?
-    `).bind(newEnabled, newPrice, newMaxPrice, targetId).run();
+    try {
+      await env.DB.prepare(`
+        UPDATE utilities
+        SET first_purchase_enabled = ?,
+            first_purchase_price = ?,
+            first_purchase_max_price = ?,
+            updated_at = datetime('now')
+        WHERE id = ?
+      `).bind(newEnabled, newPrice, newMaxPrice, targetId).run();
+    } catch (updateErr: any) {
+      if (String(updateErr?.message || updateErr).includes('no such column')) {
+        await ensureUtilitiesSchema(env.DB);
+        await env.DB.prepare(`
+          UPDATE utilities
+          SET first_purchase_enabled = ?,
+              first_purchase_price = ?,
+              first_purchase_max_price = ?,
+              updated_at = datetime('now')
+          WHERE id = ?
+        `).bind(newEnabled, newPrice, newMaxPrice, targetId).run();
+      } else {
+        throw updateErr;
+      }
+    }
 
     // 4. Đồng bộ vào setting wcg_admin_utilities_v4 trong D1 (nếu có)
     try {
