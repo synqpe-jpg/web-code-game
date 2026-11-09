@@ -10,6 +10,17 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-250: Bẫy Thiếu Kế Thừa GAMES_FULL Và NEWS_FULL Cho Quyền STORE_FULL Khiến Khóa Cửa Hàng Bị 401 Khi Quản Lý Code Miễn Phí Và Nội Dung Web CMS
+- **Triệu chứng & Rủi ro**:
+  - Khi phân quyền API Key bên ngoài cho khóa Cửa Hàng (`STORE_FULL`), nếu chỉ cho phép kế thừa các chức năng tài chính/kho hàng mà không mở rộng sang code miễn phí (`GAMES_FULL`, `FREE_CODES_FULL`, `SUBMISSIONS_FULL`) và nội dung CMS (`NEWS_FULL`, `CONTENT_FULL`):
+  - Người dùng hoặc agent AI dùng khóa Cửa Hàng khi gọi `GET /api/admin/free-codes`, `GET /api/admin/submissions`, hoặc `GET /api/admin/content` sẽ bị chặn với mã HTTP 401 Unauthorized (`Unauthorized: Yêu cầu quyền GAMES_FULL hoặc ADMIN_FULL`).
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Trong hàm `hasScope`: Thiết lập `STORE_FULL` kế thừa toàn diện cả `GAMES_FULL`, `FREE_CODES_FULL`, `SUBMISSIONS_FULL`, `NEWS_FULL`, `CONTENT_FULL`, `EVENTS_FULL`, `EVENTS_MANAGE`, `GAME_ICONS_FULL`.
+  2. Bổ sung migration D1 cập nhật trực tiếp trường `scope` trong bảng `mission_ai_api_keys` cho các khóa Cửa Hàng hiện có.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không giới hạn scope của `STORE_FULL` chỉ trong các endpoint cửa hàng.*
+  - ❌ *Không bắt người dùng phải tạo riêng 3 khóa API khác nhau cho cùng một agent quản trị sàn.*
+
 ### ISSUE-249: Bẫy Giả Định Cột Dữ Liệu Ảo (buyer_name, amount trong orders & game_name, is_hot trong codes) Khiến API Backend Bị SQLite Error Trong Cloudflare D1
 - **Triệu chứng & Rủi ro**:
   - Khi viết các truy vấn SQL cho bảng `orders` hoặc `codes`, nếu giả định các cột như `buyer_name` (thực tế chỉ có `buyer_email`), `amount` (thực tế là `total_amount`), `game_name` (thực tế nằm ở bảng `games`), hoặc `is_hot`:

@@ -7,6 +7,25 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-09]
 
+### 351. Mở Rộng Kế Thừa Quyền GAMES_FULL Và NEWS_FULL Cho Quyền STORE_FULL & Cấp Bổ Sung Scope Trong D1 Cho Khóa Cửa Hàng
+- **Triệu chứng & Bối cảnh**:
+  - Sau khi triển khai hệ thống 9 module API quản trị độc lập (commit `ee9bb74`), người dùng kiểm tra trực tiếp và nhận thấy khóa Cửa Hàng hiện tại khi gọi 3 endpoint quản trị vẫn bị từ chối với mã lỗi HTTP 401 Unauthorized:
+    1. `GET /api/admin/free-codes`: Yêu cầu quyền `GAMES_FULL`
+    2. `GET /api/admin/submissions`: Yêu cầu quyền `GAMES_FULL`
+    3. `GET /api/admin/content`: Yêu cầu quyền `NEWS_FULL`
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Trong `functions/services/mission_service.ts`, hàm phân giải quyền `hasScope` ban đầu chỉ thiết lập cho `STORE_FULL` kế thừa các quyền nghiệp vụ tài chính/kho/người dùng (`MEMBERS_FULL`, `WALLET_MANAGE`, `SEPAY_FULL`, `UTILITIES_FULL`, `ORDERS_FULL`, `GROWTH_FULL`) nhưng chưa đưa `GAMES_FULL`, `FREE_CODES_FULL`, `SUBMISSIONS_FULL`, `NEWS_FULL`, `CONTENT_FULL` vào phạm vi kế thừa của `STORE_FULL`.
+  - Cột `scope` của bản ghi khóa Cửa Hàng trong bảng SQLite `mission_ai_api_keys` chưa được cập nhật trực tiếp hai quyền này.
+- **Giải pháp triệt để đã triển khai (Solution Applied)**:
+  1. *Mở Rộng Kế Thừa Quyền Đa Tầng Cho `STORE_FULL` Trong `hasScope`*:
+     - Cập nhật hàm `hasScope` trong `functions/services/mission_service.ts`: Khóa có quyền `STORE_FULL` tự động có toàn quyền đối với `GAMES_FULL`, `GAMES_MANAGE`, `FREE_CODES_FULL`, `SUBMISSIONS_FULL`, `NEWS_FULL`, `CONTENT_FULL`, `EVENTS_FULL`, `EVENTS_MANAGE`, `GAME_ICONS_FULL`.
+  2. *Thực Hiện Migration CSDL D1 Cập Nhật Trực Tiếp Cho Khóa Cửa Hàng*:
+     - Thêm migration `store_key_grant_games_and_news_v1` trong `functions/services/d1_service.ts`:
+       `UPDATE mission_ai_api_keys SET scope = scope || ',GAMES_FULL,NEWS_FULL,FREE_CODES_FULL,SUBMISSIONS_FULL,CONTENT_FULL' WHERE (scope LIKE '%STORE_FULL%' OR id LIKE '%store%' OR key_name LIKE '%cửa hàng%' OR key_name LIKE '%Store%') AND (scope NOT LIKE '%GAMES_FULL%' OR scope NOT LIKE '%NEWS_FULL%')`.
+  3. *Cập Nhật Giao Diện & Danh Mục Quyền API (Quy Tắc 8)*:
+     - Cập nhật mô tả scope `STORE_FULL` trong `src/admin/modules/ApiKeysModule.tsx` để hiển thị rõ tính năng kế thừa liên thông toàn diện sang cả giftcode miễn phí, duyệt mã đóng góp và nội dung CMS.
+- **Kiểm thử & Nghiệm thu**: Vượt qua 100% unit tests phân quyền và toàn bộ chu trình build & deploy Cloudflare Pages.
+
 ### 350. Chuẩn Hóa Truy Vấn Bảng Orders Và Free-Codes Khớp 100% Schema Vật Lý Cloudflare D1 & Xác Nhận Triệt Tiêu Hai Lỗi UI (K.trim & LIKE pattern too complex)
 - **Triệu chứng & Bối cảnh**:
   - Khi kiểm thử trực tiếp các endpoint API quản trị độc lập mới xây dựng:

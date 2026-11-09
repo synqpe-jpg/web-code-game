@@ -216,7 +216,7 @@ export const ALL_API_SCOPES: ScopeOption[] = [
     id: 'STORE_FULL',
     name: 'Kho Code Bán & Gói Sản Phẩm (Store & Paid Codes API)',
     category: 'Thương Mại & Kho',
-    description: 'Toàn quyền quản trị gói sản phẩm bán (tạo, sửa, xóa gói, điều chỉnh giá, thông số FOMO) và quản lý kho mã code bán (nạp kho, kiểm tra tồn kho, xóa lẻ mã) qua /api/store/manage.',
+    description: 'Toàn quyền quản trị gói sản phẩm bán, kho mã code bán, tiện ích, đơn hàng và kế thừa toàn diện các quyền quản lý thành viên, ví số dư, code miễn phí, duyệt mã đóng góp và nội dung CMS.',
     color: 'purple',
     badgeBg: 'bg-purple-500/10',
     badgeText: 'text-purple-400',

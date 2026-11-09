@@ -1003,6 +1003,24 @@ export async function ensureSchemaUpgrades(db: D1Database): Promise<void> {
       console.warn('[Migration admin_scope_and_telegram_full_v1 error]', e);
     }
 
+    // Migration store_key_grant_games_and_news_v1: Cấp GAMES_FULL và NEWS_FULL cho khóa Store hiện có
+    try {
+      const storeScopeMig = await db.prepare("SELECT 1 FROM schema_migrations WHERE id = 'store_key_grant_games_and_news_v1' LIMIT 1").first().catch(() => null);
+      if (!storeScopeMig) {
+        // Cấp scope GAMES_FULL, NEWS_FULL, FREE_CODES_FULL, SUBMISSIONS_FULL, CONTENT_FULL cho các key store hiện có
+        await db.prepare(`
+          UPDATE mission_ai_api_keys 
+          SET scope = scope || ',GAMES_FULL,NEWS_FULL,FREE_CODES_FULL,SUBMISSIONS_FULL,CONTENT_FULL' 
+          WHERE (scope LIKE '%STORE_FULL%' OR id LIKE '%store%' OR key_name LIKE '%cửa hàng%' OR key_name LIKE '%Store%') 
+            AND (scope NOT LIKE '%GAMES_FULL%' OR scope NOT LIKE '%NEWS_FULL%');
+        `).run().catch(() => {});
+
+        await db.prepare("INSERT OR IGNORE INTO schema_migrations (id) VALUES ('store_key_grant_games_and_news_v1');").run().catch(() => {});
+      }
+    } catch (e) {
+      console.warn('[Migration store_key_grant_games_and_news_v1 error]', e);
+    }
+
     try {
       // Fast 1-subrequest check: If wcg_virtual_layer_tables_v1 exists, all schema migrations are already done
       const check = await db.prepare("SELECT 1 FROM schema_migrations WHERE id = 'wcg_virtual_layer_tables_v1' LIMIT 1").first().catch(() => null);
