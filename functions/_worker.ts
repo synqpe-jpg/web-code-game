@@ -1142,18 +1142,22 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
         }
         const isFresh = url.searchParams.has('fresh') || url.searchParams.has('nocache') || url.searchParams.has('_t');
         const cfCache = (typeof caches !== 'undefined' && !isFresh) ? (caches as any).default : null;
-        const cacheKey = new Request(`${url.origin}/`, { method: 'GET' });
+        const buildTag = typeof __BUILD_ID__ !== 'undefined' && __BUILD_ID__ ? __BUILD_ID__ : 'live';
+        const cacheKey = new Request(`${url.origin}/__edge_cache_v/${buildTag}/`, { method: 'GET' });
         const isHead = request.method === 'HEAD';
         if (cfCache) {
           try {
             const cached = await cfCache.match(cacheKey);
             if (cached) {
-              const edgeDur = (performance.now() - reqStart).toFixed(1);
-              const res = new Response(isHead ? null : cached.body, cached);
-              res.headers.set('cf-cache-status', 'HIT');
-              res.headers.set('X-Edge-Cache', 'HIT');
-              res.headers.set('Server-Timing', `edge;dur=${edgeDur}, cache;desc="HIT"`);
-              return res;
+              const cachedBuildId = cached.headers.get('x-build-id');
+              if (!cachedBuildId || cachedBuildId === buildTag) {
+                const edgeDur = (performance.now() - reqStart).toFixed(1);
+                const res = new Response(isHead ? null : cached.body, cached);
+                res.headers.set('cf-cache-status', 'HIT');
+                res.headers.set('X-Edge-Cache', 'HIT');
+                res.headers.set('Server-Timing', `edge;dur=${edgeDur}, cache;desc="HIT"`);
+                return res;
+              }
             }
           } catch {}
         }
@@ -1172,6 +1176,7 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
               const toCacheHeaders = new Headers(baseHeaders);
               toCacheHeaders.set('cf-cache-status', 'HIT');
               toCacheHeaders.set('X-Edge-Cache', 'HIT');
+              toCacheHeaders.set('X-Build-Id', buildTag);
               toCacheHeaders.set('Server-Timing', `edge;dur=0.1, cache;desc="HIT"`);
               ctx.waitUntil(cfCache.put(cacheKey, new Response(bodyText, { status: 200, headers: toCacheHeaders })));
             } catch {}
@@ -1210,18 +1215,22 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
         const reqStart = performance.now();
         const isFresh = url.searchParams.has('fresh') || url.searchParams.has('nocache') || url.searchParams.has('_t');
         const cfCache = (typeof caches !== 'undefined' && !isFresh) ? (caches as any).default : null;
-        const cacheKey = new Request(`${url.origin}${url.pathname}`, { method: 'GET' });
+        const buildTag = typeof __BUILD_ID__ !== 'undefined' && __BUILD_ID__ ? __BUILD_ID__ : 'live';
+        const cacheKey = new Request(`${url.origin}/__edge_cache_v/${buildTag}${url.pathname}`, { method: 'GET' });
         const isHead = request.method === 'HEAD';
         if (cfCache) {
           try {
             const cached = await cfCache.match(cacheKey);
             if (cached) {
-              const edgeDur = (performance.now() - reqStart).toFixed(1);
-              const res = new Response(isHead ? null : cached.body, cached);
-              res.headers.set('cf-cache-status', 'HIT');
-              res.headers.set('X-Edge-Cache', 'HIT');
-              res.headers.set('Server-Timing', `edge;dur=${edgeDur}, cache;desc="HIT"`);
-              return res;
+              const cachedBuildId = cached.headers.get('x-build-id');
+              if (!cachedBuildId || cachedBuildId === buildTag) {
+                const edgeDur = (performance.now() - reqStart).toFixed(1);
+                const res = new Response(isHead ? null : cached.body, cached);
+                res.headers.set('cf-cache-status', 'HIT');
+                res.headers.set('X-Edge-Cache', 'HIT');
+                res.headers.set('Server-Timing', `edge;dur=${edgeDur}, cache;desc="HIT"`);
+                return res;
+              }
             }
           } catch {}
         }
@@ -1237,6 +1246,7 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
             toCacheHeaders.set('Cache-Control', 'public, max-age=120, s-maxage=3600, stale-while-revalidate=86400');
             toCacheHeaders.set('cf-cache-status', 'HIT');
             toCacheHeaders.set('X-Edge-Cache', 'HIT');
+            toCacheHeaders.set('X-Build-Id', buildTag);
             toCacheHeaders.set('Server-Timing', `edge;dur=0.1, cache;desc="HIT"`);
             const toCacheRes = new Response(seoRes.clone().body, {
               status: seoRes.status,
@@ -1465,7 +1475,8 @@ async function handleDynamicSitemap(
   const forceFresh = url.searchParams.get('fresh') === '1' || url.searchParams.has('_t');
 
   const cfCache = typeof caches !== 'undefined' ? (caches as any).default : null;
-  const cacheKey = new Request('https://codegame.shop/sitemap.xml', { method: 'GET' });
+  const buildTag = typeof __BUILD_ID__ !== 'undefined' && __BUILD_ID__ ? __BUILD_ID__ : 'live';
+  const cacheKey = new Request(`https://codegame.shop/__edge_cache_v/${buildTag}/sitemap.xml`, { method: 'GET' });
 
   // 1. Kiểm tra Cloudflare Edge Cache nếu không yêu cầu fresh
   if (cfCache && !forceFresh) {
@@ -1893,8 +1904,9 @@ async function renderSeoHtml(
   }
 
   const gScope = globalThis as any;
+  const buildTag = typeof __BUILD_ID__ !== 'undefined' && __BUILD_ID__ ? __BUILD_ID__ : 'live';
   let html = gScope.__wcg_base_html;
-  if (!html) {
+  if (!html || gScope.__wcg_base_html_build !== buildTag) {
     const indexUrl = new URL('/', request.url);
     const baseRes = await env.ASSETS.fetch(new Request(indexUrl, request));
     if (baseRes.status !== 200) {
@@ -1902,6 +1914,7 @@ async function renderSeoHtml(
     }
     html = await baseRes.text();
     gScope.__wcg_base_html = html;
+    gScope.__wcg_base_html_build = buildTag;
   }
 
   const replaceTitleAndMeta = (

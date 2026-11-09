@@ -26,6 +26,7 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
      - Tích hợp pipeline sinh thumbnail vào `scripts/build.cjs` và `scripts/crawler/engine/game_logo_resolver.cjs`.
      - Cập nhật `GameCard.tsx`, `prerender.js`, `SearchAutocomplete.tsx`, `PinnedGamesBar.tsx` sử dụng bản thumbnail kèm `srcSet="...-thumb.webp 1x, ...webp 2x"`.
      - Lưu file tĩnh `public/game_icons/warhammer-survivors.webp`.
+     - Đồng bộ khóa Cloudflare Edge Cache API (`cacheKey`) theo `__BUILD_ID__` (`/__edge_cache_v/${buildTag}/...`) trong `functions/_worker.ts` đảm bảo mọi lần deploy mới tự động cách ly hoàn toàn, lập tức phục vụ HTML mới với logo.webp và icon thumbnail 128px mà không bị vướng HTML cũ từ bản deploy trước.
   2. *Cache-Control 1 Năm*:
      - Cập nhật `public/_headers`: `/game_icons/*`, `/logo.webp`, `/logo.png` đều có `Cache-Control: public, max-age=31536000, immutable`.
      - Đồng bộ header trong `functions/_worker.ts` và `functions/game_icons/[file].ts`.

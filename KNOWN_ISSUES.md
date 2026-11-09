@@ -20,7 +20,9 @@
   2. *CSS Non-blocking Preload*: Chuyển đổi `<link rel="stylesheet">` sang `<link rel="preload" as="style" onload="this.onload=null;this.rel='stylesheet'"><noscript><link rel="stylesheet" ...></noscript>` trong khi duy trì toàn bộ inline critical CSS để chống 100% FOUC/CLS.
   3. *Tách Dữ Liệu Ra Khỏi File Type*: Chuyển mảng dữ liệu tĩnh vào `src/data/defaultUpcomingGames.ts` và gán manual chunk riêng, giữ `src/types/game.ts` chỉ chứa type definitions.
   4. *Loại Bỏ Dead Code*: Loại bỏ `fuse.js` và chuyển `canvas-confetti` sang dynamic import `import('canvas-confetti')`.
+  5. *Edge Cache Key Namespacing Theo Build ID*: Gắn `__BUILD_ID__` vào Cache API key (`/__edge_cache_v/${buildTag}${pathname}`) và kiểm tra `x-build-id` khi cache match để đảm bảo mọi phiên bản deploy mới đều lập tức phục vụ HTML mới với ảnh thumbnail 128px và CSS non-blocking, hoàn toàn không bị kẹt cache HTML từ bản deploy cũ.
 - 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không dùng Cache API key không gắn phiên bản build (`${url.origin}/`) cho HTML động/prerendered vì Cloudflare Edge Cache sẽ tiếp tục phục vụ HTML cũ của build trước cho đến khi hết TTL.*
   - ❌ *Không nhúng mảng dữ liệu tĩnh lớn vào các file type definitions.*
   - ❌ *Không tải trực tiếp icon gốc 512x512 trên trang chủ khi kích thước hiển thị chỉ 48px.*
   - ❌ *Không import tĩnh các thư viện hiệu ứng chỉ dùng khi click vào component luôn hiển thị trên header/trang chủ.*
