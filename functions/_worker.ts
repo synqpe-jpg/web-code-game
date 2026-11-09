@@ -2353,14 +2353,15 @@ async function renderSeoHtml(
             </h2>
             <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
               ${relatedGames.map((rg: any) => {
-                const rgSlug = escape(rg.slug || rg.id);
-                const rawIcon = rg.icon_url || `/game_icons/${rg.slug || rg.id}.webp`;
-                const rgIcon = escape(rawIcon.startsWith('http') ? rawIcon : `${origin}${rawIcon.startsWith('/') ? rawIcon : `/${rawIcon}`}`);
+                const rgKey = rg.slug || rg.id;
+                const rgSlug = escape(rgKey);
+                const thumb1x = `/game_icons/${escape(rgKey)}-thumb.webp`;
+                const thumb2x = `/game_icons/${escape(rgKey)}-thumb-256.webp`;
                 const rgName = escape(rg.name);
                 const rgPub = escape(rg.publisher || 'NPH Việt Nam');
                 return `
                 <a href="/game/${rgSlug}" class="flex flex-col bg-dark-850 hover:bg-dark-800 p-2.5 rounded-xl border border-gray-800 hover:border-brand-500/40 transition-all text-left group">
-                  <img src="${rgIcon}" alt="${rgName}" loading="lazy" width="64" height="64" class="w-full aspect-square rounded-lg object-cover mb-2 border border-gray-700/60" />
+                  <img src="${thumb1x}" srcset="${thumb1x} 1x, ${thumb2x} 2x" alt="${rgName}" loading="lazy" decoding="async" width="64" height="64" class="w-full aspect-square rounded-lg object-cover mb-2 border border-gray-700/60" />
                   <h3 class="font-bold text-xs text-gray-200 group-hover:text-brand-400 line-clamp-1">${rgName}</h3>
                   <span class="text-[10px] text-gray-400 truncate mt-0.5">${rgPub}</span>
                 </a>`;
@@ -2432,7 +2433,7 @@ async function renderSeoHtml(
     if (article) {
       const title = `${article.title} | CodeGame.shop`;
       const description = article.summary || article.content?.slice(0, 160) || 'Tin tức game và sự kiện giftcode mới nhất.';
-      const thumb = (article.cover_url && article.cover_url.trim()) || article.thumbnail_url || (article.game_slug ? `/game_icons/${article.game_slug}.webp` : '/og-image.jpg');
+      const thumb = (article.cover_url && article.cover_url.trim()) || article.thumbnail_url || (article.game_slug ? `/game_icons/${article.game_slug}-thumb.webp` : '/og-image-thumb.webp');
       const artCover = thumb.startsWith('http') ? thumb : `${origin}${thumb.startsWith('/') ? thumb : `/${thumb}`}`;
 
       const newsSchema = [
@@ -2837,7 +2838,8 @@ async function handleGameIconRequest(
 
   const dotIndex = filename.lastIndexOf('.');
   const slug = (dotIndex >= 0 ? filename.slice(0, dotIndex) : filename).toLowerCase().trim();
-  const baseSlug = slug.replace(/-thumb$/i, '');
+  const isThumb = slug.includes('-thumb');
+  const baseSlug = slug.replace(/-thumb(?:-256)?$/i, '');
 
   // 1. Kiểm tra Cloudflare Edge Cache trước (zero D1 read for repeated requests)
   const cache = typeof caches !== 'undefined' ? (caches as any).default : null;
@@ -2857,10 +2859,10 @@ async function handleGameIconRequest(
     if (assetRes && assetRes.status === 200) {
       return assetRes;
     }
-    // Nếu yêu cầu -thumb.webp mà chưa có thumb riêng trong assets, thử .webp gốc trong assets
-    if (filename.toLowerCase().endsWith('-thumb.webp')) {
+    // Nếu yêu cầu -thumb-256.webp mà chưa có trong assets, thử -thumb.webp (128px nhẹ) thay vì file gốc
+    if (filename.toLowerCase().endsWith('-thumb-256.webp')) {
       const origUrl = new URL(request.url);
-      origUrl.pathname = `/game_icons/${baseSlug}.webp`;
+      origUrl.pathname = `/game_icons/${baseSlug}-thumb.webp`;
       const origRes = await env.ASSETS.fetch(new Request(origUrl, request));
       if (origRes && origRes.status === 200) {
         return origRes;
@@ -2880,9 +2882,10 @@ async function handleGameIconRequest(
   // 3. Nếu static asset không có (404), kiểm tra trong D1 bảng uploaded_game_icons
   if (env.DB) {
     try {
-      const row: any = await env.DB.prepare(
-        'SELECT content_type, image_base64, size_bytes FROM uploaded_game_icons WHERE slug = ? OR slug = ? LIMIT 1'
-      ).bind(slug, baseSlug).first();
+      // Nếu là thumb, CHỈ tìm chính xác slug thumbnail trong D1, KHÔNG fallback sang file gốc baseSlug
+      const row: any = isThumb
+        ? await env.DB.prepare('SELECT content_type, image_base64, size_bytes FROM uploaded_game_icons WHERE slug = ? LIMIT 1').bind(slug).first()
+        : await env.DB.prepare('SELECT content_type, image_base64, size_bytes FROM uploaded_game_icons WHERE slug = ? OR slug = ? LIMIT 1').bind(slug, baseSlug).first();
 
       if (row && row.image_base64) {
         const cleanB64 = String(row.image_base64).replace(/^data:image\/[a-zA-Z+]+;base64,/, '').trim();

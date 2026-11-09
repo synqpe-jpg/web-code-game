@@ -167,6 +167,14 @@ export const UpcomingGamesBanner: React.FC<UpcomingGamesBannerProps> = ({
           const iconSrc = getUpcomingGameIconUrl(game);
           const expectedCount = game.expectedCodes?.length || 4;
 
+          const isLocalIcon = iconSrc.startsWith('/game_icons/');
+          const upcomingThumb1x = isLocalIcon
+            ? (iconSrc.includes('-thumb') ? iconSrc : iconSrc.replace(/\.webp$/i, '-thumb.webp'))
+            : iconSrc;
+          const upcomingThumb2x = isLocalIcon
+            ? (iconSrc.includes('-thumb') ? iconSrc.replace(/-thumb\.webp$/i, '-thumb-256.webp') : iconSrc.replace(/\.webp$/i, '-thumb-256.webp'))
+            : undefined;
+
           return (
             <div
               key={game.id || game.slug}
@@ -189,7 +197,8 @@ export const UpcomingGamesBanner: React.FC<UpcomingGamesBannerProps> = ({
                   <div className="w-8 h-8 sm:w-11 sm:h-11 rounded-lg sm:rounded-xl overflow-hidden bg-slate-800 border border-cyan-500/30 shrink-0 shadow-sm group-hover:scale-105 transition-transform flex items-center justify-center">
                     {iconSrc ? (
                       <img
-                        src={iconSrc}
+                        src={upcomingThumb1x}
+                        srcSet={upcomingThumb2x ? `${upcomingThumb1x} 1x, ${upcomingThumb2x} 2x` : undefined}
                         alt={game.name}
                         width={44}
                         height={44}

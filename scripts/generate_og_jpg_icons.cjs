@@ -12,12 +12,12 @@ async function main() {
   // Dọn dẹp các file -thumb.jpg nếu vô tình được sinh ra
   const allFiles = fs.readdirSync(iconsDir);
   for (const f of allFiles) {
-    if (f.endsWith('-thumb.jpg')) {
+    if (f.includes('-thumb') && f.endsWith('.jpg')) {
       try { fs.unlinkSync(path.join(iconsDir, f)); } catch {}
     }
   }
 
-  const files = fs.readdirSync(iconsDir).filter(f => f.endsWith('.webp') && !f.endsWith('-thumb.webp'));
+  const files = fs.readdirSync(iconsDir).filter(f => f.endsWith('.webp') && !f.includes('-thumb'));
   console.log(`Bắt đầu chuyển đổi ${files.length} icon webp sang jpg cho Open Graph / Zalo / Facebook...`);
 
   let count = 0;

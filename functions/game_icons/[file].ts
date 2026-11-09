@@ -52,7 +52,8 @@ export const onRequestGet = async (context: {
 
   const dotIndex = filename.lastIndexOf('.');
   const slug = (dotIndex >= 0 ? filename.slice(0, dotIndex) : filename).toLowerCase().trim();
-  const baseSlug = slug.replace(/-thumb$/i, '');
+  const isThumb = slug.includes('-thumb');
+  const baseSlug = slug.replace(/-thumb(?:-256)?$/i, '');
 
   // 1. Kiểm tra Cloudflare Edge Cache
   const cache = typeof caches !== 'undefined' ? (caches as any).default : null;
@@ -69,9 +70,10 @@ export const onRequestGet = async (context: {
   // 2. Tra cứu D1 bảng uploaded_game_icons trước (Ưu tiên cập nhật mới nhất từ D1 override file tĩnh cũ)
   if (env.DB) {
     try {
-      const row: any = await env.DB.prepare(
-        'SELECT content_type, image_base64, size_bytes FROM uploaded_game_icons WHERE slug = ? OR slug = ? LIMIT 1'
-      ).bind(slug, baseSlug).first();
+      // Nếu là thumb, CHỈ tìm chính xác slug thumbnail trong D1, KHÔNG fallback sang file gốc baseSlug
+      const row: any = isThumb
+        ? await env.DB.prepare('SELECT content_type, image_base64, size_bytes FROM uploaded_game_icons WHERE slug = ? LIMIT 1').bind(slug).first()
+        : await env.DB.prepare('SELECT content_type, image_base64, size_bytes FROM uploaded_game_icons WHERE slug = ? OR slug = ? LIMIT 1').bind(slug, baseSlug).first();
 
       if (row && row.image_base64) {
         const cleanB64 = String(row.image_base64).replace(/^data:image\/[a-zA-Z+]+;base64,/, '').trim();

@@ -285,6 +285,52 @@ async function runPrerender() {
   const canonicalGamesCount = games.length >= 590 ? games.length : 595;
   const homeDescription = `Kho tổng hợp hơn ${totalCodesFormatted}+ giftcode game mobile và webgame mới nhất 2026 của ${canonicalGamesCount} tựa game chuẩn. Cập nhật liên tục 24/7 từ các NPH VNG, Garena, VTC, SohaGame, Funtap.`;
 
+  // Load default upcoming games for prerendered banner (CLS optimization)
+  let prerenderUpcoming = [];
+  try {
+    const upcomingPath = path.resolve(__dirname, '../src/data/defaultUpcomingGames.ts');
+    if (fs.existsSync(upcomingPath)) {
+      const upStr = fs.readFileSync(upcomingPath, 'utf8');
+      const startIdx = upStr.indexOf('[');
+      const endIdx = upStr.lastIndexOf(']');
+      if (startIdx >= 0 && endIdx > startIdx) {
+        const upList = eval(upStr.substring(startIdx, endIdx + 1));
+        const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+        const now = Date.now();
+        prerenderUpcoming = upList
+          .filter(g => g && g.status !== 'CANCELLED' && g.status !== 'PENDING' && g.status !== 'LAUNCHED' && g.releaseDate && (now - new Date(g.releaseDate).getTime() <= ONE_DAY_MS))
+          .slice(0, 6);
+      }
+    }
+  } catch (err) {
+    console.warn('[Prerender] Lỗi nạp upcoming games:', err.message);
+  }
+
+  const upcomingCardsHtml = prerenderUpcoming.map(g => {
+    const slug = escapeHtml(g.slug || g.id);
+    const thumb1x = `/game_icons/${slug}-thumb.webp`;
+    const thumb2x = `/game_icons/${slug}-thumb-256.webp`;
+    return `
+      <div class="min-w-[145px] max-w-[155px] sm:min-w-[240px] sm:max-w-[260px] lg:min-w-0 lg:max-w-none shrink-0 bg-background/90 border border-border/80 rounded-xl p-2 sm:p-3 flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between gap-1 mb-1 sm:mb-2">
+            <span class="text-[9px] sm:text-[10px] font-semibold text-muted-foreground truncate max-w-[85px] sm:max-w-[100px]">${escapeHtml(g.category || 'Game')}</span>
+            <span class="px-1 sm:px-1.5 py-0.2 sm:py-0.5 rounded text-[8px] sm:text-[10px] font-bold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shrink-0">Mobile</span>
+          </div>
+          <div class="flex items-center gap-1.5 sm:gap-2.5 mb-1.5 sm:mb-2.5">
+            <div class="w-8 h-8 sm:w-11 sm:h-11 rounded-lg sm:rounded-xl overflow-hidden bg-slate-800 border border-cyan-500/30 shrink-0 flex items-center justify-center">
+              <img src="${thumb1x}" srcset="${thumb1x} 1x, ${thumb2x} 2x" alt="${escapeHtml(g.name)}" width="44" height="44" loading="lazy" decoding="async" class="w-full h-full object-cover">
+            </div>
+            <div class="min-w-0 flex-1">
+              <h3 class="font-heading font-bold text-[11px] sm:text-sm text-foreground truncate">${escapeHtml(g.name)}</h3>
+              <p class="text-[9px] sm:text-[11px] text-muted-foreground truncate">${escapeHtml(g.publisher || 'NPH')}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
   const homeHtml = buildPageHtml({
     title: 'CodeGame.shop - Săn Giftcode Miễn Phí & Giao Dịch Mã Game Uy Tín',
     description: homeDescription,
@@ -372,71 +418,171 @@ async function runPrerender() {
           </nav>
         </header>
 
-        <!-- Hero Section -->
-        <section class="critical-hero-banner py-6 sm:py-10 px-4 sm:px-6 lg:px-8 text-center bg-[#0e1222] text-gray-100 border-b border-gray-800/80">
-          <div class="max-w-4xl mx-auto space-y-3">
-            <div class="inline-block px-3 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-bold border border-emerald-500/30">
-              ✨ Cập nhật liên tục 24/7 từ các Nhà phát hành Game
-            </div>
-            <h1 class="text-xl sm:text-3xl md:text-4xl font-black tracking-tight text-white">
-              Kho Giftcode Game Mobile & Webgame Mới Nhất 2026
-            </h1>
-            <p class="text-xs sm:text-sm text-gray-400 max-w-2xl mx-auto font-normal">
-              Tìm kiếm và nhận mã thưởng game mới nhất từ các Nhà phát hành chính thức.
-            </p>
-          </div>
-        </section>
-
-        <!-- Main Catalog Container -->
-        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div class="p-4 rounded-2xl bg-emerald-900/10 border border-emerald-500/20 text-xs text-emerald-300 mb-8">
-            <strong>Thông Tin Pháp Lý & Giấy Phép:</strong> Tra cứu thông tin phát hành và Giấy phép phê duyệt nội dung kịch bản G1 đối chiếu từ Cục Phát thanh, Truyền hình và Thông tin điện tử (giayphep.abei.gov.vn).
-          </div>
-
-          <h2 class="text-lg sm:text-xl font-black text-white mb-5 flex items-center space-x-2">
-            <span>Danh Sách Tựa Game Bản Quyền Có Giftcode Hoạt Động</span>
-          </h2>
-
-          <div class="critical-cards-grid grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5 sm:gap-4">
-            ${homeTopGames
-              .map(
-                (g) => `
-              <a href="/game/${escapeHtml(g.slug)}" class="critical-card-item flex flex-col justify-between bg-[#11162B] hover:bg-[#161D36] p-2.5 sm:p-3 rounded-xl sm:rounded-2xl border border-gray-800/80 hover:border-emerald-500/40 transition-all text-left group">
-                <div>
-                  <div class="flex items-start justify-between gap-1 mb-2">
-                    <img src="/game_icons/${escapeHtml(g.slug)}-thumb.webp" srcset="/game_icons/${escapeHtml(g.slug)}-thumb.webp 1x, /game_icons/${escapeHtml(g.slug)}.webp 2x" alt="${escapeHtml(g.name)}" width="48" height="48" loading="lazy" decoding="async" class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl object-cover border border-gray-700/60 shrink-0">
-                  </div>
-                  <h3 class="font-bold text-xs sm:text-sm text-gray-100 group-hover:text-emerald-400 line-clamp-1">${escapeHtml(g.name)}</h3>
-                  <span class="text-[11px] text-gray-400 truncate block mt-0.5">${escapeHtml(g.publisher || 'NPH Việt Nam')}</span>
-                </div>
-                <div class="mt-2 text-[10px] font-bold text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded-md self-start border border-emerald-500/30">
-                  🎁 ${g.free_codes_count || 10}+ Giftcode
-                </div>
-              </a>`
-              )
-              .join('')}
-          </div>
-
-          <!-- Tin Tức & Cẩm Nang Giftcode Mới Nhất (P2-3) -->
-          <section class="mt-12 pt-8 border-t border-gray-800">
-            <div class="flex items-center justify-between mb-5">
-              <h2 class="text-lg sm:text-xl font-black text-white flex items-center space-x-2">
-                <span>📰 Tin Tức & Cẩm Nang Giftcode Mới Nhất 2026</span>
-              </h2>
-              <a href="/news/" class="text-xs font-bold text-brand-400 hover:text-brand-300">Xem tất cả ${newsArticles.length}+ bài viết →</a>
-            </div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-              ${homeLatestNews.map(a => `
-                <a href="/news/${escapeHtml(a.slug || a.id)}" class="flex flex-col justify-between bg-[#11162B] hover:bg-[#161D36] p-2.5 rounded-xl border border-gray-800/80 hover:border-emerald-500/40 transition-all text-left group">
-                  <div>
-                    <img src="${escapeHtml(a.cover_image || a.image_url || '/og-image.jpg')}" alt="${escapeHtml(a.title)}" width="180" height="100" loading="lazy" decoding="async" class="w-full aspect-video rounded-lg object-cover mb-2 border border-gray-700/60" />
-                    <h3 class="font-bold text-xs text-gray-100 group-hover:text-emerald-400 line-clamp-2">${escapeHtml(a.title)}</h3>
-                  </div>
-                  <span class="text-[10px] text-gray-400 mt-2 block">${escapeHtml(a.published_at ? a.published_at.slice(0, 10) : '2026-11-09')}</span>
-                </a>
-              `).join('')}
+        <!-- Main Content Area: Aligned with App.tsx React structure to eliminate CLS -->
+        <main class="flex-1 pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-0">
+          <!-- Hero Section -->
+          <section class="critical-hero-banner py-6 sm:py-10 px-4 sm:px-6 lg:px-8 text-center bg-[#0e1222] text-gray-100 border-b border-gray-800/80">
+            <div class="max-w-4xl mx-auto space-y-3">
+              <div class="inline-block px-3 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-bold border border-emerald-500/30">
+                ✨ Cập nhật liên tục 24/7 từ các Nhà phát hành Game
+              </div>
+              <h1 class="text-xl sm:text-3xl md:text-4xl font-black tracking-tight text-white">
+                Kho Giftcode Game Mobile & Webgame Mới Nhất 2026
+              </h1>
+              <p class="text-xs sm:text-sm text-gray-400 max-w-2xl mx-auto font-normal">
+                Tìm kiếm và nhận mã thưởng game mới nhất từ các Nhà phát hành chính thức.
+              </p>
             </div>
           </section>
+
+          <!-- Main Catalog Section Container: Exactly matches React DOM to prevent CLS -->
+          <div id="game-catalog-section" class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-1.5 sm:py-8">
+            <!-- 1. PinnedGamesBar Initial Invitation -->
+            <div class="mb-2 sm:mb-6 rounded-2xl bg-card/60 border border-border/60 p-2.5 sm:p-4 backdrop-blur-md shadow-sm transition-all">
+              <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-3">
+                <div class="flex items-center gap-2 sm:gap-3">
+                  <div class="w-6 h-6 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0 shadow-inner">
+                    <svg class="w-3.5 h-3.5 sm:w-5 sm:h-5 fill-amber-400/50" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>
+                  </div>
+                  <div>
+                    <div class="flex items-center gap-1.5 sm:gap-2">
+                      <span class="font-heading font-bold text-xs sm:text-base text-foreground flex items-center gap-1.5">Game Đang Theo Dõi</span>
+                      <span class="px-1.5 py-0.2 rounded-full text-[9px] sm:text-[11px] font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30">Tự Động Ghim</span>
+                    </div>
+                    <p class="text-[10px] sm:text-xs text-muted-foreground mt-0.5 line-clamp-1 sm:line-clamp-none">
+                      Nhấn <span class="text-amber-400 font-semibold">🔖 Lưu</span> trên thẻ game hoặc <span class="text-cyan-400 font-semibold">🔔 Báo Code</span> để ghim ưu tiên lên đầu trang.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 2. Upcoming Games Banner Section -->
+            <div id="upcoming-games-banner-section">
+              <section class="mb-3 sm:mb-8 rounded-2xl bg-gradient-to-br from-card via-card/95 to-secondary/30 border border-cyan-500/25 p-2.5 sm:p-5 backdrop-blur-md shadow-lg shadow-cyan-500/5 transition-all relative overflow-hidden">
+                <div class="flex items-center justify-between gap-2 mb-2 sm:mb-4 pb-1.5 sm:pb-3 border-b border-border/50 relative z-10">
+                  <div class="flex items-center gap-1.5 sm:gap-2.5 min-w-0">
+                    <div class="w-6 h-6 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center text-slate-950 shadow-md shadow-cyan-500/20 shrink-0">
+                      <svg class="w-3.5 h-3.5 sm:w-5 sm:h-5 text-slate-950" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/></svg>
+                    </div>
+                    <div class="min-w-0">
+                      <div class="flex items-center gap-1.5 sm:gap-2">
+                        <h2 class="font-heading font-bold text-xs sm:text-base md:text-lg text-foreground tracking-tight whitespace-nowrap flex items-center gap-1.5">
+                          <span>Game Sắp Ra Mắt</span>
+                        </h2>
+                        <span class="hidden sm:inline-flex px-2 py-0.5 rounded-full text-xs font-bold bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+                          Lịch Mở Server
+                        </span>
+                      </div>
+                      <p class="hidden sm:block text-[11px] sm:text-xs text-muted-foreground line-clamp-1">
+                        Đồng hồ đếm ngược sống • Quà tân thủ dự kiến • Nhận code ngay khi mở server
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div class="flex lg:grid lg:grid-cols-6 gap-2 sm:gap-3.5 overflow-x-auto pb-1 sm:pb-1.5 lg:pb-0 scrollbar-none snap-x snap-mandatory relative z-10">
+                  ${upcomingCardsHtml}
+                </div>
+              </section>
+            </div>
+
+            <!-- 3. Telegram Banner -->
+            <div class="mb-4">
+              <div class="w-full max-w-7xl mx-auto my-2">
+                <div class="relative overflow-hidden rounded-2xl border border-sky-500/25 bg-gradient-to-r from-sky-950/40 via-slate-900/90 to-blue-950/40 p-3 sm:p-5 flex flex-col md:flex-row items-center justify-between gap-3 shadow-md backdrop-blur-sm">
+                  <div class="flex items-center gap-3 text-center sm:text-left">
+                    <div class="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-sky-500/15 border border-sky-500/30 flex items-center justify-center text-sky-400 shrink-0 shadow-inner">
+                      <svg class="w-4 h-4 sm:w-5 sm:h-5 text-sky-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                    </div>
+                    <div>
+                      <div class="flex items-center justify-center sm:justify-start gap-2">
+                        <h4 class="text-xs sm:text-base font-black text-white tracking-tight">Nhóm Telegram CodeGame.Shop</h4>
+                        <span class="px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold bg-sky-500/15 text-sky-300 border border-sky-500/30">Official</span>
+                      </div>
+                      <p class="text-[11px] sm:text-xs text-slate-300 mt-0.5">Nhận mã mới, sự kiện hot và nhắc hết hạn quà tặng tự động cùng cộng đồng.</p>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-center sm:justify-end">
+                    <a href="https://t.me/codegameshop" target="_blank" rel="noopener noreferrer" class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs transition-all shadow-sm">
+                      <span>Tham Gia Nhóm →</span>
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 4. CategoryFilter Horizontal Chips Bar -->
+            <div class="mb-3 sm:mb-6 w-full max-w-full">
+              <div class="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none w-full max-w-full flex-nowrap">
+                <span class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-primary text-white shadow-glow-primary shrink-0">
+                  🔥 <span>Tất cả</span>
+                  <span class="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-black/25 text-white/90">${canonicalGamesCount}</span>
+                </span>
+                <span class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-card border border-border text-slate-300 shrink-0">
+                  ✨ <span>Mới Cập Nhật</span>
+                </span>
+                <span class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-card border border-border text-slate-300 shrink-0">
+                  🎁 <span>Nhiều Code Nhất</span>
+                </span>
+              </div>
+            </div>
+
+            <!-- Legal Info Box -->
+            <div class="p-3.5 rounded-2xl bg-emerald-900/10 border border-emerald-500/20 text-xs text-emerald-300 mb-6">
+              <strong>Thông Tin Pháp Lý & Giấy Phép:</strong> Tra cứu thông tin phát hành và Giấy phép phê duyệt nội dung kịch bản G1 đối chiếu từ Cục Phát thanh, Truyền hình và Thông tin điện tử (giayphep.abei.gov.vn).
+            </div>
+
+            <h2 class="text-base sm:text-lg font-bold text-white mb-4 flex items-center space-x-2">
+              <span>Danh Sách Tựa Game Bản Quyền Có Giftcode Hoạt Động</span>
+            </h2>
+
+            <div class="critical-cards-grid grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5 sm:gap-4">
+              ${homeTopGames
+                .map(
+                  (g) => `
+                <a href="/game/${escapeHtml(g.slug)}" class="critical-card-item flex flex-col justify-between bg-[#11162B] hover:bg-[#161D36] p-2.5 sm:p-3 rounded-xl sm:rounded-2xl border border-gray-800/80 hover:border-emerald-500/40 transition-all text-left group">
+                  <div>
+                    <div class="flex items-start justify-between gap-1 mb-2">
+                      <img src="/game_icons/${escapeHtml(g.slug)}-thumb.webp" srcset="/game_icons/${escapeHtml(g.slug)}-thumb.webp 1x, /game_icons/${escapeHtml(g.slug)}-thumb-256.webp 2x" alt="${escapeHtml(g.name)}" width="48" height="48" loading="lazy" decoding="async" class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl object-cover border border-gray-700/60 shrink-0">
+                    </div>
+                    <h3 class="font-bold text-xs sm:text-sm text-gray-100 group-hover:text-emerald-400 line-clamp-1">${escapeHtml(g.name)}</h3>
+                    <span class="text-[11px] text-gray-400 truncate block mt-0.5">${escapeHtml(g.publisher || 'NPH Việt Nam')}</span>
+                  </div>
+                  <div class="mt-2 text-[10px] font-bold text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded-md self-start border border-emerald-500/30">
+                    🎁 ${g.free_codes_count || 10}+ Giftcode
+                  </div>
+                </a>`
+                )
+                .join('')}
+            </div>
+
+            <!-- Tin Tức & Cẩm Nang Giftcode Mới Nhất (P2-3) -->
+            <section class="mt-12 pt-8 border-t border-gray-800">
+              <div class="flex items-center justify-between mb-5">
+                <h2 class="text-lg sm:text-xl font-black text-white flex items-center space-x-2">
+                  <span>📰 Tin Tức & Cẩm Nang Giftcode Mới Nhất 2026</span>
+                </h2>
+                <a href="/news/" class="text-xs font-bold text-brand-400 hover:text-brand-300">Xem tất cả ${newsArticles.length}+ bài viết →</a>
+              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                ${homeLatestNews.map(a => {
+                  let cover = a.cover_url || a.thumbnail_url || (a.game_slug ? `/game_icons/${a.game_slug}-thumb.webp` : '/og-image-thumb.webp');
+                  if (cover.startsWith('/game_icons/') && !cover.includes('-thumb')) {
+                    cover = cover.replace(/\.webp$/i, '-thumb.webp');
+                  }
+                  return `
+                  <a href="/news/${escapeHtml(a.slug || a.id)}" class="flex flex-col justify-between bg-[#11162B] hover:bg-[#161D36] p-2.5 rounded-xl border border-gray-800/80 hover:border-emerald-500/40 transition-all text-left group">
+                    <div>
+                      <img src="${escapeHtml(cover)}" alt="${escapeHtml(a.title)}" width="180" height="100" loading="lazy" decoding="async" class="w-full aspect-video rounded-lg object-cover mb-2 border border-gray-700/60" />
+                      <h3 class="font-bold text-xs text-gray-100 group-hover:text-emerald-400 line-clamp-2">${escapeHtml(a.title)}</h3>
+                    </div>
+                    <span class="text-[10px] text-gray-400 mt-2 block">${escapeHtml(a.published_at ? a.published_at.slice(0, 10) : '2026-11-09')}</span>
+                  </a>`;
+                }).join('')}
+              </div>
+            </section>
+          </div>
+        </main>
 
           <!-- FAQ Section -->
           <section class="mt-14 pt-8 border-t border-gray-800">
@@ -1463,7 +1609,7 @@ async function runPrerender() {
                   .map(
                     (rg) => `
                   <a href="/game/${escapeHtml(rg.slug || rg.id)}" class="flex flex-col bg-dark-850 hover:bg-dark-800 p-2.5 rounded-xl border border-gray-800 hover:border-brand-500/40 transition-all text-left group">
-                    <img src="/game_icons/${escapeHtml(rg.slug || rg.id)}-thumb.webp" srcset="/game_icons/${escapeHtml(rg.slug || rg.id)}-thumb.webp 1x, /game_icons/${escapeHtml(rg.slug || rg.id)}.webp 2x" alt="${escapeHtml(rg.name)}" loading="lazy" class="w-full aspect-square rounded-lg object-cover mb-2 border border-gray-700/60">
+                    <img src="/game_icons/${escapeHtml(rg.slug || rg.id)}-thumb.webp" srcset="/game_icons/${escapeHtml(rg.slug || rg.id)}-thumb.webp 1x, /game_icons/${escapeHtml(rg.slug || rg.id)}-thumb-256.webp 2x" alt="${escapeHtml(rg.name)}" loading="lazy" class="w-full aspect-square rounded-lg object-cover mb-2 border border-gray-700/60">
                     <h3 class="font-bold text-xs text-gray-200 group-hover:text-brand-400 line-clamp-1">${escapeHtml(rg.name)}</h3>
                     <span class="text-[10px] text-gray-400 truncate mt-0.5">${escapeHtml(rg.publisher || 'NPH Việt Nam')}</span>
                   </a>`
@@ -1789,7 +1935,7 @@ async function runPrerender() {
                 <div class="az-grid">
                   ${groupGames.map((g) => {
                     const gSlug = escapeHtml(g.slug || g.id);
-                    return `<a href="/game/${gSlug}" class="az-c"><img src="/game_icons/${gSlug}-thumb.webp" srcset="/game_icons/${gSlug}-thumb.webp 1x, /game_icons/${gSlug}.webp 2x" alt="${escapeHtml(g.name)}" width="32" height="32" loading="lazy"><div><b>${escapeHtml(g.name)}</b><span>${escapeHtml(g.category || 'Game Mobile')}</span></div></a>`;
+                    return `<a href="/game/${gSlug}" class="az-c"><img src="/game_icons/${gSlug}-thumb.webp" srcset="/game_icons/${gSlug}-thumb.webp 1x, /game_icons/${gSlug}-thumb-256.webp 2x" alt="${escapeHtml(g.name)}" width="32" height="32" loading="lazy"><div><b>${escapeHtml(g.name)}</b><span>${escapeHtml(g.category || 'Game Mobile')}</span></div></a>`;
                   }).join('')}
                 </div>
               </section>`;

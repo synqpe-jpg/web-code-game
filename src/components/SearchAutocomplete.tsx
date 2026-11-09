@@ -114,7 +114,7 @@ const GameSearchIcon: React.FC<GameSearchIconProps> = ({ game, size = 'md' }) =>
           src={iconSrc}
           srcSet={
             game?.slug && iconSrc.includes('-thumb.webp')
-              ? `/game_icons/${game.slug}-thumb.webp 1x, /game_icons/${game.slug}.webp 2x`
+              ? `/game_icons/${game.slug}-thumb.webp 1x, /game_icons/${game.slug}-thumb-256.webp 2x`
               : undefined
           }
           alt={safeName}

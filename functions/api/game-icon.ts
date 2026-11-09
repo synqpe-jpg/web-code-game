@@ -66,7 +66,7 @@ export const onRequestGet = async (context: { request: Request; env: Env }) => {
           headers: new Headers({
             ...CORS_HEADERS,
             'Content-Type': contentType,
-            'Cache-Control': 'public, max-age=604800, s-maxage=2592000, stale-while-revalidate=86400',
+            'Cache-Control': 'public, max-age=31536000, immutable',
             'X-Image-Proxy-By': 'CodeGame-Edge-CDN',
           }),
         });
@@ -90,7 +90,7 @@ export const onRequestGet = async (context: { request: Request; env: Env }) => {
           headers: new Headers({
             ...CORS_HEADERS,
             'Content-Type': contentType,
-            'Cache-Control': 'public, max-age=604800, s-maxage=2592000',
+            'Cache-Control': 'public, max-age=31536000, immutable',
             'X-Image-Proxy-By': 'CodeGame-Local-Static',
           }),
         });
@@ -109,7 +109,7 @@ export const onRequestGet = async (context: { request: Request; env: Env }) => {
           headers: new Headers({
             ...CORS_HEADERS,
             'Content-Type': 'image/jpeg',
-            'Cache-Control': 'public, max-age=604800, s-maxage=2592000',
+            'Cache-Control': 'public, max-age=31536000, immutable',
             'X-Image-Proxy-By': 'CodeGame-Local-JPG',
           }),
         });
@@ -143,7 +143,7 @@ export const onRequestGet = async (context: { request: Request; env: Env }) => {
                 headers: new Headers({
                   ...CORS_HEADERS,
                   'Content-Type': remoteRes.headers.get('content-type') || 'image/webp',
-                  'Cache-Control': 'public, max-age=604800, s-maxage=2592000',
+                  'Cache-Control': 'public, max-age=31536000, immutable',
                   'X-Image-Proxy-By': 'CodeGame-D1-RemoteIcon',
                 }),
               });
@@ -185,7 +185,7 @@ export const onRequestGet = async (context: { request: Request; env: Env }) => {
               headers: new Headers({
                 ...CORS_HEADERS,
                 'Content-Type': contentType,
-                'Cache-Control': 'public, max-age=604800, s-maxage=2592000, stale-while-revalidate=86400',
+                'Cache-Control': 'public, max-age=31536000, immutable',
                 'X-Image-Proxy-By': 'CodeGame-Edge-GooglePlay',
               }),
             });
@@ -227,7 +227,7 @@ function generateFallbackSvgResponse(seed: string) {
     headers: {
       ...CORS_HEADERS,
       'Content-Type': 'image/svg+xml;charset=utf-8',
-      'Cache-Control': 'public, max-age=86400',
+      'Cache-Control': 'public, max-age=31536000, immutable',
     },
   });
 }

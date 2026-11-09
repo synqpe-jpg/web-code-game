@@ -128,6 +128,7 @@ export const PinnedGamesBar: React.FC<PinnedGamesBarProps> = ({
           const activeCodes = (game.codes || []).filter((c) => c.status !== 'expired');
           const codesCount = activeCodes.length || game.codes_count || 0;
           const iconSrc = game.slug ? `/game_icons/${game.slug}-thumb.webp` : (game.icon_url || '/logo.webp');
+          const iconSrcSet = game.slug ? `/game_icons/${game.slug}-thumb.webp 1x, /game_icons/${game.slug}-thumb-256.webp 2x` : undefined;
 
           return (
             <div
@@ -152,11 +153,16 @@ export const PinnedGamesBar: React.FC<PinnedGamesBarProps> = ({
                   <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl overflow-hidden bg-slate-800 border border-border/80 shrink-0 shadow-sm group-hover:scale-105 transition-transform">
                     <img
                       src={iconSrc}
+                      srcSet={iconSrcSet}
                       alt={game.name}
+                      width={40}
+                      height={40}
                       className="w-full h-full object-cover"
                       loading="lazy"
                       onError={(e) => {
-                        (e.target as HTMLImageElement).src = '/logo.webp';
+                        const target = e.target as HTMLImageElement;
+                        target.src = '/logo.webp';
+                        target.srcset = '';
                       }}
                     />
                   </div>

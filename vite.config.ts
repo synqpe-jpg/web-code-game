@@ -34,6 +34,10 @@ export default defineConfig({
           if (id.includes('utilities.json')) return 'utilities-data-fallback';
           if (id.includes('giveaways.json')) return 'giveaways-data-fallback';
           if (id.includes('defaultUpcomingGames')) return 'upcoming-games-fallback';
+          if (id.includes('marketingService')) return 'marketing-service';
+          if (id.includes('newsService')) return 'news-service';
+          if (id.includes('growthService')) return 'growth-service';
+          if (id.includes('authService')) return 'auth-service';
           if (id.includes('node_modules/lucide-react')) {
             return 'lucide-icons';
           }

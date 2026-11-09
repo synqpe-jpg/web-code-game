@@ -218,7 +218,7 @@ export const GameCard: React.FC<GameCardProps> = ({
           src={currentIconSrc}
           srcSet={
             game.slug && currentIconSrc.includes('-thumb.webp')
-              ? `/game_icons/${game.slug}-thumb.webp 1x, /game_icons/${game.slug}.webp 2x`
+              ? `/game_icons/${game.slug}-thumb.webp 1x, /game_icons/${game.slug}-thumb-256.webp 2x`
               : undefined
           }
           alt={game.name}
