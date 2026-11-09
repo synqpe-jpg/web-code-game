@@ -7,6 +7,24 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-09]
 
+### 354. Chuẩn Hóa HTTP HEAD Method & Đồng Bộ Edge Caching Headers 1 Giờ Trên Toàn Hệ Thống Cloudflare Worker và Headers Config
+- **Triệu chứng & Bối cảnh**:
+  - Khi kiểm tra bằng lệnh `curl -s -I https://codegame.shop/game/hiep-khach-hanh`, hệ thống trả về `Cache-Control: public, max-age=0, must-revalidate` và không có `X-Edge-Cache: HIT`. Trong khi đó request `GET` thông thường vẫn nhận đúng Edge Cache TTL 3600s.
+  - Header trang chủ `/` và file cấu hình `public/_headers` vẫn cấu hình `s-maxage=60` cũ.
+  - Báo cáo kiểm thử Zero Test Artifacts ghi nhận con số 12.855 code gây hiểu nhầm với con số 14.739 mã trên live CSDL D1.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Lệnh curl -I gửi request HTTP HEAD*: `functions/_worker.ts` chỉ kiểm tra điều kiện `request.method === 'GET'`. Do đó, mọi request HEAD kiểm tra header bị bypass khỏi route SEO & Edge Cache, rơi xuống tầng static asset mặc định của Cloudflare Pages với `Cache-Control: public, max-age=0, must-revalidate`.
+  2. *Lệch pha Cache-Control giữa _headers và Worker*: `public/_headers` và dòng 1158 của `functions/_worker.ts` vẫn để cấu hình `s-maxage=60` cũ cho `/`, `/index.html`, `/*.html`.
+  3. *Nguồn số liệu của test audit*: Script `scripts/audit_zero_test_artifacts.cjs` đọc kho giftcode fallback tĩnh offline nén trong repo (`src/data/crawled_codes_188.json`: 12.855 mã), khác với tổng số mã thời gian thực trên CSDL D1 live (14.739 mã).
+- **Giải pháp triệt để đã triển khai (Solution Applied)**:
+  1. Mở rộng điều kiện kiểm tra cho cả `GET` và `HEAD`: `(request.method === 'GET' || request.method === 'HEAD')` tại tất cả các route SEO (`/game/`, `/news/`, `/the-loai/`, `/danh-sach-game-a-z`, `/nhiem-vu`, `/missions`) và trang chủ `/`.
+  2. Xử lý chuẩn HTTP RFC 9110: Trả về body rỗng `null` với đầy đủ headers chuẩn xác cho request HEAD khi trúng Edge Cache hoặc Miss.
+  3. Đồng bộ chuẩn `Cache-Control: public, max-age=120, s-maxage=3600, stale-while-revalidate=86400` trên toàn bộ `public/_headers` (`/`, `/index.html`, `/*.html`) và Worker (trang chủ và renderSeoHtml).
+  4. Cập nhật `scripts/audit_zero_test_artifacts.cjs` để hiển thị rõ ràng: 12.855 mã là dữ liệu tĩnh offline fallback trong repo, còn CSDL D1 live là 14.739 mã thời gian thực.
+- **Kiểm thử & Nghiệm thu**:
+  - `curl -s -I` và `curl GET` trên production đều nhận chính xác `Cache-Control: public, max-age=120, s-maxage=3600, stale-while-revalidate=86400` và `X-Edge-Cache: HIT` từ lần gọi thứ 2.
+  - TTFB ổn định < 0.8s.
+
 ### 353. Tối Ưu Hóa SEO & Hiệu Năng Toàn Diện Giai Đoạn P1 & P2: Giảm TTFB Edge Cache, Tách Bundle JS Core Dưới 150 KB Gzip, Non-blocking Google Fonts, Tinh Gọn Trang A-Z Dưới 200 KB & Khắc Phục CLS
 - **Triệu chứng & Bối cảnh**:
   - TTFB đo trên trang game ~652 ms do Worker phải đọc D1/KV cho mỗi request, header `Cache-Control` trước đó là `no-cache, no-store, must-revalidate`.

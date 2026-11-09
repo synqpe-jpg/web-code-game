@@ -10,6 +10,19 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-253: Bẫy Chỉ Kiểm Tra request.method === 'GET' Trong Cloudflare Edge Worker Khiến Request HEAD (curl -s -I) Bị Rơi Xuống Static Asset Và Trả Cache-Control Cũ
+- **Triệu chứng & Rủi ro**:
+  1. Khi người dùng hoặc bot gửi request kiểm tra bằng lệnh `curl -s -I <url>` (gửi method HTTP `HEAD`), nếu Worker chỉ kiểm tra `if (request.method === 'GET')`, request `HEAD` sẽ không khớp route SEO / Edge Cache và rơi xuống bộ phục vụ static asset mặc định của Cloudflare Pages.
+  2. Hậu quả là request `HEAD` trả về `Cache-Control: public, max-age=0, must-revalidate` và thiếu hoàn toàn các header tối ưu như `X-Edge-Cache: HIT`, dù request `GET` nội dung vẫn trả cache chuẩn.
+  3. Ngoài ra nếu `public/_headers` còn lưu các cấu hình `s-maxage=60` cũ cho `/index.html` hoặc `/*.html`, Cloudflare Pages edge router có thể ưu tiên header của static asset làm giảm thời gian cache trên CDN.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Hỗ trợ chuẩn HTTP HEAD theo RFC 9110*: Luôn kiểm tra `(request.method === 'GET' || request.method === 'HEAD')` tại tất cả các route SEO và trang chủ trong Worker.
+  2. *Trả body null cho request HEAD*: Với request HEAD, lấy headers từ cache hoặc render nhưng truyền `body: null` vào `Response` constructor.
+  3. *Đồng bộ cấu hình Cache-Control*: Cập nhật đồng bộ `public/_headers` và Worker thành `Cache-Control: public, max-age=120, s-maxage=3600, stale-while-revalidate=86400`.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không chỉ kiểm tra duy nhất `request.method === 'GET'` cho các endpoint HTML/SEO cần cache edge.*
+  - ❌ *Không để lệch cấu hình `Cache-Control` giữa `public/_headers` và `functions/_worker.ts`.*
+
 ### ISSUE-252: Bẫy Bundle Toàn Bộ Dữ Liệu Tĩnh Vào index.js, Thiếu Cache-Control Trên Worker Render SEO & Bẫy HTML Trang A-Z Phình To Hơn 800 KB
 - **Triệu chứng & Rủi ro**:
   1. TTFB trên trang chi tiết game và bài viết đạt tới 650 ms do `renderSeoHtml` trả về header `Cache-Control: no-cache, no-store`, ngăn cản Cloudflare CDN Edge lưu cache HTML đã render.

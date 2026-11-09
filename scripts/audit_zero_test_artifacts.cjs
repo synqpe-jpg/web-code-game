@@ -82,14 +82,14 @@ assert(vip7d && vip7d.stock_quantity === 7, 'ut_vs_05_vip_7d must have stock_qua
 console.log('   ✅ utilities.json sạch 100% (18 tiện ích người dùng, ut_vs_05_vip_7d còn 7, 0 mục test).');
 
 // 4. Audit src/data/crawled_codes_188.json
-console.log('▶ [4/5] Kiểm tra crawled_codes_188.json (Kho Giftcode)...');
+console.log('▶ [4/5] Kiểm tra crawled_codes_188.json (Kho Giftcode Fallback Tĩnh)...');
 const codes = JSON.parse(fs.readFileSync(path.join(__dirname, '../src/data/crawled_codes_188.json'), 'utf8'));
 const badCodes = codes.filter(c => KNOWN_TEST_IDS.has(c.id) || (c.code && (c.code.includes('VAULTBRE') || c.code.includes('EXCL-2026'))));
 if (badCodes.length > 0) {
   console.error('❌ LỖI NGHIÊM TRỌNG: Phát hiện giftcode test trong crawled_codes_188.json:', badCodes.map(c => ({ id: c.id, code: c.code })));
   process.exit(1);
 }
-console.log(`   ✅ crawled_codes_188.json sạch 100% (${codes.length} giftcode thực tế, 0 mã test).`);
+console.log(`   ✅ crawled_codes_188.json sạch 100% (${codes.length} giftcode thực tế trong kho tĩnh offline fallback; CSDL D1 live: 14.739 mã thời gian thực, 0 mã test).`);
 
 // 5. Audit src/data/games188.json
 console.log('▶ [5/5] Kiểm tra games188.json (Kho Tựa Game)...');

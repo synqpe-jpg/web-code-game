@@ -1124,8 +1124,8 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
         return await handleDynamicSitemap(request, env, ctx);
       }
 
-      // Root Homepage HTML - Always fresh to guarantee chunk integrity
-      if (request.method === 'GET' && (pathname === '/' || pathname === '/index.html')) {
+      // Root Homepage HTML - Edge Cache TTL 3600s
+      if ((request.method === 'GET' || request.method === 'HEAD') && (pathname === '/' || pathname === '/index.html')) {
         // Tự động chuyển hướng 301 về URL canonical /game/:slug nếu người dùng hoặc bot truy cập qua ?game= hoặc ?g=
         const gameQueryParam = url.searchParams.get('game') || url.searchParams.get('g');
         if (gameQueryParam) {
@@ -1139,38 +1139,44 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
         if (pageNum > 1) {
           return await renderSeoHtml(request, env, pathname);
         }
-        const cfCache = typeof caches !== 'undefined' ? (caches as any).default : null;
+        const isFresh = url.searchParams.has('fresh') || url.searchParams.has('nocache') || url.searchParams.has('_t');
+        const cfCache = (typeof caches !== 'undefined' && !isFresh) ? (caches as any).default : null;
         const cacheKey = new Request(`${url.origin}/`, { method: 'GET' });
+        const isHead = request.method === 'HEAD';
         if (cfCache) {
           try {
             const cached = await cfCache.match(cacheKey);
             if (cached) {
-              const res = new Response(cached.body, cached);
+              const res = new Response(isHead ? null : cached.body, cached);
               res.headers.set('cf-cache-status', 'HIT');
+              res.headers.set('X-Edge-Cache', 'HIT');
               return res;
             }
           } catch {}
         }
 
-        const assetResponse = await env.ASSETS.fetch(request);
+        const assetResponse = await env.ASSETS.fetch(isHead ? new Request(request.url, { method: 'GET' }) : request);
         if (assetResponse.status === 200) {
           const headers = new Headers(assetResponse.headers);
-          headers.set('Cache-Control', 'public, max-age=0, s-maxage=60, stale-while-revalidate=300');
+          headers.set('Cache-Control', 'public, max-age=120, s-maxage=3600, stale-while-revalidate=86400');
           headers.delete('Pragma');
           headers.delete('Expires');
-          const finalRes = new Response(assetResponse.body, { status: 200, headers });
+          const cacheRes = new Response(assetResponse.body, { status: 200, headers });
           if (cfCache && ctx.waitUntil) {
             try {
-              ctx.waitUntil(cfCache.put(cacheKey, finalRes.clone()));
+              ctx.waitUntil(cfCache.put(cacheKey, cacheRes.clone()));
             } catch {}
           }
-          return finalRes;
+          if (isHead) {
+            return new Response(null, { status: 200, headers });
+          }
+          return cacheRes;
         }
         return assetResponse;
       }
 
       // Luôn phục vụ trang game, tin tức, danh mục A-Z, chuyên mục thể loại, nhiệm vụ & sự kiện giveaway qua renderSeoHtml (Kèm Edge Cache TTL 3600s)
-      if (request.method === 'GET' && (
+      if ((request.method === 'GET' || request.method === 'HEAD') && (
         pathname.startsWith('/game/') ||
         pathname.startsWith('/g/') ||
         pathname.startsWith('/news/') ||
@@ -1187,11 +1193,12 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
         const isFresh = url.searchParams.has('fresh') || url.searchParams.has('nocache') || url.searchParams.has('_t');
         const cfCache = (typeof caches !== 'undefined' && !isFresh) ? (caches as any).default : null;
         const cacheKey = new Request(`${url.origin}${url.pathname}`, { method: 'GET' });
+        const isHead = request.method === 'HEAD';
         if (cfCache) {
           try {
             const cached = await cfCache.match(cacheKey);
             if (cached) {
-              const res = new Response(cached.body, cached);
+              const res = new Response(isHead ? null : cached.body, cached);
               res.headers.set('cf-cache-status', 'HIT');
               res.headers.set('X-Edge-Cache', 'HIT');
               return res;
@@ -1204,6 +1211,13 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
           try {
             ctx.waitUntil(cfCache.put(cacheKey, seoRes.clone()));
           } catch {}
+        }
+        if (isHead) {
+          return new Response(null, {
+            status: seoRes.status,
+            statusText: seoRes.statusText,
+            headers: seoRes.headers,
+          });
         }
         return seoRes;
       }
