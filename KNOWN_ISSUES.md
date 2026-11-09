@@ -10,6 +10,22 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-246: Bẫy Mặc Định Kiểm Tra !== false Cho Trường Boolean Mới Sinh Gây Áp Nhầm Giá Ưu Đãi Trên Toàn Bộ Danh Mục & Bẫy Khuyết Cờ Khi Nhóm Theme Tiện Ích
+- **Triệu chứng & Rủi ro**:
+  1. Khi một tính năng ưu đãi (như Mua Lần Đầu 2.000 Core) sử dụng logic kiểm tra điều kiện lỏng lẻo `defaultEligible = pkg.first_purchase_enabled !== false`:
+     - Nếu một danh mục sản phẩm (như Tiện ích `utilities`) chưa từng được trang bị cờ `first_purchase_enabled`, trường này trong đối tượng JavaScript là `undefined`.
+     - Phép so sánh `undefined !== false` trả về `true`! Hậu quả là toàn bộ các tiện ích có giá sau giảm $\le 30.000$ (như 6 gói VS Phone) bị đánh đồng là "đủ điều kiện ưu đãi" và tự động hiển thị giá 2.000 Core thay vì giá bán thông thường giảm 5%.
+  2. Bẫy khuyết trường khi nhóm dữ liệu (Grouping Transformation):
+     - Khi sử dụng hàm gom nhóm sản phẩm theo chủ đề (như `groupUtilitiesByTheme` trong `productPackageUtils.ts`), nếu hàm map biến thể (`packages.map`) chỉ sao chép một số thuộc tính cơ bản (`id`, `name`, `price`, `stock`) mà quên chuyển tiếp các cờ chiến dịch (`first_purchase_enabled`, `first_purchase_price`, `first_purchase_max_price`), các gói biến thể thời hạn sinh ra sẽ bị mất cờ gốc và rơi vào bẫy `undefined`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Luôn sử dụng kiểm tra rõ ràng kiểu Boolean (`isFlagEnabled = pkg.first_purchase_enabled === true || pkg.first_purchase_enabled === 1 || String(pkg.first_purchase_enabled) === '1' || String(pkg.first_purchase_enabled) === 'true'`).
+  2. Tuyệt đối không suy diễn `undefined` là `true` đối với các chiến dịch giảm giá tài chính. Mặc định nếu không có cờ hoặc cờ chưa bật thì coi như KHÔNG đủ điều kiện (`eligible = false`).
+  3. Trong mọi hàm biến đổi gom nhóm (Theme grouping, Package flattening): bắt buộc phải chuyển tiếp toàn bộ 3 trường `first_purchase_enabled`, `first_purchase_price`, `first_purchase_max_price` từ sản phẩm cha hoặc sản phẩm con.
+  4. Đảm bảo toàn bộ tiện ích trong CSDL D1 và dữ liệu tĩnh baseline (`utilities.json`) đều được khởi tạo rõ ràng `first_purchase_enabled = false`, `first_purchase_price = null`, `first_purchase_max_price = null`.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không dùng `pkg.first_purchase_enabled !== false` để kiểm tra điều kiện áp dụng ưu đãi.*
+  - ❌ *Không bỏ quên việc chuyển tiếp 3 trường cờ chiến dịch trong `getProductPackages` và `groupUtilitiesByTheme`.*
+
 ### ISSUE-245: Bẫy Nhồi Quá Nhiều Tab Trên Mobile Bottom Nav Gây Vỡ Giao Diện & Bẫy Xung Đột z-index Khi Mở Modal Lồng Từ User Profile
 - **Triệu chứng & Rủi ro**:
   1. Khi đưa quá nhiều tính năng (trên 6 tab) lên thanh điều hướng dưới cùng của điện thoại (`MobileBottomNav.tsx`), chiều rộng mỗi nút bấm bị ép xuống dưới 40px (trong khi tiêu chuẩn cảm ứng WCAG/Apple/Google yêu cầu $\ge 44\text{px}$). Chữ bị rớt dòng, icon bị đè và người dùng liên tục bấm nhầm tab.

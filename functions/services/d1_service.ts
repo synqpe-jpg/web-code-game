@@ -100,6 +100,11 @@ export function isProductExcludedFromFirstPurchase(
     return isExplicitlyDisabled;
   }
 
+  // Tiện ích (id bắt đầu bằng ut_ hoặc là utility): Mặc định là tắt (bị loại trừ) nếu chưa bật cờ
+  if (product.id && product.id.startsWith('ut_')) {
+    return true;
+  }
+
   // Phòng thủ: Nếu excludedList không phải là mảng hoặc rỗng -> coi như không loại trừ (không ném lỗi)
   if (!excludedList || !Array.isArray(excludedList) || excludedList.length === 0) return false;
   const prodId = (product.id || '').trim().toLowerCase();
@@ -1210,6 +1215,19 @@ export async function ensureSchemaUpgrades(db: D1Database): Promise<void> {
   } catch {}
   try {
     await db.prepare("ALTER TABLE utilities ADD COLUMN show_sold_count INTEGER DEFAULT 1;").run().catch(() => {});
+  } catch {}
+  try {
+    await db.prepare("ALTER TABLE utilities ADD COLUMN first_purchase_enabled INTEGER DEFAULT 0;").run().catch(() => {});
+  } catch {}
+  try {
+    await db.prepare("ALTER TABLE utilities ADD COLUMN first_purchase_price INTEGER;").run().catch(() => {});
+  } catch {}
+  try {
+    await db.prepare("ALTER TABLE utilities ADD COLUMN first_purchase_max_price INTEGER;").run().catch(() => {});
+  } catch {}
+  try {
+    // Đảm bảo toàn bộ tiện ích có first_purchase_enabled = 0 nếu còn NULL
+    await db.prepare("UPDATE utilities SET first_purchase_enabled = 0 WHERE first_purchase_enabled IS NULL;").run().catch(() => {});
   } catch {}
   try {
     await db.prepare("ALTER TABLE store_products ADD COLUMN package_type TEXT DEFAULT 'pack';").run().catch(() => {});
@@ -3336,6 +3354,9 @@ export async function loadAllUtilitiesD1(db: D1Database): Promise<any[]> {
           COALESCE(u.warranty_text, '') AS warranty_text,
           COALESCE(u.show_warranty, 1) AS show_warranty,
           COALESCE(u.product_images, '[]') AS product_images,
+          COALESCE(u.first_purchase_enabled, 0) AS first_purchase_enabled,
+          u.first_purchase_price,
+          u.first_purchase_max_price,
           u.created_at
         FROM utilities u
         LEFT JOIN (
@@ -3365,6 +3386,9 @@ export async function loadAllUtilitiesD1(db: D1Database): Promise<any[]> {
           COALESCE(u.instructions, '') AS instructions,
           COALESCE(u.virtual_sold_count, 0) AS virtual_sold_count,
           COALESCE(u.show_sold_count, 1) AS show_sold_count,
+          COALESCE(u.first_purchase_enabled, 0) AS first_purchase_enabled,
+          u.first_purchase_price,
+          u.first_purchase_max_price,
           u.created_at
         FROM utilities u
         WHERE u.is_active = 1
@@ -3407,6 +3431,9 @@ export async function loadAllUtilitiesD1(db: D1Database): Promise<any[]> {
         product_images: productImages.length > 0 ? productImages : (meta.product_images || ['/vs-phone-logo.png']),
         description: r.description || meta.description || '',
         instructions: r.instructions || meta.instructions || '',
+        first_purchase_enabled: r.first_purchase_enabled === 1 || r.first_purchase_enabled === true || String(r.first_purchase_enabled) === '1',
+        first_purchase_price: (r.first_purchase_price !== null && r.first_purchase_price !== undefined && !isNaN(Number(r.first_purchase_price))) ? Number(r.first_purchase_price) : ((meta.first_purchase_price !== null && meta.first_purchase_price !== undefined && !isNaN(Number(meta.first_purchase_price))) ? Number(meta.first_purchase_price) : null),
+        first_purchase_max_price: (r.first_purchase_max_price !== null && r.first_purchase_max_price !== undefined && !isNaN(Number(r.first_purchase_max_price))) ? Number(r.first_purchase_max_price) : ((meta.first_purchase_max_price !== null && meta.first_purchase_max_price !== undefined && !isNaN(Number(meta.first_purchase_max_price))) ? Number(meta.first_purchase_max_price) : null),
       };
     });
   } catch {

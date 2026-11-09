@@ -14,7 +14,12 @@ export function getProductPackages(product: StoreProduct | UtilityProduct): Prod
   if (!product) return [];
 
   if (Array.isArray(product.packages) && product.packages.length > 0) {
-    return product.packages;
+    return product.packages.map((pkg) => ({
+      ...pkg,
+      first_purchase_enabled: pkg.first_purchase_enabled !== undefined ? pkg.first_purchase_enabled : (product as any).first_purchase_enabled,
+      first_purchase_price: pkg.first_purchase_price !== undefined ? pkg.first_purchase_price : (product as any).first_purchase_price,
+      first_purchase_max_price: pkg.first_purchase_max_price !== undefined ? pkg.first_purchase_max_price : (product as any).first_purchase_max_price,
+    }));
   }
 
   // Fallback 100% cho sản phẩm cũ đơn gói
@@ -37,6 +42,9 @@ export function getProductPackages(product: StoreProduct | UtilityProduct): Prod
       escalating_completed_count: (product as any).escalating_completed_count,
       escalating_current_price: (product as any).escalating_current_price,
       escalating_next_price: (product as any).escalating_next_price,
+      first_purchase_enabled: (product as any).first_purchase_enabled,
+      first_purchase_price: (product as any).first_purchase_price,
+      first_purchase_max_price: (product as any).first_purchase_max_price,
     },
   ];
 }
@@ -329,6 +337,10 @@ export function groupUtilitiesByTheme(utilities: UtilityProduct[]): UtilityProdu
         note: 'Giao tài khoản tự động trong 0 giây',
         description: subItem.description,
         is_active: subItem.is_active !== false,
+        sale_mode: subItem.sale_mode || 'normal',
+        first_purchase_enabled: subItem.first_purchase_enabled,
+        first_purchase_price: subItem.first_purchase_price,
+        first_purchase_max_price: subItem.first_purchase_max_price,
       };
     });
 

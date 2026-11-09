@@ -61,6 +61,8 @@ import * as telegramAdminApi from './api/telegram/admin';
 import * as telegramManageApi from './api/telegram/manage';
 import * as telegramUserApi from './api/telegram/user';
 import * as firstPurchaseAdminApi from './api/admin/first-purchase';
+import * as adminUtilitiesFirstPurchaseApi from './api/admin/utilities/first-purchase';
+import * as adminStoreFirstPurchaseApi from './api/admin/store/first-purchase';
 import * as auditLogAdminApi from './api/admin/audit-log';
 import * as adminMembersAdjustBalanceApi from './api/admin/members/adjust-balance';
 import * as storeMyOfferApi from './api/store/my-offer';
@@ -637,6 +639,34 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
       ) {
         if (method === 'OPTIONS') return await adminMembersAdjustBalanceApi.onRequestOptions();
         if (method === 'POST') return await adminMembersAdjustBalanceApi.onRequestPost(context);
+        return new Response(JSON.stringify({ success: false, error: 'Method not allowed' }), {
+          status: 405,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      // 8c-8. /api/admin/utilities/first-purchase (Utilities First Purchase Offer Config API)
+      if (
+        pathname === '/api/admin/utilities/first-purchase' ||
+        pathname.startsWith('/api/admin/utilities/first-purchase/')
+      ) {
+        if (method === 'OPTIONS') return await adminUtilitiesFirstPurchaseApi.onRequestOptions(context);
+        if (method === 'PUT') return await adminUtilitiesFirstPurchaseApi.onRequestPut(context);
+        if (method === 'GET') return await adminUtilitiesFirstPurchaseApi.onRequestGet(context);
+        return new Response(JSON.stringify({ success: false, error: 'Method not allowed' }), {
+          status: 405,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      // 8c-9. /api/admin/store/first-purchase (Store Products First Purchase Offer Config API)
+      if (
+        pathname === '/api/admin/store/first-purchase' ||
+        pathname.startsWith('/api/admin/store/first-purchase/')
+      ) {
+        if (method === 'OPTIONS') return await adminStoreFirstPurchaseApi.onRequestOptions(context);
+        if (method === 'PUT') return await adminStoreFirstPurchaseApi.onRequestPut(context);
+        if (method === 'GET') return await adminStoreFirstPurchaseApi.onRequestGet(context);
         return new Response(JSON.stringify({ success: false, error: 'Method not allowed' }), {
           status: 405,
           headers: { 'Content-Type': 'application/json' },

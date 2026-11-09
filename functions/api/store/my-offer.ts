@@ -80,11 +80,23 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         `SELECT ${selectFields} FROM store_products WHERE game_slug = ? AND is_active = 1`
       ).bind(gameSlug).all<any>();
       productRows = res.results || [];
+      const utRes = await env.DB.prepare(
+        `SELECT id, title, COALESCE(game_slug, '') as game_slug, COALESCE(game_name, '') as game_name, current_price, original_price, is_active, 'normal' as sale_mode, 0 as escalating_base_price, 0 as escalating_step, null as escalating_max_price, first_purchase_enabled, first_purchase_price, first_purchase_max_price FROM utilities WHERE (game_slug = ? OR category = ?) AND is_active = 1`
+      ).bind(gameSlug, gameSlug).all<any>().catch(() => ({ results: [] }));
+      if (utRes?.results && utRes.results.length > 0) {
+        productRows = productRows.concat(utRes.results);
+      }
     } else {
       const res = await env.DB.prepare(
         `SELECT ${selectFields} FROM store_products WHERE is_active = 1 LIMIT 500`
       ).all<any>();
       productRows = res.results || [];
+      const utRes = await env.DB.prepare(
+        `SELECT id, title, COALESCE(game_slug, '') as game_slug, COALESCE(game_name, '') as game_name, current_price, original_price, is_active, 'normal' as sale_mode, 0 as escalating_base_price, 0 as escalating_step, null as escalating_max_price, first_purchase_enabled, first_purchase_price, first_purchase_max_price FROM utilities WHERE is_active = 1`
+      ).all<any>().catch(() => ({ results: [] }));
+      if (utRes?.results && utRes.results.length > 0) {
+        productRows = productRows.concat(utRes.results);
+      }
     }
 
     // Nếu chưa đăng nhập hoặc token không hợp lệ, trả về offers ở trạng thái 'login_required' để client hiển thị huy hiệu ưu đãi

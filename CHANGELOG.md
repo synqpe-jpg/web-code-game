@@ -5,6 +5,40 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ---
 
+## [2026-11-09]
+
+### 347. Bổ Sung API Quản Trị Ưu Đãi Mua Lần Đầu Riêng Từng Mục (Utilities & Store) & Sửa Lỗi Hiển Thị 2.000 Core Ở 6 Gói VS Phone
+- **Triệu chứng & Bối cảnh**:
+  - Ưu đãi mua lần đầu (First Purchase Offer) ban đầu chỉ có cấu hình chung (bật, giá ưu đãi 2.000 Core, trần 30.000 Core) và cờ riêng cho gói ở cửa hàng (`store_products`).
+  - Mục Tiện ích (`utilities`) chưa có cờ riêng nào và không có API quản trị (các đường `/api/utilities` và `/api/utilities/manage` đều trả 404). Do đó, toàn bộ 18 tiện ích bị áp cấu hình chung mặc định, dẫn đến 6 gói VS Phone có giá sau giảm $\le 30.000$ (VIP 1 ngày 12.489, VIP 7 ngày 29.973, Basic 1 ngày 11.240, Basic 7 ngày 24.729, KVIP 1 ngày 18.734, SVIP 1 ngày 22.480) bị áp nhầm giá ưu đãi 2.000 Core thay vì giá đúng chỉ giảm 5%.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Thiếu cờ riêng và schema trong CSDL D1*: Bảng `utilities` chưa có các cột `first_purchase_enabled`, `first_purchase_price`, `first_purchase_max_price`.
+  2. *Toán tử kiểm tra lỏng lẻo ở Frontend*: `ProductDetailModal.tsx` và `ProductCheckoutModal.tsx` dùng `defaultEligible = pkg.first_purchase_enabled !== false`. Khi tiện ích chưa có cờ này (`undefined`), biểu thức đánh giá thành `true`, khiến hệ thống tự động gán giá ưu đãi 2.000 Core.
+  3. *Hàm chuyển đổi tiện ích bị khuyết trường*: `getProductPackages` và `groupUtilitiesByTheme` trong `src/utils/productPackageUtils.ts` khi sinh ra các gói variant cho VS Phone chưa chuyển tiếp 3 trường cấu hình ưu đãi mua lần đầu.
+  4. *Thiếu API quản trị chuyên dụng*: Quản trị viên không có endpoint độc lập để bật/tắt hoặc đặt giá riêng cho từng tiện ích và từng gói cửa hàng qua Bearer token.
+- **Giải pháp triệt để đã triển khai (Solution Applied)**:
+  1. *Nâng Cấp Schema CSDL D1 Cho Bảng utilities*:
+     - Bổ sung 3 cột: `first_purchase_enabled INTEGER DEFAULT 0`, `first_purchase_price INTEGER`, `first_purchase_max_price INTEGER`.
+     - Chạy migration tự động thiết lập toàn bộ 18 tiện ích hiện tại có `first_purchase_enabled = 0` (mặc định tắt), đảm bảo 6 gói VS Phone tự động hiển thị về đúng giá gốc giảm 5%.
+  2. *Cập Nhật Dữ Liệu Tĩnh Baseline (`src/data/utilities.json`)*:
+     - Toàn bộ 18 tiện ích được bổ sung rõ ràng 3 trường: `first_purchase_enabled: false`, `first_purchase_price: null`, `first_purchase_max_price: null`.
+  3. *Chuyển Tiếp Đầy Đủ Trường Cờ Trong `productPackageUtils.ts`*:
+     - `getProductPackages` và `groupUtilitiesByTheme` chuyển tiếp toàn vẹn `first_purchase_enabled`, `first_purchase_price`, `first_purchase_max_price` từ sản phẩm gốc sang từng gói con thời hạn (1 Ngày, 7 Ngày, 30 Ngày).
+  4. *Chuẩn Hóa Logic Trang Chi Tiết & Thanh Toán*:
+     - Trong `ProductDetailModal.tsx` và `ProductCheckoutModal.tsx`, chỉ áp dụng ưu đãi mua lần đầu khi cờ riêng của đúng mục đó đang bật (`first_purchase_enabled === true` hoặc `1`).
+     - Khi cờ tắt (hoặc mục chưa có cờ): bán đúng giá thường, không hiển thị huy hiệu ưu đãi, không giảm về 2.000 Core.
+     - Giá ưu đãi và trần giá ưu tiên lấy theo cấu hình riêng của mục đó nếu có, nếu không có mới dùng cấu hình chung.
+  5. *Xây Dựng API Quản Trị Mới (Bearer Token / Scope FIRST_PURCHASE_MANAGE)*:
+     - `GET /api/admin/utilities/first-purchase`: Danh sách toàn bộ 18 tiện ích kèm 3 cờ.
+     - `PUT /api/admin/utilities/first-purchase/:id`: Cập nhật 3 cờ của 1 tiện ích (cho phép cập nhật từng trường riêng, trường còn lại giữ nguyên).
+     - `GET /api/admin/store/first-purchase`: Danh sách toàn bộ gói cửa hàng kèm 3 cờ.
+     - `PUT /api/admin/store/first-purchase/:id`: Cập nhật 3 cờ của 1 gói cửa hàng.
+     - Xác thực nghiêm ngặt: Không có khóa hoặc sai khóa trả HTTP 401 JSON, không trả trang HTML.
+  6. *Đồng Bộ Dữ Liệu Qua `/api/sync` & `/api/store/my-offer`*:
+     - `/api/sync` trả về đầy đủ 3 trường cho từng tiện ích trong mảng `utilities`.
+     - `/api/store/my-offer` đọc và tính toán ưu đãi server-authoritative cho cả tiện ích.
+- **Kiểm thử & Nghiệm thu**: Vượt qua 100% 6 bài kiểm thử tích hợp (`test_utilities_first_purchase.cjs`) và kịch bản mô phỏng giá thực tế (`test_price_simulation.cjs`).
+
 ## [2026-11-07]
 
 ### 346. Chuyển Mục Nhiệm Vụ & Thông Báo Telegram Vào Mục Thông Tin Nhân Vật & Tối Ưu Tinh Gọn Thanh Điều Hướng Desktop/Mobile

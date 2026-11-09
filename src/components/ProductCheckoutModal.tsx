@@ -396,11 +396,20 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
     next_price: escNext,
   };
 
-  const defaultPkgEligible = selectedPackage?.first_purchase_enabled !== false && !isEscalating;
-  const isFirstPurchaseEligible = !isEscalating && Boolean(
+  const isPkgFlagEnabled = selectedPackage?.first_purchase_enabled === true ||
+    selectedPackage?.first_purchase_enabled === 1 ||
+    String(selectedPackage?.first_purchase_enabled) === '1' ||
+    String(selectedPackage?.first_purchase_enabled) === 'true';
+
+  const pkgMaxPrice = selectedPackage?.first_purchase_max_price
+    ? Number(selectedPackage.first_purchase_max_price)
+    : (checkoutOffer?.max_original_price ?? 30000);
+
+  const defaultPkgEligible = isPkgFlagEnabled && !isEscalating && (effectiveRegularPrice <= pkgMaxPrice);
+  const isFirstPurchaseEligible = !isEscalating && isPkgFlagEnabled && Boolean(
     checkoutOffer !== null && checkoutOffer !== undefined
       ? checkoutOffer.eligible
-      : (defaultPkgEligible || selectedPackage?.isFirstPurchaseOffer)
+      : (selectedPackage?.isFirstPurchaseOffer ? true : defaultPkgEligible)
   );
 
   const customPkgPrice = selectedPackage?.first_purchase_price

@@ -1763,6 +1763,29 @@ curl -X POST "https://codegame.shop/api/admin/first-purchase" \\
     "memberEmail": "member@gmail.com",
     "productId": "sp_hiep-khach-hanh_nhu-lai",
     "reason": "Hỗ trợ khách hàng đổi thiết bị"
+  }'
+
+# 4. Tra cứu cờ ưu đãi mua lần đầu riêng từng tiện ích (Utilities)
+curl -X GET "https://codegame.shop/api/admin/utilities/first-purchase" \\
+  -H "Authorization: Bearer YOUR_API_KEY_OR_SECRET"
+
+# 5. Cập nhật cờ ưu đãi mua lần đầu riêng cho 1 tiện ích (Bật / Giá riêng / Trần riêng)
+curl -X PUT "https://codegame.shop/api/admin/utilities/first-purchase/ut_vs_05_vip_7d" \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer YOUR_API_KEY_OR_SECRET" \\
+  -d '{
+    "first_purchase_enabled": true,
+    "first_purchase_price": 5000,
+    "first_purchase_max_price": 30000
+  }'
+
+# 6. Cập nhật cờ ưu đãi mua lần đầu riêng cho 1 gói cửa hàng (Store Product)
+curl -X PUT "https://codegame.shop/api/admin/store/first-purchase/sp_hiep-khach-hanh_nhu-lai" \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer YOUR_API_KEY_OR_SECRET" \\
+  -d '{
+    "first_purchase_enabled": true,
+    "first_purchase_price": 2000
   }'`}
                 </pre>
               </div>

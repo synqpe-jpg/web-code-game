@@ -649,6 +649,21 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
               ? u.guide_links
               : ((Array.isArray(meta.guide_links) && meta.guide_links.length > 0) ? meta.guide_links : []),
             show_guide_link: u.show_guide_link !== undefined ? Boolean(u.show_guide_link) : (meta.show_guide_link !== undefined ? Boolean(meta.show_guide_link) : true),
+            first_purchase_enabled: u.first_purchase_enabled !== undefined && u.first_purchase_enabled !== null
+              ? (u.first_purchase_enabled === 1 || u.first_purchase_enabled === true || String(u.first_purchase_enabled) === '1')
+              : (meta && meta.first_purchase_enabled !== undefined && meta.first_purchase_enabled !== null
+                  ? (meta.first_purchase_enabled === 1 || meta.first_purchase_enabled === true || String(meta.first_purchase_enabled) === '1')
+                  : false),
+            first_purchase_price: (u.first_purchase_price !== null && u.first_purchase_price !== undefined && !isNaN(Number(u.first_purchase_price)))
+              ? Number(u.first_purchase_price)
+              : (meta && meta.first_purchase_price !== null && meta.first_purchase_price !== undefined && !isNaN(Number(meta.first_purchase_price))
+                  ? Number(meta.first_purchase_price)
+                  : null),
+            first_purchase_max_price: (u.first_purchase_max_price !== null && u.first_purchase_max_price !== undefined && !isNaN(Number(u.first_purchase_max_price)))
+              ? Number(u.first_purchase_max_price)
+              : (meta && meta.first_purchase_max_price !== null && meta.first_purchase_max_price !== undefined && !isNaN(Number(meta.first_purchase_max_price))
+                  ? Number(meta.first_purchase_max_price)
+                  : null),
           };
         });
 
@@ -1058,7 +1073,12 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       })(),
       giveaways: sanitizedGiveaways,
       storeProducts: rawStoreProducts,
-      utilities: rawUtilities,
+      utilities: (rawUtilities || []).map((u: any) => ({
+        ...u,
+        first_purchase_enabled: u.first_purchase_enabled === true || u.first_purchase_enabled === 1 || String(u.first_purchase_enabled) === '1' || String(u.first_purchase_enabled) === 'true',
+        first_purchase_price: (u.first_purchase_price !== null && u.first_purchase_price !== undefined && !isNaN(Number(u.first_purchase_price))) ? Number(u.first_purchase_price) : null,
+        first_purchase_max_price: (u.first_purchase_max_price !== null && u.first_purchase_max_price !== undefined && !isNaN(Number(u.first_purchase_max_price))) ? Number(u.first_purchase_max_price) : null,
+      })),
       deletedStoreProducts: Array.from(deletedStoreSet),
       deletedUtilities: Array.from(deletedUtilSet),
       deletedGiveaways: Array.from(deletedGwSet),

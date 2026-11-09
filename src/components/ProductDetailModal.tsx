@@ -259,14 +259,23 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     next_price: escNext,
   };
 
-  // Kiểm tra ưu đãi mua lần đầu & hình thức Nâng Giá cho gói đang chọn
-  const defaultEligible = selectedPackage.first_purchase_enabled !== false && !isSelectedEscalating;
-  const isSelectedOfferEligible = !isSelectedEscalating && (
+  // Kiểm tra cờ riêng mua lần đầu của gói đang chọn: BẮT BUỘC cờ riêng phải đang bật (true / 1)
+  const isSelectedFpFlag = selectedPackage.first_purchase_enabled === true ||
+    selectedPackage.first_purchase_enabled === 1 ||
+    String(selectedPackage.first_purchase_enabled) === '1' ||
+    String(selectedPackage.first_purchase_enabled) === 'true';
+
+  const selectedMaxPrice = selectedPackage.first_purchase_max_price
+    ? Number(selectedPackage.first_purchase_max_price)
+    : (offerData?.campaign?.max_original_price ?? 30000);
+
+  const defaultEligible = isSelectedFpFlag && !isSelectedEscalating && (currentPrice <= selectedMaxPrice);
+  const isSelectedOfferEligible = !isSelectedEscalating && isSelectedFpFlag && (
     selectedOffer !== undefined ? Boolean(selectedOffer.eligible) : defaultEligible
   );
 
   const rawOfferPrice = selectedOffer?.offer_price ?? (
-    selectedPackage.first_purchase_price ? Number(selectedPackage.first_purchase_price) : 2000
+    selectedPackage.first_purchase_price ? Number(selectedPackage.first_purchase_price) : (offerData?.campaign?.offer_price ?? 2000)
   );
 
   const displayCurrentPrice = isSelectedEscalating
@@ -890,15 +899,24 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                         current_price: pkgEscCurrent,
                       };
 
-                      const defaultPkgEligible = pkg.first_purchase_enabled !== false && !isPkgEscalating;
-                      const isPkgOfferEligible = !isPkgEscalating && (
+                      const isPkgFpFlag = pkg.first_purchase_enabled === true ||
+                        pkg.first_purchase_enabled === 1 ||
+                        String(pkg.first_purchase_enabled) === '1' ||
+                        String(pkg.first_purchase_enabled) === 'true';
+
+                      const pkgMaxPrice = pkg.first_purchase_max_price
+                        ? Number(pkg.first_purchase_max_price)
+                        : (offerData?.campaign?.max_original_price ?? 30000);
+
+                      const defaultPkgEligible = isPkgFpFlag && !isPkgEscalating && (pkg.price <= pkgMaxPrice);
+                      const isPkgOfferEligible = !isPkgEscalating && isPkgFpFlag && (
                         pkgOffer !== undefined ? Boolean(pkgOffer.eligible) : defaultPkgEligible
                       );
-                      const isPkgOfferUnverified = !isPkgEscalating && !isPkgOfferEligible && pkgOffer?.reason === 'email_unverified';
-                      const isPkgOfferLoginReq = !isPkgEscalating && !isPkgOfferEligible && pkgOffer?.reason === 'login_required';
+                      const isPkgOfferUnverified = !isPkgEscalating && isPkgFpFlag && !isPkgOfferEligible && pkgOffer?.reason === 'email_unverified';
+                      const isPkgOfferLoginReq = !isPkgEscalating && isPkgFpFlag && !isPkgOfferEligible && pkgOffer?.reason === 'login_required';
 
                       const pkgRawOfferPrice = pkgOffer?.offer_price ?? (
-                        pkg.first_purchase_price ? Number(pkg.first_purchase_price) : 2000
+                        pkg.first_purchase_price ? Number(pkg.first_purchase_price) : (offerData?.campaign?.offer_price ?? 2000)
                       );
 
                       const pkgDisplayPrice = isPkgEscalating

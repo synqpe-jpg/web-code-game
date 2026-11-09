@@ -34,7 +34,10 @@
     "warranty_text": "Bảo hành 1 đổi 1 suốt thời gian thuê",
     "show_warranty": true,
     "created_at": "2026-10-10T14:20:16.851Z",
-    "virtual_sold_updated_at": "2026-10-25T15:33:00.000Z"
+    "virtual_sold_updated_at": "2026-10-25T15:33:00.000Z",
+    "first_purchase_enabled": false,
+    "first_purchase_price": null,
+    "first_purchase_max_price": null
   },
   {
     "id": "ut_vs_02_basic_7d",
@@ -71,7 +74,10 @@
     "warranty_text": "Bảo hành 1 đổi 1 suốt thời gian thuê",
     "show_warranty": true,
     "created_at": "2026-10-10T14:20:16.852Z",
-    "virtual_sold_updated_at": "2026-10-25T15:33:00.000Z"
+    "virtual_sold_updated_at": "2026-10-25T15:33:00.000Z",
+    "first_purchase_enabled": false,
+    "first_purchase_price": null,
+    "first_purchase_max_price": null
   },
   {
     "id": "ut_vs_03_basic_30d",
@@ -108,7 +114,10 @@
     "warranty_text": "Bảo hành 1 đổi 1 suốt thời gian thuê",
     "show_warranty": true,
     "created_at": "2026-10-10T14:20:16.852Z",
-    "virtual_sold_updated_at": "2026-10-25T15:33:00.000Z"
+    "virtual_sold_updated_at": "2026-10-25T15:33:00.000Z",
+    "first_purchase_enabled": false,
+    "first_purchase_price": null,
+    "first_purchase_max_price": null
   },
   {
     "id": "ut_vs_04_vip_1d",
@@ -145,7 +154,10 @@
     "warranty_text": "Bảo hành 1 đổi 1 suốt thời gian thuê",
     "show_warranty": true,
     "created_at": "2026-10-10T14:20:16.852Z",
-    "virtual_sold_updated_at": "2026-10-25T15:33:00.000Z"
+    "virtual_sold_updated_at": "2026-10-25T15:33:00.000Z",
+    "first_purchase_enabled": false,
+    "first_purchase_price": null,
+    "first_purchase_max_price": null
   },
   {
     "id": "ut_vs_05_vip_7d",
@@ -181,7 +193,10 @@
     "show_guide_link": true,
     "warranty_text": "Bảo hành 1 đổi 1 suốt thời gian thuê",
     "show_warranty": true,
-    "created_at": "2026-10-10T14:20:16.852Z"
+    "created_at": "2026-10-10T14:20:16.852Z",
+    "first_purchase_enabled": false,
+    "first_purchase_price": null,
+    "first_purchase_max_price": null
   },
   {
     "id": "ut_vs_06_vip_30d",
@@ -218,7 +233,10 @@
     "warranty_text": "Bảo hành 1 đổi 1 suốt thời gian thuê",
     "show_warranty": true,
     "created_at": "2026-10-10T14:20:16.852Z",
-    "virtual_sold_updated_at": "2026-10-25T15:33:00.000Z"
+    "virtual_sold_updated_at": "2026-10-25T15:33:00.000Z",
+    "first_purchase_enabled": false,
+    "first_purchase_price": null,
+    "first_purchase_max_price": null
   },
   {
     "id": "ut_vs_07_kvip_1d",
@@ -255,7 +273,10 @@
     "warranty_text": "Bảo hành 1 đổi 1 suốt thời gian thuê",
     "show_warranty": true,
     "created_at": "2026-10-10T14:20:16.852Z",
-    "virtual_sold_updated_at": "2026-10-25T15:33:00.000Z"
+    "virtual_sold_updated_at": "2026-10-25T15:33:00.000Z",
+    "first_purchase_enabled": false,
+    "first_purchase_price": null,
+    "first_purchase_max_price": null
   },
   {
     "id": "ut_vs_08_kvip_7d",
@@ -292,7 +313,10 @@
     "warranty_text": "Bảo hành 1 đổi 1 suốt thời gian thuê",
     "show_warranty": true,
     "created_at": "2026-10-10T14:20:16.852Z",
-    "virtual_sold_updated_at": "2026-10-25T15:33:00.000Z"
+    "virtual_sold_updated_at": "2026-10-25T15:33:00.000Z",
+    "first_purchase_enabled": false,
+    "first_purchase_price": null,
+    "first_purchase_max_price": null
   },
   {
     "id": "ut_vs_09_kvip_30d",
@@ -329,7 +353,10 @@
     "warranty_text": "Bảo hành 1 đổi 1 suốt thời gian thuê",
     "show_warranty": true,
     "created_at": "2026-10-10T14:20:16.852Z",
-    "virtual_sold_updated_at": "2026-10-25T15:33:00.000Z"
+    "virtual_sold_updated_at": "2026-10-25T15:33:00.000Z",
+    "first_purchase_enabled": false,
+    "first_purchase_price": null,
+    "first_purchase_max_price": null
   },
   {
     "id": "ut_vs_10_svip_1d",
@@ -366,7 +393,10 @@
     "warranty_text": "Bảo hành 1 đổi 1 suốt thời gian thuê",
     "show_warranty": true,
     "created_at": "2026-10-10T14:20:16.852Z",
-    "virtual_sold_updated_at": "2026-10-25T15:33:00.000Z"
+    "virtual_sold_updated_at": "2026-10-25T15:33:00.000Z",
+    "first_purchase_enabled": false,
+    "first_purchase_price": null,
+    "first_purchase_max_price": null
   },
   {
     "id": "ut_vs_11_svip_7d",
@@ -403,7 +433,10 @@
     "warranty_text": "Bảo hành 1 đổi 1 suốt thời gian thuê",
     "show_warranty": true,
     "created_at": "2026-10-10T14:20:16.852Z",
-    "virtual_sold_updated_at": "2026-10-25T15:33:00.000Z"
+    "virtual_sold_updated_at": "2026-10-25T15:33:00.000Z",
+    "first_purchase_enabled": false,
+    "first_purchase_price": null,
+    "first_purchase_max_price": null
   },
   {
     "id": "ut_vs_12_svip_30d",
@@ -440,7 +473,10 @@
     "warranty_text": "Bảo hành 1 đổi 1 suốt thời gian thuê",
     "show_warranty": true,
     "created_at": "2026-10-10T14:20:16.852Z",
-    "virtual_sold_updated_at": "2026-10-25T15:33:00.000Z"
+    "virtual_sold_updated_at": "2026-10-25T15:33:00.000Z",
+    "first_purchase_enabled": false,
+    "first_purchase_price": null,
+    "first_purchase_max_price": null
   },
   {
     "id": "ut_vs_13_xvip_1d",
@@ -477,7 +513,10 @@
     "warranty_text": "Bảo hành 1 đổi 1 suốt thời gian thuê",
     "show_warranty": true,
     "created_at": "2026-10-10T14:20:16.852Z",
-    "virtual_sold_updated_at": "2026-10-25T15:33:00.000Z"
+    "virtual_sold_updated_at": "2026-10-25T15:33:00.000Z",
+    "first_purchase_enabled": false,
+    "first_purchase_price": null,
+    "first_purchase_max_price": null
   },
   {
     "id": "ut_vs_14_xvip_7d",
@@ -514,7 +553,10 @@
     "warranty_text": "Bảo hành 1 đổi 1 suốt thời gian thuê",
     "show_warranty": true,
     "created_at": "2026-10-10T14:20:16.852Z",
-    "virtual_sold_updated_at": "2026-10-25T15:33:00.000Z"
+    "virtual_sold_updated_at": "2026-10-25T15:33:00.000Z",
+    "first_purchase_enabled": false,
+    "first_purchase_price": null,
+    "first_purchase_max_price": null
   },
   {
     "id": "ut_vs_15_xvip_30d",
@@ -551,7 +593,10 @@
     "warranty_text": "Bảo hành 1 đổi 1 suốt thời gian thuê",
     "show_warranty": true,
     "created_at": "2026-10-10T14:20:16.852Z",
-    "virtual_sold_updated_at": "2026-10-25T15:33:00.000Z"
+    "virtual_sold_updated_at": "2026-10-25T15:33:00.000Z",
+    "first_purchase_enabled": false,
+    "first_purchase_price": null,
+    "first_purchase_max_price": null
   },
   {
     "id": "ut_vs_16_mvip_1d",
@@ -588,7 +633,10 @@
     "warranty_text": "Bảo hành 1 đổi 1 suốt thời gian thuê",
     "show_warranty": true,
     "created_at": "2026-10-10T14:20:16.852Z",
-    "virtual_sold_updated_at": "2026-10-25T15:33:00.000Z"
+    "virtual_sold_updated_at": "2026-10-25T15:33:00.000Z",
+    "first_purchase_enabled": false,
+    "first_purchase_price": null,
+    "first_purchase_max_price": null
   },
   {
     "id": "ut_vs_17_mvip_7d",
@@ -625,7 +673,10 @@
     "warranty_text": "Bảo hành 1 đổi 1 suốt thời gian thuê",
     "show_warranty": true,
     "created_at": "2026-10-10T14:20:16.852Z",
-    "virtual_sold_updated_at": "2026-10-25T15:33:00.000Z"
+    "virtual_sold_updated_at": "2026-10-25T15:33:00.000Z",
+    "first_purchase_enabled": false,
+    "first_purchase_price": null,
+    "first_purchase_max_price": null
   },
   {
     "id": "ut_vs_18_mvip_30d",
@@ -662,6 +713,9 @@
     "warranty_text": "Bảo hành 1 đổi 1 suốt thời gian thuê",
     "show_warranty": true,
     "created_at": "2026-10-10T14:20:16.852Z",
-    "virtual_sold_updated_at": "2026-10-25T15:33:00.000Z"
+    "virtual_sold_updated_at": "2026-10-25T15:33:00.000Z",
+    "first_purchase_enabled": false,
+    "first_purchase_price": null,
+    "first_purchase_max_price": null
   }
 ]
