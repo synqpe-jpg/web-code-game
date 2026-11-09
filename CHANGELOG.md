@@ -7,6 +7,42 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-09]
 
+### 356. Tối Ưu Hóa 4 Gợi Ý Hiệu Suất PageSpeed: Tối Ưu Ảnh & Icon Thumbnails 128px, Nâng Cache-Control Tĩnh 1 Năm, Tải CSS Non-Blocking & Loại Bỏ JavaScript Thừa Khỏi Bundle Khởi Tạo
+- **Triệu chứng & Bối cảnh**:
+  - Báo cáo PageSpeed (Lighthouse 13.6.0) ngày 09/11/2026 ghi nhận:
+    + Mục Ảnh: 2.227 KiB (mobile) / 2.866 KiB (desktop), file `/logo.png` nặng 404 KB (thực chất là JPEG 1024x1024) hiển thị ở cỡ 32px; icon game 256x256-512x512 hiển thị 48px trên trang chủ làm đội payload ảnh.
+    + Mục Cache: `warhammer-survivors.webp` bị phục vụ qua D1 với TTL ngắn thay vì 1 năm như static assets; `/logo.png` chỉ cache 4 giờ.
+    + Mục CSS Chặn Hiển Thị & CSS Thừa: File CSS chính chặn 300ms hiển thị trên mobile và chứa 24,2 KiB CSS thừa.
+    + Mục JS Thừa: Bundle chính `index-*.js` chứa 53,9 KiB JavaScript không dùng trên trang chủ.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Ảnh & Logo quá khổ*: `/logo.png` là ảnh 1024x1024 không được resize; icon game tải trực tiếp file gốc 256x-512x mà không có thumbnail 128px cho danh sách.
+  2. *Cache-Control thiếu đồng bộ*: `warhammer-survivors.webp` thiếu file tĩnh trong `public/game_icons/` nên fallback sang D1 trả header 4 giờ; `public/_headers` chưa có rule riêng cho logo và icon để cache 1 năm (`max-age=31536000, immutable`).
+  3. *CSS chặn render*: Thẻ stylesheet tải đồng bộ `<link rel="stylesheet">` chặn luồng render chính của trình duyệt; `src/index.css` chứa 150 dòng trùng lặp của Cyber Loader và các biến light mode không sử dụng.
+  4. *JS thừa*: Thư viện `fuse.js` được import và khởi tạo nhưng thuật toán tìm kiếm thực tế dùng `textUtils.ts`; `canvas-confetti` được import tĩnh trong `SearchAutocomplete.tsx`; mảng 40 KB `DEFAULT_UPCOMING_GAMES` và `giveaways.json` bị gộp chung vào bundle `index-*.js`.
+- **Giải pháp triệt để đã triển khai (Solution Applied)**:
+  1. *Tối ưu ảnh & Thumbnail icon*:
+     - Sinh `public/logo.webp` 128x128 WebP chỉ **6.3 KB** (giảm 98.4% từ 404 KB), thay thế `public/logo.png` bằng bản PNG 128x128 chuẩn nhẹ 32 KB.
+     - Viết script `scripts/generate_game_icon_thumbs.cjs` tự động sinh toàn bộ 791 file thumbnail `<slug>-thumb.webp` 128x128 (WebP q80), kích thước trung bình chỉ **5.1 KB** (max 10.4 KB, <= 15 KiB).
+     - Tích hợp pipeline sinh thumbnail vào `scripts/build.cjs` và `scripts/crawler/engine/game_logo_resolver.cjs`.
+     - Cập nhật `GameCard.tsx`, `prerender.js`, `SearchAutocomplete.tsx`, `PinnedGamesBar.tsx` sử dụng bản thumbnail kèm `srcSet="...-thumb.webp 1x, ...webp 2x"`.
+     - Lưu file tĩnh `public/game_icons/warhammer-survivors.webp`.
+  2. *Cache-Control 1 Năm*:
+     - Cập nhật `public/_headers`: `/game_icons/*`, `/logo.webp`, `/logo.png` đều có `Cache-Control: public, max-age=31536000, immutable`.
+     - Đồng bộ header trong `functions/_worker.ts` và `functions/game_icons/[file].ts`.
+  3. *Tải CSS Non-Blocking & Dọn Dẹp CSS Thừa*:
+     - Chuyển đổi stylesheet link sang mẫu non-blocking: `<link rel="preload" as="style" href="..." onload="this.onload=null;this.rel='stylesheet'"><noscript><link rel="stylesheet" href="..."></noscript>`.
+     - Giữ nguyên toàn bộ inline critical CSS đảm bảo 0% FOUC, layout hiển thị 100% khớp, CLS = 0.
+     - Loại bỏ 150 dòng duplicate cyber loader, light mode base variables và unused keyframes khỏi `src/index.css`.
+  4. *Giảm JavaScript Thừa*:
+     - Loại bỏ hoàn toàn `fuse.js` dead code khỏi `src/services/dataService.ts`.
+     - Chuyển `canvas-confetti` trong `SearchAutocomplete.tsx` sang lazy dynamic import.
+     - Tách mảng 40 KB `DEFAULT_UPCOMING_GAMES` ra file riêng `src/data/defaultUpcomingGames.ts`, trả lại `src/types/game.ts` thành pure type module.
+     - Tách `giveaways.json` (chunk `giveaways-data-fallback`) và `upcoming-games-fallback` trong `vite.config.ts`.
+     - Giảm kích thước bundle `index-*.js` từ 578 KB (144 KB gzip) xuống còn **521.87 KB (136.44 KB gzip)**.
+- **Kiểm thử & Nghiệm thu**:
+  - Build thành công 100%, audit zero test artifacts sạch 100%.
+  - Chụp ảnh màn hình đối chiếu hiển thị trước/sau 100% nguyên vẹn ở cả 390px mobile và 1440px desktop.
+
 ### 355. Chuẩn Hóa Header X-Edge-Cache (HIT/MISS), Tích Hợp Server-Timing, Kích Hoạt Cloudflare Tiered Caching & Bộ Đệm RAM Isolate Cho D1
 - **Triệu chứng & Bối cảnh**:
   - Khi kiểm tra qua proxy/nhiều PoP Cloudflare, một số lần gọi không thấy header `X-Edge-Cache` dù `Cache-Control` đã đúng.

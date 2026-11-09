@@ -235,6 +235,12 @@ async function runPrerender() {
     html = html.replace(/<meta\s+name="twitter:[\s\S]*?>/gi, '');
     html = html.replace(/<script\s+type=["']application\/ld\+json["']>[\s\S]*?<\/script>\s*/gi, '');
 
+    // Transform synchronous render-blocking CSS into non-blocking preload with onload swap
+    html = html.replace(
+      /<link\s+rel="stylesheet"\s+crossorigin\s+href="(\/assets\/index-[^"]+\.css)">/i,
+      '<link rel="preload" as="style" href="$1" onload="this.onload=null;this.rel=\'stylesheet\'">\n    <noscript><link rel="stylesheet" href="$1"></noscript>'
+    );
+
     html = html.replace('</head>', `${headInjections}\n</head>`);
 
     // Extract only JS module scripts from templateHtml to preserve hydration (exclude JSON-LD to prevent duplicate injection before </body>)
@@ -304,7 +310,7 @@ async function runPrerender() {
         '@type': 'Organization',
         name: 'CodeGame.shop',
         url: 'https://codegame.shop',
-        logo: 'https://codegame.shop/logo.png',
+        logo: 'https://codegame.shop/logo.webp',
         description: 'Cổng thông tin chia sẻ giftcode game mobile và giao dịch mã tự động.',
         sameAs: [
           'https://t.me/webcodegame_vn',
@@ -356,7 +362,7 @@ async function runPrerender() {
         <!-- Navbar Header -->
         <header class="site-header sticky top-0 z-40 w-full border-b border-gray-800/80 bg-[#0B0D19]/95 backdrop-blur-md px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 flex items-center justify-between">
           <a href="/" class="header-logo flex items-center gap-2 text-brand-400 font-extrabold text-base sm:text-lg">
-            <img src="/logo.png" alt="CodeGame.shop" width="32" height="32" class="w-8 h-8 rounded-lg object-cover" />
+            <img src="/logo.webp" alt="CodeGame.shop" width="32" height="32" class="w-8 h-8 rounded-lg object-cover" />
             <span class="text-white font-bold">CodeGame.Shop</span>
           </a>
           <nav class="header-nav-tabs hidden md:flex items-center space-x-3 sm:space-x-6 text-xs sm:text-sm font-bold text-gray-300">
@@ -398,7 +404,7 @@ async function runPrerender() {
               <a href="/game/${escapeHtml(g.slug)}" class="critical-card-item flex flex-col justify-between bg-[#11162B] hover:bg-[#161D36] p-2.5 sm:p-3 rounded-xl sm:rounded-2xl border border-gray-800/80 hover:border-emerald-500/40 transition-all text-left group">
                 <div>
                   <div class="flex items-start justify-between gap-1 mb-2">
-                    <img src="${escapeHtml(g.icon_url || `/game_icons/${g.slug}.webp`)}" alt="${escapeHtml(g.name)}" width="48" height="48" loading="lazy" decoding="async" class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl object-cover border border-gray-700/60 shrink-0">
+                    <img src="/game_icons/${escapeHtml(g.slug)}-thumb.webp" srcset="/game_icons/${escapeHtml(g.slug)}-thumb.webp 1x, /game_icons/${escapeHtml(g.slug)}.webp 2x" alt="${escapeHtml(g.name)}" width="48" height="48" loading="lazy" decoding="async" class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl object-cover border border-gray-700/60 shrink-0">
                   </div>
                   <h3 class="font-bold text-xs sm:text-sm text-gray-100 group-hover:text-emerald-400 line-clamp-1">${escapeHtml(g.name)}</h3>
                   <span class="text-[11px] text-gray-400 truncate block mt-0.5">${escapeHtml(g.publisher || 'NPH Việt Nam')}</span>
@@ -457,7 +463,7 @@ async function runPrerender() {
           <div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-6 mb-6 text-left">
             <div class="md:col-span-2 space-y-2">
               <div class="flex items-center gap-2">
-                <img src="/logo.png" alt="CodeGame.shop" width="24" height="24" loading="lazy" decoding="async" class="w-6 h-6 rounded-md" />
+                <img src="/logo.webp" alt="CodeGame.shop" width="24" height="24" loading="lazy" decoding="async" class="w-6 h-6 rounded-md" />
                 <span class="font-bold text-white text-sm">CodeGame.Shop</span>
               </div>
               <p class="text-gray-400 text-xs leading-relaxed">
@@ -526,7 +532,7 @@ async function runPrerender() {
       <div class="min-h-screen flex flex-col bg-slate-950 text-slate-100">
         <header class="site-header sticky top-0 z-40 w-full border-b border-slate-800 bg-slate-900/90 backdrop-blur-md px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 flex items-center justify-between">
           <a href="/" class="header-logo flex items-center gap-2 text-blue-500 font-extrabold text-base sm:text-lg">
-            <img src="/logo.png" alt="CodeGame.shop" width="32" height="32" class="w-8 h-8 rounded-lg object-cover" />
+            <img src="/logo.webp" alt="CodeGame.shop" width="32" height="32" class="w-8 h-8 rounded-lg object-cover" />
             <span class="text-white font-bold">CodeGame.Shop</span>
           </a>
           <nav class="header-nav-tabs hidden md:flex items-center space-x-3 sm:space-x-6 text-xs sm:text-sm font-bold text-slate-300">
@@ -575,7 +581,7 @@ async function runPrerender() {
       <div class="min-h-screen flex flex-col bg-slate-950 text-slate-100 font-sans">
         <header class="site-header sticky top-0 z-40 w-full border-b border-slate-800 bg-slate-950/85 backdrop-blur-md px-4 py-3 flex items-center justify-between">
           <a href="/" class="flex items-center gap-2 text-primary font-bold">
-            <img src="/logo.png" alt="CodeGame.shop" width="32" height="32" class="w-8 h-8 rounded-lg" />
+            <img src="/logo.webp" alt="CodeGame.shop" width="32" height="32" class="w-8 h-8 rounded-lg" />
             <span class="text-white">CodeGame.Shop</span>
           </a>
           <nav class="flex items-center gap-4 text-xs font-bold text-slate-300">
@@ -629,7 +635,7 @@ async function runPrerender() {
       <div class="min-h-screen flex flex-col bg-slate-950 text-slate-100">
         <header class="site-header sticky top-0 z-40 w-full border-b border-slate-800 bg-slate-900/90 backdrop-blur-md px-4 py-3 flex items-center justify-between">
           <a href="/" class="flex items-center gap-2 text-primary font-bold">
-            <img src="/logo.png" alt="CodeGame.shop" width="32" height="32" class="w-8 h-8 rounded-lg" />
+            <img src="/logo.webp" alt="CodeGame.shop" width="32" height="32" class="w-8 h-8 rounded-lg" />
             <span class="text-white">CodeGame.Shop</span>
           </a>
           <nav class="flex items-center gap-4 text-xs font-bold text-slate-300">
@@ -707,7 +713,7 @@ async function runPrerender() {
             name: 'CodeGame.shop',
             logo: {
               '@type': 'ImageObject',
-              url: `${BASE_URL}/logo.png`,
+              url: `${BASE_URL}/logo.webp`,
             },
           },
           mainEntityOfPage: {
@@ -729,7 +735,7 @@ async function runPrerender() {
         <div class="min-h-screen flex flex-col bg-slate-950 text-slate-100 font-sans">
           <header class="site-header sticky top-0 z-40 w-full border-b border-slate-800 bg-slate-900/90 backdrop-blur-md px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 flex items-center justify-between">
             <a href="/" class="header-logo flex items-center gap-2 text-blue-500 font-extrabold text-base sm:text-lg">
-              <img src="/logo.png" alt="CodeGame.shop" width="32" height="32" class="w-8 h-8 rounded-lg object-cover" />
+              <img src="/logo.webp" alt="CodeGame.shop" width="32" height="32" class="w-8 h-8 rounded-lg object-cover" />
               <span class="text-white font-bold">CodeGame.Shop</span>
             </a>
             <nav class="header-nav-tabs hidden md:flex items-center space-x-3 sm:space-x-6 text-xs sm:text-sm font-bold text-slate-300">
@@ -844,7 +850,7 @@ async function runPrerender() {
       <div class="min-h-screen flex flex-col bg-dark-950 text-[#431407]" style="background-color: var(--bg-sourcecode, #FFF3E0);">
         <header class="site-header sticky top-0 z-40 w-full border-b border-orange-200 bg-white/90 backdrop-blur-md px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 flex items-center justify-between">
           <a href="/" class="header-logo flex items-center gap-2 text-orange-600 font-extrabold text-base sm:text-lg">
-            <img src="/logo.png" alt="CodeGame.shop" width="32" height="32" class="w-8 h-8 rounded-lg object-cover" />
+            <img src="/logo.webp" alt="CodeGame.shop" width="32" height="32" class="w-8 h-8 rounded-lg object-cover" />
             <span class="font-bold">CodeGame.Shop</span>
           </a>
           <nav class="header-nav-tabs hidden md:flex items-center space-x-3 sm:space-x-6 text-xs sm:text-sm font-bold text-amber-900">
@@ -950,7 +956,7 @@ async function runPrerender() {
         <div class="min-h-screen flex flex-col bg-dark-950 text-[#431407]" style="background-color: var(--bg-sourcecode, #FFF3E0);">
           <header class="site-header sticky top-0 z-40 w-full border-b border-orange-200 bg-white/90 backdrop-blur-md px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 flex items-center justify-between">
             <a href="/" class="header-logo flex items-center gap-2 text-orange-600 font-extrabold text-base sm:text-lg">
-              <img src="/logo.png" alt="CodeGame.shop" width="32" height="32" class="w-8 h-8 rounded-lg object-cover" />
+              <img src="/logo.webp" alt="CodeGame.shop" width="32" height="32" class="w-8 h-8 rounded-lg object-cover" />
               <span class="font-bold">CodeGame.Shop</span>
             </a>
             <nav class="header-nav-tabs hidden md:flex items-center space-x-3 sm:space-x-6 text-xs sm:text-sm font-bold text-amber-900">
@@ -1022,7 +1028,7 @@ async function runPrerender() {
       <div class="min-h-screen flex flex-col bg-[var(--bg-market,#E3F2FD)] text-[#082f49]">
         <header class="site-header sticky top-0 z-40 w-full border-b border-sky-200 bg-white/90 backdrop-blur-md px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 flex items-center justify-between">
           <a href="/" class="header-logo flex items-center gap-2 text-sky-600 font-extrabold text-base sm:text-lg">
-            <img src="/logo.png" alt="CodeGame.shop" width="32" height="32" class="w-8 h-8 rounded-lg object-cover" />
+            <img src="/logo.webp" alt="CodeGame.shop" width="32" height="32" class="w-8 h-8 rounded-lg object-cover" />
             <span class="font-bold">CodeGame.Shop</span>
           </a>
           <nav class="header-nav-tabs hidden md:flex items-center space-x-3 sm:space-x-6 text-xs sm:text-sm font-bold text-sky-950">
@@ -1089,7 +1095,7 @@ async function runPrerender() {
       <div class="min-h-screen flex flex-col bg-slate-900 text-white">
         <header class="site-header sticky top-0 z-40 w-full border-b border-slate-800 bg-slate-900/90 backdrop-blur-md px-4 py-3 flex items-center justify-between">
           <a href="/" class="header-logo flex items-center gap-2 text-primary font-bold text-lg">
-            <img src="/logo.png" alt="CodeGame.shop" width="32" height="32" class="w-8 h-8 rounded-lg object-cover" />
+            <img src="/logo.webp" alt="CodeGame.shop" width="32" height="32" class="w-8 h-8 rounded-lg object-cover" />
             <span>CodeGame.Shop</span>
           </a>
           <nav class="hidden md:flex items-center space-x-6 text-sm font-semibold">
@@ -1292,7 +1298,7 @@ async function runPrerender() {
         <div class="min-h-screen flex flex-col bg-dark-950 text-gray-100">
           <header class="site-header sticky top-0 z-40 w-full border-b border-gray-800/80 bg-dark-950/85 backdrop-blur-md px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 flex items-center justify-between">
             <a href="/" class="header-logo flex items-center gap-2 text-brand-400 font-extrabold text-base sm:text-lg">
-              <img src="/logo.png" alt="CodeGame.shop" width="32" height="32" class="w-8 h-8 rounded-lg object-cover" />
+              <img src="/logo.webp" alt="CodeGame.shop" width="32" height="32" class="w-8 h-8 rounded-lg object-cover" />
               <span class="text-white font-bold">CodeGame.Shop</span>
             </a>
             <nav class="header-nav-tabs hidden md:flex items-center space-x-3 sm:space-x-6 text-xs sm:text-sm font-bold text-gray-300">
@@ -1457,7 +1463,7 @@ async function runPrerender() {
                   .map(
                     (rg) => `
                   <a href="/game/${escapeHtml(rg.slug || rg.id)}" class="flex flex-col bg-dark-850 hover:bg-dark-800 p-2.5 rounded-xl border border-gray-800 hover:border-brand-500/40 transition-all text-left group">
-                    <img src="${escapeHtml(rg.icon_url || rg.cover_image_url || `/game_icons/${rg.slug || rg.id}.webp`)}" alt="${escapeHtml(rg.name)}" loading="lazy" class="w-full aspect-square rounded-lg object-cover mb-2 border border-gray-700/60">
+                    <img src="/game_icons/${escapeHtml(rg.slug || rg.id)}-thumb.webp" srcset="/game_icons/${escapeHtml(rg.slug || rg.id)}-thumb.webp 1x, /game_icons/${escapeHtml(rg.slug || rg.id)}.webp 2x" alt="${escapeHtml(rg.name)}" loading="lazy" class="w-full aspect-square rounded-lg object-cover mb-2 border border-gray-700/60">
                     <h3 class="font-bold text-xs text-gray-200 group-hover:text-brand-400 line-clamp-1">${escapeHtml(rg.name)}</h3>
                     <span class="text-[10px] text-gray-400 truncate mt-0.5">${escapeHtml(rg.publisher || 'NPH Việt Nam')}</span>
                   </a>`
@@ -1573,7 +1579,7 @@ async function runPrerender() {
         <div class="min-h-screen flex flex-col bg-dark-950 text-gray-100 font-sans">
           <header class="site-header sticky top-0 z-40 w-full border-b border-gray-800/80 bg-dark-950/85 backdrop-blur-md px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 flex items-center justify-between">
             <a href="/" class="header-logo flex items-center gap-2 text-brand-400 font-extrabold text-base sm:text-lg">
-              <img src="/logo.png" alt="CodeGame.shop" width="32" height="32" class="w-8 h-8 rounded-lg object-cover" />
+              <img src="/logo.webp" alt="CodeGame.shop" width="32" height="32" class="w-8 h-8 rounded-lg object-cover" />
               <span class="text-white font-bold">CodeGame.Shop</span>
             </a>
             <nav class="header-nav-tabs hidden md:flex items-center space-x-3 sm:space-x-6 text-xs sm:text-sm font-bold text-gray-300">
@@ -1726,7 +1732,7 @@ async function runPrerender() {
       <div class="min-h-screen flex flex-col bg-dark-950 text-gray-100 font-sans">
         <header class="site-header sticky top-0 z-40 w-full border-b border-gray-800/80 bg-dark-950/85 backdrop-blur-md px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 flex items-center justify-between">
           <a href="/" class="header-logo flex items-center gap-2 text-brand-400 font-extrabold text-base sm:text-lg">
-            <img src="/logo.png" alt="CodeGame.shop" width="32" height="32" class="w-8 h-8 rounded-lg object-cover" />
+            <img src="/logo.webp" alt="CodeGame.shop" width="32" height="32" class="w-8 h-8 rounded-lg object-cover" />
             <span class="text-white font-bold">CodeGame.Shop</span>
           </a>
           <nav class="header-nav-tabs hidden md:flex items-center space-x-3 sm:space-x-6 text-xs sm:text-sm font-bold text-gray-300">
@@ -1783,7 +1789,7 @@ async function runPrerender() {
                 <div class="az-grid">
                   ${groupGames.map((g) => {
                     const gSlug = escapeHtml(g.slug || g.id);
-                    return `<a href="/game/${gSlug}" class="az-c"><img src="/game_icons/${gSlug}.webp" alt="${escapeHtml(g.name)}" width="32" height="32" loading="lazy"><div><b>${escapeHtml(g.name)}</b><span>${escapeHtml(g.category || 'Game Mobile')}</span></div></a>`;
+                    return `<a href="/game/${gSlug}" class="az-c"><img src="/game_icons/${gSlug}-thumb.webp" srcset="/game_icons/${gSlug}-thumb.webp 1x, /game_icons/${gSlug}.webp 2x" alt="${escapeHtml(g.name)}" width="32" height="32" loading="lazy"><div><b>${escapeHtml(g.name)}</b><span>${escapeHtml(g.category || 'Game Mobile')}</span></div></a>`;
                   }).join('')}
                 </div>
               </section>`;

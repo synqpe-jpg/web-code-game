@@ -20,7 +20,15 @@
   Access-Control-Allow-Origin: *
 
 /game_icons/*
-  Cache-Control: public, max-age=604800, s-maxage=2592000, immutable
+  Cache-Control: public, max-age=31536000, immutable
+  Access-Control-Allow-Origin: *
+
+/logo.webp
+  Cache-Control: public, max-age=31536000, immutable
+  Access-Control-Allow-Origin: *
+
+/logo.png
+  Cache-Control: public, max-age=31536000, immutable
   Access-Control-Allow-Origin: *
 
 /assets/*

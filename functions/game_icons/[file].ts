@@ -52,6 +52,7 @@ export const onRequestGet = async (context: {
 
   const dotIndex = filename.lastIndexOf('.');
   const slug = (dotIndex >= 0 ? filename.slice(0, dotIndex) : filename).toLowerCase().trim();
+  const baseSlug = slug.replace(/-thumb$/i, '');
 
   // 1. Kiểm tra Cloudflare Edge Cache
   const cache = typeof caches !== 'undefined' ? (caches as any).default : null;
@@ -69,8 +70,8 @@ export const onRequestGet = async (context: {
   if (env.DB) {
     try {
       const row: any = await env.DB.prepare(
-        'SELECT content_type, image_base64, size_bytes FROM uploaded_game_icons WHERE slug = ? LIMIT 1'
-      ).bind(slug).first();
+        'SELECT content_type, image_base64, size_bytes FROM uploaded_game_icons WHERE slug = ? OR slug = ? LIMIT 1'
+      ).bind(slug, baseSlug).first();
 
       if (row && row.image_base64) {
         const cleanB64 = String(row.image_base64).replace(/^data:image\/[a-zA-Z+]+;base64,/, '').trim();
@@ -81,11 +82,7 @@ export const onRequestGet = async (context: {
           bytes[i] = binaryStr.charCodeAt(i);
         }
 
-        const urlObj = new URL(request.url);
-        const hasVersion = urlObj.searchParams.has('v');
-        const cacheControl = hasVersion
-          ? 'public, max-age=31536000, immutable'
-          : 'public, max-age=60, s-maxage=120, stale-while-revalidate=86400';
+        const cacheControl = 'public, max-age=31536000, immutable';
 
         const contentType = filename.toLowerCase().endsWith('.webp') ? 'image/webp' : (row.content_type || 'image/webp');
         const headers = new Headers({

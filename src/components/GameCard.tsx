@@ -91,14 +91,17 @@ export const GameCard: React.FC<GameCardProps> = ({
 
   const getSafeIcon = (rawUrl?: string, slug?: string) => {
     if (!rawUrl || rawUrl.includes('codemoi.net') || rawUrl.startsWith('/game-icons')) {
-      return `/game_icons/${slug}.webp`;
+      return `/game_icons/${slug}-thumb.webp`;
+    }
+    if (rawUrl.startsWith('/game_icons/') && !rawUrl.includes('-thumb.webp')) {
+      return rawUrl.replace(/\.(webp|jpg|png)$/i, '-thumb.webp');
     }
     return rawUrl;
   };
 
   const [currentIconSrc, setCurrentIconSrc] = useState(() => getSafeIcon(game.icon_url, game.slug));
   const [imageLoaded, setImageLoaded] = useState(false);
-  const [fallbackStage, setFallbackStage] = useState(0); // 0: primary webp, 1: local jpg, 2: edge proxy, 3: initials only
+  const [fallbackStage, setFallbackStage] = useState(0); // 0: thumb webp, 1: full webp, 2: local jpg, 3: edge proxy, 4: initials only
 
   useEffect(() => {
     setCurrentIconSrc(getSafeIcon(game.icon_url, game.slug));
@@ -113,12 +116,16 @@ export const GameCard: React.FC<GameCardProps> = ({
       ((game as any).download_android ? (((game as any).download_android.match(/id=([a-zA-Z0-9._]+)/) || [])[1] || '') : '') || '';
 
     if (fallbackStage === 0) {
-      // Stage 1: Try JPG version of the icon
+      // Stage 1: Try full-size WebP
       setFallbackStage(1);
-      setCurrentIconSrc(`/game_icons/${slug}.jpg`);
+      setCurrentIconSrc(`/game_icons/${slug}.webp`);
     } else if (fallbackStage === 1) {
-      // Stage 2: Try remote store icon or Edge Proxy endpoint
+      // Stage 2: Try JPG version of the icon
       setFallbackStage(2);
+      setCurrentIconSrc(`/game_icons/${slug}.jpg`);
+    } else if (fallbackStage === 2) {
+      // Stage 3: Try remote store icon or Edge Proxy endpoint
+      setFallbackStage(3);
       const rawUrl = game.icon_url && game.icon_url.startsWith('http') && !game.icon_url.includes('codemoi.net')
         ? game.icon_url
         : ((game as any).cover_image_url && (game as any).cover_image_url.startsWith('http') && !(game as any).cover_image_url.includes('codemoi.net') ? (game as any).cover_image_url : '');
@@ -128,8 +135,8 @@ export const GameCard: React.FC<GameCardProps> = ({
       if (pkg) queryParams.set('pkg', pkg);
       setCurrentIconSrc(`/api/game-icon?${queryParams.toString()}`);
     } else {
-      // Stage 3: Cleanly fallback to colorful branded gradient avatar with initials
-      setFallbackStage(3);
+      // Stage 4: Cleanly fallback to colorful branded gradient avatar with initials
+      setFallbackStage(4);
     }
   };
 
@@ -201,7 +208,7 @@ export const GameCard: React.FC<GameCardProps> = ({
       </div>
 
       {/* 2. Top Image Layer: Fade in smoothly over the gradient when loaded */}
-      {fallbackStage < 3 && currentIconSrc && (
+      {fallbackStage < 4 && currentIconSrc && (
         <img
           ref={(imgEl) => {
             if (imgEl && imgEl.complete && imgEl.naturalWidth > 0 && !imageLoaded) {
@@ -209,6 +216,11 @@ export const GameCard: React.FC<GameCardProps> = ({
             }
           }}
           src={currentIconSrc}
+          srcSet={
+            game.slug && currentIconSrc.includes('-thumb.webp')
+              ? `/game_icons/${game.slug}-thumb.webp 1x, /game_icons/${game.slug}.webp 2x`
+              : undefined
+          }
           alt={game.name}
           width={48}
           height={48}

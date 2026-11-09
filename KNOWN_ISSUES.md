@@ -10,6 +10,21 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-255: Bẫy Ảnh/Icon Quá Khổ Làm Tăng Payload Gấp 5 Lần, Bẫy CSS Chặn Luồng Render Chính & Bẫy Gom Mảng Dữ Liệu Khổng Lồ Vào File Type Khiến Vite Không Thể Tree-Shake
+- **Triệu chứng & Rủi ro**:
+  1. File logo `/logo.png` (404 KB) và icon game (256x256-512x512) tải trực tiếp trên trang chủ khiến tổng payload ảnh lên tới 2.8 MB, vi phạm khuyến nghị "Properly size images" của PageSpeed.
+  2. File CSS chính tải bằng `<link rel="stylesheet">` đồng bộ gây chặn hiển thị 300ms trên thiết bị di động (Render-blocking resource).
+  3. Khi nhúng trực tiếp mảng dữ liệu lớn (`DEFAULT_UPCOMING_GAMES`) vào file `types/game.ts`, mọi component import type từ file này đều vô tình kéo theo toàn bộ mảng dữ liệu vào bundle chính, làm vô hiệu hóa khả năng tree-shaking của Vite/Rollup.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Thumbnail 128px & Logo WebP*: Nén logo thành `logo.webp` (6.3 KB, 128x128). Tự động sinh `public/game_icons/<slug>-thumb.webp` 128x128 (WebP q80, avg 5 KB, max 10.4 KB <= 15 KiB) trong build pipeline. Dùng `srcSet` 1x/2x cho retina.
+  2. *CSS Non-blocking Preload*: Chuyển đổi `<link rel="stylesheet">` sang `<link rel="preload" as="style" onload="this.onload=null;this.rel='stylesheet'"><noscript><link rel="stylesheet" ...></noscript>` trong khi duy trì toàn bộ inline critical CSS để chống 100% FOUC/CLS.
+  3. *Tách Dữ Liệu Ra Khỏi File Type*: Chuyển mảng dữ liệu tĩnh vào `src/data/defaultUpcomingGames.ts` và gán manual chunk riêng, giữ `src/types/game.ts` chỉ chứa type definitions.
+  4. *Loại Bỏ Dead Code*: Loại bỏ `fuse.js` và chuyển `canvas-confetti` sang dynamic import `import('canvas-confetti')`.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không nhúng mảng dữ liệu tĩnh lớn vào các file type definitions.*
+  - ❌ *Không tải trực tiếp icon gốc 512x512 trên trang chủ khi kích thước hiển thị chỉ 48px.*
+  - ❌ *Không import tĩnh các thư viện hiệu ứng chỉ dùng khi click vào component luôn hiển thị trên header/trang chủ.*
+
 ### ISSUE-254: Bẫy Chỉ Gán Header Cache Khi HIT Khiến Response MISS Không Thể Nhận Diện & Bẫy Bỏ Quên Tiered Caching Trên Cloudflare
 - **Triệu chứng & Rủi ro**:
   1. Khi chỉ set header `X-Edge-Cache: HIT` trong khối `if (cached)`, các response trượt cache (MISS) sẽ hoàn toàn không có header `X-Edge-Cache` hoặc `cf-cache-status`. Khi đo từ bên ngoài qua proxy hoặc các PoP biên khác nhau, client không thể phân biệt giữa "cache chưa hoạt động" với "cache hoạt động nhưng bị trượt lần đầu".

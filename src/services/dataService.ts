@@ -1,4 +1,3 @@
-import Fuse from 'fuse.js';
 import type {
   GameItem,
   GiftCode,
@@ -116,7 +115,6 @@ export function normalizeAndDeduplicateCategories(categories: (string | null | u
 class DataService {
   private games: GameItem[] = [];
   private codesMap: Map<string, GiftCode[]> = new Map();
-  private fuseInstance: Fuse<GameItem> | null = null;
   private isLoaded: boolean = false;
   private categories: string[] = [];
   private cachedServerGames: Map<string, GameItem> = new Map();
@@ -1377,17 +1375,6 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
 
       this.categories = normalizeAndDeduplicateCategories(Array.from(categorySet));
 
-      // 4. Initialize Fuse Search
-      this.fuseInstance = new Fuse(this.games, {
-        keys: [
-          { name: 'name', weight: 0.6 },
-          { name: 'slug', weight: 0.2 },
-          { name: 'publisher', weight: 0.1 },
-          { name: 'category', weight: 0.1 },
-        ],
-        threshold: 0.35,
-        ignoreLocation: true,
-      });
 
       this.isLoaded = true;
     } catch (err) {

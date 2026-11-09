@@ -17,7 +17,6 @@ import {
   Trash2,
   ArrowLeft,
 } from 'lucide-react';
-import confetti from 'canvas-confetti';
 import type { GameItem, GiftCode } from '../types/game';
 import { dataService } from '../services/dataService';
 import { marketingService } from '../services/marketingService';
@@ -72,16 +71,20 @@ interface GameSearchIconProps {
 
 const GameSearchIcon: React.FC<GameSearchIconProps> = ({ game, size = 'md' }) => {
   const [isLoaded, setIsLoaded] = useState(false);
-  const [fallbackStage, setFallbackStage] = useState(0); // 0: primary, 1: jpg, 2: edge proxy, 3: initials
+  const [fallbackStage, setFallbackStage] = useState(0); // 0: thumb, 1: full webp, 2: jpg, 3: edge proxy, 4: initials
   const safeName = game?.name || 'Game';
   const sizeClass = size === 'sm' ? 'w-9 h-9' : 'w-10 h-10';
 
   const iconSrc = useMemo(() => {
     const slug = game?.slug || '';
-    if (fallbackStage === 1) return `/game_icons/${slug}.jpg`;
-    if (fallbackStage === 2) return `/api/game-icon?slug=${encodeURIComponent(slug)}`;
+    if (fallbackStage === 1) return `/game_icons/${slug}.webp`;
+    if (fallbackStage === 2) return `/game_icons/${slug}.jpg`;
+    if (fallbackStage === 3) return `/api/game-icon?slug=${encodeURIComponent(slug)}`;
     if (!game?.icon_url || game.icon_url.includes('codemoi.net') || game.icon_url.startsWith('/game-icons')) {
-      return `/game_icons/${slug}.webp`;
+      return `/game_icons/${slug}-thumb.webp`;
+    }
+    if (game.icon_url.startsWith('/game_icons/') && !game.icon_url.includes('-thumb.webp')) {
+      return game.icon_url.replace(/\.(webp|jpg|png)$/i, '-thumb.webp');
     }
     return game.icon_url;
   }, [game?.icon_url, game?.slug, fallbackStage]);
@@ -101,7 +104,7 @@ const GameSearchIcon: React.FC<GameSearchIconProps> = ({ game, size = 'md' }) =>
       </div>
 
       {/* 2. Top Image Layer: Fade in over gradient when loaded */}
-      {fallbackStage < 3 && iconSrc && (
+      {fallbackStage < 4 && iconSrc && (
         <img
           ref={(imgEl) => {
             if (imgEl && imgEl.complete && imgEl.naturalWidth > 0 && !isLoaded) {
@@ -109,10 +112,17 @@ const GameSearchIcon: React.FC<GameSearchIconProps> = ({ game, size = 'md' }) =>
             }
           }}
           src={iconSrc}
+          srcSet={
+            game?.slug && iconSrc.includes('-thumb.webp')
+              ? `/game_icons/${game.slug}-thumb.webp 1x, /game_icons/${game.slug}.webp 2x`
+              : undefined
+          }
           alt={safeName}
+          width={40}
+          height={40}
           decoding="async"
           onLoad={() => setIsLoaded(true)}
-          onError={() => setFallbackStage((prev) => Math.min(3, prev + 1))}
+          onError={() => setFallbackStage((prev) => Math.min(4, prev + 1))}
           className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-200 ${
             isLoaded ? 'opacity-100' : 'opacity-0'
           }`}
@@ -459,12 +469,15 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
     }
 
     try {
-      confetti({
-        particleCount: 25,
-        spread: 45,
-        origin: { y: 0.5 },
-        colors: ['#10B981', '#8B5CF6', '#F59E0B'],
-      });
+      import('canvas-confetti').then((m) => {
+        const c = m.default || m;
+        c({
+          particleCount: 25,
+          spread: 45,
+          origin: { y: 0.5 },
+          colors: ['#10B981', '#8B5CF6', '#F59E0B'],
+        });
+      }).catch(() => {});
     } catch {}
 
     setTimeout(() => {

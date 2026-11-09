@@ -172,12 +172,18 @@ export const Header: React.FC<HeaderProps> = ({
                 />
               ) : (
                 <img
-                  src="/logo.png"
+                  src="/logo.webp"
                   alt="Logo"
                   width={40}
                   height={40}
                   loading="eager"
                   decoding="async"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    if (target.src !== window.location.origin + '/logo.png') {
+                      target.src = '/logo.png';
+                    }
+                  }}
                   className="w-full h-full object-cover"
                 />
               )}

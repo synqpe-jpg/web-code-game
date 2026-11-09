@@ -183,6 +183,7 @@ async function downloadAndSaveGameIcon(slug, iconUrl) {
 
     const webpPath = path.join(ICONS_DIR, `${slug}.webp`);
     const jpgPath = path.join(ICONS_DIR, `${slug}.jpg`);
+    const thumbPath = path.join(ICONS_DIR, `${slug}-thumb.webp`);
 
     // Tải ảnh từ URL
     const res = await requestHttp(iconUrl, {
@@ -205,6 +206,12 @@ async function downloadAndSaveGameIcon(slug, iconUrl) {
           .resize(256, 256, { fit: 'cover' })
           .webp({ quality: 90 })
           .toFile(webpPath);
+
+        // Lưu thêm file WebP 128px thu nhỏ siêu nhẹ cho danh sách/trang chủ
+        await sharp(buffer)
+          .resize(128, 128, { fit: 'cover' })
+          .webp({ quality: 80 })
+          .toFile(thumbPath);
 
         // Lưu thêm file JPG chất lượng cao cho Zalo / Facebook Open Graph
         await sharp(buffer)

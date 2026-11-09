@@ -47,7 +47,7 @@ export const Footer: React.FC<FooterProps> = ({ onSelectCategory, categories, on
   const branding = dataService.getWebsiteBranding();
   const rawBrand = (footerData?.extraData?.brandTitle || branding.siteTitle || 'CodeGame.Shop').trim();
   const brandTitle = (!rawBrand || rawBrand.toUpperCase() === 'WEB CODE GAME' || rawBrand.toUpperCase() === 'WEB CODE') ? 'CodeGame.Shop' : rawBrand;
-  const brandLogo = (footerData?.extraData?.brandLogo || branding.logoUrl || '/logo.png').trim();
+  const brandLogo = (footerData?.extraData?.brandLogo || branding.logoUrl || '/logo.webp').trim();
   const badge1Text = (footerData?.extraData?.badge1Text ?? 'Cloudflare Pages & D1').trim();
   const badge1Visible = footerData?.extraData?.badge1Visible !== false;
   const badge2Text = (footerData?.extraData?.badge2Text ?? '24/7 Realtime Sync').trim();

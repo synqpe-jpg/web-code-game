@@ -127,7 +127,7 @@ export const PinnedGamesBar: React.FC<PinnedGamesBarProps> = ({
         {catalogList.map((game) => {
           const activeCodes = (game.codes || []).filter((c) => c.status !== 'expired');
           const codesCount = activeCodes.length || game.codes_count || 0;
-          const iconSrc = game.icon_url || `/game_icons/${game.slug}.webp`;
+          const iconSrc = game.slug ? `/game_icons/${game.slug}-thumb.webp` : (game.icon_url || '/logo.webp');
 
           return (
             <div
@@ -156,7 +156,7 @@ export const PinnedGamesBar: React.FC<PinnedGamesBarProps> = ({
                       className="w-full h-full object-cover"
                       loading="lazy"
                       onError={(e) => {
-                        (e.target as HTMLImageElement).src = '/logo.png';
+                        (e.target as HTMLImageElement).src = '/logo.webp';
                       }}
                     />
                   </div>

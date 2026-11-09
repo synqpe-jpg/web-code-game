@@ -9,14 +9,32 @@ async function main() {
     return;
   }
 
-  const files = fs.readdirSync(iconsDir).filter(f => f.endsWith('.webp'));
+  // Dọn dẹp các file -thumb.jpg nếu vô tình được sinh ra
+  const allFiles = fs.readdirSync(iconsDir);
+  for (const f of allFiles) {
+    if (f.endsWith('-thumb.jpg')) {
+      try { fs.unlinkSync(path.join(iconsDir, f)); } catch {}
+    }
+  }
+
+  const files = fs.readdirSync(iconsDir).filter(f => f.endsWith('.webp') && !f.endsWith('-thumb.webp'));
   console.log(`Bắt đầu chuyển đổi ${files.length} icon webp sang jpg cho Open Graph / Zalo / Facebook...`);
 
   let count = 0;
+  let skipped = 0;
   for (const file of files) {
     const webpPath = path.join(iconsDir, file);
     const jpgName = file.replace(/\.webp$/i, '.jpg');
     const jpgPath = path.join(iconsDir, jpgName);
+
+    if (fs.existsSync(jpgPath)) {
+      const webpStat = fs.statSync(webpPath);
+      const jpgStat = fs.statSync(jpgPath);
+      if (jpgStat.mtimeMs >= webpStat.mtimeMs && jpgStat.size > 200) {
+        skipped++;
+        continue;
+      }
+    }
 
     try {
       await sharp(webpPath)
@@ -29,7 +47,7 @@ async function main() {
     }
   }
 
-  console.log(`Đã xuất bản thành công ${count}/${files.length} file JPG chuẩn Open Graph!`);
+  console.log(`Đã xuất bản thành công ${count} file JPG mới/cập nhật, bỏ qua ${skipped} file đã tồn tại!`);
 }
 
 main().catch(console.error);

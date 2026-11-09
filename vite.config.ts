@@ -32,6 +32,8 @@ export default defineConfig({
           if (id.includes('games188.json')) return 'games-catalog-fallback';
           if (id.includes('seedNews.ts') || id.includes('seedNews')) return 'seed-news-fallback';
           if (id.includes('utilities.json')) return 'utilities-data-fallback';
+          if (id.includes('giveaways.json')) return 'giveaways-data-fallback';
+          if (id.includes('defaultUpcomingGames')) return 'upcoming-games-fallback';
           if (id.includes('node_modules/lucide-react')) {
             return 'lucide-icons';
           }
@@ -41,9 +43,10 @@ export default defineConfig({
           if (id.includes('node_modules/qrcode')) {
             return 'qrcode-vendor';
           }
+          if (id.includes('node_modules/canvas-confetti')) {
+            return 'confetti-vendor';
+          }
           if (
-            id.includes('node_modules/fuse.js') ||
-            id.includes('node_modules/canvas-confetti') ||
             id.includes('node_modules/clsx') ||
             id.includes('node_modules/tailwind-merge')
           ) {

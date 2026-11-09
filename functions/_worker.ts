@@ -2440,7 +2440,7 @@ async function renderSeoHtml(
             "name": "CodeGame.shop",
             "logo": {
               "@type": "ImageObject",
-              "url": `${origin}/logo.png`
+              "url": `${origin}/logo.webp`
             }
           },
           "mainEntityOfPage": {
@@ -2727,7 +2727,7 @@ async function renderSeoHtml(
         "url": `${origin}/`,
         "logo": {
           "@type": "ImageObject",
-          "url": `${origin}/logo.png`,
+          "url": `${origin}/logo.webp`,
           "width": 512,
           "height": 512
         },
@@ -2824,6 +2824,7 @@ async function handleGameIconRequest(
 
   const dotIndex = filename.lastIndexOf('.');
   const slug = (dotIndex >= 0 ? filename.slice(0, dotIndex) : filename).toLowerCase().trim();
+  const baseSlug = slug.replace(/-thumb$/i, '');
 
   // 1. Kiểm tra Cloudflare Edge Cache trước (zero D1 read for repeated requests)
   const cache = typeof caches !== 'undefined' ? (caches as any).default : null;
@@ -2843,10 +2844,19 @@ async function handleGameIconRequest(
     if (assetRes && assetRes.status === 200) {
       return assetRes;
     }
+    // Nếu yêu cầu -thumb.webp mà chưa có thumb riêng trong assets, thử .webp gốc trong assets
+    if (filename.toLowerCase().endsWith('-thumb.webp')) {
+      const origUrl = new URL(request.url);
+      origUrl.pathname = `/game_icons/${baseSlug}.webp`;
+      const origRes = await env.ASSETS.fetch(new Request(origUrl, request));
+      if (origRes && origRes.status === 200) {
+        return origRes;
+      }
+    }
     // Nếu yêu cầu .jpg mà không có trong assets, thử .webp trong assets trước khi rơi vào D1
     if (filename.toLowerCase().endsWith('.jpg')) {
       const webpUrl = new URL(request.url);
-      webpUrl.pathname = `/game_icons/${slug}.webp`;
+      webpUrl.pathname = `/game_icons/${baseSlug}.webp`;
       const webpRes = await env.ASSETS.fetch(new Request(webpUrl, request));
       if (webpRes && webpRes.status === 200) {
         return webpRes;
@@ -2858,8 +2868,8 @@ async function handleGameIconRequest(
   if (env.DB) {
     try {
       const row: any = await env.DB.prepare(
-        'SELECT content_type, image_base64, size_bytes FROM uploaded_game_icons WHERE slug = ? LIMIT 1'
-      ).bind(slug).first();
+        'SELECT content_type, image_base64, size_bytes FROM uploaded_game_icons WHERE slug = ? OR slug = ? LIMIT 1'
+      ).bind(slug, baseSlug).first();
 
       if (row && row.image_base64) {
         const cleanB64 = String(row.image_base64).replace(/^data:image\/[a-zA-Z+]+;base64,/, '').trim();
@@ -2870,11 +2880,7 @@ async function handleGameIconRequest(
           bytes[i] = binaryStr.charCodeAt(i);
         }
 
-        const urlObj = new URL(request.url);
-        const hasVersion = urlObj.searchParams.has('v');
-        const cacheControl = hasVersion
-          ? 'public, max-age=31536000, immutable'
-          : 'public, max-age=60, s-maxage=120, stale-while-revalidate=86400';
+        const cacheControl = 'public, max-age=31536000, immutable';
 
         const contentType = filename.toLowerCase().endsWith('.webp') ? 'image/webp' : (row.content_type || 'image/webp');
         const headers = new Headers({
