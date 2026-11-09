@@ -99,6 +99,19 @@ import * as adminUtilitiesIdApi from './api/admin/utilities/[id]';
 import * as adminUtilitiesStockApi from './api/admin/utilities/[id]/stock';
 
 import * as adminGrowthApi from './api/admin/growth';
+// 7 Remote Admin Modules
+import * as adminDashboardStatsApi from './api/admin/dashboard/stats';
+import * as adminStoreProductCodesApi from './api/admin/store/products/[id]/codes';
+import * as adminMarketingConfigApi from './api/admin/marketing/config';
+import * as adminMarketingTriggerApi from './api/admin/marketing/trigger';
+import * as adminCrawlerSourcesApi from './api/admin/crawler/sources';
+import * as adminCrawlerSourcesIdApi from './api/admin/crawler/sources/[id]';
+import * as adminCrawlerTriggerApi from './api/admin/crawler/trigger';
+import * as adminNotificationsSubscribersApi from './api/admin/notifications/subscribers';
+import * as adminNotificationsBroadcastApi from './api/admin/notifications/broadcast';
+import * as adminNotificationsSettingsApi from './api/admin/notifications/settings';
+import * as adminSecurityLogsIndexApi from './api/admin/security-logs/index';
+import * as adminSettingsIndexApi from './api/admin/settings/index';
 import { getMultipleSettingsD1 } from './services/d1_service';
 import { invalidateCatalogEdgeCache } from './services/cache_service';
 import fallbackGiveawaysData from '../src/data/giveaways.json';
@@ -851,6 +864,93 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
         if (method === 'OPTIONS') return await adminGrowthApi.onRequestOptions();
         if (method === 'GET') return await adminGrowthApi.onRequestGet(context);
         if (method === 'PUT') return await adminGrowthApi.onRequestPut(context);
+        return new Response(JSON.stringify({ success: false, error: 'Method not allowed' }), { status: 405, headers: { 'Content-Type': 'application/json' } });
+      }
+
+      // 8c-19. /api/admin/dashboard/stats (Dashboard Stats API)
+      if (pathname === '/api/admin/dashboard/stats') {
+        if (method === 'OPTIONS') return await adminDashboardStatsApi.onRequestOptions();
+        if (method === 'GET') return await adminDashboardStatsApi.onRequestGet(context);
+        return new Response(JSON.stringify({ success: false, error: 'Method not allowed' }), { status: 405, headers: { 'Content-Type': 'application/json' } });
+      }
+
+      // 8c-20. /api/admin/store/products/:id/codes (Inventory Codes Manage API)
+      if (pathname.startsWith('/api/admin/store/products/') && pathname.endsWith('/codes')) {
+        const productId = pathname.replace('/api/admin/store/products/', '').replace('/codes', '').trim();
+        const customContext = { ...context, params: { id: productId } };
+        if (method === 'OPTIONS') return await adminStoreProductCodesApi.onRequestOptions();
+        if (method === 'GET') return await adminStoreProductCodesApi.onRequestGet(customContext);
+        if (method === 'POST') return await adminStoreProductCodesApi.onRequestPost(customContext);
+        if (method === 'DELETE') return await adminStoreProductCodesApi.onRequestDelete(customContext);
+        return new Response(JSON.stringify({ success: false, error: 'Method not allowed' }), { status: 405, headers: { 'Content-Type': 'application/json' } });
+      }
+
+      // 8c-21. /api/admin/marketing (Marketing Config & Realtime Trigger API)
+      if (pathname === '/api/admin/marketing/config') {
+        if (method === 'OPTIONS') return await adminMarketingConfigApi.onRequestOptions();
+        if (method === 'GET') return await adminMarketingConfigApi.onRequestGet(context);
+        if (method === 'PUT') return await adminMarketingConfigApi.onRequestPut(context);
+        return new Response(JSON.stringify({ success: false, error: 'Method not allowed' }), { status: 405, headers: { 'Content-Type': 'application/json' } });
+      }
+      if (pathname === '/api/admin/marketing/trigger') {
+        if (method === 'OPTIONS') return await adminMarketingTriggerApi.onRequestOptions();
+        if (method === 'POST') return await adminMarketingTriggerApi.onRequestPost(context);
+        return new Response(JSON.stringify({ success: false, error: 'Method not allowed' }), { status: 405, headers: { 'Content-Type': 'application/json' } });
+      }
+
+      // 8c-22. /api/admin/crawler (Crawler Sources & Trigger API)
+      if (pathname === '/api/admin/crawler/sources') {
+        if (method === 'OPTIONS') return await adminCrawlerSourcesApi.onRequestOptions();
+        if (method === 'GET') return await adminCrawlerSourcesApi.onRequestGet(context);
+        if (method === 'POST') return await adminCrawlerSourcesApi.onRequestPost(context);
+        return new Response(JSON.stringify({ success: false, error: 'Method not allowed' }), { status: 405, headers: { 'Content-Type': 'application/json' } });
+      }
+      if (pathname.startsWith('/api/admin/crawler/sources/') && pathname !== '/api/admin/crawler/sources') {
+        const sourceId = pathname.replace('/api/admin/crawler/sources/', '').trim();
+        const customContext = { ...context, params: { id: sourceId } };
+        if (method === 'OPTIONS') return await adminCrawlerSourcesIdApi.onRequestOptions();
+        if (method === 'PUT') return await adminCrawlerSourcesIdApi.onRequestPut(customContext);
+        if (method === 'DELETE') return await adminCrawlerSourcesIdApi.onRequestDelete(customContext);
+        return new Response(JSON.stringify({ success: false, error: 'Method not allowed' }), { status: 405, headers: { 'Content-Type': 'application/json' } });
+      }
+      if (pathname === '/api/admin/crawler/trigger') {
+        if (method === 'OPTIONS') return await adminCrawlerTriggerApi.onRequestOptions();
+        if (method === 'POST') return await adminCrawlerTriggerApi.onRequestPost(context);
+        return new Response(JSON.stringify({ success: false, error: 'Method not allowed' }), { status: 405, headers: { 'Content-Type': 'application/json' } });
+      }
+
+      // 8c-23. /api/admin/notifications (Subscribers, Broadcast & Settings API)
+      if (pathname === '/api/admin/notifications/subscribers') {
+        if (method === 'OPTIONS') return await adminNotificationsSubscribersApi.onRequestOptions();
+        if (method === 'GET') return await adminNotificationsSubscribersApi.onRequestGet(context);
+        if (method === 'DELETE') return await adminNotificationsSubscribersApi.onRequestDelete(context);
+        return new Response(JSON.stringify({ success: false, error: 'Method not allowed' }), { status: 405, headers: { 'Content-Type': 'application/json' } });
+      }
+      if (pathname === '/api/admin/notifications/broadcast') {
+        if (method === 'OPTIONS') return await adminNotificationsBroadcastApi.onRequestOptions();
+        if (method === 'POST') return await adminNotificationsBroadcastApi.onRequestPost(context);
+        return new Response(JSON.stringify({ success: false, error: 'Method not allowed' }), { status: 405, headers: { 'Content-Type': 'application/json' } });
+      }
+      if (pathname === '/api/admin/notifications/settings') {
+        if (method === 'OPTIONS') return await adminNotificationsSettingsApi.onRequestOptions();
+        if (method === 'GET') return await adminNotificationsSettingsApi.onRequestGet(context);
+        if (method === 'PUT') return await adminNotificationsSettingsApi.onRequestPut(context);
+        return new Response(JSON.stringify({ success: false, error: 'Method not allowed' }), { status: 405, headers: { 'Content-Type': 'application/json' } });
+      }
+
+      // 8c-24. /api/admin/security-logs (Security Logs & Audit API)
+      if (pathname === '/api/admin/security-logs') {
+        if (method === 'OPTIONS') return await adminSecurityLogsIndexApi.onRequestOptions();
+        if (method === 'GET') return await adminSecurityLogsIndexApi.onRequestGet(context);
+        if (method === 'POST') return await adminSecurityLogsIndexApi.onRequestPost(context);
+        return new Response(JSON.stringify({ success: false, error: 'Method not allowed' }), { status: 405, headers: { 'Content-Type': 'application/json' } });
+      }
+
+      // 8c-25. /api/admin/settings (System Settings & Maintenance API)
+      if (pathname === '/api/admin/settings') {
+        if (method === 'OPTIONS') return await adminSettingsIndexApi.onRequestOptions();
+        if (method === 'GET') return await adminSettingsIndexApi.onRequestGet(context);
+        if (method === 'PUT') return await adminSettingsIndexApi.onRequestPut(context);
         return new Response(JSON.stringify({ success: false, error: 'Method not allowed' }), { status: 405, headers: { 'Content-Type': 'application/json' } });
       }
 

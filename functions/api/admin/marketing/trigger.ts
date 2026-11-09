@@ -1,5 +1,5 @@
-import { ensureSchemaUpgrades, logAdminAudit } from '../../../../services/d1_service';
-import { verifyAdminAuth } from '../../../../services/mission_service';
+import { ensureSchemaUpgrades, logAdminAudit } from '../../../services/d1_service';
+import { verifyAdminAuth } from '../../../services/mission_service';
 
 interface Env {
   DB: D1Database;

@@ -1,6 +1,9 @@
-import { ensureSchemaUpgrades, logAdminAudit } from '../../../../services/d1_service';
-import { verifyAdminAuth } from '../../../../services/mission_service';
-import defaultSources from '../../../../data/crawler_sources.json';
+import { ensureSchemaUpgrades, logAdminAudit } from '../../../services/d1_service';
+import { verifyAdminAuth } from '../../../services/mission_service';
+const defaultSources = [
+  { id: "src_gamek", name: "GameK Giftcode", url: "https://gamek.vn", game_slug: "*", active: true },
+  { id: "src_gameland", name: "Gameland VN", url: "https://gamelandvn.com", game_slug: "*", active: true }
+];
 
 interface Env {
   DB: D1Database;
