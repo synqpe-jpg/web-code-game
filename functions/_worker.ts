@@ -1169,10 +1169,11 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
         return assetResponse;
       }
 
-      // Luôn phục vụ trang game, danh mục A-Z, chuyên mục thể loại, nhiệm vụ & sự kiện giveaway qua renderSeoHtml
+      // Luôn phục vụ trang game, tin tức, danh mục A-Z, chuyên mục thể loại, nhiệm vụ & sự kiện giveaway qua renderSeoHtml (Kèm Edge Cache TTL 3600s)
       if (request.method === 'GET' && (
         pathname.startsWith('/game/') ||
         pathname.startsWith('/g/') ||
+        pathname.startsWith('/news/') ||
         pathname.startsWith('/giveaways/') ||
         pathname.startsWith('/giveaway/') ||
         pathname.startsWith('/the-loai/') ||
@@ -1183,7 +1184,28 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
         pathname === '/missions' ||
         pathname.startsWith('/missions/')
       )) {
-        return await renderSeoHtml(request, env, pathname);
+        const isFresh = url.searchParams.has('fresh') || url.searchParams.has('nocache') || url.searchParams.has('_t');
+        const cfCache = (typeof caches !== 'undefined' && !isFresh) ? (caches as any).default : null;
+        const cacheKey = new Request(`${url.origin}${url.pathname}`, { method: 'GET' });
+        if (cfCache) {
+          try {
+            const cached = await cfCache.match(cacheKey);
+            if (cached) {
+              const res = new Response(cached.body, cached);
+              res.headers.set('cf-cache-status', 'HIT');
+              res.headers.set('X-Edge-Cache', 'HIT');
+              return res;
+            }
+          } catch {}
+        }
+
+        const seoRes = await renderSeoHtml(request, env, pathname);
+        if (cfCache && seoRes.status === 200 && ctx.waitUntil) {
+          try {
+            ctx.waitUntil(cfCache.put(cacheKey, seoRes.clone()));
+          } catch {}
+        }
+        return seoRes;
       }
 
       // Phục vụ icon game động và tĩnh tại /game_icons/<slug>.<ext>
@@ -2668,9 +2690,8 @@ async function renderSeoHtml(
     status: 200,
     headers: {
       'Content-Type': 'text/html; charset=utf-8',
-      'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
-      'Pragma': 'no-cache',
-      'Expires': '0',
+      'Cache-Control': 'public, max-age=120, s-maxage=3600, stale-while-revalidate=86400',
+      'X-Content-Type-Options': 'nosniff',
     },
   });
 }

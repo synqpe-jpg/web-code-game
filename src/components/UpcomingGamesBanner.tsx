@@ -191,6 +191,8 @@ export const UpcomingGamesBanner: React.FC<UpcomingGamesBannerProps> = ({
                       <img
                         src={iconSrc}
                         alt={game.name}
+                        width={44}
+                        height={44}
                         className="w-full h-full object-cover"
                         loading={index < 3 ? 'eager' : 'lazy'}
                         decoding="async"

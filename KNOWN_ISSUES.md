@@ -10,6 +10,24 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-252: Bẫy Bundle Toàn Bộ Dữ Liệu Tĩnh Vào index.js, Thiếu Cache-Control Trên Worker Render SEO & Bẫy HTML Trang A-Z Phình To Hơn 800 KB
+- **Triệu chứng & Rủi ro**:
+  1. TTFB trên trang chi tiết game và bài viết đạt tới 650 ms do `renderSeoHtml` trả về header `Cache-Control: no-cache, no-store`, ngăn cản Cloudflare CDN Edge lưu cache HTML đã render.
+  2. Bundle `index-*.js` phình to tới 1.489 KB (334 KB gzip) do `seedNews.ts` (1.11 MB, 253 bài viết) bị gộp vào bundle khởi tạo của mọi trang.
+  3. Trang mục lục A-Z (`/danh-sach-game-a-z`) có dung lượng HTML tới 817 KB do lặp lại các chuỗi class Tailwind dài trên 588 thẻ game, khiến bot crawl chậm và tăng chỉ số INP/TBT.
+  4. Google Fonts stylesheet bị chặn hiển thị (render-blocking) nếu dùng thẻ preload thiếu thuộc tính swap động.
+  5. Chỉ số CLS (Cumulative Layout Shift) bị đội lên 0,17 do logo Header và banner thiếu width/height và thanh thông báo tĩnh biến mất khi React hydrate.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Edge Cache & TTFB Dưới 200 ms*: Cấu hình `caches.default` và header `Cache-Control: public, max-age=120, s-maxage=3600, stale-while-revalidate=86400` cho mọi trang render SEO.
+  2. *Code Splitting*: Cấu hình `manualChunks` trong `vite.config.ts` để tách `seedNews.ts` sang chunk `seed-news-fallback`, giúp bundle `index-*.js` giảm xuống 575 KB (145.37 KB gzip, < 150 KB gzip).
+  3. *Tối Ưu Trang A-Z*: Tái cấu trúc DOM trang A-Z với CSS compact grid class ngắn gọn, giảm dung lượng HTML từ 817 KB xuống còn 178 KB (< 200.000 bytes).
+  4. *Non-blocking Font*: Đổi preload font sang `onload="this.onload=null;this.rel='stylesheet'"` kèm fallback `<noscript>`.
+  5. *Khắc Phục CLS Dưới 0,1*: Gán cố định width/height/loading/decoding cho ảnh logo và icon; bỏ thanh thông báo tĩnh lệch pha hydration.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không import trực tiếp các file seed dữ liệu lớn (> 100 KB) vào bundle chính mà không khai báo manualChunks.*
+  - ❌ *Không trả về `Cache-Control: no-cache` trên các trang HTML render SEO tĩnh.*
+  - ❌ *Không chèn các khối thông báo cứng vào prerendered HTML nếu client chưa chắc chắn render nó khi hydrate.*
+
 ### ISSUE-251: Bẫy Exclude "/sitemap.xml" Trong _routes.json Khiến Cloudflare Pages Worker Bị Bỏ Qua & Bẫy Gom Trùng Lặp Schema JSON-LD Vào Cuối Body
 - **Triệu chứng & Rủi ro**:
   1. Khi cấu hình `_routes.json` chứa `"/sitemap.xml"` trong mảng `exclude`, Cloudflare Pages edge router mặc định phục vụ file tĩnh cũ `dist/sitemap.xml` lưu trong CDN storage và KHÔNG BAO GIỜ kích hoạt Cloudflare Pages Worker (`functions/_worker.ts`). Hậu quả là dù Worker đã lập trình `handleDynamicSitemap` lấy lastmod và game thời gian thực từ CSDL D1 thì client/crawler vẫn nhận file sitemap cũ kỹ.

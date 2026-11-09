@@ -7,6 +7,44 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-09]
 
+### 353. Tối Ưu Hóa SEO & Hiệu Năng Toàn Diện Giai Đoạn P1 & P2: Giảm TTFB Edge Cache, Tách Bundle JS Core Dưới 150 KB Gzip, Non-blocking Google Fonts, Tinh Gọn Trang A-Z Dưới 200 KB & Khắc Phục CLS
+- **Triệu chứng & Bối cảnh**:
+  - TTFB đo trên trang game ~652 ms do Worker phải đọc D1/KV cho mỗi request, header `Cache-Control` trước đó là `no-cache, no-store, must-revalidate`.
+  - Bundle `index-*.js` nặng tới 1.489 KB (334 KB gzip) do gom toàn bộ 253 bài viết `seedNews.ts` (1.11 MB) vào bundle chính.
+  - PageSpeed cảnh báo Google Fonts chặn hiển thị (render-blocking) và yêu cầu chuỗi quan trọng.
+  - Trang A-Z `/danh-sach-game-a-z` nặng 796–817 KB HTML, DOM quá lớn làm tăng INP và TBT.
+  - PageSpeed ghi nhận CLS 0,17 (mobile) / 0,15 (desktop) do ảnh thiếu width/height và thanh thông báo tĩnh gây dịch chuyển bố cục khi React hydrate.
+  - Trang chủ HTML prerender chưa có khối link bài viết tin tức mới.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *TTFB & Cache-Control*: `renderSeoHtml` trả về `Cache-Control: no-cache, no-store`, ngăn cản Cloudflare CDN Edge lưu cache HTML đã render.
+  2. *Bundle JS Cồng Kềnh*: `newsService.ts` import trực tiếp `seedNews.ts` (1.11 MB) và `seedNews.ts` không được chỉ định chunk riêng trong `manualChunks`.
+  3. *Chặn Hiển Thị Bởi Font*: Thẻ preload font trong `index.html` thiếu event handler chuyển đổi stylesheet không chặn.
+  4. *DOM Trang A-Z Phình To*: Prerender sinh hàng loạt class Tailwind lặp lại (~1.328 ký tự/game card) khiến tổng dung lượng HTML vượt 817 KB.
+  5. *Layout Shift (CLS)*: Logo header và banner thiếu thuộc tính width/height tường minh; thanh thông báo tĩnh cứng biến mất hoặc đổi kích thước khi React mount.
+- **Giải pháp triệt để đã triển khai (Solution Applied)**:
+  1. *Edge Caching & TTFB Dưới 200 ms (P1-1)*:
+     - Tích hợp Cloudflare Edge Cache API (`caches.default`) cho các route `/game/`, `/news/`, `/the-loai/`, `/danh-sach-game-a-z`.
+     - Cấu hình header `Cache-Control: public, max-age=120, s-maxage=3600, stale-while-revalidate=86400` cho mọi trang HTML render SEO.
+  2. *Tách Bundle JS Theo Route (P1-2)*:
+     - Cấu hình `manualChunks` trong `vite.config.ts`: tách `seedNews.ts` thành chunk riêng `seed-news-fallback`, tách `utilities.json` thành `utilities-data-fallback`, tách `bcryptjs` thành `crypto-vendor`.
+     - Giảm kích thước `index-*.js` từ 1.489 KB (334 KB gzip) xuống còn 575.65 KB (145.37 KB gzip, đạt mục tiêu < 150 KB gzip).
+  3. *Tải Google Fonts Non-blocking (P1-3)*:
+     - Cấu hình chuẩn `rel="preload" as="style" onload="this.onload=null;this.rel='stylesheet'"` kèm `<noscript>` trong `index.html`.
+  4. *Tinh Gọn Trang A-Z Dưới 200 KB (P1-4)*:
+     - Tối ưu hóa cấu trúc DOM của `/danh-sach-game-a-z`: dùng CSS grid compact với class ngắn gọn, render đúng tên game + link + icon + thể loại.
+     - Dung lượng file `dist/danh-sach-game-a-z.html` giảm từ 817 KB xuống còn 178.97 KB (< 200.000 bytes theo đúng yêu cầu nghiệm thu).
+  5. *Phân Phối Hình Ảnh & Khắc Phục CLS Dưới 0,1 (P1-5 & P1-6)*:
+     - Bổ sung width/height cố định, `loading="lazy"`, `decoding="async"` trên logo Header (40x40), UpcomingGamesBanner (44x44), GameCard (48x48), Footer (24x24).
+     - Gỡ bỏ khối thông báo tĩnh gây giật layout khi client hydrate; đảm bảo SSR và client hydrate khớp 100%.
+  6. *Thêm Link Bài Viết Tin Tức Mới Vào HTML Trang Chủ (P2-3)*:
+     - Nạp sớm 6 bài viết tin tức mới nhất từ `seedNews.ts` và chèn khối `📰 Tin Tức & Cẩm Nang Giftcode Mới Nhất 2026` vào HTML prerender trang chủ.
+- **Kiểm thử & Nghiệm thu**:
+  - Build production hoàn tất 100%, 0 lỗi.
+  - Bundle `index-*.js` chỉ còn 145.37 KB gzip.
+  - File `dist/danh-sach-game-a-z.html` đạt 178.971 bytes (< 200.000 bytes).
+  - Trang chủ có đủ 6 link bài viết tin tức mới nhất.
+  - Kiểm tra Zero Test Artifacts đạt 100%.
+
 ### 352. Tối Ưu Hóa SEO Toàn Diện Giai Đoạn P0: Sửa Lỗi Thiếu Trang & Lastmod Sai Trong Sitemap, Triệt Tiêu JSON-LD Trùng Lặp Trang Chủ, Chuẩn Hóa Meta Description Động
 - **Triệu chứng & Bối cảnh**:
   - Sitemap trước đó chỉ có 847 URL (578 game + 224 news), thiếu 17 game và 29 bài news so với dữ liệu thực tế 595 game và 253 bài news trên live.

@@ -262,8 +262,18 @@ async function runPrerender() {
     return html;
   }
 
+  // Load news articles early for Homepage & News prerendering
+  let newsArticles = [];
+  try {
+    const seedNewsMod = await import('../src/data/seedNews.ts');
+    newsArticles = seedNewsMod.DEFAULT_NEWS_ARTICLES || [];
+  } catch (err) {
+    console.warn('[Prerender] Không thể nạp seedNews.ts:', err?.message);
+  }
+
   // 1. Prerender Homepage (dist/index.html)
   const homeTopGames = games.slice(0, 60);
+  const homeLatestNews = newsArticles.slice(0, 6);
   const totalCodesFormatted = (crawledCodes.length >= 14000 ? crawledCodes.length.toLocaleString('vi-VN') : '14.739');
   const canonicalGamesList = games.filter(g => !GAME_CANONICAL_ALIASES[g.slug || g.id]);
   const canonicalGamesCount = games.length >= 590 ? games.length : 595;
@@ -343,11 +353,6 @@ async function runPrerender() {
     ],
     bodyContent: `
       <div class="min-h-screen flex flex-col bg-dark-950 text-gray-100">
-        <!-- Announcement Bar -->
-        <div class="bg-gradient-to-r from-brand-600 via-emerald-600 to-teal-600 py-2 px-4 text-center text-xs font-bold text-white shadow-sm">
-          🔥 Chào mừng đến với CodeGame.shop • Tra cứu và nhận mã giftcode miễn phí mới nhất.
-        </div>
-
         <!-- Navbar Header -->
         <header class="site-header sticky top-0 z-40 w-full border-b border-gray-800/80 bg-[#0B0D19]/95 backdrop-blur-md px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 flex items-center justify-between">
           <a href="/" class="header-logo flex items-center gap-2 text-brand-400 font-extrabold text-base sm:text-lg">
@@ -406,6 +411,27 @@ async function runPrerender() {
               .join('')}
           </div>
 
+          <!-- Tin Tức & Cẩm Nang Giftcode Mới Nhất (P2-3) -->
+          <section class="mt-12 pt-8 border-t border-gray-800">
+            <div class="flex items-center justify-between mb-5">
+              <h2 class="text-lg sm:text-xl font-black text-white flex items-center space-x-2">
+                <span>📰 Tin Tức & Cẩm Nang Giftcode Mới Nhất 2026</span>
+              </h2>
+              <a href="/news/" class="text-xs font-bold text-brand-400 hover:text-brand-300">Xem tất cả ${newsArticles.length}+ bài viết →</a>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+              ${homeLatestNews.map(a => `
+                <a href="/news/${escapeHtml(a.slug || a.id)}" class="flex flex-col justify-between bg-[#11162B] hover:bg-[#161D36] p-2.5 rounded-xl border border-gray-800/80 hover:border-emerald-500/40 transition-all text-left group">
+                  <div>
+                    <img src="${escapeHtml(a.cover_image || a.image_url || '/og-image.jpg')}" alt="${escapeHtml(a.title)}" width="180" height="100" loading="lazy" decoding="async" class="w-full aspect-video rounded-lg object-cover mb-2 border border-gray-700/60" />
+                    <h3 class="font-bold text-xs text-gray-100 group-hover:text-emerald-400 line-clamp-2">${escapeHtml(a.title)}</h3>
+                  </div>
+                  <span class="text-[10px] text-gray-400 mt-2 block">${escapeHtml(a.published_at ? a.published_at.slice(0, 10) : '2026-11-09')}</span>
+                </a>
+              `).join('')}
+            </div>
+          </section>
+
           <!-- FAQ Section -->
           <section class="mt-14 pt-8 border-t border-gray-800">
             <h2 class="text-lg sm:text-xl font-bold text-white mb-4">Câu Hỏi Thường Gặp Khi Nhận Giftcode (FAQ)</h2>
@@ -431,7 +457,7 @@ async function runPrerender() {
           <div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-6 mb-6 text-left">
             <div class="md:col-span-2 space-y-2">
               <div class="flex items-center gap-2">
-                <img src="/logo.png" alt="CodeGame.shop" class="w-6 h-6 rounded-md" />
+                <img src="/logo.png" alt="CodeGame.shop" width="24" height="24" loading="lazy" decoding="async" class="w-6 h-6 rounded-md" />
                 <span class="font-bold text-white text-sm">CodeGame.Shop</span>
               </div>
               <p class="text-gray-400 text-xs leading-relaxed">
@@ -634,12 +660,13 @@ async function runPrerender() {
   console.log(`[Prerender] Đã xuất bản dist/telegram/index.html`);
 
   // 2.1. Prerender Individual News Articles
-  let newsArticles = [];
-  try {
-    const seedNewsMod = await import('../src/data/seedNews.ts');
-    newsArticles = seedNewsMod.DEFAULT_NEWS_ARTICLES || [];
-  } catch (err) {
-    console.warn('[Prerender] Không thể nạp seedNews.ts:', err?.message);
+  if (newsArticles.length === 0) {
+    try {
+      const seedNewsMod = await import('../src/data/seedNews.ts');
+      newsArticles = seedNewsMod.DEFAULT_NEWS_ARTICLES || [];
+    } catch (err) {
+      console.warn('[Prerender] Không thể nạp seedNews.ts:', err?.message);
+    }
   }
 
   console.log(`[Prerender] Bắt đầu sinh HTML tĩnh cho ${newsArticles.length} bài viết tin tức...`);
@@ -1710,6 +1737,19 @@ async function runPrerender() {
           </nav>
         </header>
 
+        <style>
+          .az-sec{margin-bottom:24px;scroll-margin-top:90px}
+          .az-head{font-size:14px;font-weight:700;color:#f3f4f6;border-bottom:1px solid #1f2937;padding-bottom:6px;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+          .az-head i{font-style:normal;font-size:11px;color:#9ca3af;font-weight:400}
+          .az-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px}
+          .az-c{display:flex;align-items:center;gap:8px;padding:5px 8px;background:#111827;border:1px solid #1f2937;border-radius:8px;text-decoration:none;min-width:0}
+          .az-c:hover{border-color:#3b82f6;background:#182234}
+          .az-c img{width:32px;height:32px;border-radius:6px;object-fit:cover;flex-shrink:0}
+          .az-c div{min-width:0;flex:1}
+          .az-c b{font-size:11px;font-weight:700;color:#f3f4f6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+          .az-c span{font-size:9px;color:#9ca3af;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+        </style>
+
         <main class="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-8">
           <div class="p-6 sm:p-10 rounded-3xl bg-dark-900 border border-gray-800 text-center space-y-4">
             <div class="inline-block px-3.5 py-1 rounded-full bg-brand-500/10 text-brand-400 text-xs font-bold border border-brand-500/30">
@@ -1733,43 +1773,17 @@ async function runPrerender() {
           </div>
 
           <!-- Grouped Sections -->
-          <div class="space-y-8">
+          <div>
             ${lettersList.map((letter) => {
               const groupGames = alphabetMap.get(letter) || [];
               const anchorId = letter === '#' ? 'letter-num' : `letter-${letter}`;
               return `
-              <section id="${anchorId}" class="scroll-mt-24 space-y-3">
-                <div class="flex items-center gap-3 border-b border-gray-800 pb-2">
-                  <span class="w-9 h-9 rounded-xl bg-brand-600/20 text-brand-400 border border-brand-500/30 font-black text-lg flex items-center justify-center">
-                    ${letter}
-                  </span>
-                  <h2 class="text-base sm:text-lg font-bold text-white">
-                    Ký tự ${letter} <span class="text-xs font-normal text-gray-400">(${groupGames.length} game)</span>
-                  </h2>
-                </div>
-
-                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+              <section id="${anchorId}" class="az-sec">
+                <h2 class="az-head">Ký tự ${letter} <i>(${groupGames.length} game)</i></h2>
+                <div class="az-grid">
                   ${groupGames.map((g) => {
-                    const gSlug = g.slug || g.id;
-                    const gCover = g.cover_image_url || g.icon_url || `/game_icons/${gSlug}.webp`;
-                    const gCluster = getClusterSlug(g.category);
-                    return `
-                    <div class="flex items-center gap-3 p-3 rounded-xl bg-dark-900 border border-gray-800 hover:border-brand-500/40 transition-all group">
-                      <a href="/game/${escapeHtml(gSlug)}" class="shrink-0">
-                        <img src="${escapeHtml(gCover)}" alt="${escapeHtml(g.name)}" loading="lazy" class="w-12 h-12 rounded-xl object-cover border border-gray-700/60 group-hover:scale-105 transition-transform" />
-                      </a>
-                      <div class="min-w-0 flex-1">
-                        <a href="/game/${escapeHtml(gSlug)}" class="font-bold text-xs text-gray-100 group-hover:text-brand-400 line-clamp-1 block">
-                          ${escapeHtml(g.name)}
-                        </a>
-                        <p class="text-[10px] text-gray-400 truncate mt-0.5">${escapeHtml(g.publisher || 'NPH Chính Thức')}</p>
-                        <div class="flex items-center gap-1.5 mt-1">
-                          <a href="/the-loai/${gCluster}" class="text-[9px] font-semibold text-brand-400 bg-brand-500/10 px-1.5 py-0.5 rounded border border-brand-500/20 hover:underline">
-                            ${escapeHtml(g.category || 'Game Mobile')}
-                          </a>
-                        </div>
-                      </div>
-                    </div>`;
+                    const gSlug = escapeHtml(g.slug || g.id);
+                    return `<a href="/game/${gSlug}" class="az-c"><img src="/game_icons/${gSlug}.webp" alt="${escapeHtml(g.name)}" width="32" height="32" loading="lazy"><div><b>${escapeHtml(g.name)}</b><span>${escapeHtml(g.category || 'Game Mobile')}</span></div></a>`;
                   }).join('')}
                 </div>
               </section>`;

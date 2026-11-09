@@ -158,6 +158,10 @@ export const Header: React.FC<HeaderProps> = ({
                 <img
                   src={branding.logoUrl}
                   alt="Logo"
+                  width={40}
+                  height={40}
+                  loading="eager"
+                  decoding="async"
                   className="w-full h-full object-cover"
                   onError={(e) => {
                     const target = e.target as HTMLImageElement;
@@ -170,6 +174,10 @@ export const Header: React.FC<HeaderProps> = ({
                 <img
                   src="/logo.png"
                   alt="Logo"
+                  width={40}
+                  height={40}
+                  loading="eager"
+                  decoding="async"
                   className="w-full h-full object-cover"
                 />
               )}
