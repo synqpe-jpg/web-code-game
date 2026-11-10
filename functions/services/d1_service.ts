@@ -702,6 +702,64 @@ export async function ensureUtilitiesSchema(db: D1Database): Promise<void> {
 }
 
 /**
+ * Safe runtime schema for 1-Tap Code Reports (code_reports)
+ */
+export async function ensureCodeReportsSchema(db: D1Database): Promise<void> {
+  try {
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS code_reports (
+        id TEXT PRIMARY KEY,
+        game_slug TEXT NOT NULL,
+        code TEXT NOT NULL,
+        reason TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        user_name TEXT NOT NULL,
+        note TEXT,
+        status TEXT NOT NULL DEFAULT 'PENDING',
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        resolved_by TEXT,
+        resolved_at TEXT
+      );
+    `).run().catch(() => {});
+
+    await db.prepare("CREATE INDEX IF NOT EXISTS idx_code_reports_game_code ON code_reports(game_slug, code);").run().catch(() => {});
+    await db.prepare("CREATE INDEX IF NOT EXISTS idx_code_reports_user ON code_reports(user_id, created_at);").run().catch(() => {});
+    await db.prepare("CREATE INDEX IF NOT EXISTS idx_code_reports_status ON code_reports(status, created_at);").run().catch(() => {});
+  } catch (err: any) {
+    console.warn('[ensureCodeReportsSchema error]', err?.message);
+  }
+}
+
+/**
+ * Safe runtime schema for Game Comments & Reviews (game_comments)
+ */
+export async function ensureGameCommentsSchema(db: D1Database): Promise<void> {
+  try {
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS game_comments (
+        id TEXT PRIMARY KEY,
+        game_slug TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        user_name TEXT NOT NULL,
+        rating INTEGER,
+        content TEXT,
+        confirmed_working INTEGER DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'PENDING',
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        reviewed_by TEXT,
+        reviewed_at TEXT,
+        rejection_reason TEXT
+      );
+    `).run().catch(() => {});
+
+    await db.prepare("CREATE INDEX IF NOT EXISTS idx_game_comments_game_status ON game_comments(game_slug, status, created_at);").run().catch(() => {});
+    await db.prepare("CREATE INDEX IF NOT EXISTS idx_game_comments_user_game ON game_comments(user_id, game_slug);").run().catch(() => {});
+  } catch (err: any) {
+    console.warn('[ensureGameCommentsSchema error]', err?.message);
+  }
+}
+
+/**
  * Ghi nhật ký kiểm toán quản trị (Admin Audit Logging) an toàn vào CSDL D1
  */
 export async function logAdminAudit(
@@ -750,6 +808,8 @@ export async function ensureSchemaUpgrades(db: D1Database): Promise<void> {
     // 0. Ensure Giveaway schema & Mission schema first
     await ensureGiveawaySchema(db);
     await ensureMissionSchema(db);
+    await ensureCodeReportsSchema(db);
+    await ensureGameCommentsSchema(db);
     // Safe schema migrations tracking
     try {
       await db.prepare("CREATE TABLE IF NOT EXISTS schema_migrations (id TEXT PRIMARY KEY, executed_at TEXT DEFAULT (datetime('now')));").run().catch(() => {});

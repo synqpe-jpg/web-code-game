@@ -7,6 +7,47 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-10]
 
+### 365. Triển Khai Trọn Gói 3 Tính Năng: Báo Mã Lỗi Một Chạm, Bình Luận & Đánh Giá Game, Trang Mã Hôm Nay (/ma-hom-nay)
+- **Triệu chứng & Bối cảnh**:
+  - Triển khai đồng thời 3 tính năng mới theo yêu cầu ngày 10/11/2026:
+    1. *Báo mã lỗi một chạm*: Người chơi nhấn icon cờ bên cạnh mã còn hạn để báo lỗi. Hệ thống tự động suy luận lý do (`Hết hạn` vs `Nhập không được`) dựa trên ngày hết hạn, chống trùng lặp 7 ngày, giới hạn tối đa 5 lần/ngày/người.
+    2. *Bình luận & Đánh giá game*: Người chơi đã đăng nhập có thể chấm sao (1-5★) và viết nhận xét (tối đa 500 ký tự, chặn link URL) hoặc xác nhận mã dùng tốt. Bình luận đưa vào trạng thái `PENDING` chờ quản trị viên duyệt trước khi hiển thị công khai.
+    3. *Trang Mã Hôm Nay (`/ma-hom-nay`)*: Trang chuyên biệt tổng hợp các mã có hạn chót trong ngày hôm nay (hết hạn vào 22:30 tối nay theo giờ Việt Nam UTC+7), có đồng hồ đếm ngược, gom theo game, nút copy nhanh và trạng thái rỗng thân thiện.
+- **Nguyên nhân gốc rễ & Các nguyên tắc thiết kế cốt lõi**:
+  - Dữ liệu người dùng đóng góp cần lưu trữ trên bảng D1 riêng biệt (`code_reports`, `game_comments`) thay vì nhồi nhét vào bảng cấu hình KV hay bảng `codes`.
+  - Không tự động sửa trạng thái mã trong bảng `codes` khi người dùng báo lỗi nhằm tránh rủi ro người chơi troll/phá hoại.
+  - Không bịa số liệu, không sinh review ảo.
+  - Tuân thủ Quy tắc 9 (Single-Screen First) cho giao diện kiểm duyệt trong Admin Portal.
+  - Tuân thủ Quy tắc 8: Cập nhật tài liệu API và phân quyền trong `ApiKeysModule.tsx`.
+- **Giải pháp triệt để đã triển khai (Solution Applied)**:
+  1. *Cơ sở dữ liệu D1 (`functions/services/d1_service.ts`)*:
+     - Tạo bảng `code_reports` (`id`, `game_slug`, `code`, `user_id`, `reason`, `status`, `resolved_at`, `resolved_by`, `resolution_note`, `created_at`) kèm 3 index.
+     - Tạo bảng `game_comments` (`id`, `game_slug`, `user_id`, `user_name`, `user_email`, `rating`, `content`, `confirmed_working`, `status`, `rejection_reason`, `created_at`, `reviewed_at`, `reviewed_by`) kèm 2 index.
+     - Đặt các hàm migration trước early-return trong `ensureSchemaUpgrades`.
+  2. *Backend Endpoints (`functions/api/`)*:
+     - `POST /api/code-reports`: Báo mã lỗi 1 chạm, tự suy lý do, chống trùng 7 ngày (409), rate limit 5 lần/ngày (429).
+     - `GET /api/admin/code-reports`: Danh sách báo lỗi, lọc trạng thái, đếm số người cùng báo mã (`same_code_reporters`), cờ `needs_attention` khi $\ge 3$ người.
+     - `POST /api/admin/code-reports/:id/resolve`: Xử lý báo cáo (`confirmed`, `invalid`, `dismiss`), ghi audit log.
+     - `GET/POST /api/games/:slug/comments`: Lấy danh sách bình luận đã duyệt, thống kê điểm sao trung bình, phân bố sao 5★-1★, lấy bình luận chờ duyệt của chính mình; gửi bình luận mới với rate limit 5 phút.
+     - `GET /api/admin/comments`: Danh sách bình luận game cho admin phân trang và lọc trạng thái.
+     - `POST /api/admin/comments/:id/approve` & `.../:id/reject`: Duyệt hoặc từ chối bình luận kèm lý do.
+     - `GET /api/codes/today`: Endpoint public lọc các mã còn hoạt động (`status = 'active'`) và có ngày hết hạn là ngày hôm nay theo múi giờ Việt Nam (UTC+7), gom theo game, cache 5 phút, sau 22:30 trả về danh sách hết hạn.
+  3. *Client Frontend & Trải Nghiệm Người Dùng*:
+     - `src/components/GameDetailModal.tsx`:
+       - Thêm icon Cờ báo lỗi (`Flag`) nhỏ gọn cạnh cụm vote ThumbsUp/ThumbsDown trên dòng mã còn hạn, tự lưu trạng thái đã báo vào `localStorage`.
+       - Thêm PHẦN 3 "Đánh Giá & Bình Luận" sau thông tin game: thẻ tóm tắt sao trung bình, thanh phân bố sao trực quan, form đánh giá kèm chọn sao và checkbox "Vừa nhập thành công mã hôm nay", thông báo trạng thái chờ duyệt của chính mình, danh sách bình luận đã duyệt.
+     - `src/components/TodayCodesView.tsx`:
+       - Giao diện trang `/ma-hom-nay` gom mã theo game, đếm ngược đến 22:30 tối nay, nút sao chép nhanh, trạng thái trống thân thiện.
+     - `src/App.tsx` & `src/components/Header.tsx`:
+       - Thêm tab "Mã Hôm Nay" có icon Lửa (`Flame`), tự động cập nhật URL và `document.title`.
+       - Prerender file tĩnh `dist/ma-hom-nay/index.html` trong `scripts/prerender.js`, cập nhật sitemap động với priority 0.9.
+  4. *Giao Diện Quản Trị Admin (`GiftcodesModerationModule.tsx`)*:
+     - Nâng cấp thành hệ thống 3 tab: "Báo Mã Lỗi Một Chạm", "Bình Luận & Đánh Giá", "Đóng Góp Mã Mới".
+     - Áp dụng 100% Quy tắc 9: `table-fixed w-full`, tỷ lệ cột phần trăm, `truncate` văn bản, không tràn ngang, vừa khít 1 màn hình laptop.
+- **Kiểm thử & Triển khai**:
+  - `npm run build` thành công 100%, prerender toàn bộ 595 trang game + trang mã hôm nay + sitemap.
+  - Zero test artifacts: Không lưu vết bất kỳ dữ liệu test nào trên production.
+
 ### 364. Triển Khai Toàn Diện Tính Năng Theo Dõi Game & Báo Mã Mới Qua Telegram DM (Đợt 2 Tích Hợp Telegram)
 - **Triệu chứng & Bối cảnh**:
   - Triển khai tính năng "Theo dõi game + Báo mã mới cho codegame.shop" (Đợt 2 của tích hợp Telegram theo định hướng ngày 10/11/2026).

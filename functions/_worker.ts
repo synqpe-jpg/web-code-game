@@ -70,6 +70,17 @@ import * as adminMembersAdjustBalanceApi from './api/admin/members/adjust-balanc
 import * as storeMyOfferApi from './api/store/my-offer';
 import * as escalatingApi from './api/store/escalating';
 
+// 3 New Features (10/11/2026): Code Reports, Game Comments, Today Codes
+import * as codeReportsApi from './api/code-reports';
+import * as adminCodeReportsApi from './api/admin/code-reports/index';
+import * as adminCodeReportsResolveApi from './api/admin/code-reports/[id]/resolve';
+import * as gameCommentsApi from './api/games/[slug]/comments/index';
+import * as gameCommentsIdApi from './api/games/[slug]/comments/[id]';
+import * as adminCommentsApi from './api/admin/comments/index';
+import * as adminCommentsApproveApi from './api/admin/comments/[id]/approve';
+import * as adminCommentsRejectApi from './api/admin/comments/[id]/reject';
+import * as codesTodayApi from './api/codes/today';
+
 // Dedicated Admin APIs for 9 Modules
 import * as adminMembersIndexApi from './api/admin/members/index';
 import * as adminMembersIdApi from './api/admin/members/[id]';
@@ -1197,6 +1208,75 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
         return new Response('Method Not Allowed', { status: 405 });
       }
 
+      // 17. Feature 1: Code Reports API (1-Tap Giftcode Error Reports)
+      if (pathname === '/api/code-reports') {
+        if (method === 'OPTIONS') return await codeReportsApi.onRequestOptions();
+        if (method === 'POST') return await codeReportsApi.onRequestPost(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      if (pathname === '/api/admin/code-reports') {
+        if (method === 'OPTIONS') return await adminCodeReportsApi.onRequestOptions();
+        if (method === 'GET') return await adminCodeReportsApi.onRequestGet(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      const matchCodeReportResolve = pathname.match(/^\/api\/admin\/code-reports\/([^/]+)\/resolve$/);
+      if (matchCodeReportResolve) {
+        context.params = { ...(context.params || {}), id: matchCodeReportResolve[1] };
+        if (method === 'OPTIONS') return await adminCodeReportsResolveApi.onRequestOptions();
+        if (method === 'POST') return await adminCodeReportsResolveApi.onRequestPost(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      // 18. Feature 2: Game Comments & Community Reviews API
+      const matchGameComments = pathname.match(/^\/api\/games\/([^/]+)\/comments$/);
+      if (matchGameComments) {
+        context.params = { ...(context.params || {}), slug: matchGameComments[1] };
+        if (method === 'OPTIONS') return await gameCommentsApi.onRequestOptions();
+        if (method === 'GET') return await gameCommentsApi.onRequestGet(context);
+        if (method === 'POST') return await gameCommentsApi.onRequestPost(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      const matchGameCommentsId = pathname.match(/^\/api\/games\/([^/]+)\/comments\/([^/]+)$/);
+      if (matchGameCommentsId) {
+        context.params = { ...(context.params || {}), slug: matchGameCommentsId[1], id: matchGameCommentsId[2] };
+        if (method === 'OPTIONS') return await gameCommentsIdApi.onRequestOptions();
+        if (method === 'PUT') return await gameCommentsIdApi.onRequestPut(context);
+        if (method === 'DELETE') return await gameCommentsIdApi.onRequestDelete(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      if (pathname === '/api/admin/comments') {
+        if (method === 'OPTIONS') return await adminCommentsApi.onRequestOptions();
+        if (method === 'GET') return await adminCommentsApi.onRequestGet(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      const matchCommentApprove = pathname.match(/^\/api\/admin\/comments\/([^/]+)\/approve$/);
+      if (matchCommentApprove) {
+        context.params = { ...(context.params || {}), id: matchCommentApprove[1] };
+        if (method === 'OPTIONS') return await adminCommentsApproveApi.onRequestOptions();
+        if (method === 'POST') return await adminCommentsApproveApi.onRequestPost(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      const matchCommentReject = pathname.match(/^\/api\/admin\/comments\/([^/]+)\/reject$/);
+      if (matchCommentReject) {
+        context.params = { ...(context.params || {}), id: matchCommentReject[1] };
+        if (method === 'OPTIONS') return await adminCommentsRejectApi.onRequestOptions();
+        if (method === 'POST') return await adminCommentsRejectApi.onRequestPost(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      // 19. Feature 3: Daily Codes API (Mã Hôm Nay)
+      if (pathname === '/api/codes/today') {
+        if (method === 'OPTIONS') return await codesTodayApi.onRequestOptions();
+        if (method === 'GET') return await codesTodayApi.onRequestGet(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
       // Fallback for any unknown /api route
       if (pathname.startsWith('/api')) {
         return new Response(
@@ -1322,6 +1402,8 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
         pathname.startsWith('/the-loai/') ||
         pathname === '/the-loai' ||
         pathname === '/danh-sach-game-a-z' ||
+        pathname === '/ma-hom-nay' ||
+        pathname.startsWith('/ma-hom-nay/') ||
         pathname === '/nhiem-vu' ||
         pathname.startsWith('/nhiem-vu/') ||
         pathname === '/missions' ||
@@ -1918,6 +2000,7 @@ async function generateDynamicSitemapXml(env: Env): Promise<string> {
   // 1. Static Core Pages
   addEntry({ loc: `${BASE_URL}/`, priority: '1.0', changefreq: 'daily', lastmod: homeLastmod });
   addEntry({ loc: `${BASE_URL}/danh-sach-game-a-z`, priority: '0.9', changefreq: 'daily', lastmod: azLastmod });
+  addEntry({ loc: `${BASE_URL}/ma-hom-nay`, priority: '0.9', changefreq: 'daily', lastmod: todayStr });
   addEntry({ loc: `${BASE_URL}/news/`, priority: '0.9', changefreq: 'daily', lastmod: newsIndexLastmod });
   addEntry({ loc: `${BASE_URL}/su-kien`, priority: '0.9', changefreq: 'daily', lastmod: suKienLastmod });
   addEntry({ loc: `${BASE_URL}/giveaways`, priority: '0.9', changefreq: 'daily', lastmod: gwIndexLastmod });
@@ -1984,6 +2067,8 @@ async function renderSeoHtml(
     pathname.startsWith('/su-kien/') ||
     pathname === '/events' ||
     pathname.startsWith('/events/') ||
+    pathname === '/ma-hom-nay' ||
+    pathname.startsWith('/ma-hom-nay/') ||
     pathname === '/telegram' ||
     pathname.startsWith('/telegram/') ||
     pathname === '/news' ||
@@ -2640,6 +2725,29 @@ async function renderSeoHtml(
       }
     ];
     replaceTitleAndMeta(title, description, '/telegram', '/og-image.jpg', telegramSchema);
+  } else if (
+    pathname === '/ma-hom-nay' ||
+    pathname.startsWith('/ma-hom-nay/')
+  ) {
+    const todayVNFormatted = new Intl.DateTimeFormat('vi-VN', {
+      timeZone: 'Asia/Ho_Chi_Minh',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    }).format(new Date());
+    const title = `Mã Giftcode Hôm Nay ${todayVNFormatted} — Tổng Hợp Code Ngày Mới Nhất | CodeGame.shop`;
+    const description = `Tổng hợp toàn bộ mã giftcode còn hạn phát hành và có hiệu lực hôm nay ${todayVNFormatted} của các tựa game hot tại Việt Nam. Cập nhật liên tục, kiểm tra thực tế, lấy mã nhanh trong ngày.`;
+    const todaySchema = [
+      {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Trang chủ", "item": `${origin}/` },
+          { "@type": "ListItem", "position": 2, "name": "Mã Hôm Nay", "item": `${origin}/ma-hom-nay` },
+        ],
+      },
+    ];
+    replaceTitleAndMeta(title, description, '/ma-hom-nay', '/og-image.jpg', todaySchema);
   } else if (
     pathname === '/giveaways' ||
     pathname.startsWith('/giveaways/') ||

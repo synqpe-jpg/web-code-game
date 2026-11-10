@@ -19,6 +19,7 @@ import {
   Award,
   Globe,
   Send,
+  Flame,
 } from 'lucide-react';
 import type { GameItem, UserProfile } from '../types/game';
 import { formatCore } from '../utils/textUtils';
@@ -28,8 +29,8 @@ import { growthService } from '../services/growthService';
 import { telegramService } from '../services/telegramService';
 
 interface HeaderProps {
-  currentTab: 'catalog' | 'news' | 'giveaways' | 'store' | 'utilities' | 'missions' | 'telegram';
-  onSelectTab: (tab: 'catalog' | 'news' | 'giveaways' | 'store' | 'utilities' | 'missions' | 'telegram') => void;
+  currentTab: 'catalog' | 'news' | 'giveaways' | 'store' | 'utilities' | 'missions' | 'telegram' | 'today-codes';
+  onSelectTab: (tab: 'catalog' | 'news' | 'giveaways' | 'store' | 'utilities' | 'missions' | 'telegram' | 'today-codes') => void;
   searchQuery?: string;
   onSearchChange?: (q: string) => void;
   bookmarkCount: number;
@@ -218,6 +219,20 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <Gift className="w-4 h-4" />
               <span>{t.nav.catalog}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onSelectTab('today-codes')}
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                currentTab === 'today-codes'
+                  ? 'bg-amber-500 text-slate-950 font-black shadow-glow-accent'
+                  : 'text-amber-400 hover:text-amber-300 hover:bg-card'
+              }`}
+              title="Mã hạn ngày hôm nay (hết hạn 22:30)"
+            >
+              <Flame className="w-4 h-4 text-amber-400" />
+              <span>Mã Hôm Nay</span>
             </button>
 
             <button

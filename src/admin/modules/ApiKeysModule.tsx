@@ -316,9 +316,9 @@ export const ALL_API_SCOPES: ScopeOption[] = [
   },
   {
     id: 'SUBMISSIONS_FULL',
-    name: 'Duyệt Giftcode Khách Đóng Góp (Submissions API)',
+    name: 'Duyệt Giftcode Khách & Báo Lỗi / Đánh Giá (Submissions & Moderation API)',
     category: 'Vận Hành',
-    description: 'Xem danh sách giftcode do thành viên gửi lên (/api/admin/submissions), phê duyệt mã tự động nạp vào bảng codes (/approve) hoặc từ chối (/reject).',
+    description: 'Xem và duyệt giftcode khách đóng góp (/api/admin/submissions), quản lý báo mã lỗi một chạm (/api/admin/code-reports) và duyệt/từ chối bình luận, đánh giá game (/api/admin/comments).',
     color: 'sky',
     badgeBg: 'bg-sky-500/10',
     badgeText: 'text-sky-400',
@@ -2482,7 +2482,25 @@ curl -X POST "https://codegame.shop/api/admin/submissions/sub_1793366379892/appr
 curl -X POST "https://codegame.shop/api/admin/submissions/sub_1793366379892/reject" \\
   -H "Content-Type: application/json" \\
   -H "Authorization: Bearer YOUR_API_KEY_HERE" \\
-  -d '{"reason": "Mã đã hết hạn sử dụng"}'`}
+  -d '{"reason": "Mã đã hết hạn sử dụng"}'
+
+# 4. Lấy danh sách báo mã lỗi một chạm (PENDING / RESOLVED_CONFIRMED)
+curl -X GET "https://codegame.shop/api/admin/code-reports?status=PENDING" \\
+  -H "Authorization: Bearer YOUR_API_KEY_HERE"
+
+# 5. Xử lý báo cáo mã lỗi (action: confirmed / invalid / dismiss)
+curl -X POST "https://codegame.shop/api/admin/code-reports/rep_1794295831_abc/resolve" \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer YOUR_API_KEY_HERE" \\
+  -d '{"action": "confirmed", "note": "Xác nhận mã đã hết hạn"}'
+
+# 6. Lấy danh sách bình luận game chờ duyệt
+curl -X GET "https://codegame.shop/api/admin/comments?status=PENDING" \\
+  -H "Authorization: Bearer YOUR_API_KEY_HERE"
+
+# 7. Duyệt bình luận game công khai
+curl -X POST "https://codegame.shop/api/admin/comments/cm_1794295832_xyz/approve" \\
+  -H "Authorization: Bearer YOUR_API_KEY_HERE"`}
                 </pre>
               </div>
 

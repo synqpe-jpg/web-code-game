@@ -29,6 +29,11 @@ import {
   Sparkles,
   AlertCircle,
   Send,
+  Flag,
+  Star,
+  MessageSquare,
+  SendHorizontal,
+  Trash2,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import type { GameItem, GiftCode, UserProfile } from '../types/game';
@@ -81,6 +86,215 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
   const [isFollowingServer, setIsFollowingServer] = useState(false);
   const [isTogglingFollow, setIsTogglingFollow] = useState(false);
   const prevGameSlugRef = React.useRef<string | null>(game ? (game.slug || game.id || null) : null);
+
+  // --- Feature 1: Báo Mã Lỗi Một Chạm ---
+  const [reportedCodes, setReportedCodes] = useState<Record<string, boolean>>({});
+  const [isReportingCode, setIsReportingCode] = useState<Record<string, boolean>>({});
+
+  // --- Feature 2: Bình Luận & Đánh Giá Game ---
+  interface GameCommentItem {
+    id: string;
+    game_slug: string;
+    user_id: string;
+    user_name: string;
+    rating?: number | null;
+    content?: string | null;
+    confirmed_working?: number | null;
+    status: string;
+    created_at: string;
+    rejection_reason?: string | null;
+  }
+  const [commentsList, setCommentsList] = useState<GameCommentItem[]>([]);
+  const [commentsOverview, setCommentsOverview] = useState<{
+    average_rating: number;
+    rating_count: number;
+    total_comments: number;
+    distribution: Record<string, number>;
+    confirmed_working_count: number;
+  }>({
+    average_rating: 0,
+    rating_count: 0,
+    total_comments: 0,
+    distribution: { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 },
+    confirmed_working_count: 0,
+  });
+  const [myPendingComment, setMyPendingComment] = useState<GameCommentItem | null>(null);
+  const [isLoadingComments, setIsLoadingComments] = useState(false);
+  const [userRating, setUserRating] = useState<number>(0);
+  const [hoverRating, setHoverRating] = useState<number>(0);
+  const [commentText, setCommentText] = useState('');
+  const [confirmedWorking, setConfirmedWorking] = useState(false);
+  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+
+  // Load reported codes from localStorage
+  useEffect(() => {
+    const slug = (liveGame?.slug || liveGame?.id || game?.slug || game?.id || '').toLowerCase();
+    if (!slug) return;
+    try {
+      const saved = localStorage.getItem(`wcg_reported_codes_${slug}`);
+      if (saved) {
+        setReportedCodes(JSON.parse(saved));
+      } else {
+        setReportedCodes({});
+      }
+    } catch {}
+  }, [liveGame?.slug, liveGame?.id, game?.slug, game?.id]);
+
+  const handleReportCode = async (codeStr: string) => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('wcg_auth_token') || '' : '';
+    if (!activeUser || !token) {
+      if (onOpenAuth) onOpenAuth();
+      else setIsAuthPromptOpen(true);
+      onShowToast('Cần đăng nhập', 'Vui lòng đăng nhập để báo lỗi giftcode.', 'info');
+      return;
+    }
+
+    if (reportedCodes[codeStr]) {
+      onShowToast('Đã ghi nhận', 'Bạn đã báo lỗi cho mã này rồi. Hệ thống đang kiểm tra.', 'info');
+      return;
+    }
+
+    const slug = (currentGame.slug || currentGame.id || '').toLowerCase();
+    if (!slug || isReportingCode[codeStr]) return;
+
+    setIsReportingCode((prev) => ({ ...prev, [codeStr]: true }));
+
+    try {
+      const res = await fetch('/api/code-reports', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          game_slug: slug,
+          code: codeStr,
+        }),
+      });
+
+      const data: any = await res.json().catch(() => ({}));
+      if (res.ok && data?.success) {
+        const next = { ...reportedCodes, [codeStr]: true };
+        setReportedCodes(next);
+        try {
+          localStorage.setItem(`wcg_reported_codes_${slug}`, JSON.stringify(next));
+        } catch {}
+        onShowToast(
+          'Báo lỗi thành công',
+          data.message || `Đã ghi nhận báo lỗi (${data.reason_label || 'Hết hạn'}). Cảm ơn bạn đã đóng góp!`,
+          'success'
+        );
+      } else if (res.status === 409) {
+        const next = { ...reportedCodes, [codeStr]: true };
+        setReportedCodes(next);
+        try {
+          localStorage.setItem(`wcg_reported_codes_${slug}`, JSON.stringify(next));
+        } catch {}
+        onShowToast('Đã báo trước đó', data.error || 'Bạn đã báo lỗi mã này rồi.', 'info');
+      } else if (res.status === 429) {
+        onShowToast('Giới hạn báo lỗi', data.error || 'Bạn đã báo lỗi quá 5 lần trong ngày.', 'info');
+      } else {
+        onShowToast('Lỗi', data.error || 'Không thể gửi báo lỗi lúc này.', 'error');
+      }
+    } catch (err: any) {
+      onShowToast('Lỗi kết nối', err?.message || 'Không thể kết nối máy chủ.', 'error');
+    } finally {
+      setIsReportingCode((prev) => ({ ...prev, [codeStr]: false }));
+    }
+  };
+
+  // Load comments
+  const loadComments = async () => {
+    const slug = (liveGame?.slug || liveGame?.id || game?.slug || game?.id || '').toLowerCase();
+    if (!slug) return;
+    setIsLoadingComments(true);
+    const token = typeof window !== 'undefined' ? localStorage.getItem('wcg_auth_token') || '' : '';
+    try {
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const res = await fetch(`/api/games/${slug}/comments?limit=15`, { headers });
+      const data: any = await res.json().catch(() => ({}));
+      if (res.ok && data?.success) {
+        setCommentsList(data.comments || []);
+        if (data.overview) {
+          setCommentsOverview(data.overview);
+        }
+        if (data.my_comment) {
+          setMyPendingComment(data.my_comment);
+        } else {
+          setMyPendingComment(null);
+        }
+      }
+    } catch {} finally {
+      setIsLoadingComments(false);
+    }
+  };
+
+  useEffect(() => {
+    loadComments();
+  }, [liveGame?.slug, liveGame?.id, game?.slug, game?.id]);
+
+  const handleSubmitComment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const token = typeof window !== 'undefined' ? localStorage.getItem('wcg_auth_token') || '' : '';
+    if (!activeUser || !token) {
+      if (onOpenAuth) onOpenAuth();
+      else setIsAuthPromptOpen(true);
+      onShowToast('Cần đăng nhập', 'Vui lòng đăng nhập để đánh giá hoặc bình luận.', 'info');
+      return;
+    }
+
+    if (userRating === 0 && !commentText.trim()) {
+      onShowToast('Chưa nhập đủ', 'Vui lòng chọn số sao (1-5★) hoặc viết nội dung bình luận.', 'info');
+      return;
+    }
+
+    if (commentText.length > 500) {
+      onShowToast('Nội dung quá dài', 'Bình luận tối đa 500 ký tự.', 'info');
+      return;
+    }
+
+    if (/(https?:\/\/|www\.)[^\s]+/i.test(commentText)) {
+      onShowToast('Chặn liên kết', 'Bình luận không được chứa đường dẫn liên kết (link/URL).', 'info');
+      return;
+    }
+
+    const slug = (currentGame.slug || currentGame.id || '').toLowerCase();
+    if (!slug || isSubmittingComment) return;
+
+    setIsSubmittingComment(true);
+    try {
+      const res = await fetch(`/api/games/${slug}/comments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          rating: userRating > 0 ? userRating : null,
+          content: commentText.trim() || null,
+          confirmed_working: confirmedWorking,
+        }),
+      });
+
+      const data: any = await res.json().catch(() => ({}));
+      if (res.ok && data?.success) {
+        onShowToast('Đã gửi đánh giá', data.message || 'Bình luận của bạn đang chờ kiểm duyệt trước khi hiển thị công khai.', 'success');
+        setCommentText('');
+        setUserRating(0);
+        setConfirmedWorking(false);
+        await loadComments();
+      } else if (res.status === 429) {
+        onShowToast('Gửi quá nhanh', data.error || 'Vui lòng đợi 5 phút trước khi đăng tiếp.', 'info');
+      } else {
+        onShowToast('Lỗi', data.error || 'Không thể gửi bình luận.', 'error');
+      }
+    } catch (err: any) {
+      onShowToast('Lỗi kết nối', err?.message || 'Không thể gửi bình luận.', 'error');
+    } finally {
+      setIsSubmittingComment(false);
+    }
+  };
 
   // Đồng bộ trạng thái theo dõi server từ D1
   useEffect(() => {
@@ -883,6 +1097,24 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
                               </button>
                             </div>
 
+                            {/* 1-Tap Error Report Flag */}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleReportCode(codeItem.code);
+                              }}
+                              disabled={isReportingCode[codeItem.code]}
+                              className={`p-1.5 sm:p-2 rounded-xl border transition-all cursor-pointer active:scale-90 flex items-center justify-center shrink-0 ${
+                                reportedCodes[codeItem.code]
+                                  ? 'bg-amber-500/20 border-amber-500/40 text-amber-400'
+                                  : 'bg-card/90 border-border/80 text-muted-foreground hover:text-amber-400 hover:border-amber-500/30'
+                              }`}
+                              title={reportedCodes[codeItem.code] ? 'Bạn đã báo mã này rồi' : 'Báo mã này lỗi hoặc hết hạn'}
+                            >
+                              <Flag className={`w-2.5 h-2.5 sm:w-3 sm:h-3 ${reportedCodes[codeItem.code] ? 'fill-amber-400 text-amber-400' : ''}`} />
+                            </button>
+
                             {/* Prominent Ergonomic Copy Button */}
                             <button
                               type="button"
@@ -1124,6 +1356,216 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
               </p>
             </div>
           )}
+
+          {/* PHẦN 3: Đánh Giá & Bình Luận Game */}
+          <div className="p-4 sm:p-5 rounded-2xl bg-card border border-border/80 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-foreground font-heading font-bold text-sm sm:text-base">
+                <MessageSquare className="w-4 h-4 text-amber-400" />
+                <h4>Đánh Giá & Bình Luận</h4>
+              </div>
+              {commentsOverview.confirmed_working_count > 0 && (
+                <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                  {commentsOverview.confirmed_working_count} người xác nhận mã chạy tốt
+                </span>
+              )}
+            </div>
+
+            {/* Overview Card: Điểm sao & Phân bố */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3.5 rounded-xl bg-slate-950/40 border border-border/50 items-center">
+              <div className="flex flex-col items-center justify-center text-center sm:border-r sm:border-border/40 sm:pr-3">
+                <div className="text-3xl font-black text-foreground tracking-tight">
+                  {commentsOverview.average_rating > 0 ? commentsOverview.average_rating.toFixed(1) : '—'}
+                </div>
+                <div className="flex items-center gap-1 my-1">
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <Star
+                      key={s}
+                      className={`w-3.5 h-3.5 ${
+                        s <= Math.round(commentsOverview.average_rating)
+                          ? 'fill-amber-400 text-amber-400'
+                          : 'text-slate-600'
+                      }`}
+                    />
+                  ))}
+                </div>
+                <span className="text-[11px] text-muted-foreground">
+                  {commentsOverview.rating_count > 0
+                    ? `${commentsOverview.rating_count} lượt đánh giá`
+                    : 'Chưa có đánh giá sao'}
+                </span>
+              </div>
+
+              {/* Phân bố sao 5 -> 1 */}
+              <div className="sm:col-span-2 space-y-1 text-xs">
+                {[5, 4, 3, 2, 1].map((star) => {
+                  const cnt = commentsOverview.distribution[String(star)] || 0;
+                  const pct = commentsOverview.rating_count > 0
+                    ? Math.round((cnt / commentsOverview.rating_count) * 100)
+                    : 0;
+                  return (
+                    <div key={star} className="flex items-center gap-2 text-[11px]">
+                      <span className="w-4 font-mono text-muted-foreground text-right">{star}★</span>
+                      <div className="flex-1 h-1.5 rounded-full bg-slate-850 overflow-hidden">
+                        <div
+                          className="h-full bg-amber-400 rounded-full transition-all duration-300"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                      <span className="w-8 font-mono text-muted-foreground/80 text-right">{cnt}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Khung nhập đánh giá & bình luận */}
+            <form onSubmit={handleSubmitComment} className="space-y-3 pt-2 border-t border-border/40">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs text-muted-foreground font-medium">Đánh giá của bạn:</span>
+                  <div className="flex items-center gap-0.5">
+                    {[1, 2, 3, 4, 5].map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => setUserRating(s === userRating ? 0 : s)}
+                        onMouseEnter={() => setHoverRating(s)}
+                        onMouseLeave={() => setHoverRating(0)}
+                        className="p-1 cursor-pointer transition-transform hover:scale-110 active:scale-95"
+                        title={`${s} sao`}
+                      >
+                        <Star
+                          className={`w-4 h-4 transition-colors ${
+                            s <= (hoverRating || userRating)
+                              ? 'fill-amber-400 text-amber-400'
+                              : 'text-slate-600 hover:text-slate-400'
+                          }`}
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <label className="flex items-center gap-2 cursor-pointer select-none text-xs text-slate-300 hover:text-white">
+                  <input
+                    type="checkbox"
+                    checked={confirmedWorking}
+                    onChange={(e) => setConfirmedWorking(e.target.checked)}
+                    className="w-3.5 h-3.5 rounded accent-emerald-500 cursor-pointer"
+                  />
+                  <span>Tôi vừa nhập thành công mã hôm nay</span>
+                </label>
+              </div>
+
+              <div className="relative">
+                <textarea
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value.slice(0, 500))}
+                  placeholder="Chia sẻ kinh nghiệm nhập mã hoặc nhận xét tựa game này... (tối đa 500 ký tự)"
+                  rows={2}
+                  className="w-full px-3 py-2 text-xs sm:text-sm bg-slate-950/60 border border-border/80 rounded-xl text-foreground placeholder:text-muted-foreground/60 focus:outline-hidden focus:border-amber-500/60 transition-all resize-none"
+                />
+                <span className="absolute bottom-2 right-2 text-[10px] text-muted-foreground/60 font-mono">
+                  {commentText.length}/500
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] text-muted-foreground/80 italic">
+                  * Bình luận sẽ được duyệt trước khi công khai nhằm ngăn chặn spam.
+                </span>
+                <button
+                  type="submit"
+                  disabled={isSubmittingComment || (!userRating && !commentText.trim())}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition-all cursor-pointer active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-xs"
+                >
+                  <SendHorizontal className="w-3.5 h-3.5" />
+                  <span>{isSubmittingComment ? 'Đang gửi...' : 'Gửi Đánh Giá'}</span>
+                </button>
+              </div>
+            </form>
+
+            {/* Thông báo bình luận đang chờ duyệt của chính mình */}
+            {myPendingComment && (
+              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-2.5 text-xs text-amber-200">
+                <Clock className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <div className="font-semibold text-amber-300">
+                    Bình luận gần nhất của bạn đang chờ kiểm duyệt
+                  </div>
+                  {myPendingComment.content && (
+                    <div className="text-amber-200/90 italic">"{myPendingComment.content}"</div>
+                  )}
+                  <div className="text-[11px] text-amber-400/80">
+                    Quản trị viên sẽ kiểm duyệt trong ít phút. Nếu gửi lại, bình luận mới sẽ thay thế bản cũ.
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Danh sách bình luận đã duyệt */}
+            <div className="space-y-2.5 pt-2">
+              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Bình luận cộng đồng ({commentsList.length})
+              </div>
+
+              {isLoadingComments ? (
+                <div className="py-6 text-center text-xs text-muted-foreground">
+                  Đang tải bình luận...
+                </div>
+              ) : commentsList.length === 0 ? (
+                <div className="py-6 text-center text-xs text-muted-foreground/80 italic bg-slate-950/20 rounded-xl border border-dashed border-border/40">
+                  Chưa có đánh giá nào được duyệt. Hãy là người đầu tiên chia sẻ trải nghiệm!
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                  {commentsList.map((c) => (
+                    <div
+                      key={c.id}
+                      className="p-3 rounded-xl bg-slate-950/40 border border-border/60 space-y-1.5"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-xs text-foreground">
+                            {c.user_name || 'Người chơi ẩn danh'}
+                          </span>
+                          {c.rating ? (
+                            <div className="flex items-center gap-0.5">
+                              {[1, 2, 3, 4, 5].map((s) => (
+                                <Star
+                                  key={s}
+                                  className={`w-3 h-3 ${
+                                    s <= (c.rating || 0)
+                                      ? 'fill-amber-400 text-amber-400'
+                                      : 'text-slate-600'
+                                  }`}
+                                />
+                              ))}
+                            </div>
+                          ) : null}
+                          {Boolean(c.confirmed_working) && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.2 rounded-sm bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                              ✓ Vừa nhập được mã
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[10px] font-mono text-muted-foreground/70">
+                          {c.created_at ? c.created_at.slice(0, 10) : ''}
+                        </span>
+                      </div>
+                      {c.content && (
+                        <p className="text-xs text-slate-300 leading-relaxed whitespace-pre-line">
+                          {c.content}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 

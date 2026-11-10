@@ -147,6 +147,17 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
             <span className="text-[10px] sm:text-xs text-slate-300 font-medium flex items-center gap-1 shrink-0">
               <Flame className="w-3 h-3 text-accent" /> {t.hero.hotTags}
             </span>
+            <a
+              href="/ma-hom-nay"
+              onClick={(e) => {
+                e.preventDefault();
+                window.history.pushState(null, '', '/ma-hom-nay');
+                window.dispatchEvent(new PopStateEvent('popstate'));
+              }}
+              className="px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[10px] sm:text-xs bg-amber-500/20 hover:bg-amber-500 border border-amber-500/40 text-amber-300 hover:text-slate-950 transition-all cursor-pointer font-bold active:scale-95 shrink-0 flex items-center gap-1 shadow-xs"
+            >
+              <span>🔥 Mã Hôm Nay</span>
+            </a>
             {quickTags.map((tag) => (
               <button
                 key={tag}

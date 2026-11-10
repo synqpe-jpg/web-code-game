@@ -41,6 +41,7 @@ const MyReceivedCodesModal = lazyWithRetry(() => import('./components/MyReceived
 const UserProfileModal = lazyWithRetry(() => import('./components/UserProfileModal').then((m) => ({ default: m.UserProfileModal })));
 const DownloadAppModal = lazyWithRetry(() => import('./components/DownloadAppModal').then((m) => ({ default: m.DownloadAppModal })));
 const EmailSubscriptionModal = lazyWithRetry(() => import('./components/notification/EmailSubscriptionModal').then((m) => ({ default: m.EmailSubscriptionModal })));
+const TodayCodesView = lazyWithRetry(() => import('./components/TodayCodesView').then((m) => ({ default: m.TodayCodesView })));
 import { dataService } from './services/dataService';
 import { marketingService } from './services/marketingService';
 import { authService } from './services/authService';
@@ -86,7 +87,7 @@ export const App: React.FC = () => {
   const [, startTransition] = useTransition();
 
   // Navigation Tab State (Decoupled Frontends Domain Detection & Hash Routing)
-  const [currentTab, setCurrentTab] = useState<'catalog' | 'news' | 'giveaways' | 'store' | 'utilities' | 'missions' | 'telegram' | 'admin'>(() => {
+  const [currentTab, setCurrentTab] = useState<'catalog' | 'news' | 'giveaways' | 'store' | 'utilities' | 'missions' | 'telegram' | 'today-codes' | 'admin'>(() => {
     if (typeof window !== 'undefined') {
       const host = window.location.hostname.toLowerCase();
       const hash = window.location.hash.toLowerCase();
@@ -105,6 +106,7 @@ export const App: React.FC = () => {
       if (hash.includes('utilities') || hash.includes('utility=') || hash.includes('ut=') || path === '/utilities' || path.startsWith('/utilities/')) return 'utilities';
       if (hash.includes('missions') || hash.includes('nhiem-vu') || path === '/missions' || path.startsWith('/missions/') || path === '/nhiem-vu' || path.startsWith('/nhiem-vu/')) return 'missions';
       if (hash.includes('telegram') || path === '/telegram' || path.startsWith('/telegram/')) return 'telegram';
+      if (hash.includes('ma-hom-nay') || hash.includes('today') || path === '/ma-hom-nay' || path.startsWith('/ma-hom-nay/')) return 'today-codes';
     }
     return 'catalog';
   });
@@ -651,6 +653,9 @@ export const App: React.FC = () => {
           const mId = window.location.pathname.replace(/^\/(?:nhiem-vu|missions)\/?/i, '').split('/')[0].trim();
           if (mId) setInitialMissionId(mId);
           return;
+        } else if (pathname === '/ma-hom-nay' || pathname.startsWith('/ma-hom-nay/') || hash.includes('ma-hom-nay')) {
+          setCurrentTab('today-codes');
+          return;
         } else if (!hash || hash === '#' || hash === '#catalog') {
           setCurrentTab('catalog');
         }
@@ -712,13 +717,13 @@ export const App: React.FC = () => {
   }, []);
 
   // Unified Single-Click Tab Switcher (History pushState routing without hash conflicts)
-  const handleSelectTab = useCallback((tab: 'catalog' | 'news' | 'giveaways' | 'store' | 'utilities' | 'missions') => {
+  const handleSelectTab = useCallback((tab: 'catalog' | 'news' | 'giveaways' | 'store' | 'utilities' | 'missions' | 'telegram' | 'today-codes') => {
     setSelectedGame(null);
     setSelectedProduct(null);
     setSelectedUtilityId(null);
     setCurrentTab(tab);
 
-    const targetPath = tab === 'catalog' ? '/' : tab === 'missions' ? '/nhiem-vu' : `/${tab}`;
+    const targetPath = tab === 'catalog' ? '/' : tab === 'missions' ? '/nhiem-vu' : tab === 'today-codes' ? '/ma-hom-nay' : `/${tab}`;
     if (window.location.pathname !== targetPath || window.location.hash) {
       window.history.pushState(null, '', targetPath);
     }
@@ -1812,6 +1817,17 @@ export const App: React.FC = () => {
               <TelegramView
                 onOpenAuth={() => setIsAuthModalOpen(true)}
                 onOpenProfile={() => setIsProfileModalOpen(true)}
+                onShowToast={showToast}
+              />
+            )}
+
+            {currentTab === 'today-codes' && (
+              <TodayCodesView
+                onBackToHome={() => handleSelectTab('catalog')}
+                onSelectGame={async (slug) => {
+                  const game = await dataService.getGameBySlug(slug, false);
+                  if (game) setSelectedGame(game);
+                }}
                 onShowToast={showToast}
               />
             )}

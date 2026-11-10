@@ -936,6 +936,46 @@ async function runPrerender() {
   fs.writeFileSync(path.join(tgDir, 'index.html'), tgHtml, 'utf8');
   console.log(`[Prerender] Đã xuất bản dist/telegram/index.html`);
 
+  // 2.0.2. Prerender Today Codes Page (/ma-hom-nay)
+  const todayCodesHtml = buildPageHtml({
+    title: 'Giftcode Hôm Nay - Tổng Hợp Mã Code Game Có Hạn Trong Ngày 2026 | CodeGame.shop',
+    description: 'Danh sách giftcode game chỉ có hiệu lực hôm nay, hết hạn lúc 22:30 tối nay. Nhận trọn bộ mã code mới nhất, không bỏ lỡ quà tặng giới hạn.',
+    canonicalPath: '/ma-hom-nay',
+    ogType: 'website',
+    bodyContent: `
+      <div class="min-h-screen flex flex-col bg-slate-950 text-slate-100">
+        <header class="site-header sticky top-0 z-40 w-full border-b border-slate-800 bg-slate-900/90 backdrop-blur-md px-4 py-3 flex items-center justify-between">
+          <a href="/" class="flex items-center gap-2 text-primary font-bold">
+            <img src="/logo.webp" alt="CodeGame.shop" width="32" height="32" class="w-8 h-8 rounded-lg" />
+            <span class="text-white">CodeGame.Shop</span>
+          </a>
+          <nav class="flex items-center gap-4 text-xs font-bold text-slate-300">
+            <a href="/" class="hover:text-white">Trang Chủ</a>
+            <a href="/ma-hom-nay" class="text-amber-400 font-black">Mã Hôm Nay</a>
+            <a href="/news" class="hover:text-white">Tin Tức</a>
+            <a href="/su-kien" class="hover:text-white">Sự Kiện Game</a>
+          </nav>
+        </header>
+        <main class="max-w-4xl mx-auto px-4 py-12 text-center space-y-6">
+          <div class="inline-block px-4 py-1.5 rounded-full bg-amber-500/10 text-amber-400 text-xs font-bold border border-amber-500/30">
+            🔥 MÃ QUÀ TẶNG HẠN NGÀY • CHỈ DÙNG HÔM NAY
+          </div>
+          <h1 class="text-3xl sm:text-5xl font-black text-white tracking-tight">
+            Giftcode Game Có Hạn Hôm Nay
+          </h1>
+          <p class="text-sm sm:text-base text-slate-300 max-w-xl mx-auto leading-relaxed">
+            Mã quà tặng sự kiện giới hạn chỉ có hiệu lực trong ngày hôm nay, tự động đóng lúc 22:30 tối nay. Hãy sao chép và nhập ngay vào game!
+          </p>
+        </main>
+      </div>
+    `,
+  });
+
+  const todayDir = path.join(distDir, 'ma-hom-nay');
+  if (!fs.existsSync(todayDir)) fs.mkdirSync(todayDir, { recursive: true });
+  fs.writeFileSync(path.join(todayDir, 'index.html'), todayCodesHtml, 'utf8');
+  console.log(`[Prerender] Đã xuất bản dist/ma-hom-nay/index.html`);
+
   // 2.1. Prerender Individual News Articles
   if (newsArticles.length === 0) {
     try {
