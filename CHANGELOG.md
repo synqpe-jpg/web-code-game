@@ -7,6 +7,34 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-10]
 
+### 362. Tối Ưu Bảng Quản Lý Khóa API 5 Cột Tinh Gọn (Single-Screen 100%) & Bổ Sung Chế Độ Xem Thẻ Lưới (Card Grid View Mode)
+- **Triệu chứng & Bối cảnh**:
+  - Người dùng phản ánh trên màn hình máy tính thực tế, các nút thao tác cốt lõi gồm: vô hiệu hóa, xóa, set quyền, gia hạn... bị tràn ra ngoài cạnh phải màn hình và không thể nhìn thấy được.
+  - Người dùng yêu cầu phương án hiển thị toàn bộ thông tin và thao tác trọn vẹn trong 1 màn hình duy nhất để thuận tiện quản lý.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Bảng quản lý trước đây tách thành 7 cột riêng lẻ (Tên, Phân quyền, Khóa API, Hiệu lực, Trạng thái, Lần dùng, Thao tác).
+  - Thuộc tính `whitespace-nowrap` trên nhiều ô kết hợp việc không dùng `table-fixed` khiến chiều rộng nội dung bảng bị đẩy lên ~1300px, vượt quá chiều rộng khả dụng của khung nội dung chính (~1000px - 1050px khi sidebar đang mở trên màn hình laptop 1366px/1280px).
+  - Ngoài ra, đối với các khóa sở hữu nhiều quyền (như Khóa Đa Năng 8 quyền), các badge quyền bị bung ra toàn bộ làm tăng đột biến kích thước ô phân quyền.
+- **Giải pháp triệt để đã triển khai (Solution Applied)**:
+  1. *Thiết kế lại Bảng 5 Cột Tinh Gọn Thông Minh (Streamlined 5-Column Table)*:
+     - Áp dụng `table-fixed w-full` với tỷ lệ độ rộng cột toán học chuẩn:
+       + **Cột 1 (24%) - TÊN KHÓA & TRẠNG THÁI**: Tích hợp nút Toggle Bật/Tắt trực tiếp (`[🟢 Bật]` / `[⚪ Tắt]`), Tên khóa in đậm, Mô tả / ID và dấu thời gian lần dùng cuối (`🕒 Dùng: dd/mm/yyyy`). Tiết kiệm được 2 cột riêng biệt.
+       + **Cột 2 (16%) - PHÂN QUYỀN**: Badge quyền gọn gàng; các khóa $\ge 3$ quyền được gom thành badge `[✨ Đa Năng (X quyền)]` với hover tooltip hiển thị danh sách quyền chi tiết.
+       + **Cột 3 (25%) - KHÓA API (COPY / ĐỔI MỚI)**: Khung mã rút gọn với nút Mắt, nút Copy và nút `[🔄 Đổi Khóa]` tức thì.
+       + **Cột 4 (12%) - HIỆU LỰC**: Thời hạn vĩnh viễn hoặc số ngày còn lại kèm ngày hết hạn.
+       + **Cột 5 (23%) - THAO TÁC ĐẦY ĐỦ**: Hiển thị 100% rõ ràng cả 4 nút hành động có icon và chữ:
+         * `[⚙️ Set Quyền]`: Nút màu tím (mở modal cấu hình tổ hợp quyền).
+         * `[⏳ Gia Hạn]`: Nút màu chàm indigo (mở modal điều chỉnh thời hạn).
+         * `[🚫 Vô Hiệu]` / `[⚡ Kích Hoạt]`: Nút đổi trạng thái với nhãn văn bản trực quan.
+         * `[🗑️ Xóa]`: Nút xóa màu đỏ (thu hồi và xóa vĩnh viễn).
+     - Nhờ `table-fixed w-full` và phân bổ 5 cột chuẩn, bảng **triệt tiêu hoàn toàn thanh cuộn ngang**, 100% thông tin và thao tác hiển thị vừa vặn trong 1 màn hình máy tính.
+  2. *Bổ sung Bộ Chuyển Đổi Chế Độ Xem (View Mode Switcher)*:
+     - Tích hợp 2 nút chuyển đổi ngay trên thanh công cụ lọc:
+       + `[📑 Bảng 1 Màn Hình]`: Chế độ bảng 5 cột tối ưu diện tích.
+       + `[🗂️ Dạng Thẻ (Card Grid)]`: Chế độ thẻ lưới hiện đại 2-3 cột (`grid-cols-1 md:grid-cols-2 xl:grid-cols-3`). Mỗi khóa là 1 card độc lập với đầy đủ các nút bấm to rõ, không bao giờ bị tràn cạnh.
+- **Kiểm thử & Nghiệm thu**:
+  - `npm run build` pass 100% (Kiểm toán Zero Test Artifacts sạch 100%, 256 bài viết tin tức, prerender 595 game thành công).
+
 ### 361. Bổ Sung Nút Đổi Khóa API Tức Thì Tại Mỗi Mục (Instant Key Rotation) & Tối Ưu Bảng Quản Lý 100% Trong 1 Màn Hình
 - **Triệu chứng & Bối cảnh**:
   - Người dùng yêu cầu thêm nút "Đổi Khóa" tại mỗi mục khóa API riêng biệt trong Quản Lý Khóa API (`/admin/#/api-keys`): Khi ấn đổi, khóa cũ lập tức bị vô hiệu lực/hết hạn ngay tức khắc và sinh ra khóa mới.
