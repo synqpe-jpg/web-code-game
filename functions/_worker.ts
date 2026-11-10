@@ -60,6 +60,8 @@ import * as telegramWebhookApi from './api/telegram/webhook';
 import * as telegramAdminApi from './api/telegram/admin';
 import * as telegramManageApi from './api/telegram/manage';
 import * as telegramUserApi from './api/telegram/user';
+import * as telegramNotifyFollowersApi from './api/telegram/notify-followers';
+import * as telegramSendPendingDigestApi from './api/telegram/send-pending-digest';
 import * as firstPurchaseAdminApi from './api/admin/first-purchase';
 import * as adminUtilitiesFirstPurchaseApi from './api/admin/utilities/first-purchase';
 import * as adminStoreFirstPurchaseApi from './api/admin/store/first-purchase';
@@ -1180,6 +1182,18 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
         if (method === 'OPTIONS') return await telegramUserApi.onRequestOptions();
         if (method === 'GET') return await telegramUserApi.onRequestGet(context);
         if (method === 'POST') return await telegramUserApi.onRequestPost(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      if (pathname === '/api/telegram/notify-followers') {
+        if (method === 'OPTIONS') return await telegramNotifyFollowersApi.onRequestOptions();
+        if (method === 'POST') return await telegramNotifyFollowersApi.onRequestPost(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      if (pathname === '/api/telegram/send-pending-digest') {
+        if (method === 'OPTIONS') return await telegramSendPendingDigestApi.onRequestOptions();
+        if (method === 'POST') return await telegramSendPendingDigestApi.onRequestPost(context);
         return new Response('Method Not Allowed', { status: 405 });
       }
 
