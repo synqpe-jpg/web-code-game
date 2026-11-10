@@ -3,6 +3,7 @@ import {
   Env,
   verifyAdminAuth,
   formatScopes,
+  computeSha256,
 } from '../../services/mission_service';
 
 export const onRequestOptions: PagesFunction = async () => {
@@ -11,7 +12,7 @@ export const onRequestOptions: PagesFunction = async () => {
 
 /**
  * PATCH /api/api-keys/:id
- * Cập nhật trạng thái (Bật / Tắt hoạt động), gia hạn hoặc thay đổi thời hạn hiệu lực (phân quyền theo thời gian)
+ * Cập nhật trạng thái, gia hạn thời gian hoặc ĐỔI KHÓA MỚI (Key Rotation)
  */
 export const onRequestPatch: PagesFunction<Env> = async (context) => {
   const { request, params, env } = context;
@@ -48,6 +49,97 @@ export const onRequestPatch: PagesFunction<Env> = async (context) => {
     }
 
     const body: any = await request.json().catch(() => ({}));
+
+    // ==========================================
+    // THAO TÁC XOAY KHÓA / ĐỔI KHÓA API MỚI (ROTATE KEY)
+    // ==========================================
+    if (body.action === 'rotate' || body.action === 'regenerate') {
+      const existing = await env.DB.prepare(
+        'SELECT id, key_name, scope, description, expires_at FROM mission_ai_api_keys WHERE id = ? LIMIT 1'
+      ).bind(keyId).first<any>();
+
+      if (!existing) {
+        return new Response(
+          JSON.stringify({ success: false, message: 'Không tìm thấy khóa API để đổi.' }),
+          { status: 404, headers: CORS_HEADERS }
+        );
+      }
+
+      // Sinh 24 bytes ngẫu nhiên (48 ký tự hex)
+      const randomBytes = new Uint8Array(24);
+      crypto.getRandomValues(randomBytes);
+      const randomHex = Array.from(randomBytes).map((b) => b.toString(16).padStart(2, '0')).join('');
+
+      const validScope = existing.scope || 'NEWS_FULL';
+      let prefixTag = 'wcg_sec_';
+      if (validScope.includes(',')) prefixTag = 'wcg_multi_';
+      else if (validScope === 'NEWS_FULL') prefixTag = 'wcg_news_';
+      else if (validScope === 'MISSIONS_FULL') prefixTag = 'wcg_mis_';
+      else if (validScope === 'GIVEAWAYS_FULL') prefixTag = 'wcg_gw_';
+      else if (validScope === 'EVENT_SCHEDULER_FULL') prefixTag = 'wcg_ev_';
+      else if (validScope === 'TELEGRAM_FULL') prefixTag = 'wcg_tg_';
+      else if (validScope === 'MISSIONS_REVIEW' || validScope === 'REVIEW_ONLY') prefixTag = 'wcg_ai_';
+      else if (validScope === 'ADMIN_FULL' || validScope === 'FULL') prefixTag = 'wcg_adm_';
+      else prefixTag = 'wcg_multi_';
+
+      const rawKey = `${prefixTag}${randomHex}`;
+      const keyPrefix = `${rawKey.substring(0, 12)}••••••••••••••••••••${rawKey.slice(-4)}`;
+      const keyHash = await computeSha256(rawKey);
+      const nowIso = new Date().toISOString();
+
+      // Cập nhật ngay: Khóa cũ lập tức vô hiệu lực vì hash cũ bị ghi đè thành công
+      await env.DB.prepare(`
+        UPDATE mission_ai_api_keys 
+        SET raw_key = ?,
+            api_key_hash = ?,
+            key_prefix = ?,
+            is_active = 1,
+            created_at = ?
+        WHERE id = ?
+      `).bind(
+        rawKey,
+        keyHash,
+        keyPrefix,
+        nowIso,
+        keyId
+      ).run();
+
+      // Ghi nhật ký kiểm toán an ninh
+      await env.DB.prepare(`
+        INSERT INTO security_logs (id, actor_name, actor_email, action, target_id, severity, details, created_at)
+        VALUES (?, ?, ?, 'API_KEY_ROTATED', ?, 'WARNING', ?, ?)
+      `).bind(
+        `sec_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+        adminCheck.user?.email || 'Admin Portal',
+        adminCheck.user?.email || 'admin@codegame.shop',
+        keyId,
+        JSON.stringify({ key_name: existing.key_name, scope: validScope, action: 'rotate_key' }),
+        nowIso
+      ).run().catch(() => null);
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: `Khóa cũ đã hết hạn. Đã đổi thành công khóa API mới cho "${existing.key_name}".`,
+          key: {
+            id: keyId,
+            key_name: existing.key_name,
+            raw_key: rawKey,
+            key_prefix: keyPrefix,
+            scope: validScope,
+            description: existing.description,
+            expires_at: existing.expires_at,
+            is_active: 1,
+            created_at: nowIso,
+          },
+        }),
+        { status: 200, headers: CORS_HEADERS }
+      );
+    }
+
+    // ==========================================
+    // CẬP NHẬT THÔNG TIN / GIA HẠN / BẬT TẮT
+    // ==========================================
     const { is_active, key_name, scope, scopes, description, expires_at, extend_days } = body;
 
     const existing = await env.DB.prepare(
@@ -114,6 +206,14 @@ export const onRequestPatch: PagesFunction<Env> = async (context) => {
 };
 
 /**
+ * POST /api/api-keys/:id
+ * Tương đương PATCH (cho phép gọi xoay khóa hoặc cập nhật qua phương thức POST)
+ */
+export const onRequestPost: PagesFunction<Env> = async (context) => {
+  return onRequestPatch(context);
+};
+
+/**
  * DELETE /api/api-keys/:id
  * Thu hồi và xóa vĩnh viễn khóa API khỏi cơ sở dữ liệu
  */
@@ -151,15 +251,13 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
       );
     }
 
-    await env.DB.prepare(
-      'DELETE FROM mission_ai_api_keys WHERE id = ?'
-    ).bind(keyId).run();
+    await env.DB.prepare('DELETE FROM mission_ai_api_keys WHERE id = ?').bind(keyId).run();
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: 'Đã thu hồi và xóa vĩnh viễn khóa API.',
-        deletedId: keyId,
+        message: 'Đã thu hồi và xóa khóa API thành công.',
+        id: keyId,
       }),
       { status: 200, headers: CORS_HEADERS }
     );

@@ -528,6 +528,8 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
 
   // Modal Set Permissions state (Cài Đặt Phân Quyền Đa Năng)
   const [permissionModalKey, setPermissionModalKey] = useState<ManagedApiKey | null>(null);
+  const [rotatingKeyId, setRotatingKeyId] = useState<string | null>(null);
+  const [recentlyRotatedKeyId, setRecentlyRotatedKeyId] = useState<string | null>(null);
   const [selectedScopes, setSelectedScopes] = useState<string[]>([]);
   const [isSavingPermissions, setIsSavingPermissions] = useState(false);
 
@@ -869,6 +871,71 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
       }
     } catch (e) {
       showToast('Không thể kết nối đến máy chủ', 'error');
+    }
+  };
+
+  // Rotate / Regenerate Key (Đổi Khóa Mới - Khóa cũ lập tức hết hạn)
+  const handleRotateKey = async (keyItem: ManagedApiKey) => {
+    if (keyItem.is_master) {
+      showToast('Không thể đổi Khóa Master hệ thống từ giao diện này.', 'error');
+      return;
+    }
+
+    const confirmMsg = `XÁC NHẬN ĐỔI KHÓA API MỚI:\n\nBạn có chắc chắn muốn đổi khóa API mới cho "${keyItem.key_name}"?\n\n⚠️ LƯU Ý QUAN TRỌNG: Khóa cũ sẽ LẬP TỨC HẾT HẠN và bị vô hiệu hóa hoàn toàn ngay sau khi đổi! Mọi bot hoặc ứng dụng đang dùng khóa cũ cần được cập nhật sang khóa mới.`;
+    if (!window.confirm(confirmMsg)) {
+      return;
+    }
+
+    setRotatingKeyId(keyItem.id);
+    try {
+      const res = await fetch(`/api/api-keys/${keyItem.id}`, {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ action: 'rotate' }),
+      });
+      const data = await res.json();
+      if (data.success && data.key) {
+        setKeys((prev) =>
+          prev.map((k) =>
+            k.id === keyItem.id
+              ? {
+                  ...k,
+                  raw_key: data.key.raw_key,
+                  key_prefix: data.key.key_prefix,
+                  is_active: 1,
+                  created_at: data.key.created_at || new Date().toISOString(),
+                }
+              : k
+          )
+        );
+
+        // Tự động mở mắt để hiển thị mã mới
+        setVisibleKeys((prev) => ({
+          ...prev,
+          [keyItem.id]: true,
+        }));
+
+        // Tự động sao chép mã mới vào clipboard
+        if (data.key.raw_key) {
+          navigator.clipboard.writeText(data.key.raw_key);
+          setCopiedKeyId(keyItem.id);
+          setTimeout(() => setCopiedKeyId(null), 3000);
+        }
+
+        setRecentlyRotatedKeyId(keyItem.id);
+        setTimeout(() => setRecentlyRotatedKeyId(null), 5000);
+
+        showToast(
+          `🎉 Đã đổi khóa mới cho "${keyItem.key_name}" & sao chép vào Clipboard! Khóa cũ đã hết hạn.`,
+          'success'
+        );
+      } else {
+        showToast(data.message || 'Lỗi khi đổi khóa API mới', 'error');
+      }
+    } catch (e: any) {
+      showToast('Lỗi kết nối khi đổi khóa API mới', 'error');
+    } finally {
+      setRotatingKeyId(null);
     }
   };
 
@@ -1273,6 +1340,15 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
                       </button>
                     )}
                     <button
+                      onClick={() => handleRotateKey(versatileKey)}
+                      disabled={rotatingKeyId === versatileKey.id}
+                      className="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 font-bold text-xs flex items-center gap-1.5 transition-all shrink-0 border border-amber-500/30"
+                      title="Đổi mã khóa API mới (Khóa cũ lập tức hết hạn)"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${rotatingKeyId === versatileKey.id ? 'animate-spin' : ''}`} />
+                      <span>{rotatingKeyId === versatileKey.id ? 'Đang đổi...' : 'Đổi Khóa'}</span>
+                    </button>
+                    <button
                       onClick={() => handleCopy(versatileKey.raw_key || versatileKey.key_prefix, versatileKey.id)}
                       className="px-2.5 py-1 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 font-bold text-xs flex items-center gap-1.5 transition-all shrink-0 border border-purple-500/30"
                       title="Sao chép nhanh khóa này"
@@ -1360,16 +1436,16 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
           {/* Dynamic Keys Table */}
           <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs sm:text-sm">
+              <table className="w-full text-left text-xs">
                 <thead className="bg-muted/40 border-b border-border text-muted-foreground font-semibold">
                   <tr>
-                    <th className="py-3 px-4">TÊN KHÓA & MÔ TẢ</th>
-                    <th className="py-3 px-4">PHÂN QUYỀN (CÁC QUYỀN SỞ HỮU)</th>
-                    <th className="py-3 px-4">KHÓA API (SAO CHÉP / HIỆN 1 PHẦN)</th>
-                    <th className="py-3 px-4">HIỆU LỰC (THỜI HẠN)</th>
-                    <th className="py-3 px-4 text-center">TRẠNG THÁI</th>
-                    <th className="py-3 px-4">LẦN DÙNG</th>
-                    <th className="py-3 px-4 text-right">THAO TÁC</th>
+                    <th className="py-2 px-2.5 w-[18%]">TÊN KHÓA & MÔ TẢ</th>
+                    <th className="py-2 px-2.5 w-[16%]">PHÂN QUYỀN</th>
+                    <th className="py-2 px-2.5 w-[28%]">KHÓA API (SAO CHÉP / ĐỔI MỚI)</th>
+                    <th className="py-2 px-2.5 w-[10%]">HIỆU LỰC</th>
+                    <th className="py-2 px-2.5 w-[8%] text-center">TRẠNG THÁI</th>
+                    <th className="py-2 px-2.5 w-[7%]">LẦN DÙNG</th>
+                    <th className="py-2 px-2.5 w-[13%] text-right">THAO TÁC</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -1389,12 +1465,16 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
                       return (
                         <tr
                           key={item.id}
-                          className={`hover:bg-muted/20 transition-colors ${
-                            expInfo.isExpired || item.is_active === 0 ? 'opacity-70 bg-muted/5' : ''
+                          className={`hover:bg-muted/20 transition-all ${
+                            recentlyRotatedKeyId === item.id
+                              ? 'bg-emerald-500/15 ring-2 ring-emerald-500/60 shadow-md'
+                              : expInfo.isExpired || item.is_active === 0
+                              ? 'opacity-70 bg-muted/5'
+                              : ''
                           }`}
                         >
                           {/* Name & Desc */}
-                          <td className="py-3.5 px-4 font-medium max-w-[200px]">
+                          <td className="py-2.5 px-3 font-medium max-w-[190px]">
                             <div className="text-foreground font-semibold flex items-center gap-1.5">
                               <span>{item.key_name}</span>
                               {expInfo.isExpired && (
@@ -1415,21 +1495,21 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
                           </td>
 
                           {/* Scope Badges */}
-                          <td className="py-3.5 px-4">
+                          <td className="py-2.5 px-3 max-w-[180px]">
                             {renderScopeBadges(item.scope)}
                           </td>
 
-                          {/* Key Display & Quick Copy */}
-                          <td className="py-3.5 px-4">
-                            <div className="inline-flex items-center gap-2 bg-background border border-border/80 px-2.5 py-1.5 rounded-xl font-mono text-xs shadow-inner">
-                              <span className="text-foreground select-all font-semibold max-w-[140px] sm:max-w-[180px] truncate">
+                          {/* Key Display, Quick Copy & Instant Rotate */}
+                          <td className="py-2.5 px-3">
+                            <div className="inline-flex items-center gap-1.5 bg-background border border-border/80 px-2 py-1 rounded-xl font-mono text-xs shadow-inner">
+                              <span className="text-foreground select-all font-semibold max-w-[120px] sm:max-w-[160px] truncate">
                                 {isRevealed ? item.raw_key : item.key_prefix}
                               </span>
 
                               {item.raw_key && (
                                 <button
                                   onClick={() => toggleVisibility(item.id)}
-                                  className="p-1 hover:bg-muted rounded text-muted-foreground hover:text-foreground transition-colors"
+                                  className="p-1 hover:bg-muted rounded text-muted-foreground hover:text-foreground transition-colors shrink-0"
                                   title={isRevealed ? 'Ẩn mã' : 'Hiện đầy đủ mã'}
                                 >
                                   {isRevealed ? (
@@ -1442,26 +1522,38 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
 
                               <button
                                 onClick={() => handleCopy(keyToCopy, item.id)}
-                                className="px-2.5 py-1 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary font-bold text-xs flex items-center gap-1 transition-all shrink-0 border border-primary/20"
+                                className="px-2 py-0.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary font-bold text-xs flex items-center gap-1 transition-all shrink-0 border border-primary/20"
                                 title="Sao chép nhanh khóa này"
                               >
                                 {copiedKeyId === item.id ? (
                                   <>
                                     <Check className="w-3 h-3 text-emerald-500" />
-                                    <span className="text-emerald-500">Đã Copy!</span>
+                                    <span className="text-emerald-500 text-[11px]">Đã Copy</span>
                                   </>
                                 ) : (
                                   <>
                                     <Copy className="w-3 h-3" />
-                                    <span>Copy</span>
+                                    <span className="text-[11px]">Copy</span>
                                   </>
                                 )}
                               </button>
+
+                              {!item.is_master && (
+                                <button
+                                  onClick={() => handleRotateKey(item)}
+                                  disabled={rotatingKeyId === item.id}
+                                  className="px-2 py-0.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 font-bold text-xs flex items-center gap-1 transition-all shrink-0 border border-amber-500/30"
+                                  title="Đổi khóa API mới (Khóa cũ lập tức hết hạn)"
+                                >
+                                  <RefreshCw className={`w-3 h-3 ${rotatingKeyId === item.id ? 'animate-spin' : ''}`} />
+                                  <span className="text-[11px]">{rotatingKeyId === item.id ? 'Đang đổi...' : 'Đổi Khóa'}</span>
+                                </button>
+                              )}
                             </div>
                           </td>
 
                           {/* Expiration (Time-based Permission) */}
-                          <td className="py-3.5 px-4 whitespace-nowrap">
+                          <td className="py-2.5 px-3 whitespace-nowrap">
                             <div className="space-y-0.5">
                               <div>{expInfo.badge}</div>
                               {expInfo.text && (
@@ -1473,10 +1565,10 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
                           </td>
 
                           {/* Status */}
-                          <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                          <td className="py-2.5 px-3 text-center whitespace-nowrap">
                             <button
                               onClick={() => handleToggleActive(item)}
-                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold transition-all ${
+                              className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold transition-all ${
                                 item.is_active === 1 && !expInfo.isExpired
                                   ? 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20'
                                   : 'bg-rose-500/10 text-rose-500 hover:bg-rose-500/20'
@@ -1495,7 +1587,7 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
                           </td>
 
                           {/* Last Used */}
-                          <td className="py-3.5 px-4 text-xs text-muted-foreground whitespace-nowrap font-mono">
+                          <td className="py-2.5 px-3 text-xs text-muted-foreground whitespace-nowrap font-mono">
                             {item.last_used_at ? (
                               <span title={item.last_used_at}>
                                 {new Date(item.last_used_at).toLocaleDateString('vi-VN')}
@@ -1506,12 +1598,25 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
                           </td>
 
                           {/* Actions */}
-                          <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                            <div className="flex items-center justify-end gap-1.5">
+                          <td className="py-2.5 px-3 text-right whitespace-nowrap">
+                            <div className="flex items-center justify-end gap-1">
+                              {/* Rotate Key Button */}
+                              {!item.is_master && (
+                                <button
+                                  onClick={() => handleRotateKey(item)}
+                                  disabled={rotatingKeyId === item.id}
+                                  className="px-2 py-1 rounded-lg border border-amber-500/40 text-amber-400 hover:bg-amber-500/10 text-xs font-semibold flex items-center gap-1 transition-colors"
+                                  title="Đổi khóa mới (Khóa cũ lập tức hết hạn)"
+                                >
+                                  <RefreshCw className={`w-3.5 h-3.5 ${rotatingKeyId === item.id ? 'animate-spin' : ''}`} />
+                                  <span>{rotatingKeyId === item.id ? 'Đang đổi...' : 'Đổi Khóa'}</span>
+                                </button>
+                              )}
+
                               {/* Set Permissions Button (Phân Quyền Đa Năng) */}
                               <button
                                 onClick={() => handleOpenPermissionModal(item)}
-                                className="px-2.5 py-1.5 rounded-lg border border-purple-500/40 text-purple-400 hover:bg-purple-500/10 text-xs font-semibold flex items-center gap-1 transition-colors"
+                                className="px-2 py-1 rounded-lg border border-purple-500/40 text-purple-400 hover:bg-purple-500/10 text-xs font-semibold flex items-center gap-1 transition-colors"
                                 title="Set và tùy biến các quyền cho mã API này"
                               >
                                 <SlidersHorizontal className="w-3.5 h-3.5" />

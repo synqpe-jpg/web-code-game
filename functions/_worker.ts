@@ -1141,6 +1141,7 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
         const customContext = { ...context, params: { id: keyId } };
         if (method === 'OPTIONS') return await apiKeysIdApi.onRequestOptions();
         if (method === 'PATCH' || method === 'PUT') return await apiKeysIdApi.onRequestPatch(customContext);
+        if (method === 'POST') return await apiKeysIdApi.onRequestPost(customContext);
         if (method === 'DELETE') return await apiKeysIdApi.onRequestDelete(customContext);
       }
 

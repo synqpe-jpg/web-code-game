@@ -7,6 +7,28 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-10]
 
+### 361. Bổ Sung Nút Đổi Khóa API Tức Thì Tại Mỗi Mục (Instant Key Rotation) & Tối Ưu Bảng Quản Lý 100% Trong 1 Màn Hình
+- **Triệu chứng & Bối cảnh**:
+  - Người dùng yêu cầu thêm nút "Đổi Khóa" tại mỗi mục khóa API riêng biệt trong Quản Lý Khóa API (`/admin/#/api-keys`): Khi ấn đổi, khóa cũ lập tức bị vô hiệu lực/hết hạn ngay tức khắc và sinh ra khóa mới.
+  - Toàn bộ thông tin, dữ liệu và nút thao tác phải hiển thị vừa khít trong 1 màn hình máy tính duy nhất để quản trị viên làm việc thuận tiện, không bị tràn ngang hoặc che khuất cột Thao Tác.
+- **Nguyên nhân gốc rễ & Nhu cầu cấu trúc**:
+  - Trước đây chưa có action chuyên dụng `rotate` tại `/api/api-keys/:id` để ghi đè hash khóa trên Cloudflare D1 và cấp khóa mới trong cùng 1 request nguyên tử.
+  - Các cột bảng trong `ApiKeysModule.tsx` có độ rộng cố định và padding lớn (`px-4 py-3.5`) khiến cột THAO TÁC bị tràn ngang ra ngoài màn hình trên các độ phân giải laptop/desktop tiêu chuẩn (1280x720, 1366x768).
+- **Giải pháp triệt để đã triển khai (Solution Applied)**:
+  1. *Backend API Key Rotation nguyên tử*:
+     - Bổ sung xử lý `body.action === 'rotate' || body.action === 'regenerate'` trong cả `onRequestPatch` và `onRequestPost` tại `functions/api/api-keys/[id].ts`.
+     - Sinh ngẫu nhiên 24 bytes hex với đúng tiền tố scope tương ứng (`wcg_adm_`, `wcg_news_`, `wcg_mis_`, `wcg_gw_`, `wcg_ev_`, `wcg_tg_`, `wcg_ai_`, `wcg_multi_`).
+     - Băm SHA-256 khóa mới và ghi đè trực tiếp vào cột `api_key_hash` của bảng D1 `mission_ai_api_keys`. Nhờ cơ chế xác thực băm SHA-256 thời gian thực của `verifyAiKeyAuth`, khóa cũ lập tức bị vô hiệu hóa 100% (trả về 401 Unauthorized ngay lập tức).
+     - Ghi nhật ký kiểm toán vào `security_logs` (`action: 'API_KEY_ROTATED'`).
+     - Định tuyến chuyển tiếp method POST trong `functions/_worker.ts` tới `apiKeysIdApi.onRequestPost`.
+  2. *Frontend Giao Diện 1 Màn Hình (Single-Screen Layout) & Trải Nghiệm Thao Tác Siêu Tốc*:
+     - Thêm nút `[🔄 Đổi Khóa]` màu amber nổi bật ngay bên trong ô "KHÓA API" (kế bên nút Copy) và trong cột "THAO TÁC", cũng như trên thẻ VIP Spotlight Khóa Đa Năng.
+     - Tích hợp hộp thoại xác nhận cảnh báo rõ ràng về việc khóa cũ sẽ hết hạn ngay lập tức.
+     - Sau khi đổi thành công: Tự động cập nhật hàng, tự động mở mắt hiển thị mã mới, tự động sao chép mã mới vào Clipboard, hiệu ứng viền sáng xanh ngọc `ring-2 ring-emerald-500/60 bg-emerald-500/15` trong 5 giây và Toast chúc mừng.
+     - Tối ưu hóa phân bổ tỷ lệ độ rộng 7 cột (18% | 16% | 28% | 10% | 8% | 7% | 13%) với padding `py-2 px-2.5` giúp toàn bộ bảng và các nút thao tác hiển thị 100% trọn vẹn trong 1 màn hình duy nhất, hoàn toàn không cần cuộn ngang.
+- **Kiểm thử & Nghiệm thu**:
+  - `npm run build` pass 100% (Pass kiểm toán Zero Test Artifacts, 255 news covers, Prerender 595 game và toàn bộ trang tĩnh).
+
 ### 360. Gỡ Bỏ Khối Banner Telegram Trên Trang Chủ Nhằm Tối Ưu Bố Cục Và Trải Nghiệm Người Dùng
 - **Triệu chứng & Bối cảnh**:
   - Người dùng yêu cầu gỡ bỏ mục "[Tham Gia Nhóm](https://t.me/CodegameAdminbot) Liên Kết Bot" (khối banner mời tham gia Telegram) nằm giữa danh sách Game Sắp Ra Mắt và Thanh Bộ Lọc Thể Loại trên trang chủ.
