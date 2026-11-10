@@ -62,28 +62,59 @@ export async function onRequestGet(context: { request: Request; env: Env }): Pro
   try {
     // 1. Thống kê số user liên kết
     const linkedUserRes: any = await env.DB.prepare(
-      'SELECT COUNT(*) as count FROM members WHERE telegram_chat_id IS NOT NULL AND telegram_chat_id != ""'
+      'SELECT COUNT(*) as count FROM members WHERE telegram_chat_id IS NOT NULL AND telegram_chat_id != "" AND telegram_chat_id NOT LIKE "web:%"'
     ).first();
     const totalLinkedUsers = linkedUserRes?.count || 0;
 
-    // 2. Thống kê số lượt theo dõi theo game
+    // 2. Thống kê số lượt theo dõi theo game (Top 20 game được theo dõi nhiều nhất)
     const subsRes: any = await env.DB.prepare(`
       SELECT game_slug, COUNT(*) as count 
       FROM telegram_subscriptions 
       GROUP BY game_slug 
       ORDER BY count DESC 
-      LIMIT 50
+      LIMIT 20
     `).all();
     const subscriptionsByGame = subsRes.results || [];
 
-    // 3. 20 bài đăng gần nhất
+    // 3. Số DM đã gửi trong 7 ngày gần nhất
+    const dm7dRes: any = await env.DB.prepare(`
+      SELECT COUNT(*) as count 
+      FROM telegram_posted_log 
+      WHERE kind IN ('personal_dm', 'personal_dm_digest') 
+        AND posted_at >= datetime('now', '-7 days')
+    `).first().catch(() => ({ count: 0 }));
+    const totalDmSent7d = dm7dRes?.count || 0;
+
+    // 4. Số DM đang chờ trong telegram_pending_dm
+    const pendingDmRes: any = await env.DB.prepare(
+      'SELECT COUNT(*) as count FROM telegram_pending_dm'
+    ).first().catch(() => ({ count: 0 }));
+    const totalPendingDm = pendingDmRes?.count || 0;
+
+    // 5. 20 bài đăng nhóm gần nhất
     const logsRes: any = await env.DB.prepare(`
       SELECT id, message_id, kind, ref_key, target, thread_id, content_snippet, posted_at 
       FROM telegram_posted_log 
+      WHERE kind NOT IN ('personal_dm', 'personal_dm_digest')
       ORDER BY id DESC 
       LIMIT 20
     `).all();
     const recentPosts = logsRes.results || [];
+
+    // 6. 20 tin DM gần nhất (ẩn chat_id đầy đủ của người dùng)
+    const dmLogsRes: any = await env.DB.prepare(`
+      SELECT id, message_id, kind, ref_key, 
+        CASE 
+          WHEN LENGTH(target) > 4 THEN SUBSTR(target, 1, 4) || '***'
+          ELSE '***'
+        END as target,
+        content_snippet, posted_at 
+      FROM telegram_posted_log 
+      WHERE kind IN ('personal_dm', 'personal_dm_digest')
+      ORDER BY id DESC 
+      LIMIT 20
+    `).all().catch(() => ({ results: [] }));
+    const recentDms = dmLogsRes.results || [];
 
     // 4. Lấy cấu hình kết nối Telegram (hợp nhất từ Cloudflare Env và D1 system_settings)
     const effectiveConfig = await getEffectiveTelegramConfig(env);
@@ -126,7 +157,10 @@ export async function onRequestGet(context: { request: Request; env: Env }): Pro
         stats: {
           total_linked_users: totalLinkedUsers,
           subscriptions_by_game: subscriptionsByGame,
+          total_dm_sent_7d: totalDmSent7d,
+          total_pending_dm: totalPendingDm,
           recent_posts: recentPosts,
+          recent_dms: recentDms,
         },
         webhook_info: webhookInfo,
         config: configStatus,

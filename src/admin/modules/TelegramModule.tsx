@@ -26,11 +26,17 @@ import {
   Bot,
   UserCheck,
   Dices,
+  Inbox,
+  SendHorizontal,
 } from 'lucide-react';
 
 interface TelegramStats {
   total_linked_users: number;
   subscriptions_by_game: { game_slug: string; count: number }[];
+  total_dm_sent_7d?: number;
+  total_pending_dm?: number;
+  recent_posts?: TelegramRecentPost[];
+  recent_dms?: TelegramRecentPost[];
 }
 
 interface TelegramRecentPost {
@@ -72,9 +78,16 @@ interface ConfigStatus {
 }
 
 export const TelegramModule: React.FC = () => {
-  const [stats, setStats] = useState<TelegramStats>({ total_linked_users: 0, subscriptions_by_game: [] });
+  const [stats, setStats] = useState<TelegramStats>({
+    total_linked_users: 0,
+    subscriptions_by_game: [],
+    total_dm_sent_7d: 0,
+    total_pending_dm: 0,
+  });
   const [recentPosts, setRecentPosts] = useState<TelegramRecentPost[]>([]);
+  const [recentDms, setRecentDms] = useState<TelegramRecentPost[]>([]);
   const [webhookInfo, setWebhookInfo] = useState<WebhookInfoResult | null>(null);
+  const [isSendingDigest, setIsSendingDigest] = useState(false);
   const [configStatus, setConfigStatus] = useState<ConfigStatus>({
     has_token: false,
     has_group_id: false,
@@ -149,6 +162,7 @@ export const TelegramModule: React.FC = () => {
         // Robust handling for both nested data.data and root level data
         const statsData = data.stats || data.data?.stats;
         const recentPostsData = statsData?.recent_posts || data.recent_posts || data.data?.recent_posts || [];
+        const recentDmsData = statsData?.recent_dms || data.recent_dms || data.data?.recent_dms || [];
         const webhookData = data.webhook_info?.result || data.webhook_info || data.data?.webhook_info?.result || null;
         const configData = data.config || data.data?.config;
         const rawConfig = data.raw_config || data.data?.raw_config;
@@ -157,9 +171,12 @@ export const TelegramModule: React.FC = () => {
           setStats({
             total_linked_users: statsData.total_linked_users ?? 0,
             subscriptions_by_game: statsData.subscriptions_by_game ?? [],
+            total_dm_sent_7d: statsData.total_dm_sent_7d ?? 0,
+            total_pending_dm: statsData.total_pending_dm ?? 0,
           });
         }
         setRecentPosts(recentPostsData);
+        setRecentDms(recentDmsData);
         setWebhookInfo(webhookData);
         if (configData) {
           setConfigStatus({
@@ -193,6 +210,34 @@ export const TelegramModule: React.FC = () => {
       setActionNotice({ type: 'error', message: err.message || 'Lỗi kết nối máy chủ.' });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleSendPendingDigest = async () => {
+    setIsSendingDigest(true);
+    setActionNotice(null);
+    try {
+      const res = await fetch('/api/telegram/send-pending-digest', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+      });
+      const data: any = await res.json().catch(() => null);
+      if (res.ok && data?.success) {
+        setActionNotice({
+          type: 'success',
+          message: `Xả hàng chờ DM thành công: Đã gửi ${data.sent || 0} tin nhắn tổng hợp cho người theo dõi (${data.errors || 0} lỗi, còn lại trong hàng chờ: ${data.remaining || 0}).`,
+        });
+        await loadTelegramData();
+      } else {
+        setActionNotice({
+          type: 'error',
+          message: data?.error || data?.message || 'Không thể xả hàng chờ DM.',
+        });
+      }
+    } catch (err: any) {
+      setActionNotice({ type: 'error', message: err.message || 'Lỗi kết nối khi gửi hàng chờ.' });
+    } finally {
+      setIsSendingDigest(false);
     }
   };
 
@@ -580,63 +625,100 @@ export const TelegramModule: React.FC = () => {
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* 6 Stats Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
         {/* Total Linked Users */}
-        <div className="p-4 rounded-2xl bg-card border border-border space-y-2">
+        <div className="p-3.5 rounded-2xl bg-card border border-border space-y-1.5">
           <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-xs font-medium">Người Dùng Đã Liên Kết</span>
+            <span className="text-[11px] font-medium">Đã Liên Kết DM</span>
             <Users className="w-4 h-4 text-primary-light" />
           </div>
-          <div className="text-2xl font-black text-foreground font-mono">
+          <div className="text-xl sm:text-2xl font-black text-foreground font-mono">
             {stats.total_linked_users}
           </div>
-          <p className="text-[11px] text-muted-foreground">Tài khoản website đã kết nối Telegram DM</p>
+          <p className="text-[10px] text-muted-foreground truncate">Tài khoản kết nối DM</p>
         </div>
 
         {/* Subscribed Games */}
-        <div className="p-4 rounded-2xl bg-card border border-border space-y-2">
+        <div className="p-3.5 rounded-2xl bg-card border border-border space-y-1.5">
           <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-xs font-medium">Game Được Theo Dõi</span>
+            <span className="text-[11px] font-medium">Game Theo Dõi</span>
             <Bell className="w-4 h-4 text-amber-400" />
           </div>
-          <div className="text-2xl font-black text-foreground font-mono">
+          <div className="text-xl sm:text-2xl font-black text-foreground font-mono">
             {stats.subscriptions_by_game.length}
           </div>
-          <p className="text-[11px] text-muted-foreground">Số tựa game có người đăng ký nhận mã</p>
+          <p className="text-[10px] text-muted-foreground truncate">Tựa game có đăng ký</p>
+        </div>
+
+        {/* DM Sent 7d */}
+        <div className="p-3.5 rounded-2xl bg-card border border-border space-y-1.5">
+          <div className="flex items-center justify-between text-muted-foreground">
+            <span className="text-[11px] font-medium">DM Gửi 7 Ngày</span>
+            <SendHorizontal className="w-4 h-4 text-emerald-400" />
+          </div>
+          <div className="text-xl sm:text-2xl font-black text-foreground font-mono">
+            {stats.total_dm_sent_7d ?? 0}
+          </div>
+          <p className="text-[10px] text-muted-foreground truncate">Thông báo mã đã gửi</p>
+        </div>
+
+        {/* Pending DM Queue */}
+        <div className="p-3.5 rounded-2xl bg-card border border-border space-y-1.5">
+          <div className="flex items-center justify-between text-muted-foreground">
+            <span className="text-[11px] font-medium">Hàng Chờ DM</span>
+            <Inbox className="w-4 h-4 text-sky-400" />
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-xl sm:text-2xl font-black text-foreground font-mono">
+              {stats.total_pending_dm ?? 0}
+            </span>
+            {(stats.total_pending_dm ?? 0) > 0 && (
+              <button
+                type="button"
+                onClick={handleSendPendingDigest}
+                disabled={isSendingDigest}
+                className="px-2 py-0.5 rounded-md bg-sky-500/20 text-sky-400 hover:bg-sky-500/30 font-bold text-[10px] transition-all cursor-pointer disabled:opacity-50"
+                title="Xả hàng chờ gửi tổng hợp cho người dùng ngay lập tức"
+              >
+                {isSendingDigest ? 'Đang gửi...' : 'Xả Ngay'}
+              </button>
+            )}
+          </div>
+          <p className="text-[10px] text-muted-foreground truncate">Mã lưu ngoài giờ 9h-22h</p>
         </div>
 
         {/* Webhook Status */}
-        <div className="p-4 rounded-2xl bg-card border border-border space-y-2">
+        <div className="p-3.5 rounded-2xl bg-card border border-border space-y-1.5">
           <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-xs font-medium">Trạng Thái Webhook</span>
-            <Radio className="w-4 h-4 text-emerald-400" />
+            <span className="text-[11px] font-medium">Webhook Bot</span>
+            <Radio className="w-4 h-4 text-purple-400" />
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <span
-              className={`w-2.5 h-2.5 rounded-full ${
+              className={`w-2 h-2 rounded-full ${
                 webhookInfo?.url ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
               }`}
             />
-            <span className="text-sm font-bold text-foreground">
-              {webhookInfo?.url ? 'Đang Lắng Nghe' : 'Chưa Kích Hoạt'}
+            <span className="text-xs font-bold text-foreground truncate">
+              {webhookInfo?.url ? 'Đang Chạy' : 'Chưa Bật'}
             </span>
           </div>
-          <p className="text-[11px] text-muted-foreground truncate" title={webhookInfo?.url || 'Chưa thiết lập URL'}>
-            {webhookInfo?.url || 'Chưa thiết lập URL'}
+          <p className="text-[10px] text-muted-foreground truncate" title={webhookInfo?.url || 'Chưa thiết lập URL'}>
+            {webhookInfo?.url ? 'Lắng nghe sự kiện' : 'Cần kích hoạt'}
           </p>
         </div>
 
         {/* Pending Updates */}
-        <div className="p-4 rounded-2xl bg-card border border-border space-y-2">
+        <div className="p-3.5 rounded-2xl bg-card border border-border space-y-1.5">
           <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-xs font-medium">Hàng Đợi Webhook</span>
-            <Clock className="w-4 h-4 text-sky-400" />
+            <span className="text-[11px] font-medium">Hàng Đợi TG</span>
+            <Clock className="w-4 h-4 text-amber-400" />
           </div>
-          <div className="text-2xl font-black text-foreground font-mono">
+          <div className="text-xl sm:text-2xl font-black text-foreground font-mono">
             {webhookInfo?.pending_update_count ?? 0}
           </div>
-          <p className="text-[11px] text-muted-foreground">Số update đang chờ xử lý từ Telegram</p>
+          <p className="text-[10px] text-muted-foreground truncate">Update Telegram chờ</p>
         </div>
       </div>
 
@@ -822,24 +904,24 @@ export const TelegramModule: React.FC = () => {
 
         {stats.subscriptions_by_game.length > 0 ? (
           <div className="overflow-x-auto">
-            <table className="w-full text-xs text-left">
+            <table className="w-full table-fixed text-xs text-left">
               <thead>
                 <tr className="border-b border-border/80 text-muted-foreground">
-                  <th className="py-2 px-3">Thứ Hạng</th>
-                  <th className="py-2 px-3">Tên Game (Slug)</th>
-                  <th className="py-2 px-3 text-right">Số Người Đăng Ký</th>
+                  <th style={{ width: '15%' }} className="py-2.5 px-3">Thứ Hạng</th>
+                  <th style={{ width: '60%' }} className="py-2.5 px-3">Tên Game (Slug)</th>
+                  <th style={{ width: '25%' }} className="py-2.5 px-3 text-right">Số Người Đăng Ký</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/40">
                 {stats.subscriptions_by_game.map((item, idx) => (
                   <tr key={item.game_slug} className="hover:bg-muted/30">
-                    <td className="py-2 px-3 font-mono font-bold text-muted-foreground">
+                    <td className="py-2.5 px-3 font-mono font-bold text-muted-foreground align-middle">
                       #{idx + 1}
                     </td>
-                    <td className="py-2 px-3 font-bold text-foreground">
+                    <td className="py-2.5 px-3 font-bold text-foreground truncate align-middle" title={item.game_slug}>
                       {item.game_slug}
                     </td>
-                    <td className="py-2 px-3 text-right font-mono font-bold text-primary-light">
+                    <td className="py-2.5 px-3 text-right font-mono font-bold text-primary-light align-middle">
                       {item.count} thành viên
                     </td>
                   </tr>
@@ -854,46 +936,100 @@ export const TelegramModule: React.FC = () => {
         )}
       </div>
 
-      {/* 20 Recent Posts Log */}
+      {/* 20 Recent Personal DMs Log (Đợt 2) */}
+      <div className="p-5 rounded-2xl bg-card border border-border space-y-4">
+        <h3 className="font-heading font-bold text-sm text-foreground flex items-center justify-between">
+          <span className="flex items-center gap-2">
+            <SendHorizontal className="w-4 h-4 text-emerald-400" />
+            <span>Lịch Sử Báo Mã Cá Nhân Gần Nhất (20 DM)</span>
+          </span>
+          <span className="text-xs font-mono text-muted-foreground">DM Riêng Cho Người Theo Dõi</span>
+        </h3>
+
+        {recentDms.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full table-fixed text-xs text-left">
+              <thead>
+                <tr className="border-b border-border/80 text-muted-foreground">
+                  <th style={{ width: '18%' }} className="py-2.5 px-3">Thời Gian</th>
+                  <th style={{ width: '16%' }} className="py-2.5 px-3">Loại Tin</th>
+                  <th style={{ width: '38%' }} className="py-2.5 px-3">Nội Dung Tóm Tắt</th>
+                  <th style={{ width: '16%' }} className="py-2.5 px-3">Người Nhận</th>
+                  <th style={{ width: '12%' }} className="py-2.5 px-3">Ref Key</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/40">
+                {recentDms.map((dm) => (
+                  <tr key={dm.id} className="hover:bg-muted/30">
+                    <td className="py-2.5 px-3 text-muted-foreground font-mono truncate align-middle">
+                      {dm.posted_at || dm.created_at ? new Date(dm.posted_at || dm.created_at!).toLocaleString('vi-VN') : '—'}
+                    </td>
+                    <td className="py-2.5 px-3 align-middle">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
+                        {dm.kind === 'personal_dm_digest' ? 'DM Tổng Hợp' : 'DM Mã Mới'}
+                      </span>
+                    </td>
+                    <td className="py-2.5 px-3 font-semibold text-foreground truncate align-middle" title={dm.content_snippet || dm.title}>
+                      {dm.content_snippet || dm.title || `Tin DM #${dm.id}`}
+                    </td>
+                    <td className="py-2.5 px-3 font-mono text-[11px] text-muted-foreground truncate align-middle">
+                      {dm.target || 'User'}
+                    </td>
+                    <td className="py-2.5 px-3 font-mono text-[10px] text-muted-foreground truncate align-middle" title={dm.ref_key}>
+                      {dm.ref_key || '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground py-6 text-center">
+            Chưa có thông báo DM cá nhân nào được gửi gần đây.
+          </p>
+        )}
+      </div>
+
+      {/* 20 Recent Posts Log (Group) */}
       <div className="p-5 rounded-2xl bg-card border border-border space-y-4">
         <h3 className="font-heading font-bold text-sm text-foreground flex items-center justify-between">
           <span className="flex items-center gap-2">
             <FileText className="w-4 h-4 text-primary-light" />
-            <span>Lịch Sử Đăng Bài Telegram Gần Nhất (20 bài)</span>
+            <span>Lịch Sử Đăng Bài Nhóm Gần Nhất (20 bài)</span>
           </span>
           <span className="text-xs font-mono text-muted-foreground">Anti-Duplication 7 Ngày</span>
         </h3>
 
         {recentPosts.length > 0 ? (
           <div className="overflow-x-auto">
-            <table className="w-full text-xs text-left">
+            <table className="w-full table-fixed text-xs text-left">
               <thead>
                 <tr className="border-b border-border/80 text-muted-foreground">
-                  <th className="py-2 px-3">Thời Gian</th>
-                  <th className="py-2 px-3">Loại Bài</th>
-                  <th className="py-2 px-3">Tiêu Đề / Nội Dung</th>
-                  <th className="py-2 px-3">Đích Đến</th>
-                  <th className="py-2 px-3">Ref Key</th>
+                  <th style={{ width: '18%' }} className="py-2.5 px-3">Thời Gian</th>
+                  <th style={{ width: '16%' }} className="py-2.5 px-3">Loại Bài</th>
+                  <th style={{ width: '38%' }} className="py-2.5 px-3">Tiêu Đề / Nội Dung</th>
+                  <th style={{ width: '16%' }} className="py-2.5 px-3">Đích Đến</th>
+                  <th style={{ width: '12%' }} className="py-2.5 px-3">Ref Key</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/40">
                 {recentPosts.map((post) => (
                   <tr key={post.id} className="hover:bg-muted/30">
-                    <td className="py-2 px-3 text-muted-foreground font-mono whitespace-nowrap">
+                    <td className="py-2.5 px-3 text-muted-foreground font-mono truncate align-middle">
                       {post.posted_at || post.created_at ? new Date(post.posted_at || post.created_at!).toLocaleString('vi-VN') : '—'}
                     </td>
-                    <td className="py-2 px-3 whitespace-nowrap">
+                    <td className="py-2.5 px-3 align-middle">
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-muted border border-border text-foreground">
                         {post.kind || post.type || 'post'}
                       </span>
                     </td>
-                    <td className="py-2 px-3 font-semibold text-foreground max-w-[250px] truncate" title={post.content_snippet || post.title}>
+                    <td className="py-2.5 px-3 font-semibold text-foreground truncate align-middle" title={post.content_snippet || post.title}>
                       {post.content_snippet || post.title || `Tin nhắn ID #${post.message_id || post.id}`}
                     </td>
-                    <td className="py-2 px-3 font-mono text-[11px] text-muted-foreground whitespace-nowrap">
+                    <td className="py-2.5 px-3 font-mono text-[11px] text-muted-foreground truncate align-middle">
                       {post.target || post.chat_id || 'Group'}
                     </td>
-                    <td className="py-2 px-3 font-mono text-[10px] text-muted-foreground truncate max-w-[120px]" title={post.ref_key}>
+                    <td className="py-2.5 px-3 font-mono text-[10px] text-muted-foreground truncate align-middle" title={post.ref_key}>
                       {post.ref_key || '—'}
                     </td>
                   </tr>

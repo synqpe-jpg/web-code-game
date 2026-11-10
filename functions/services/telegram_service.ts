@@ -134,6 +134,22 @@ export async function ensureTelegramSchema(db: D1Database): Promise<void> {
     await db.prepare('CREATE INDEX IF NOT EXISTS idx_tg_admin_log_created_at ON telegram_admin_log(created_at);').run().catch(() => {});
     await db.prepare('CREATE INDEX IF NOT EXISTS idx_tg_admin_log_action ON telegram_admin_log(action);').run().catch(() => {});
 
+    // 6. telegram_pending_dm (Hàng chờ tin DM báo mã mới ngoài khung giờ 09:00 - 22:00 cho đợt 2)
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS telegram_pending_dm (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id TEXT,
+        chat_id TEXT NOT NULL,
+        game_slug TEXT NOT NULL,
+        code TEXT NOT NULL,
+        payload_json TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+    `).run().catch(() => {});
+
+    await db.prepare('CREATE INDEX IF NOT EXISTS idx_tg_pending_chat ON telegram_pending_dm(chat_id);').run().catch(() => {});
+    await db.prepare('CREATE INDEX IF NOT EXISTS idx_tg_pending_created ON telegram_pending_dm(created_at);').run().catch(() => {});
+
     // Bổ sung các cột liên kết Telegram vào bảng members nếu chưa có
     try {
       const colsQuery: any = await db.prepare("PRAGMA table_info('members');").all();
@@ -289,6 +305,94 @@ export function formatTelegramDm(payload: NotifyPayload): string {
   }
   lines.push(`👉 Xem chi tiết và nhận mã: <a href="${safeGameUrl}">${safeGameUrl}</a>`);
   return lines.join('\n');
+}
+
+/**
+ * Định dạng DM báo mã mới cho người theo dõi (chuẩn Mục 2.5 Đợt 2)
+ * 🎮 <Tên game> có mã mới!
+ * <code><MÃ 1></code> — <thưởng ngắn gọn, chỉ khi có>
+ * <code><MÃ 2></code> — <thưởng ngắn gọn, chỉ khi có>
+ * ⏰ Hạn: <ngày, chỉ khi có>
+ * 🔗 Xem tất cả mã: <link trang mã đúng game>
+ */
+export function formatFollowerDm(payload: {
+  game_name: string;
+  game_slug?: string;
+  codes: Array<{ code: string; rewards?: string; expiry?: string } | string>;
+  game_url?: string;
+  expiry?: string;
+}): string {
+  const escapedGame = escapeHtml(payload.game_name || 'Game');
+  const safeGameUrl = payload.game_url || `https://codegame.shop/game/${payload.game_slug || ''}`;
+  const lines: string[] = [`🎮 <b>${escapedGame} có mã mới!</b>`];
+
+  const normCodes = normalizeCodes(payload.codes);
+  let commonExpiry = payload.expiry?.trim() || '';
+
+  for (const c of normCodes) {
+    if (!c.code) continue;
+    let codeLine = `<code>${escapeHtml(c.code)}</code>`;
+    if (c.rewards && c.rewards.trim()) {
+      codeLine += ` — ${escapeHtml(c.rewards.trim())}`;
+    }
+    lines.push(codeLine);
+    if (!commonExpiry && c.expiry && c.expiry.trim()) {
+      commonExpiry = c.expiry.trim();
+    }
+  }
+
+  if (commonExpiry) {
+    lines.push(`⏰ Hạn: ${escapeHtml(commonExpiry)}`);
+  }
+
+  lines.push(`🔗 Xem tất cả mã: <a href="${safeGameUrl}">${safeGameUrl}</a>`);
+  return lines.join('\n');
+}
+
+/**
+ * Định dạng tin digest sáng xả hàng chờ (Mục 2.5 Đợt 2)
+ * Mỗi người 1 tin tổng hợp, mỗi game 1 khối, mỗi mã 1 dòng theo mẫu:
+ * • <Tên game> — <MÃ> (hạn <ngày>): <link trang mã>
+ */
+export function formatDigestDm(
+  items: Array<{
+    game_slug: string;
+    game_name?: string;
+    code: string;
+    rewards?: string;
+    expiry?: string;
+    game_url?: string;
+  }>
+): string {
+  // Gom nhóm theo game_slug
+  const byGame = new Map<string, typeof items>();
+  for (const item of items) {
+    const slug = item.game_slug || 'unknown';
+    if (!byGame.has(slug)) {
+      byGame.set(slug, []);
+    }
+    byGame.get(slug)!.push(item);
+  }
+
+  const blocks: string[] = [];
+  for (const [, gameItems] of byGame) {
+    const first = gameItems[0];
+    const gameTitle = escapeHtml(first.game_name || first.game_slug);
+    const safeUrl = first.game_url || `https://codegame.shop/game/${first.game_slug}`;
+    const lines: string[] = [];
+
+    for (const it of gameItems) {
+      let line = `• ${gameTitle} — <code>${escapeHtml(it.code)}</code>`;
+      if (it.expiry && it.expiry.trim()) {
+        line += ` (hạn ${escapeHtml(it.expiry.trim())})`;
+      }
+      line += `: <a href="${safeUrl}">${safeUrl}</a>`;
+      lines.push(line);
+    }
+    blocks.push(lines.join('\n'));
+  }
+
+  return blocks.join('\n\n');
 }
 
 /**
@@ -526,11 +630,16 @@ export async function getEffectiveTelegramConfig(env: any): Promise<TelegramConf
     }
   }
 
+  let effectiveGroupLink = (env?.TELEGRAM_GROUP_LINK || dbConfig.group_link || '').trim();
+  if (!effectiveGroupLink || effectiveGroupLink.toLowerCase().includes('bot')) {
+    effectiveGroupLink = 'https://t.me/webcodegame_vn';
+  }
+
   return {
     bot_token: (env?.TELEGRAM_BOT_TOKEN || dbConfig.bot_token || '').trim(),
     group_id: (env?.TELEGRAM_GROUP_ID || dbConfig.group_id || '').trim(),
     bot_username: (env?.TELEGRAM_BOT_USERNAME || dbConfig.bot_username || '').trim().replace(/^@/, ''),
-    group_link: (env?.TELEGRAM_GROUP_LINK || dbConfig.group_link || '').trim(),
+    group_link: effectiveGroupLink,
     webhook_secret: (env?.TELEGRAM_WEBHOOK_SECRET || dbConfig.webhook_secret || '').trim(),
     admin_chat_id: (env?.TELEGRAM_ADMIN_CHAT_ID || dbConfig.admin_chat_id || '').trim(),
     notify_key: (env?.TELEGRAM_NOTIFY_KEY || dbConfig.notify_key || '').trim(),

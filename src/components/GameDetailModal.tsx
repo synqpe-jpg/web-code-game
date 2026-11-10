@@ -78,7 +78,99 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const [isAuthPromptOpen, setIsAuthPromptOpen] = useState(false);
   const [isGameFollowed, setIsGameFollowed] = useState(false);
+  const [isFollowingServer, setIsFollowingServer] = useState(false);
+  const [isTogglingFollow, setIsTogglingFollow] = useState(false);
   const prevGameSlugRef = React.useRef<string | null>(game ? (game.slug || game.id || null) : null);
+
+  // Đồng bộ trạng thái theo dõi server từ D1
+  useEffect(() => {
+    const slug = (liveGame?.slug || liveGame?.id || game?.slug || game?.id || '').toLowerCase();
+    if (!slug) return;
+    const token = typeof window !== 'undefined' ? localStorage.getItem('wcg_auth_token') || '' : '';
+    if (token) {
+      telegramService.getUserStatus(token).then((res) => {
+        if (res && Array.isArray(res.subscriptions)) {
+          const isFollowed = res.subscriptions.some(
+            (s) => s.game_slug.toLowerCase() === slug
+          );
+          setIsFollowingServer(isFollowed);
+        }
+      }).catch(() => {});
+    }
+  }, [liveGame?.slug, liveGame?.id, game?.slug, game?.id]);
+
+  const handleToggleFollow = async () => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('wcg_auth_token') || '' : '';
+    if (!activeUser || !token) {
+      if (onOpenAuth) {
+        onOpenAuth();
+      } else {
+        setIsAuthPromptOpen(true);
+      }
+      onShowToast('Cần đăng nhập', 'Vui lòng đăng nhập để nhận thông báo khi có code mới.', 'info');
+      return;
+    }
+
+    const slug = (currentGame.slug || currentGame.id || '').toLowerCase();
+    if (!slug || isTogglingFollow) return;
+
+    const nextState = !isFollowingServer;
+    setIsFollowingServer(nextState); // Cập nhật ngay lập tức không delay
+    setIsTogglingFollow(true);
+
+    try {
+      const res = await telegramService.toggleFollowGame(token, slug, nextState);
+      if (res.success) {
+        onShowToast(
+          nextState ? 'Đã bật theo dõi' : 'Đã bỏ theo dõi',
+          nextState
+            ? `Bạn sẽ nhận được thông báo ngay khi có mã mới cho ${currentGame.name}!`
+            : `Đã hủy nhận thông báo cho ${currentGame.name}.`,
+          'success'
+        );
+      } else {
+        setIsFollowingServer(!nextState); // Rollback nếu lỗi
+        onShowToast('Lỗi', res.error || 'Không thể cập nhật trạng thái theo dõi.', 'error');
+      }
+    } catch (err: any) {
+      setIsFollowingServer(!nextState);
+      onShowToast('Lỗi kết nối', err?.message, 'error');
+    } finally {
+      setIsTogglingFollow(false);
+    }
+  };
+
+  const handleTelegramFollowClick = async () => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('wcg_auth_token') || '' : '';
+    if (!activeUser || !token) {
+      if (onOpenAuth) {
+        onOpenAuth();
+      } else {
+        setIsAuthPromptOpen(true);
+      }
+      onShowToast('Cần đăng nhập', 'Vui lòng đăng nhập để theo dõi game qua Telegram.', 'info');
+      return;
+    }
+
+    const slug = (currentGame.slug || currentGame.id || '').toLowerCase();
+    if (!slug) return;
+
+    // Nếu đang theo dõi rồi -> bấm lại là bỏ theo dõi
+    if (isFollowingServer) {
+      await handleToggleFollow();
+      return;
+    }
+
+    // Nếu chưa theo dõi -> Bật theo dõi trên server
+    await handleToggleFollow();
+
+    // Mở thêm Bot Telegram với lệnh theo dõi tự động
+    try {
+      const cfg = await telegramService.getConfig();
+      const botUser = cfg.bot_username || 'CodeGameAdminbot';
+      window.open(`https://t.me/${botUser}?start=theodoi_${slug}`, '_blank', 'noopener,noreferrer');
+    } catch {}
+  };
 
   useEffect(() => {
     if (!game) return;
@@ -431,38 +523,42 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
 
             <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
               <button
-                onClick={() => setIsEmailModalOpen(true)}
+                type="button"
+                onClick={handleToggleFollow}
+                disabled={isTogglingFollow}
                 className={`p-1.5 sm:p-2 rounded-xl border transition-all cursor-pointer active:scale-90 flex items-center gap-1.5 ${
-                  isGameFollowed
+                  isFollowingServer
                     ? 'bg-secondary/20 border-secondary/50 text-secondary shadow-neon-teal'
                     : 'bg-muted/60 border-border text-muted-foreground hover:text-foreground'
                 }`}
-                title={isGameFollowed ? 'Đang nhận thông báo code game này qua Email' : 'Nhận thông báo khi có code mới cho game này'}
+                title={isFollowingServer ? 'Đang theo dõi mã mới game này (Bấm để hủy)' : 'Nhận thông báo khi có code mới cho game này'}
               >
-                {isGameFollowed ? (
+                {isFollowingServer ? (
                   <BellRing className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-secondary animate-bounce-subtle" />
                 ) : (
                   <Bell className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 )}
                 <span className="hidden sm:inline text-[11px] font-bold">
-                  {isGameFollowed ? 'Đang theo dõi' : 'Báo code mới'}
+                  {isFollowingServer ? 'Đang theo dõi' : 'Báo code mới'}
                 </span>
               </button>
 
-              {/* Nút Theo Dõi Game Này Qua Telegram (Mục 3.1) */}
+              {/* Nút Theo Dõi Game Này Qua Telegram (Đợt 2) */}
               <button
                 type="button"
-                onClick={async () => {
-                  const slug = currentGame.slug || currentGame.id;
-                  const cfg = await telegramService.getConfig();
-                  const botUser = cfg.bot_username || 'CodeGameShopBot';
-                  window.open(`https://t.me/${botUser}?start=theodoi_${slug}`, '_blank', 'noopener,noreferrer');
-                }}
-                className="p-1.5 sm:p-2 rounded-xl bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 text-sky-400 hover:text-sky-300 transition-all cursor-pointer active:scale-90 flex items-center gap-1.5"
-                title="Theo dõi game này qua Telegram (Nhận thông báo riêng khi có code mới)"
+                onClick={handleTelegramFollowClick}
+                disabled={isTogglingFollow}
+                className={`p-1.5 sm:p-2 rounded-xl border transition-all cursor-pointer active:scale-90 flex items-center gap-1.5 ${
+                  isFollowingServer
+                    ? 'bg-sky-500/25 border-sky-400 text-sky-300 shadow-sm'
+                    : 'bg-sky-500/10 hover:bg-sky-500/20 border-sky-500/30 text-sky-400 hover:text-sky-300'
+                }`}
+                title={isFollowingServer ? 'Đang nhận thông báo qua Telegram (Bấm để hủy)' : 'Theo dõi game này qua Telegram (Nhận thông báo riêng khi có code mới)'}
               >
                 <Send className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                <span className="hidden sm:inline text-[11px] font-bold">Báo Telegram</span>
+                <span className="hidden sm:inline text-[11px] font-bold">
+                  {isFollowingServer ? 'Đang báo Telegram' : 'Báo Telegram'}
+                </span>
               </button>
 
               {/* Nút Chia Sẻ Qua Telegram (Mục 3.1) */}

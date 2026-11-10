@@ -84,20 +84,22 @@ export async function onRequestGet(context: { request: Request; env: Env }): Pro
     });
   }
 
-  const isLinked = Boolean(member.telegram_chat_id && member.telegram_chat_id.trim());
+  const isLinked = Boolean(
+    member.telegram_chat_id &&
+    member.telegram_chat_id.trim() &&
+    !member.telegram_chat_id.startsWith('web:')
+  );
   let subscriptions: any[] = [];
 
-  if (isLinked) {
-    try {
-      const subsRes: any = await env.DB.prepare(`
-        SELECT game_slug, notify_types, created_at, updated_at 
-        FROM telegram_subscriptions 
-        WHERE user_id = ? OR chat_id = ?
-        ORDER BY created_at DESC
-      `).bind(member.id, member.telegram_chat_id).all();
-      subscriptions = subsRes.results || [];
-    } catch {}
-  }
+  try {
+    const subsRes: any = await env.DB.prepare(`
+      SELECT game_slug, notify_types, created_at, updated_at 
+      FROM telegram_subscriptions 
+      WHERE user_id = ? OR (chat_id = ? AND chat_id != '' AND chat_id NOT LIKE 'web:%')
+      ORDER BY created_at DESC
+    `).bind(member.id, member.telegram_chat_id || '').all();
+    subscriptions = subsRes.results || [];
+  } catch {}
 
   return new Response(
     JSON.stringify({
@@ -173,6 +175,9 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
         JSON.stringify({
           success: true,
           link_url: linkUrl,
+          deep_link: linkUrl,
+          token,
+          bot_username: botUsername,
           expires_at: expiresAt,
           expires_in_seconds: 900,
         }),
@@ -198,11 +203,9 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
         WHERE id = ?
       `).bind(member.id).run();
 
-      if (oldChatId) {
-        await env.DB.prepare(
-          'DELETE FROM telegram_subscriptions WHERE user_id = ? OR chat_id = ?'
-        ).bind(member.id, oldChatId).run();
-      }
+      await env.DB.prepare(
+        'DELETE FROM telegram_subscriptions WHERE user_id = ? OR chat_id = ?'
+      ).bind(member.id, oldChatId || '').run();
 
       return new Response(
         JSON.stringify({
@@ -223,13 +226,7 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
   if (action === 'update_preferences') {
     const gameSlug = (body.game_slug || '').toLowerCase().trim();
     const notifyTypes = (body.notify_types || 'new_code,expiring,event').trim();
-
-    if (!member.telegram_chat_id) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Chưa liên kết tài khoản với Telegram' }),
-        { status: 400, headers: CORS_HEADERS }
-      );
-    }
+    const effectiveChatId = member.telegram_chat_id || `web:${member.id}`;
 
     try {
       if (gameSlug) {
@@ -237,14 +234,14 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
           UPDATE telegram_subscriptions 
           SET notify_types = ?, updated_at = datetime('now')
           WHERE (user_id = ? OR chat_id = ?) AND game_slug = ?
-        `).bind(notifyTypes, member.id, member.telegram_chat_id, gameSlug).run();
+        `).bind(notifyTypes, member.id, effectiveChatId, gameSlug).run();
       } else {
         // Cập nhật cho tất cả các game đã theo dõi
         await env.DB.prepare(`
           UPDATE telegram_subscriptions 
           SET notify_types = ?, updated_at = datetime('now')
           WHERE user_id = ? OR chat_id = ?
-        `).bind(notifyTypes, member.id, member.telegram_chat_id).run();
+        `).bind(notifyTypes, member.id, effectiveChatId).run();
       }
 
       return new Response(
@@ -274,12 +271,7 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
       });
     }
 
-    if (!member.telegram_chat_id) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'requires_link', message: 'Vui lòng liên kết Telegram trước khi bật theo dõi game.' }),
-        { status: 400, headers: CORS_HEADERS }
-      );
-    }
+    const effectiveChatId = member.telegram_chat_id || `web:${member.id}`;
 
     try {
       if (follow) {
@@ -287,12 +279,12 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
           INSERT INTO telegram_subscriptions (user_id, chat_id, game_slug, notify_types, created_at, updated_at)
           VALUES (?, ?, ?, 'new_code,expiring,event', datetime('now'), datetime('now'))
           ON CONFLICT(chat_id, game_slug) DO UPDATE SET updated_at = datetime('now')
-        `).bind(member.id, member.telegram_chat_id, gameSlug).run();
+        `).bind(member.id, effectiveChatId, gameSlug).run();
       } else {
         await env.DB.prepare(`
           DELETE FROM telegram_subscriptions 
           WHERE (user_id = ? OR chat_id = ?) AND game_slug = ?
-        `).bind(member.id, member.telegram_chat_id, gameSlug).run();
+        `).bind(member.id, effectiveChatId, gameSlug).run();
       }
 
       return new Response(

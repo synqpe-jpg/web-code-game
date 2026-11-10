@@ -7,6 +7,32 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-10]
 
+### 364. Triển Khai Toàn Diện Tính Năng Theo Dõi Game & Báo Mã Mới Qua Telegram DM (Đợt 2 Tích Hợp Telegram)
+- **Triệu chứng & Bối cảnh**:
+  - Triển khai tính năng "Theo dõi game + Báo mã mới cho codegame.shop" (Đợt 2 của tích hợp Telegram theo định hướng ngày 10/11/2026).
+  - Phân tách trách nhiệm rõ ràng: Website cung cấp giao diện theo dõi, kho lưu trữ đăng ký `telegram_subscriptions`, hàng chờ `telegram_pending_dm` và 2 endpoint nhận lệnh báo mã (`POST /api/telegram/notify-followers`, `POST /api/telegram/send-pending-digest`). Phía Muse giữ lịch quét và gọi API sau khi đẩy mã.
+  - Tái sử dụng 2 nút sẵn có trên modal game ("Báo code mới" và "Báo Telegram"), tuyệt đối không thêm nút theo dõi thừa làm cồng kềnh khung game.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Khung hồ sơ người dùng trước đây tab Telegram bị lỗi render do lệch schema trả về giữa `telegramService.getUserStatus` và `UserProfileModal.tsx` (`res.data` vs `res`), khiến trạng thái liên kết luôn bị `null`.
+  - Chưa có bảng D1 và endpoint phục vụ việc gửi thông báo riêng (DM) tới từng người theo dõi game, chưa có cơ chế chống spam ban đêm (chỉ gửi trong khung giờ 09:00 - 22:00 VN).
+- **Giải pháp triệt để đã triển khai (Solution Applied)**:
+  1. *Cơ sở dữ liệu & Services (`functions/services/telegram_service.ts`)*:
+     - Thêm bảng D1 `telegram_pending_dm` (`id`, `user_id`, `chat_id`, `game_slug`, `code`, `payload_json`, `created_at`) kèm 2 index lưu trữ mã phát sinh ngoài khung giờ vàng (09:00 - 22:00 VN).
+     - Hàm `formatFollowerDm` và `formatDigestDm` chuẩn Markdown Telegram.
+     - Tự động chuẩn hóa `group_link` về `https://t.me/webcodegame_vn`.
+  2. *Endpoints Báo Mã & Xả Hàng Chờ (`functions/api/telegram/`)*:
+     - `POST /api/telegram/notify-followers`: Xác thực khóa mang scope `TELEGRAM_NOTIFY` / `TELEGRAM_FULL` / `ADMIN_FULL` hoặc static key; lọc người đủ 3 điều kiện (đã liên kết, đang theo dõi, `new_code` bật); chống trùng bằng `ref_key` `<game_slug>|<mã>|dm:<chat_id>`; giới hạn khung giờ 09:00 - 22:00 VN (ngoài khung giờ tự ghi vào `telegram_pending_dm` và trả `held > 0`); giới hạn tối đa 20 mã/lần.
+     - `POST /api/telegram/send-pending-digest`: Xả hàng chờ `telegram_pending_dm`, gom mỗi người tối đa 1 tin tổng hợp, xóa hàng chờ sau khi gửi.
+     - `GET/POST /api/telegram/user`: Hỗ trợ người dùng web theo dõi game ngay cả khi chưa liên kết Telegram (`chat_id = 'web:' + user_id`), đồng bộ tự động khi kết nối bot qua `/start link_<token>` hoặc `/start theodoi_<slug>`.
+     - `GET /api/telegram/admin`: Bổ sung thống kê `total_linked_users`, `subscriptions_by_game` (Top 20), `total_dm_sent_7d`, `total_pending_dm`, 20 bài đăng nhóm gần nhất và 20 DM cá nhân gần nhất (ẩn chat ID bảo mật).
+  3. *Client Frontend & Trải Nghiệm Người Dùng*:
+     - `GameDetailModal.tsx`: Nối 2 nút sẵn có "Báo code mới" và "Báo Telegram" vào hệ thống theo dõi D1 thời gian thực, phản hồi 0 delay, yêu cầu đăng nhập nếu là khách vãng lai.
+     - `UserProfileModal.tsx`: Sửa lỗi hiển thị tab Telegram, thể hiện rõ trạng thái liên kết (đã liên kết kèm username thật, hoặc chưa liên kết), danh sách game đang theo dõi kèm 3 công tắc (`new_code`, `expiring`, `event`) và khối "Mã Mới Từ Game Bạn Theo Dõi (7 Ngày Gần Nhất)".
+     - `TelegramModule.tsx`: Bổ sung 6 thẻ chỉ số và 3 bảng dữ liệu tuân thủ nghiêm ngặt Quy tắc 9 (Single-Screen First, `table-fixed w-full`, tổng cột = 100%, zero horizontal overflow), kèm nút xả hàng chờ trực tiếp.
+     - `ApiKeysModule.tsx`: Cập nhật tài liệu cURL Mẫu 6 và Mẫu 7 cho 2 endpoint mới theo Quy tắc 8.
+- **Kiểm thử & Nghiệm thu**:
+  - `npm run build` pass 100%, zero test artifacts trên production (Quy tắc 7).
+
 ### 363. Ban Hành Quy Tắc 9 (Nguyên Tắc 100% Giao Diện Nằm Trọn Trong 1 Màn Hình) & Tối Ưu Toàn Diện Các Bảng Quản Trị Admin
 - **Triệu chứng & Bối cảnh**:
   - Người dùng gửi 4 ảnh chụp màn hình thực tế trên trình duyệt Cốc Cốc / Chrome (độ phân giải laptop tiêu chuẩn) phản ánh tình trạng các bảng bị tràn ngang làm khuất cột "Thao Tác" và các nút hành động cốt lõi tại 4 phân hệ:

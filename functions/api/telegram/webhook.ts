@@ -95,6 +95,33 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
   }
 
   // 2. Xử lý lệnh /start link_<token> (Liên kết tài khoản 1 lần, hết hạn 15 phút)
+  if (text.startsWith('/start theodoi_')) {
+    const slug = text.replace(/^\/start\s+theodoi_/i, '').trim().toLowerCase();
+    if (slug) {
+      try {
+        const member: any = await env.DB.prepare('SELECT id FROM members WHERE telegram_chat_id = ? LIMIT 1').bind(String(chatId)).first();
+        const userId = member?.id || null;
+
+        await env.DB.prepare(`
+          INSERT INTO telegram_subscriptions (user_id, chat_id, game_slug, notify_types, created_at, updated_at)
+          VALUES (?, ?, ?, 'new_code,expiring,event', datetime('now'), datetime('now'))
+          ON CONFLICT(chat_id, game_slug) DO UPDATE SET updated_at = datetime('now')
+        `).bind(userId, String(chatId), slug).run();
+
+        await sendTelegramApiMessage(
+          botToken,
+          chatId,
+          `✅ <b>Đã theo dõi thành công tựa game: <code>${escapeHtml(slug)}</code>!</b>\nBạn sẽ nhận được tin nhắn riêng ngay khi có Giftcode mới hoặc sự kiện hot được duyệt trên web.\n\n• Hủy theo dõi: <code>/huytheodoi ${escapeHtml(slug)}</code>\n• Danh sách game: <code>/danhsach</code>`,
+          { parse_mode: 'HTML' }
+        );
+        return new Response(JSON.stringify({ ok: true, followed: slug }), { status: 200, headers: CORS_HEADERS });
+      } catch (err: any) {
+        console.error('[Telegram Webhook Start Theodoi Error]', err);
+        return new Response(JSON.stringify({ ok: true, error: err?.message }), { status: 200, headers: CORS_HEADERS });
+      }
+    }
+  }
+
   if (text.startsWith('/start link_') || text.startsWith('/start link=')) {
     const token = text.replace(/^\/start\s+link[=_]/i, '').trim();
     if (!token) {
@@ -143,6 +170,13 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
             telegram_linked_at = datetime('now') 
         WHERE id = ?
       `).bind(String(chatId), username, userId).run();
+
+      // Đồng thời cập nhật chat_id cho các subscription đã tạo trước đó trên web
+      await env.DB.prepare(`
+        UPDATE telegram_subscriptions 
+        SET chat_id = ? 
+        WHERE user_id = ? AND (chat_id LIKE 'web:%' OR chat_id = '')
+      `).bind(String(chatId), userId).run().catch(() => {});
 
       // Gửi tin nhắn xác nhận kèm hướng dẫn lệnh
       const replyMsg = [

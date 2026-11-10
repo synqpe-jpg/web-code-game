@@ -19,6 +19,9 @@ export interface TelegramUserStatus {
     created_at: string;
     updated_at: string;
   }[];
+  success?: boolean;
+  data?: TelegramUserStatus;
+  error?: string;
 }
 
 class TelegramService {
@@ -62,7 +65,16 @@ class TelegramService {
    */
   async getUserStatus(token: string): Promise<TelegramUserStatus> {
     if (!token) {
-      return { is_linked: false, telegram_username: null, telegram_linked_at: null, subscriptions: [] };
+      const fallback: TelegramUserStatus = {
+        is_linked: false,
+        telegram_username: null,
+        telegram_linked_at: null,
+        subscriptions: [],
+        success: false,
+        error: 'Chưa đăng nhập',
+      };
+      fallback.data = fallback;
+      return fallback;
     }
     try {
       const res = await fetch('/api/telegram/user', {
@@ -72,23 +84,48 @@ class TelegramService {
       });
       if (res.ok) {
         const data: any = await res.json();
-        return {
+        const status: TelegramUserStatus = {
           is_linked: Boolean(data.is_linked),
           telegram_username: data.telegram_username || null,
           telegram_linked_at: data.telegram_linked_at || null,
           subscriptions: Array.isArray(data.subscriptions) ? data.subscriptions : [],
+          success: true,
         };
+        status.data = status;
+        return status;
       }
     } catch (err) {
       console.warn('[TelegramService] Lỗi lấy user status:', err);
     }
-    return { is_linked: false, telegram_username: null, telegram_linked_at: null, subscriptions: [] };
+    const errFallback: TelegramUserStatus = {
+      is_linked: false,
+      telegram_username: null,
+      telegram_linked_at: null,
+      subscriptions: [],
+      success: false,
+      error: 'Lỗi kết nối máy chủ',
+    };
+    errFallback.data = errFallback;
+    return errFallback;
   }
 
   /**
    * Sinh mã liên kết tài khoản 1 lần (hết hạn 15 phút)
    */
-  async generateLinkToken(token: string): Promise<{ success: boolean; link_url?: string; error?: string }> {
+  async generateLinkToken(token: string): Promise<{
+    success: boolean;
+    link_url?: string;
+    deep_link?: string;
+    token?: string;
+    bot_username?: string;
+    data?: {
+      link_url: string;
+      deep_link: string;
+      token?: string;
+      bot_username?: string;
+    };
+    error?: string;
+  }> {
     try {
       const res = await fetch('/api/telegram/user', {
         method: 'POST',
@@ -99,8 +136,19 @@ class TelegramService {
         body: JSON.stringify({ action: 'generate_link' }),
       });
       const data: any = await res.json();
-      if (data.success && data.link_url) {
-        return { success: true, link_url: data.link_url };
+      if (data.success && (data.link_url || data.deep_link)) {
+        const linkUrl = data.link_url || data.deep_link;
+        const linkData = {
+          link_url: linkUrl,
+          deep_link: linkUrl,
+          token: data.token || '',
+          bot_username: data.bot_username || '',
+        };
+        return {
+          success: true,
+          ...linkData,
+          data: linkData,
+        };
       }
       return { success: false, error: data.message || data.error || 'Không thể tạo link liên kết' };
     } catch (err: any) {
@@ -162,8 +210,9 @@ class TelegramService {
   async toggleFollowGame(
     token: string,
     gameSlug: string,
-    follow: boolean
-  ): Promise<{ success: boolean; error?: string }> {
+    follow: boolean | 'follow' | 'unfollow'
+  ): Promise<{ success: boolean; follow?: boolean; game_slug?: string; error?: string }> {
+    const isFollow = typeof follow === 'boolean' ? follow : follow === 'follow';
     try {
       const res = await fetch('/api/telegram/user', {
         method: 'POST',
@@ -174,11 +223,16 @@ class TelegramService {
         body: JSON.stringify({
           action: 'toggle_follow_game',
           game_slug: gameSlug,
-          follow,
+          follow: isFollow,
         }),
       });
       const data: any = await res.json();
-      return { success: Boolean(data.success), error: data.message || data.error };
+      return {
+        success: Boolean(data.success),
+        follow: data.follow ?? isFollow,
+        game_slug: data.game_slug || gameSlug,
+        error: data.message || data.error,
+      };
     } catch (err: any) {
       return { success: false, error: err?.message };
     }

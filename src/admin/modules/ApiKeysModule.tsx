@@ -107,9 +107,9 @@ export interface ScopeOption {
 export const ALL_API_SCOPES: ScopeOption[] = [
   {
     id: 'TELEGRAM_NOTIFY',
-    name: 'Đăng Thông Báo Telegram (Telegram Notify API)',
+    name: 'Đăng Thông Báo Telegram (Telegram Notify & Followers API)',
     category: 'Kết Nối',
-    description: 'Đăng bài viết, giftcode mới, thông báo sự kiện lên Nhóm Telegram qua /api/telegram/notify kèm kiểm tra chống trùng ref_key.',
+    description: 'Đăng bài viết/giftcode lên Nhóm qua /api/telegram/notify, báo mã mới riêng cho người theo dõi game qua /api/telegram/notify-followers và xả hàng chờ tin tổng hợp qua /api/telegram/send-pending-digest.',
     color: 'blue',
     badgeBg: 'bg-blue-500/10',
     badgeText: 'text-blue-500',
@@ -2685,6 +2685,50 @@ curl -X POST https://codegame.shop/api/telegram/manage \
     "source_name": "CodeGame.shop",
     "source_url": "https://codegame.shop/code/genshin-impact"
   }'`}
+                </pre>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Terminal className="w-4 h-4 text-emerald-400" />
+                  Mẫu 6: Báo Mã Mới Cho Người Theo Dõi Game Qua Telegram DM (POST /api/telegram/notify-followers)
+                </h4>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Gửi thông báo mã mới trực tiếp vào tin nhắn riêng Telegram cho những người dùng đã liên kết bot và theo dõi tựa game này (Khung giờ gửi: 09:00 - 22:00 VN, ngoài khung giờ tự lưu hàng chờ).
+                </p>
+                <pre className="mt-2 p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto">
+{`curl -X POST https://codegame.shop/api/telegram/notify-followers \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer YOUR_API_KEY_WITH_TELEGRAM_NOTIFY" \\
+  -d '{
+    "game_slug": "hiep-khach-hanh",
+    "game_name": "Hiệp Khách Hành",
+    "codes": [
+      {
+        "code": "HKHVIP888",
+        "reward": "100 Kim Cương, 5 Rương Trang Bị Tím",
+        "expired_at": "31/12/2026",
+        "notes": "Mã mới phát hành từ NPH Joy Game"
+      }
+    ],
+    "source_name": "NPH Joy Game",
+    "source_url": "https://codegame.shop/game/hiep-khach-hanh"
+  }'`}
+                </pre>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Terminal className="w-4 h-4 text-purple-400" />
+                  Mẫu 7: Xả Hàng Chờ & Gửi Tin Tổng Hợp Ngoài Giờ (POST /api/telegram/send-pending-digest)
+                </h4>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Gom toàn bộ mã chờ phát sinh ban đêm (ngoài 09:00 - 22:00) thành 1 tin nhắn tổng hợp duy nhất cho từng người theo dõi để không spam thông báo.
+                </p>
+                <pre className="mt-2 p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto">
+{`curl -X POST https://codegame.shop/api/telegram/send-pending-digest \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer YOUR_API_KEY_WITH_TELEGRAM_NOTIFY"`}
                 </pre>
               </div>
             </div>
