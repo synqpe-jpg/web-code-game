@@ -627,32 +627,7 @@ async function runPrerender() {
               </section>
             </div>
 
-            <!-- 3. Telegram Banner -->
-            <div class="mb-4">
-              <div class="w-full max-w-7xl mx-auto my-2">
-                <div class="relative overflow-hidden rounded-2xl border border-sky-500/25 bg-gradient-to-r from-sky-950/40 via-slate-900/90 to-blue-950/40 p-3 sm:p-5 flex flex-col md:flex-row items-center justify-between gap-3 shadow-md backdrop-blur-sm">
-                  <div class="flex items-center gap-3 text-center sm:text-left">
-                    <div class="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-sky-500/15 border border-sky-500/30 flex items-center justify-center text-sky-400 shrink-0 shadow-inner">
-                      <svg class="w-4 h-4 sm:w-5 sm:h-5 text-sky-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                    </div>
-                    <div>
-                      <div class="flex items-center justify-center sm:justify-start gap-2">
-                        <h4 class="text-xs sm:text-base font-black text-white tracking-tight">Nhóm Telegram CodeGame.Shop</h4>
-                        <span class="px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold bg-sky-500/15 text-sky-300 border border-sky-500/30">Official</span>
-                      </div>
-                      <p class="text-[11px] sm:text-xs text-slate-300 mt-0.5">Nhận mã mới, sự kiện hot và nhắc hết hạn quà tặng tự động cùng cộng đồng.</p>
-                    </div>
-                  </div>
-                  <div class="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-center sm:justify-end">
-                    <a href="https://t.me/codegameshop" target="_blank" rel="noopener noreferrer" class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs transition-all shadow-sm">
-                      <span>Tham Gia Nhóm →</span>
-                    </a>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- 4. CategoryFilter Horizontal Chips Bar -->
+            <!-- 3. CategoryFilter Horizontal Chips Bar -->
             <div class="mb-3 sm:mb-6 w-full max-w-full">
               <div class="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none w-full max-w-full flex-nowrap">
                 <span class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-primary text-white shadow-glow-primary shrink-0">

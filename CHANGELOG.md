@@ -7,6 +7,18 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-10]
 
+### 360. Gỡ Bỏ Khối Banner Telegram Trên Trang Chủ Nhằm Tối Ưu Bố Cục Và Trải Nghiệm Người Dùng
+- **Triệu chứng & Bối cảnh**:
+  - Người dùng yêu cầu gỡ bỏ mục "[Tham Gia Nhóm](https://t.me/CodegameAdminbot) Liên Kết Bot" (khối banner mời tham gia Telegram) nằm giữa danh sách Game Sắp Ra Mắt và Thanh Bộ Lọc Thể Loại trên trang chủ.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Khối banner chiếm không gian hiển thị trên màn hình trang chủ (`src/App.tsx` và `scripts/prerender.js`), trong khi tính năng Telegram vẫn đã có nút truy cập chuyên dụng trên Header và trang riêng `/telegram`.
+- **Giải pháp triệt để đã triển khai (Solution Applied)**:
+  1. *Loại bỏ component TelegramHomeBanner khỏi trang chủ*: Gỡ bỏ thẻ `<TelegramHomeBanner />` và `import` khỏi `src/App.tsx`.
+  2. *Đồng bộ triệt để HTML tĩnh prerendered*: Gỡ bỏ khối `<!-- 3. Telegram Banner -->` trong `scripts/prerender.js` để đảm bảo DOM trước và sau hydration khớp 100%, triệt tiêu hoàn toàn nguy cơ Layout Shift (CLS).
+  3. *Tối ưu bundle kích thước*: Bundle chính `index-*.js` giảm từ 242.20 kB xuống 239.30 kB (61.31 kB gzip).
+- **Kiểm thử & Nghiệm thu**:
+  - `npm run build` pass 100% (Pass kiểm toán Zero Test Artifacts, Pass 255 news covers, Prerender 595 game và toàn bộ trang tĩnh).
+
 ### 359. Hoàn Thiện Bộ 7 API Quản Trị Điều Khiển Từ Xa 100% (Headless / Remote Controlled) & Tự Động Đăng Ký Phân Quyền Hạt Nhân (Quy Tắc 8)
 - **Triệu chứng & Bối cảnh**:
   - Nhằm cho phép hệ thống bot, AI Agent và client bên ngoài có thể vận hành và kiểm soát từ xa 100% website codegame.shop mà không cần đăng nhập giao diện web, hệ thống cần bổ sung 7 module API quản trị cốt lõi.

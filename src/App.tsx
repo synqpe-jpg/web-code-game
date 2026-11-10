@@ -8,7 +8,6 @@ import { CategoryFilter } from './components/CategoryFilter';
 import { GameGrid } from './components/GameGrid';
 import { PinnedGamesBar } from './components/PinnedGamesBar';
 import { UpcomingGamesBanner } from './components/UpcomingGamesBanner';
-import { TelegramHomeBanner } from './components/TelegramHomeBanner';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { CyberLoader } from './components/CyberLoader';
 import { SearchAutocomplete } from './components/SearchAutocomplete';
@@ -1706,11 +1705,6 @@ export const App: React.FC = () => {
                     }}
                     onShowToast={showToast}
                   />
-                </div>
-
-                {/* 3. Khối Cộng Đồng & Bot Telegram */}
-                <div className="mb-4">
-                  <TelegramHomeBanner onOpenTelegramView={() => handleSelectTab('telegram')} />
                 </div>
 
                 <CategoryFilter
