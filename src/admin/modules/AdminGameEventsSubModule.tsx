@@ -574,23 +574,23 @@ export const AdminGameEventsSubModule: React.FC<AdminGameEventsSubModuleProps> =
           </p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-border/80 bg-card/60 shadow-sm">
-          <table className="w-full text-left text-xs">
+        <div className="overflow-hidden rounded-2xl border border-border/80 bg-card/60 shadow-sm">
+          <table className="w-full table-fixed text-left text-xs">
             <thead className="bg-muted/60 text-muted-foreground font-black uppercase text-[10px] tracking-wider border-b border-border/80">
               <tr>
-                <th className="px-4 py-3">Tựa Game</th>
-                <th className="px-4 py-3">Tên Sự Kiện</th>
-                <th className="px-4 py-3">Nguồn Gốc</th>
-                <th className="px-4 py-3">Thời Gian & Trạng Thái</th>
-                <th className="px-4 py-3">Cách Tham Gia & Mã</th>
-                <th className="px-4 py-3 text-right">Thao Tác</th>
+                <th className="px-3 py-2.5 w-[18%]">Tựa Game</th>
+                <th className="px-3 py-2.5 w-[22%]">Tên Sự Kiện</th>
+                <th className="px-3 py-2.5 w-[14%]">Nguồn Gốc</th>
+                <th className="px-3 py-2.5 w-[18%]">Thời Gian & Trạng Thái</th>
+                <th className="px-3 py-2.5 w-[16%]">Cách Tham Gia & Mã</th>
+                <th className="px-3 py-2.5 w-[12%] text-right">Thao Tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/60">
               {currentList.map((item) => (
                 <tr key={item.id} className="hover:bg-muted/30 transition-colors">
                   {/* Game & Icon */}
-                  <td className="px-4 py-3 whitespace-nowrap">
+                  <td className="px-3 py-2 whitespace-nowrap align-middle">
                     <div className="flex items-center gap-2.5">
                       <img
                         src={item.game_icon || `/game_icons/${item.game_slug}.webp`}
@@ -615,7 +615,7 @@ export const AdminGameEventsSubModule: React.FC<AdminGameEventsSubModuleProps> =
                   </td>
 
                   {/* Title */}
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-2 align-middle">
                     <div className="font-bold text-foreground line-clamp-2 max-w-[220px]">
                       {item.title}
                     </div>
@@ -627,7 +627,7 @@ export const AdminGameEventsSubModule: React.FC<AdminGameEventsSubModuleProps> =
                   </td>
 
                   {/* Source */}
-                  <td className="px-4 py-3 whitespace-nowrap">
+                  <td className="px-3 py-2 whitespace-nowrap align-middle">
                     <div className="space-y-1">
                       <div>{renderSourceBadge(item.source_type, item.source_name)}</div>
                       <a
@@ -644,7 +644,7 @@ export const AdminGameEventsSubModule: React.FC<AdminGameEventsSubModuleProps> =
                   </td>
 
                   {/* Time & Status */}
-                  <td className="px-4 py-3 whitespace-nowrap">
+                  <td className="px-3 py-2 whitespace-nowrap align-middle">
                     <div className="space-y-1">
                       <div>{renderTimeStatusBadge(item)}</div>
                       <div className="text-[11px] font-mono text-muted-foreground">
@@ -660,7 +660,7 @@ export const AdminGameEventsSubModule: React.FC<AdminGameEventsSubModuleProps> =
                   </td>
 
                   {/* Instructions & Code */}
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-2 align-middle">
                     <div className="space-y-1 max-w-[240px]">
                       <p className="text-[11px] text-muted-foreground line-clamp-2">
                         {item.how_to_join}
@@ -677,7 +677,7 @@ export const AdminGameEventsSubModule: React.FC<AdminGameEventsSubModuleProps> =
                   </td>
 
                   {/* Actions */}
-                  <td className="px-4 py-3 text-right whitespace-nowrap">
+                  <td className="px-3 py-2 text-right whitespace-nowrap align-middle">
                     <div className="flex items-center justify-end gap-1.5">
                       {subTab === 'pending' ? (
                         <>

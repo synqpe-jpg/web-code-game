@@ -7,6 +7,37 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-10]
 
+### 363. Ban Hành Quy Tắc 9 (Nguyên Tắc 100% Giao Diện Nằm Trọn Trong 1 Màn Hình) & Tối Ưu Toàn Diện Các Bảng Quản Trị Admin
+- **Triệu chứng & Bối cảnh**:
+  - Người dùng gửi 4 ảnh chụp màn hình thực tế trên trình duyệt Cốc Cốc / Chrome (độ phân giải laptop tiêu chuẩn) phản ánh tình trạng các bảng bị tràn ngang làm khuất cột "Thao Tác" và các nút hành động cốt lõi tại 4 phân hệ:
+    1. `admin/#/security-logs` (Nhật ký bảo mật & audit log).
+    2. `admin/#/members` (Quản lý thành viên & phân quyền).
+    3. `admin/#/news?tab=events` (Quản lý tin tức -> Tab Sự kiện game).
+    4. `admin/#/games` (Quản lý danh mục game).
+  - Người dùng yêu cầu điều chỉnh toàn bộ các mục này nằm trọn trong cùng 1 màn hình và thiết lập **1 nguyên tắc 100% giao diện cần nằm trong 1 màn hình** cho toàn bộ dự án.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Component dùng chung `DataTable.tsx` và các table tự viết trong các submodule không cấu hình `table-fixed w-full`. Mặc định của trình duyệt với `table-auto` kết hợp `whitespace-nowrap` là tính độ rộng cột dựa trên nội dung dài nhất của từng cell, khiến bảng nở rộng tới ~1250px - 1450px.
+  - Sidebar admin chiếm 256px cố định cùng padding trang `lg:p-8` (64px) khiến chiều rộng khung hiển thị nội dung trên màn hình 1366px chỉ còn ~1040px, dẫn đến việc xuất hiện thanh cuộn ngang và đẩy cột Thao Tác ra ngoài khung nhìn.
+- **Giải pháp triệt để đã triển khai (Solution Applied)**:
+  1. *Ban hành Quy Tắc 9 vào Hệ thống Ghi Nhớ Dự Án (`AGENTS.md`, `GEMINI.md`, `PROJECT_MEMORY.md`)*:
+     - **QUY TẮC 9: NGUYÊN TẮC 100% GIAO DIỆN NẰM TRỌN TRONG 1 MÀN HÌNH (ZERO HORIZONTAL OVERFLOW / SINGLE-SCREEN FIRST)**.
+     - Mọi bảng biểu trong Admin Portal bắt buộc áp dụng `table-fixed w-full`, khai báo tỷ lệ phần trăm độ rộng cột toán học chuẩn (tổng = 100%), cắt tỉa văn bản thông minh (`truncate`), gán `align-middle` và ghim cột thao tác `sticky: 'right'` với nền mờ chống đè chữ.
+  2. *Tối ưu Padding Khung Chứa Toàn Cục (`AdminLayout.tsx`)*:
+     - Tinh chỉnh padding `main` từ `p-3.5 sm:p-6 lg:p-8` thành `p-3 sm:p-5 lg:p-6 pb-24 lg:pb-8 max-w-7xl w-full mx-auto`, giải phóng thêm 32px - 48px chiều ngang khả dụng cho mọi trang quản trị.
+  3. *Nâng cấp Component Bảng Dùng Chung Toàn Dự Án (`src/admin/components/ui/DataTable.tsx`)*:
+     - Đặt mặc định `table className="w-full table-fixed text-left text-xs sm:text-sm ..."`.
+     - Cột checkbox chọn nhiều bản ghi (`selectable`) được cố định chính xác `style={{ width: '40px' }}` (không thể nở rộng).
+     - Tất cả các cell dữ liệu được căn giữa theo chiều dọc `align-middle`, chống hiện tượng nút bấm bị lệch dòng khi text quá dài.
+  4. *Chuẩn hóa tỷ lệ độ rộng cột và gom nhóm thông tin trên 4 module trọng điểm*:
+     - **Bảng Nhật Ký Bảo Mật (`SecurityLogsModule.tsx`)**: 7 cột chuẩn 15% (Thời gian) | 18% (Actor) | 23% (Hành động) | 16% (Đối tượng) | 10% (Mức độ) | 10% (IP) | 8% (Chi tiết - sticky right).
+     - **Bảng Quản Lý Thành Viên (`MembersModule.tsx`)**: Gom 2 cột số dư và tổng mua thành 1 cột `Số Dư & Đã Mua` (18%), chia tỷ lệ: 26% (Thành viên) | 12% (Vai trò) | 18% (Số dư & Đã mua) | 12% (Trạng thái) | 32% (Thao Tác Quản Trị hiển thị trọn vẹn cả 4 nút `[💰 Ví]`, `[🛡️ Quyền]`, `[🔑 Pass]`, `[🚫 Khóa]/[⚡ Mở]`).
+     - **Bảng Sự Kiện Game (`AdminGameEventsSubModule.tsx`)**: Đổi sang `table-fixed w-full`, 6 cột chuẩn: 18% (Tựa game) | 22% (Tên sự kiện) | 14% (Nguồn) | 18% (Thời gian & Trạng thái) | 16% (Cách tham gia & mã) | 12% (Thao tác - sticky right).
+     - **Bảng Quản Lý Danh Mục Game (`GamesModule.tsx`)**: 5 cột chuẩn: 34% (Tên game & NPH) | 14% (Thể loại) | 14% (Trạng thái) | 18% (Store/Lượt tải) | 20% (Thao tác - sticky right gồm Globe, Eye, Visibility Toggle, Code Link, Edit, Delete).
+     - **Bảng Quản Lý Bài Viết Tin Tức (`NewsModule.tsx`)**: Đổi sang `table-fixed w-full`, 8 cột chuẩn: 30% (Bài viết) | 16% (Game) | 8% (Giftcode) | 9% (Lượt xem) | 8% (Ghim/HOT) | 10% (Trạng thái) | 9% (Ngày đăng) | 10% (Thao tác).
+- **Kiểm thử & Nghiệm thu**:
+  - `npm run build` pass 100%, 0 lỗi TypeScript, 0 lỗi cú pháp, prerender 595 game và 256 bài viết tin tức hoàn hảo.
+  - Triệt tiêu 100% hiện tượng cuộn ngang trên màn hình máy tính 1280px / 1366px / 1920px.
+
 ### 362. Tối Ưu Bảng Quản Lý Khóa API 5 Cột Tinh Gọn (Single-Screen 100%) & Bổ Sung Chế Độ Xem Thẻ Lưới (Card Grid View Mode)
 - **Triệu chứng & Bối cảnh**:
   - Người dùng phản ánh trên màn hình máy tính thực tế, các nút thao tác cốt lõi gồm: vô hiệu hóa, xóa, set quyền, gia hạn... bị tràn ra ngoài cạnh phải màn hình và không thể nhìn thấy được.

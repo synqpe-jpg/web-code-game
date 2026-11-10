@@ -40,3 +40,11 @@ Trước mỗi lần chỉnh sửa bất kỳ file nào trong dự án, AI Agent
   3. Cập nhật Modal "Set Quyền Cho Khóa API" và Modal "Tạo Khóa API Mới" để Quản trị viên có thể dùng 1 mã API cấu hình và gán quyền mới đó ngay lập tức.
   4. Cập nhật bảng tra cứu cấp quyền và tài liệu mẫu cURL/JS tương ứng.
 
+### 🖥️ 9. NGUYÊN TẮC 100% GIAO DIỆN NẰM TRỌN TRONG 1 MÀN HÌNH (ZERO HORIZONTAL OVERFLOW / SINGLE-SCREEN FIRST)
+- **BẮT BUỘC** tất cả các module giao diện (đặc biệt là các bảng quản trị: Danh Mục Game, Thành Viên, Tin Tức & Sự Kiện, Nhật Ký Bảo Mật, Giftcode, Đơn Hàng, Kho Mã, Khóa API...) phải hiển thị trọn vẹn 100% thông tin, cột dữ liệu và tất cả các nút thao tác (Thao tác, Sửa, Xóa, Bật/Tắt, Chi tiết...) trong cùng 1 màn hình máy tính/laptop tiêu chuẩn (1366x768, 1280x720) ngay cả khi thanh sidebar đang mở rộng.
+- **TUYỆT ĐỐI KHÔNG** để xảy ra tình trạng tràn ngang (horizontal overflow) làm che khuất hoặc đẩy cột Thao Tác ra ngoài mép phải màn hình khiến người dùng phải kéo chuột ngang.
+- **Quy chuẩn kỹ thuật bắt buộc**:
+  1. Mọi thẻ `<table>` phải áp dụng `table-fixed w-full` và khai báo tỷ lệ phần trăm độ rộng chính xác cho từng cột trong `<th>` với tổng đúng bằng 100%.
+  2. Rút gọn hoặc gom nhóm các cột thông tin bổ trợ (như kết hợp Tên + Trạng thái Bật/Tắt + Dấu thời gian lần dùng vào Cột 1).
+  3. Cắt tỉa văn bản dài bằng `truncate` kèm thuộc tính `title` để hiển thị tooltip khi rê chuột.
+  4. Các nút thao tác phải thiết kế tinh gọn, có icon và nhãn văn bản súc tích, độ rộng vừa khít khung nhìn.

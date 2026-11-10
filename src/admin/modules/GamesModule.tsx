@@ -593,8 +593,9 @@ export const GamesModule: React.FC<GamesModuleProps> = ({ onShowToast, onOpenGam
       key: 'name',
       header: 'Tên Game & Nhà Phát Hành',
       sortable: true,
+      width: '34%',
       render: (item) => (
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 min-w-0">
           <div className="relative h-10 w-10 flex-shrink-0 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-900/10">
             <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-indigo-500 via-purple-600 to-pink-600 flex items-center justify-center text-white text-xs font-bold select-none">
               {(item.name || 'G').replace(/[^\p{L}\p{N}\s]/gu, '').trim().slice(0, 2).toUpperCase() || 'GM'}
@@ -620,16 +621,16 @@ export const GamesModule: React.FC<GamesModuleProps> = ({ onShowToast, onOpenGam
               }}
             />
           </div>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5">
-              <span className="font-bold text-slate-900 dark:text-white truncate">
+              <span className="font-bold text-slate-900 dark:text-white truncate block" title={item.name}>
                 {item.name}
               </span>
               {item.status === 'HOT' && (
-                <Flame className="h-3.5 w-3.5 text-amber-500 fill-amber-500" />
+                <Flame className="h-3.5 w-3.5 text-amber-500 fill-amber-500 shrink-0" />
               )}
             </div>
-            <p className="text-xs text-slate-400 truncate">
+            <p className="text-xs text-slate-400 truncate" title={`${item.publisher || 'Chưa rõ NPH'} • ${item.slug}`}>
               {item.publisher || 'Chưa rõ NPH'} • <span className="font-mono text-[11px]">{item.slug}</span>
             </p>
           </div>
@@ -640,8 +641,9 @@ export const GamesModule: React.FC<GamesModuleProps> = ({ onShowToast, onOpenGam
       key: 'category',
       header: 'Thể Loại',
       sortable: true,
+      width: '14%',
       render: (item) => (
-        <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+        <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-300 truncate inline-block max-w-full">
           {item.category}
         </span>
       ),
@@ -650,11 +652,13 @@ export const GamesModule: React.FC<GamesModuleProps> = ({ onShowToast, onOpenGam
       key: 'status',
       header: 'Trạng Thái',
       sortable: true,
+      width: '14%',
       render: (item) => <StatusBadge status={item.status} size="sm" />,
     },
     {
       key: 'platform',
       header: 'Store / Lượt Tải',
+      width: '18%',
       render: (item) => {
         const hasPlay = Boolean(item.google_play_url || item.download_android);
         const hasIos = Boolean(item.app_store_url || item.download_ios);
@@ -662,7 +666,7 @@ export const GamesModule: React.FC<GamesModuleProps> = ({ onShowToast, onOpenGam
 
         return (
           <div className="text-xs space-y-1">
-            <div className="flex items-center gap-1.5 flex-wrap">
+            <div className="flex items-center gap-1 flex-wrap">
               {hasPlay ? (
                 <span
                   title={item.google_play_url || item.download_android}
@@ -683,7 +687,7 @@ export const GamesModule: React.FC<GamesModuleProps> = ({ onShowToast, onOpenGam
                   className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300 border border-slate-300 dark:border-slate-700"
                 >
                   <AppleSvg className="w-2.5 h-2.5 text-slate-700 dark:text-slate-300 shrink-0" />
-                  <span>App Store</span>
+                  <span>iOS</span>
                 </span>
               ) : (
                 <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono">
@@ -693,12 +697,12 @@ export const GamesModule: React.FC<GamesModuleProps> = ({ onShowToast, onOpenGam
             </div>
 
             {stats && stats.total > 0 ? (
-              <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold flex items-center gap-1">
+              <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold flex items-center gap-1 truncate" title={`${stats.total} lượt tải (GP: ${stats.google_play} | iOS: ${stats.app_store})`}>
                 <Download className="w-3 h-3 shrink-0" />
-                <span>{stats.total} lượt tải (GP: {stats.google_play} | iOS: {stats.app_store})</span>
+                <span>{stats.total} tải</span>
               </p>
             ) : item.so_giay_phep ? (
-              <p className="text-[10px] text-slate-400 font-mono">GP: {item.so_giay_phep}</p>
+              <p className="text-[10px] text-slate-400 font-mono truncate" title={`GP: ${item.so_giay_phep}`}>GP: {item.so_giay_phep}</p>
             ) : null}
           </div>
         );
@@ -708,14 +712,16 @@ export const GamesModule: React.FC<GamesModuleProps> = ({ onShowToast, onOpenGam
       key: 'actions',
       header: 'Thao Tác',
       align: 'right',
+      width: '20%',
+      sticky: 'right',
       render: (item) => (
-        <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-end gap-1 flex-nowrap" onClick={(e) => e.stopPropagation()}>
           <a
             href={`https://codegame.shop/game/${item.slug}`}
             target="_blank"
             rel="noreferrer"
             title="Mở xem trên Web Khách (codegame.shop)"
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400"
+            className="rounded-lg p-1.5 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400 transition-colors"
           >
             <Globe className="h-4 w-4" />
           </a>
@@ -727,7 +733,7 @@ export const GamesModule: React.FC<GamesModuleProps> = ({ onShowToast, onOpenGam
               setIsViewDetailOpen(true);
             }}
             title="Xem chi tiết toàn bộ thông tin & giấy phép"
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-slate-800 dark:hover:text-indigo-400 cursor-pointer"
+            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-slate-800 dark:hover:text-indigo-400 cursor-pointer transition-colors"
           >
             <Eye className="h-4 w-4" />
           </button>
@@ -736,7 +742,7 @@ export const GamesModule: React.FC<GamesModuleProps> = ({ onShowToast, onOpenGam
             type="button"
             onClick={() => handleToggleVisibility(item)}
             title={item.status === 'HIDDEN' || item.is_active === 0 ? 'Hiện game lên Web Khách' : 'Ẩn game khỏi Web Khách (dữ liệu & code bảo toàn 100%)'}
-            className={`rounded-lg p-1.5 cursor-pointer ${
+            className={`rounded-lg p-1.5 cursor-pointer transition-colors ${
               item.status === 'HIDDEN' || item.is_active === 0
                 ? 'text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/40'
                 : 'text-slate-400 hover:bg-slate-100 hover:text-amber-500 dark:hover:bg-slate-800'
@@ -748,7 +754,7 @@ export const GamesModule: React.FC<GamesModuleProps> = ({ onShowToast, onOpenGam
             <button
               onClick={() => onOpenGameCodes(item.slug)}
               title="Xem danh sách code của game này"
-              className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-slate-800 dark:hover:text-indigo-400 cursor-pointer"
+              className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-slate-800 dark:hover:text-indigo-400 cursor-pointer transition-colors"
             >
               <ExternalLink className="h-4 w-4" />
             </button>
@@ -756,7 +762,7 @@ export const GamesModule: React.FC<GamesModuleProps> = ({ onShowToast, onOpenGam
           <button
             onClick={() => handleEdit(item)}
             title="Chỉnh sửa thông tin"
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-slate-800 dark:hover:text-indigo-400 cursor-pointer"
+            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-slate-800 dark:hover:text-indigo-400 cursor-pointer transition-colors"
           >
             <Edit2 className="h-4 w-4" />
           </button>
@@ -766,7 +772,7 @@ export const GamesModule: React.FC<GamesModuleProps> = ({ onShowToast, onOpenGam
               setIsDeleteOpen(true);
             }}
             title="Xóa game"
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400"
+            className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 transition-colors"
           >
             <Trash2 className="h-4 w-4" />
           </button>

@@ -1885,17 +1885,17 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
       {/* 4. Articles Table */}
       <div className="overflow-hidden rounded-3xl bg-card border border-border/80 shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
+          <table className="w-full table-fixed text-left text-xs">
             <thead className="bg-muted/70 border-b border-border/80 text-muted-foreground font-semibold">
               <tr>
-                <th className="py-2.5 px-3 min-w-[200px]">Bài Viết</th>
-                <th className="py-2.5 px-2.5 whitespace-nowrap">Game Liên Kết</th>
-                <th className="py-2.5 px-2 text-center whitespace-nowrap">Giftcode</th>
-                <th className="py-2.5 px-2 text-center whitespace-nowrap">Lượt Xem</th>
-                <th className="py-2.5 px-2 text-center whitespace-nowrap">Ghim / HOT</th>
-                <th className="py-2.5 px-2 text-center whitespace-nowrap">Trạng Thái</th>
-                <th className="py-2.5 px-2 text-center whitespace-nowrap">Ngày Đăng</th>
-                <th className="sticky right-0 z-20 bg-muted/95 backdrop-blur-md py-2.5 px-3 text-right font-semibold shadow-[-6px_0_12px_rgba(0,0,0,0.18)] border-l border-border/80 whitespace-nowrap">
+                <th className="py-2 px-2.5 w-[30%]">Bài Viết</th>
+                <th className="py-2 px-2 w-[16%] whitespace-nowrap">Game Liên Kết</th>
+                <th className="py-2 px-1.5 text-center w-[8%] whitespace-nowrap">Giftcode</th>
+                <th className="py-2 px-1.5 text-center w-[9%] whitespace-nowrap">Lượt Xem</th>
+                <th className="py-2 px-1.5 text-center w-[8%] whitespace-nowrap">Ghim / HOT</th>
+                <th className="py-2 px-1.5 text-center w-[10%] whitespace-nowrap">Trạng Thái</th>
+                <th className="py-2 px-1.5 text-center w-[9%] whitespace-nowrap">Ngày Đăng</th>
+                <th className="sticky right-0 z-20 bg-muted/95 backdrop-blur-md py-2 px-2.5 text-right font-semibold shadow-[-6px_0_12px_rgba(0,0,0,0.18)] border-l border-border/80 whitespace-nowrap w-[10%]">
                   Thao Tác
                 </th>
               </tr>

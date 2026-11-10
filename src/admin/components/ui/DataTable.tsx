@@ -309,11 +309,11 @@ export function DataTable<T extends Record<string, any>>({
           <span>{filteredData.length} kết quả</span>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs sm:text-sm text-slate-600 dark:text-slate-300">
+          <table className="w-full table-fixed text-left text-xs sm:text-sm text-slate-600 dark:text-slate-300">
             <thead className="border-b border-slate-200 bg-slate-50/80 text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-slate-500 dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-400">
               <tr>
                 {selectable && (
-                  <th className="w-10 px-3 py-2.5 sm:px-4 sm:py-3.5 text-center">
+                  <th className="w-10 px-2 py-2 sm:px-3 sm:py-2.5 text-center" style={{ width: '40px' }}>
                     <input
                       type="checkbox"
                       checked={isAllSelected}
@@ -344,13 +344,13 @@ export function DataTable<T extends Record<string, any>>({
                     <th
                       key={col.key}
                       style={{ width: col.width }}
-                      className={`px-2.5 py-2 sm:px-3.5 sm:py-3 whitespace-nowrap ${alignClass} ${stickyClass} ${
+                      className={`px-2 py-2 sm:px-3 sm:py-2.5 whitespace-nowrap ${alignClass} ${stickyClass} ${
                         col.sortable ? 'cursor-pointer select-none hover:text-slate-900 dark:hover:text-white' : ''
                       }`}
                       onClick={() => col.sortable && handleSort(col.key)}
                     >
                       <div className={`inline-flex items-center gap-1.5 ${col.align === 'center' ? 'justify-center' : col.align === 'right' ? 'justify-end' : ''}`}>
-                        <span>{col.header}</span>
+                        <span className="truncate">{col.header}</span>
                         {col.sortable && (
                           <span className="text-slate-400">
                             {sortKey === col.key ? (
@@ -374,7 +374,7 @@ export function DataTable<T extends Record<string, any>>({
               {isLoading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i} className="animate-pulse">
-                    {selectable && <td className="px-3 py-3 sm:px-4 sm:py-3.5"><div className="h-4 w-4 rounded bg-slate-200 dark:bg-slate-800" /></td>}
+                    {selectable && <td className="px-3 py-3 sm:px-4 sm:py-3.5" style={{ width: '40px' }}><div className="h-4 w-4 rounded bg-slate-200 dark:bg-slate-800" /></td>}
                     {columns.map((col, j) => {
                       const stickySkeletonClass = col.sticky === 'right' ? 'sticky right-0 z-10 bg-white dark:bg-slate-900' : '';
                       return (
@@ -415,7 +415,7 @@ export function DataTable<T extends Record<string, any>>({
                       }`}
                     >
                       {selectable && (
-                        <td className="px-2.5 py-2.5 sm:px-3.5 sm:py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                        <td className="px-2.5 py-2.5 sm:px-3.5 sm:py-3 text-center" style={{ width: '40px' }} onClick={(e) => e.stopPropagation()}>
                           <input
                             type="checkbox"
                             checked={isSelected}
@@ -448,7 +448,7 @@ export function DataTable<T extends Record<string, any>>({
                             : '';
 
                         return (
-                          <td key={col.key} className={`px-2.5 py-2.5 sm:px-3.5 sm:py-3 ${alignClass} ${stickyTdClass}`}>
+                          <td key={col.key} className={`px-2 py-2 sm:px-3 sm:py-2.5 align-middle ${alignClass} ${stickyTdClass}`}>
                             {col.render ? col.render(item) : item[col.key]}
                           </td>
                         );

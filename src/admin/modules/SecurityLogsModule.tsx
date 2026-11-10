@@ -58,20 +58,22 @@ export const SecurityLogsModule: React.FC<SecurityLogsModuleProps> = ({ onShowTo
       key: 'createdAt',
       header: 'Thời Gian',
       sortable: true,
+      width: '15%',
       render: (item) => (
-        <span className="font-mono text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
+        <span className="font-mono text-[11px] text-slate-500 dark:text-slate-400 whitespace-nowrap">
           {formatFullDateTime(item?.createdAt)}
         </span>
       ),
     },
     {
       key: 'actorName',
-      header: 'Người Thực Hiện (Actor)',
+      header: 'Người Thực Hiện',
       sortable: true,
+      width: '18%',
       render: (item) => (
-        <div className="text-xs">
-          <p className="font-bold text-slate-800 dark:text-slate-200">{item.actorName}</p>
-          <p className="text-[11px] text-slate-400">{item.actorEmail}</p>
+        <div className="text-xs truncate">
+          <p className="font-bold text-slate-800 dark:text-slate-200 truncate">{item.actorName}</p>
+          <p className="text-[11px] text-slate-400 truncate">{item.actorEmail}</p>
         </div>
       ),
     },
@@ -79,17 +81,19 @@ export const SecurityLogsModule: React.FC<SecurityLogsModuleProps> = ({ onShowTo
       key: 'action',
       header: 'Hành Động Hệ Thống',
       sortable: true,
+      width: '23%',
       render: (item) => (
-        <span className="font-mono text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">
+        <span className="font-mono text-[11px] font-bold text-indigo-600 dark:text-indigo-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded truncate block max-w-full" title={item.action}>
           {item.action}
         </span>
       ),
     },
     {
       key: 'targetId',
-      header: 'Đối Tượng Tác Động',
+      header: 'Đối Tượng',
+      width: '16%',
       render: (item) => (
-        <span className="font-mono text-xs text-slate-600 dark:text-slate-400">
+        <span className="font-mono text-[11px] text-slate-600 dark:text-slate-400 truncate block max-w-full" title={item.targetId || 'SYSTEM_GLOBAL'}>
           {item.targetId || 'SYSTEM_GLOBAL'}
         </span>
       ),
@@ -98,24 +102,30 @@ export const SecurityLogsModule: React.FC<SecurityLogsModuleProps> = ({ onShowTo
       key: 'severity',
       header: 'Mức Độ',
       sortable: true,
+      width: '10%',
+      align: 'center',
       render: (item) => <StatusBadge status={item.severity} size="sm" />,
     },
     {
       key: 'ipAddress',
       header: 'Địa Chỉ IP',
+      width: '10%',
       render: (item) => (
-        <span className="font-mono text-xs text-slate-500 dark:text-slate-400">
+        <span className="font-mono text-[11px] text-slate-500 dark:text-slate-400 truncate block">
           {item.ipAddress || '127.0.0.1'}
         </span>
       ),
     },
     {
       key: 'details',
-      header: 'Chi Tiết Payload',
+      header: 'Chi Tiết',
+      width: '8%',
+      align: 'right',
+      sticky: 'right',
       render: (item) => (
         <button
           onClick={() => setSelectedLog(item)}
-          className="text-xs font-semibold text-indigo-600 hover:underline dark:text-indigo-400"
+          className="px-2 py-1 rounded-lg border border-indigo-500/30 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 text-[11px] font-semibold cursor-pointer transition-colors whitespace-nowrap"
         >
           Xem JSON
         </button>

@@ -232,6 +232,14 @@
 
 ---
 
+### 3.16. Quy Tắc 100% Giao Diện Nằm Trọn Trong 1 Màn Hình (Zero Horizontal Overflow / Single-Screen First Rule)
+- **Mệnh lệnh từ chủ sở hữu**: Toàn bộ các trang và module quản trị (đặc biệt là các bảng dữ liệu: Danh Mục Game, Thành Viên, Tin Tức & Sự Kiện, Nhật Ký Bảo Mật, Khóa API, Đơn Hàng, Kho Mã...) bắt buộc phải hiển thị 100% đầy đủ thông tin, các cột và toàn bộ nút thao tác (Vô hiệu hóa, Xóa, Set quyền, Gia hạn, Sửa...) trên cùng 1 màn hình máy tính/laptop tiêu chuẩn (1366x768, 1280x720) ngay cả khi thanh sidebar đang mở rộng.
+- **Tiêu chuẩn kỹ thuật**:
+  1. Thẻ `<table>` dùng `table-fixed w-full` và khai báo tỷ lệ phần trăm độ rộng chính xác cho từng cột trong `<th>` với tổng đúng bằng 100%.
+  2. Gom nhóm các trường thông tin bổ trợ (như kết hợp Tên + Trạng thái Bật/Tắt + Dấu thời gian lần dùng vào Cột 1).
+  3. Cắt tỉa văn bản dài bằng `truncate` kèm thuộc tính `title` để hiển thị tooltip khi rê chuột.
+  4. Cột Thao Tác (Actions) luôn hiển thị đầy đủ trong khung nhìn (kèm hỗ trợ `sticky: 'right'` khi cần thiết).
+
 ## 4. BẢN ĐỒ DỮ LIỆU & STATE MANAGEMENT
 
 ### 4.1. LocalStorage Keys Chính
