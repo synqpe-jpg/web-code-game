@@ -10,6 +10,21 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-259: Bẫy Giữ File wrangler.toml Trong Dự Án Cloudflare Pages Dùng Dashboard Bindings Khiến Deployment Lỗi "binding DB of type d1 failed to generate"
+- **Triệu chứng & Rủi ro**:
+  1. Khi chạy `wrangler pages deploy dist`, quá trình tải file tĩnh và biên dịch Worker thành công (`✨ Compiled Worker successfully`), nhưng ở bước `Deploying...`, Cloudflare trả về lỗi: `Deployment failed! Failed to publish your Function. Got error: binding DB of type d1 failed to generate. Please try again later or contact support.`.
+  2. Lỗi xảy ra đồng thời trên cả dự án chính (`web-code-game`) và dự án quản trị (`admin-code-game-shop`), dù CSDL D1 trên môi trường live vẫn hoạt động bình thường 100%.
+- **Nguyên nhân gốc rễ**:
+  1. Trong các phiên bản Wrangler 3.80+ và 4.x, Wrangler tự động phát hiện `wrangler.toml` trong thư mục gốc dự án Pages và tính toán SHA256 (`wrangler_config_hash`) gửi kèm request deploy.
+  2. Pipeline deployment của Cloudflare Pages hiện có lỗi bất tương thích nội bộ khi cố gắng sinh D1 database binding từ file `wrangler.toml` cho direct upload project đã có sẵn binding trong Dashboard.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Xóa `wrangler_config_hash` trên Cloudflare Pages project bằng cách gọi Cloudflare API: `PATCH /accounts/:account_id/pages/projects/:project_name` với body `{ "deployment_configs": { "production": { "wrangler_config_hash": null } } }`.
+  2. Đổi tên `wrangler.toml` thành `wrangler.example.toml`. Khi đó Wrangler không phát hiện file cấu hình, Cloudflare Pages sẽ ưu tiên sử dụng 100% cấu hình D1 database bindings và Environment Variables đã cài đặt trong Cloudflare Dashboard.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không giữ file `wrangler.toml` có khai báo `[[d1_databases]]` ở thư mục gốc của dự án Cloudflare Pages Direct Upload khi các binding đã được quản lý trên Cloudflare Dashboard.*
+  - ❌ *Không xóa hoặc gắn lại D1 binding trong Dashboard một cách vội vàng khi gặp lỗi này vì nguyên nhân nằm ở `wrangler_config_hash`.*
+
+
 ### ISSUE-258: Bẫy Phụ Thuộc Vào CDN Ảnh VietQR Bên Thứ Ba Khiến Ảnh QR Bị Adblocker Chặn Trên Thẻ Img Trong Khi Mở Tab Mới Vẫn Xem Được & Bẫy Service Worker Bắt Nhầm Request Cross-Origin
 - **Triệu chứng & Rủi ro**:
   1. *Ảnh QR không hiển thị trên thẻ `<img>`*: Thẻ `<img>` nhúng trong modal thanh toán liên tục kích hoạt `onError`, nhưng khi bấm "Mở ảnh ở tab mới" thì ảnh vẫn hiển thị bình thường.

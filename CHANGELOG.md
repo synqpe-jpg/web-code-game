@@ -7,6 +7,28 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-11]
 
+### 371. Tái Triển Khai Nhận Biến MARKETPLACE_CODE_KEY Mới & Khắc Phục Lỗi Cloudflare Pages D1 Binding
+- **Yêu cầu & Bối cảnh**:
+  - Người dùng cấu hình biến môi trường bí mật mới `MARKETPLACE_CODE_KEY` trên Cloudflare Pages Dashboard cho cả 2 project `web-code-game` và `admin-code-game-shop`.
+  - Cần kích hoạt deployment mới trên cả 2 project để Edge Functions nạp biến môi trường mới vào môi trường chạy.
+- **Triệu chứng & Sự cố phát sinh**:
+  - Khi chạy `wrangler pages deploy dist`, Cloudflare trả về lỗi: `Deployment failed! Failed to publish your Function. Got error: binding DB of type d1 failed to generate. Please try again later or contact support.` trên cả 2 project.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Wrangler 4.x tự động phát hiện file `wrangler.toml` trong thư mục gốc dự án (`Configuration file belonging to Pages project detected`).
+  - Khi tồn tại `wrangler.toml` có khai báo `[[d1_databases]]`, Wrangler tính toán SHA256 (`wrangler_config_hash`) và gửi lên Cloudflare Pages API để đồng bộ cấu hình qua file.
+  - Tuy nhiên, pipeline deployment của Cloudflare Pages hiện có lỗi nội bộ khi sinh D1 binding từ `wrangler.toml` đối với direct upload projects đã cấu hình D1 qua Dashboard (`binding DB of type d1 failed to generate`).
+- **Giải pháp thành công (Solution)**:
+  1. Gọi Cloudflare API xóa `wrangler_config_hash` (`PATCH /pages/projects/:name` với `wrangler_config_hash: null`) trên cả 2 project `web-code-game` và `admin-code-game-shop`.
+  2. Đổi tên `wrangler.toml` thành `wrangler.example.toml` để giữ lại tài liệu mẫu cấu hình tham chiếu, đồng thời ngăn Wrangler tự động nạp và gửi hash xung đột lên Pages API.
+  3. Cloudflare Pages tự động sử dụng cấu hình D1 database binding (`DB`) và biến môi trường `MARKETPLACE_CODE_KEY` đã được thiết lập chuẩn mực trên Cloudflare Dashboard.
+  4. Triển khai thành công 100% lên cả `web-code-game` và `admin-code-game-shop`.
+- **Kiểm thử & Xác minh**:
+  - `web-code-game` deploy thành công: URL `https://be8528cb.web-code-game.pages.dev` (và alias chính `https://codegame.shop`).
+  - `admin-code-game-shop` deploy thành công: URL `https://7c2dd544.admin-code-game-shop.pages.dev`.
+  - Kiểm tra xác minh `node scripts/verify_deploy.cjs` đạt 3/3 host match `d99fbf2`.
+  - Làm ấm bộ nhớ đệm `node scripts/warmup_cache.cjs` đạt 23/24 URLs Edge Cache HIT.
+
+
 ### 370. Khắc Phục Triệt Để Lỗi Ảnh VietQR: Sinh Mã QR Tại Chỗ (Data URL), Loại Bỏ Phụ Thuộc CDN Bên Thứ Ba & Bộ Chẩn Đoán Chi Tiết
 - **Triệu chứng & Bối cảnh (Vòng sửa 5)**:
   - Khách hàng bấm "Tạo Mã VietQR Thanh Toán" trong modal checkout: đơn hàng tạo thành công trên server (trạng thái `RESERVED`, giữ kho 15 phút), STK TPBank và nội dung chuyển khoản hiện đầy đủ, nhưng ảnh mã QR không bao giờ hiển thị trên thẻ `<img>` ở một số trình duyệt (Cốc Cốc, trình duyệt có adblocker/uBlock/AdGuard, hoặc profile bị can thiệp bởi Service Worker).
