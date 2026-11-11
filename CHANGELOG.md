@@ -7,6 +7,39 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-11]
 
+### 374. Đăng Ký Toàn Bộ Endpoints Giai Đoạn 2 Vào Manual Router `functions/_worker.ts` & Sửa Lỗi Import `verifyMemberAuth`
+- **Hiện tượng & Bối cảnh**:
+  - Trên môi trường live (build commit `496dde4`), toàn bộ các endpoint mới của Giai đoạn 2 Sàn TMĐT số trả về 404 `{"success": false, "error": "Endpoint not found"}`:
+    - `POST /api/seller-orders/multi`
+    - `GET /api/seller-orders/multi/:id`
+    - `POST /api/seller-orders/multi/:id/pay-core`
+    - `GET /api/seller/finance`
+    - `POST /api/seller/finance/withdraw`
+    - `GET /api/seller/finance/withdrawals`
+    - `GET /api/admin/seller-finance`
+    - `POST /api/admin/seller-finance/release-held`
+    - `GET /api/admin/seller-finance/reconciliation`
+    - `POST /api/admin/seller-finance/reconciliation/run`
+    - `GET /api/admin/withdrawals`
+    - `POST /api/admin/withdrawals/:id/approve`
+    - `POST /api/admin/withdrawals/:id/reject`
+    - `POST /api/admin/withdrawals/:id/mark-paid`
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Hệ thống sử dụng kiến trúc đóng gói đơn file `dist/_worker.js` từ `functions/_worker.ts` thông qua `esbuild`.
+  - Trong `functions/_worker.ts`, hệ thống điều hướng bằng router tay (manual routing). Các file endpoint Giai đoạn 2 dù đã tồn tại trong thư mục `functions/api/` nhưng chưa được `import` và chưa có nhánh rẽ trong `functions/_worker.ts`, dẫn đến tất cả request bị rớt xuống khối fallback trả 404 (dòng 1535).
+  - Đồng thời, phát hiện 2 file `seller-orders/multi.ts` và `seller-orders/multi/[id]/pay-core.ts` import nhầm `authService` thay vì `services/mission_service`.
+- **Giải pháp xử lý (Solution)**:
+  1. *Đăng ký toàn bộ các endpoint Giai đoạn 2*:
+     - Import tất cả 14 module Giai đoạn 2 vào `functions/_worker.ts`.
+     - Khai báo các nhánh rẽ đường dẫn chính xác theo HTTP Method (`GET`, `POST`, `OPTIONS`) và trích xuất tham số `id` cho các endpoint chi tiết.
+  2. *Rà soát toàn bộ `functions/api/`*:
+     - Phát hiện và bổ sung endpoint `/api/api-keys/set-permissions` vào router trước nhánh dynamic ID `/api/api-keys/[id]`.
+  3. *Sửa đường dẫn import*:
+     - Sửa `import { verifyMemberAuth } from '../../services/mission_service'` trong `seller-orders/multi.ts` và `seller-orders/multi/[id]/pay-core.ts`.
+- **Kiểm thử & Triển khai**:
+  - `npm run build` thành công 100%, bundle `_worker.js` đạt 18.7MB, zero test artifacts.
+  - Tự động triển khai lên cả 3 máy chủ theo Rule 6.
+
 ### 373. Triển Khai Hoàn Tất Giai Đoạn 2 Sàn TMĐT Số: Tiền Thật Qua Sàn (Chế Độ A), Sổ Cái 3 Ngăn, Đối Soát 3 Nguồn & Quản Trị Rút Tiền
 - **Yêu cầu & Phạm vi (Phase 2 Prompt)**:
   - Triển khai toàn diện Giai đoạn 2 Sàn TMĐT số CodeGame.shop theo kế hoạch 16 trang (`ke-hoach-san-tmdt-so.pdf`, mục 6, 7, 10, 11, 12).

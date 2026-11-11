@@ -10,6 +10,20 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-262: Bẫy Tạo File Endpoint Mới Trong `functions/api/` Nhưng Quên Đăng Ký Vào Manual Router `functions/_worker.ts` Gây Lỗi 404 Trên Môi Trường Live
+- **Triệu chứng & Rủi ro**:
+  - File API endpoint đã được tạo đầy đủ trong `functions/api/...`, chạy test cục bộ hoặc type-check không báo lỗi, nhưng khi deploy lên môi trường live thì mọi request gửi tới endpoint đều trả về HTTP 404 `{"success": false, "error": "Endpoint not found"}`.
+- **Nguyên nhân gốc rễ**:
+  - Hạ tầng Cloudflare Pages của dự án sử dụng tệp `functions/_worker.ts` duy nhất để bundle toàn bộ ứng dụng thành `dist/_worker.js`.
+  - Trong `functions/_worker.ts`, hệ thống sử dụng cơ chế rẽ nhánh thủ công (manual router) theo từng `pathname` và `method`. Nếu một file endpoint mới trong `functions/api/` không được `import` và viết nhánh `if (pathname === ...) return await ...` trong `_worker.ts`, request sẽ đi qua hết các nhánh và rơi vào fallback 404 ở cuối router.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Mọi file endpoint mới được thêm vào `functions/api/` **BẮT BUỘC ĐỒNG THỜI** phải:
+    1. Import module vào phần đầu của `functions/_worker.ts`.
+    2. Thêm nhánh rẽ tương ứng theo đúng `pathname`, `method` và trích xuất URL params `context.params` trong thân hàm router `functions/_worker.ts`.
+    3. Chạy script quét toàn bộ `functions/api/` để đảm bảo 100% các file API đều được import vào `_worker.ts`.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không chỉ tạo file trong `functions/api/` mà quên đăng ký router trong `functions/_worker.ts`.*
+
 ### ISSUE-261: Bẫy Sổ Cái Tài Chính Đa Ngăn: Cập Nhật Trực Tiếp Số Dư Thay Vì Đi Qua Giao Dịch Ghi Sổ APPEND-ONLY & Bẫy Crash Khi Thiếu Khóa Mã Hóa Bí Mật
 - **Triệu chứng & Rủi ro**:
   1. Nếu các hàm chức năng tự cộng trừ trực tiếp các trường số dư (`pending_balance_core`, `available_balance_core`, `withdrawn_balance_core`) trên bảng `sellers` mà không ghi nhận dòng giao dịch tương ứng trong `seller_ledger`, số dư thực tế sẽ bị lệch hoàn toàn so với lịch sử giao dịch khi đối soát (Reconciliation Exception).

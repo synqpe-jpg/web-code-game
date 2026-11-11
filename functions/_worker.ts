@@ -53,6 +53,7 @@ import * as missionsAiKeysApi from './api/missions/ai-keys';
 import * as missionsAuditLogsApi from './api/missions/audit-logs';
 import * as apiKeysIndexApi from './api/api-keys/index';
 import * as apiKeysIdApi from './api/api-keys/[id]';
+import * as apiKeysSetPermissionsApi from './api/api-keys/set-permissions';
 import * as eventSchedulerApi from './api/event-scheduler/index';
 import * as telegramConfigApi from './api/telegram/config';
 import * as telegramNotifyApi from './api/telegram/notify';
@@ -107,6 +108,22 @@ import * as adminSellerProductsIndexApi from './api/admin/seller-products/index'
 import * as adminSellerProductsApproveApi from './api/admin/seller-products/[id]/approve';
 import * as adminSellerProductsRejectApi from './api/admin/seller-products/[id]/reject';
 import * as adminSellerConfigApi from './api/admin/seller-config';
+
+// Marketplace Phase 2 (11/11/2026): Multi-store Orders, 3-tier Ledger, Reconciliation, Withdrawals
+import * as sellerOrdersMultiApi from './api/seller-orders/multi';
+import * as sellerOrdersMultiIdApi from './api/seller-orders/multi/[id]';
+import * as sellerOrdersMultiPayCoreApi from './api/seller-orders/multi/[id]/pay-core';
+import * as sellerFinanceIndexApi from './api/seller/finance/index';
+import * as sellerFinanceWithdrawApi from './api/seller/finance/withdraw';
+import * as sellerFinanceWithdrawalsApi from './api/seller/finance/withdrawals';
+import * as adminSellerFinanceIndexApi from './api/admin/seller-finance/index';
+import * as adminSellerFinanceReleaseHeldApi from './api/admin/seller-finance/release-held';
+import * as adminSellerFinanceReconciliationApi from './api/admin/seller-finance/reconciliation';
+import * as adminSellerFinanceReconciliationRunApi from './api/admin/seller-finance/reconciliation/run';
+import * as adminWithdrawalsIndexApi from './api/admin/withdrawals/index';
+import * as adminWithdrawalsApproveApi from './api/admin/withdrawals/[id]/approve';
+import * as adminWithdrawalsRejectApi from './api/admin/withdrawals/[id]/reject';
+import * as adminWithdrawalsMarkPaidApi from './api/admin/withdrawals/[id]/mark-paid';
 
 // Dedicated Admin APIs for 9 Modules
 import * as adminMembersIndexApi from './api/admin/members/index';
@@ -1176,6 +1193,12 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
         return await apiKeysIndexApi.onRequestGet(context);
       }
 
+      if (pathname === '/api/api-keys/set-permissions') {
+        if (method === 'OPTIONS') return await apiKeysSetPermissionsApi.onRequestOptions(context);
+        if (method === 'POST') return await apiKeysSetPermissionsApi.onRequestPost(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
       if (pathname.startsWith('/api/api-keys/') && pathname !== '/api/api-keys') {
         const keyId = pathname.replace('/api/api-keys/', '').trim();
         const customContext = { ...context, params: { id: keyId } };
@@ -1505,6 +1528,116 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
         if (method === 'OPTIONS') return await adminSellerConfigApi.onRequestOptions();
         if (method === 'GET') return await adminSellerConfigApi.onRequestGet(context);
         if (method === 'PUT') return await adminSellerConfigApi.onRequestPut(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      // =========================================================================
+      // 20.10. Marketplace Phase 2: Multi-Store Orders & Payments
+      // =========================================================================
+      if (pathname === '/api/seller-orders/multi') {
+        if (method === 'OPTIONS') return await sellerOrdersMultiApi.onRequestOptions();
+        if (method === 'POST') return await sellerOrdersMultiApi.onRequestPost(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      const matchSellerOrderMultiPay = pathname.match(/^\/api\/seller-orders\/multi\/([^/]+)\/pay-core$/);
+      if (matchSellerOrderMultiPay) {
+        context.params = { ...(context.params || {}), id: matchSellerOrderMultiPay[1] };
+        if (method === 'OPTIONS') return await sellerOrdersMultiPayCoreApi.onRequestOptions();
+        if (method === 'POST') return await sellerOrdersMultiPayCoreApi.onRequestPost(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      const matchSellerOrderMultiId = pathname.match(/^\/api\/seller-orders\/multi\/([^/]+)$/);
+      if (matchSellerOrderMultiId) {
+        context.params = { ...(context.params || {}), id: matchSellerOrderMultiId[1] };
+        if (method === 'OPTIONS') return await sellerOrdersMultiIdApi.onRequestOptions();
+        if (method === 'GET') return await sellerOrdersMultiIdApi.onRequestGet(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      // =========================================================================
+      // 20.11. Marketplace Phase 2: Seller Finance & Withdrawals (Store Owner)
+      // =========================================================================
+      if (pathname === '/api/seller/finance') {
+        if (method === 'OPTIONS') return await sellerFinanceIndexApi.onRequestOptions();
+        if (method === 'GET') return await sellerFinanceIndexApi.onRequestGet(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      if (pathname === '/api/seller/finance/withdraw') {
+        if (method === 'OPTIONS') return await sellerFinanceWithdrawApi.onRequestOptions();
+        if (method === 'POST') return await sellerFinanceWithdrawApi.onRequestPost(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      if (pathname === '/api/seller/finance/withdrawals') {
+        if (method === 'OPTIONS') return await sellerFinanceWithdrawalsApi.onRequestOptions();
+        if (method === 'GET') return await sellerFinanceWithdrawalsApi.onRequestGet(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      // =========================================================================
+      // 20.12. Marketplace Phase 2: Admin Seller Finance & Ledger
+      // =========================================================================
+      if (pathname === '/api/admin/seller-finance') {
+        if (method === 'OPTIONS') return await adminSellerFinanceIndexApi.onRequestOptions();
+        if (method === 'GET') return await adminSellerFinanceIndexApi.onRequestGet(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      if (pathname === '/api/admin/seller-finance/release-held') {
+        if (method === 'OPTIONS') return await adminSellerFinanceReleaseHeldApi.onRequestOptions();
+        if (method === 'POST') return await adminSellerFinanceReleaseHeldApi.onRequestPost(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      // =========================================================================
+      // 20.13. Marketplace Phase 2: Admin Reconciliation (3 Sources)
+      // =========================================================================
+      if (pathname === '/api/admin/seller-finance/reconciliation/run') {
+        if (method === 'OPTIONS') return await adminSellerFinanceReconciliationRunApi.onRequestOptions();
+        if (method === 'POST') return await adminSellerFinanceReconciliationRunApi.onRequestPost(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      if (pathname === '/api/admin/seller-finance/reconciliation') {
+        if (method === 'OPTIONS') return await adminSellerFinanceReconciliationApi.onRequestOptions();
+        if (method === 'GET') return await adminSellerFinanceReconciliationApi.onRequestGet(context);
+        if (method === 'POST') return await adminSellerFinanceReconciliationApi.onRequestPost(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      // =========================================================================
+      // 20.14. Marketplace Phase 2: Admin Withdrawals Management
+      // =========================================================================
+      if (pathname === '/api/admin/withdrawals') {
+        if (method === 'OPTIONS') return await adminWithdrawalsIndexApi.onRequestOptions();
+        if (method === 'GET') return await adminWithdrawalsIndexApi.onRequestGet(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      const matchAdminWithdrawApprove = pathname.match(/^\/api\/admin\/withdrawals\/([^/]+)\/approve$/);
+      if (matchAdminWithdrawApprove) {
+        context.params = { ...(context.params || {}), id: matchAdminWithdrawApprove[1] };
+        if (method === 'OPTIONS') return await adminWithdrawalsApproveApi.onRequestOptions();
+        if (method === 'POST') return await adminWithdrawalsApproveApi.onRequestPost(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      const matchAdminWithdrawReject = pathname.match(/^\/api\/admin\/withdrawals\/([^/]+)\/reject$/);
+      if (matchAdminWithdrawReject) {
+        context.params = { ...(context.params || {}), id: matchAdminWithdrawReject[1] };
+        if (method === 'OPTIONS') return await adminWithdrawalsRejectApi.onRequestOptions();
+        if (method === 'POST') return await adminWithdrawalsRejectApi.onRequestPost(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      const matchAdminWithdrawMarkPaid = pathname.match(/^\/api\/admin\/withdrawals\/([^/]+)\/mark-paid$/);
+      if (matchAdminWithdrawMarkPaid) {
+        context.params = { ...(context.params || {}), id: matchAdminWithdrawMarkPaid[1] };
+        if (method === 'OPTIONS') return await adminWithdrawalsMarkPaidApi.onRequestOptions();
+        if (method === 'POST') return await adminWithdrawalsMarkPaidApi.onRequestPost(context);
         return new Response('Method Not Allowed', { status: 405 });
       }
 

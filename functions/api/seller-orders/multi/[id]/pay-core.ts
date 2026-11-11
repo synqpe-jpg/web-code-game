@@ -1,4 +1,4 @@
-import { verifyMemberAuth } from '../../../../services/authService';
+import { verifyMemberAuth } from '../../../../services/mission_service';
 import { ensureMarketplaceSchema, logAdminAudit, checkAndExpireSellerOrdersD1 } from '../../../../services/d1_service';
 import {
   decryptCode,
