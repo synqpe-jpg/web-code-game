@@ -48,6 +48,7 @@ import {
   Tag,
   Wrench,
   Inbox,
+  Store,
   BarChart3,
   Boxes,
   Megaphone,
@@ -68,6 +69,7 @@ export type ApiKeyScope =
   | 'GIVEAWAYS_FULL'
   | 'EVENT_SCHEDULER_FULL'
   | 'STORE_FULL'
+  | 'MARKETPLACE_MANAGE'
   | 'FIRST_PURCHASE_MANAGE'
   | 'ESCALATING_MANAGE'
   | 'MEMBERS_FULL'
@@ -236,6 +238,17 @@ export const ALL_API_SCOPES: ScopeOption[] = [
     badgeText: 'text-purple-400',
     badgeBorder: 'border-purple-500/20',
     icon: ShoppingBag,
+  },
+  {
+    id: 'MARKETPLACE_MANAGE',
+    name: 'Quản Lý Sàn TMĐT & Gian Hàng (Marketplace & Sellers API)',
+    category: 'Thương Mại & Kho',
+    description: 'Toàn quyền duyệt hồ sơ mở gian hàng (TRIAL, REJECT, REQUEST_INFO, SUSPEND), duyệt sản phẩm người bán mở bán, cấu hình hạn mức thử việc và giám sát chất lượng kho mã sàn TMĐT.',
+    color: 'amber',
+    badgeBg: 'bg-amber-500/10',
+    badgeText: 'text-amber-400',
+    badgeBorder: 'border-amber-500/20',
+    icon: Store,
   },
   {
     id: 'FIRST_PURCHASE_MANAGE',

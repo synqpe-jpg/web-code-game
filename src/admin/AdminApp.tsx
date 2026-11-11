@@ -33,6 +33,7 @@ import { EventSchedulerModule } from './modules/EventSchedulerModule';
 import { EmailNotificationModule } from './modules/EmailNotificationModule';
 import { ApiKeysModule } from './modules/ApiKeysModule';
 import { TelegramModule } from './modules/TelegramModule';
+import { SellerModerationModule } from './modules/SellerModerationModule';
 import { MarketingNotificationToast } from '../components/MarketingNotificationToast';
 
 interface AdminAppProps {
@@ -65,6 +66,7 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToClient }) => {
       'missions',
       'event-scheduler',
       'orders',
+      'marketplace',
       'first-purchase',
       'sepay',
       'content',
@@ -344,6 +346,7 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToClient }) => {
       'missions',
         'event-scheduler',
         'orders',
+      'marketplace',
       'first-purchase',
         'sepay',
         'content',
@@ -585,6 +588,10 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToClient }) => {
 
         {currentTab === 'first-purchase' && (
           <FirstPurchaseModule onShowToast={showToast} />
+        )}
+
+        {currentTab === 'marketplace' && (
+          <SellerModerationModule onShowToast={showToast} />
         )}
 
         {currentTab === 'sepay' && (

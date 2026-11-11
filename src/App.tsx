@@ -42,6 +42,8 @@ const UserProfileModal = lazyWithRetry(() => import('./components/UserProfileMod
 const DownloadAppModal = lazyWithRetry(() => import('./components/DownloadAppModal').then((m) => ({ default: m.DownloadAppModal })));
 const EmailSubscriptionModal = lazyWithRetry(() => import('./components/notification/EmailSubscriptionModal').then((m) => ({ default: m.EmailSubscriptionModal })));
 const TodayCodesView = lazyWithRetry(() => import('./components/TodayCodesView').then((m) => ({ default: m.TodayCodesView })));
+const SellerCenterView = lazyWithRetry(() => import('./components/seller/SellerCenterView').then((m) => ({ default: m.SellerCenterView })));
+const PublicStoreView = lazyWithRetry(() => import('./components/seller/PublicStoreView').then((m) => ({ default: m.PublicStoreView })));
 import { dataService } from './services/dataService';
 import { marketingService } from './services/marketingService';
 import { authService } from './services/authService';
@@ -87,7 +89,7 @@ export const App: React.FC = () => {
   const [, startTransition] = useTransition();
 
   // Navigation Tab State (Decoupled Frontends Domain Detection & Hash Routing)
-  const [currentTab, setCurrentTab] = useState<'catalog' | 'news' | 'giveaways' | 'store' | 'utilities' | 'missions' | 'telegram' | 'today-codes' | 'admin'>(() => {
+  const [currentTab, setCurrentTab] = useState<'catalog' | 'news' | 'giveaways' | 'store' | 'utilities' | 'missions' | 'telegram' | 'today-codes' | 'seller-center' | 'store-detail' | 'admin'>(() => {
     if (typeof window !== 'undefined') {
       const host = window.location.hostname.toLowerCase();
       const hash = window.location.hash.toLowerCase();
@@ -100,6 +102,8 @@ export const App: React.FC = () => {
         return 'admin';
       }
 
+      if (hash.includes('ban-hang') || path === '/ban-hang' || path.startsWith('/ban-hang/')) return 'seller-center';
+      if (hash.includes('gian-hang') || path.startsWith('/gian-hang/')) return 'store-detail';
       if (hash.includes('news') || hash.includes('tintuc') || path === '/news' || path.startsWith('/news/') || hash.includes('su-kien') || hash.includes('events') || path === '/su-kien' || path.startsWith('/su-kien/') || path === '/events' || path.startsWith('/events/')) return 'news';
       if (hash.includes('giveaways') || hash.includes('gw=') || path === '/giveaways' || path.startsWith('/giveaways/')) return 'giveaways';
       if (hash.includes('store') || hash.includes('product=') || hash.includes('prod=') || path === '/store' || path.startsWith('/store/')) return 'store';
@@ -109,6 +113,16 @@ export const App: React.FC = () => {
       if (hash.includes('ma-hom-nay') || hash.includes('today') || path === '/ma-hom-nay' || path.startsWith('/ma-hom-nay/')) return 'today-codes';
     }
     return 'catalog';
+  });
+
+  const [currentStoreSlug, setCurrentStoreSlug] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname.toLowerCase();
+      if (path.startsWith('/gian-hang/')) {
+        return path.replace(/^\/gian-hang\//i, '').replace(/\/$/, '').trim();
+      }
+    }
+    return '';
   });
 
   const [initialNewsSubTab, setInitialNewsSubTab] = useState<'news' | 'events'>(() => {
@@ -656,6 +670,14 @@ export const App: React.FC = () => {
         } else if (pathname === '/ma-hom-nay' || pathname.startsWith('/ma-hom-nay/') || hash.includes('ma-hom-nay')) {
           setCurrentTab('today-codes');
           return;
+        } else if (pathname === '/ban-hang' || pathname.startsWith('/ban-hang/') || hash.includes('ban-hang')) {
+          setCurrentTab('seller-center');
+          return;
+        } else if (pathname.startsWith('/gian-hang/')) {
+          const sSlug = window.location.pathname.replace(/^\/gian-hang\//i, '').replace(/\/$/, '').trim();
+          setCurrentStoreSlug(sSlug);
+          setCurrentTab('store-detail');
+          return;
         } else if (!hash || hash === '#' || hash === '#catalog') {
           setCurrentTab('catalog');
         }
@@ -717,17 +739,27 @@ export const App: React.FC = () => {
   }, []);
 
   // Unified Single-Click Tab Switcher (History pushState routing without hash conflicts)
-  const handleSelectTab = useCallback((tab: 'catalog' | 'news' | 'giveaways' | 'store' | 'utilities' | 'missions' | 'telegram' | 'today-codes') => {
+  const handleSelectTab = useCallback((tab: 'catalog' | 'news' | 'giveaways' | 'store' | 'utilities' | 'missions' | 'telegram' | 'today-codes' | 'seller-center' | 'store-detail') => {
     setSelectedGame(null);
     setSelectedProduct(null);
     setSelectedUtilityId(null);
     setCurrentTab(tab);
 
-    const targetPath = tab === 'catalog' ? '/' : tab === 'missions' ? '/nhiem-vu' : tab === 'today-codes' ? '/ma-hom-nay' : `/${tab}`;
+    const targetPath = tab === 'catalog'
+      ? '/'
+      : tab === 'missions'
+      ? '/nhiem-vu'
+      : tab === 'today-codes'
+      ? '/ma-hom-nay'
+      : tab === 'seller-center'
+      ? '/ban-hang'
+      : tab === 'store-detail'
+      ? `/gian-hang/${currentStoreSlug}`
+      : `/${tab}`;
     if (window.location.pathname !== targetPath || window.location.hash) {
       window.history.pushState(null, '', targetPath);
     }
-  }, []);
+  }, [currentStoreSlug]);
 
   // Sync Dynamic Document Title & Clean URL bar
   useEffect(() => {
@@ -801,6 +833,16 @@ export const App: React.FC = () => {
         document.title = 'Giftcode Hôm Nay - Tổng Hợp Mã Code Game Có Hạn Trong Ngày 2026 | CodeGame.shop';
         if (window.location.pathname !== '/ma-hom-nay' || window.location.hash) {
           window.history.replaceState(null, '', '/ma-hom-nay');
+        }
+      } else if (currentTab === 'seller-center') {
+        document.title = 'Kênh Người Bán & Quản Lý Gian Hàng | CodeGame.shop';
+        if (window.location.pathname !== '/ban-hang' || window.location.hash) {
+          window.history.replaceState(null, '', '/ban-hang');
+        }
+      } else if (currentTab === 'store-detail') {
+        document.title = 'Gian Hàng Số | CodeGame.shop';
+        if (currentStoreSlug && (window.location.pathname !== `/gian-hang/${currentStoreSlug}` || window.location.hash)) {
+          window.history.replaceState(null, '', `/gian-hang/${currentStoreSlug}`);
         }
       } else {
         document.title = 'CodeGame.shop - Cổng Tra Cứu Giftcode & Game Bản Quyền Hàng Đầu';
@@ -956,6 +998,14 @@ export const App: React.FC = () => {
       } else if (path === '/ma-hom-nay' || path.startsWith('/ma-hom-nay/')) {
         setSelectedGame(null);
         setCurrentTab('today-codes');
+      } else if (path === '/ban-hang' || path.startsWith('/ban-hang/')) {
+        setSelectedGame(null);
+        setCurrentTab('seller-center');
+      } else if (path.startsWith('/gian-hang/')) {
+        setSelectedGame(null);
+        const sSlug = window.location.pathname.replace(/^\/gian-hang\//i, '').replace(/\/$/, '').trim();
+        setCurrentStoreSlug(sSlug);
+        setCurrentTab('store-detail');
       } else if (path === '/' || path === '') {
         setSelectedGame(null);
         setCurrentTab('catalog');
@@ -1842,6 +1892,25 @@ export const App: React.FC = () => {
                   if (game) setSelectedGame(game);
                 }}
                 onShowToast={showToast}
+              />
+            )}
+
+            {currentTab === 'seller-center' && (
+              <SellerCenterView
+                currentUser={currentUser}
+                onOpenLogin={() => setIsAuthModalOpen(true)}
+                games={allGamesList}
+                onNavigateHome={() => handleSelectTab('catalog')}
+              />
+            )}
+
+            {currentTab === 'store-detail' && (
+              <PublicStoreView
+                slug={currentStoreSlug}
+                currentUser={currentUser}
+                onOpenLogin={() => setIsAuthModalOpen(true)}
+                onNavigateHome={() => handleSelectTab('catalog')}
+                onOpenProfile={() => setIsProfileModalOpen(true)}
               />
             )}
           </Suspense>

@@ -52,6 +52,11 @@
   - Quản lý giao dịch mua hàng (`orders` — hỗ trợ `original_price`, `price_paid`, `discount_type`, `discount_amount`), kho mã chi tiết (`inventory_items`), tài khoản người dùng (`members` — hỗ trợ `email_verified`), giao dịch nạp tiền (`transactions`), lịch sử đặt lại ưu đãi (`first_purchase_resets`).
   - Chiến dịch Ưu đãi mua lần đầu (First Purchase Offer): Server-authoritative price engine, SQLite atomic batch guard chống race condition song song, bảng kiểm toán reset độc lập.
   - Endpoints: `GET /api/store/my-offer`, `GET/POST /api/admin/first-purchase`.
+  - **Sàn Thương Mại Điện Tử Số (Digital Marketplace Phase 1 MVP)**:
+    - 6 bảng D1: `sellers`, `seller_products`, `seller_codes`, `seller_orders`, `seller_code_views`, `seller_subaccounts`.
+    - Cơ chế bảo mật: Mã hóa mã code bằng AES-GCM Web Crypto, chống trùng lặp, chống xóa mã đã bán, tự động đóng băng lô mã khi tỷ lệ lỗi $\ge 25\%$.
+    - Thanh toán: Giao dịch nội bộ bằng ví Core nguyên tử (atomic batch), giao mã 0s, tủ mã khách hàng, báo lỗi 1 chạm, phân quyền tài khoản phụ.
+    - Endpoints: `/api/seller/*`, `/api/seller-orders/*`, `/api/stores/*`, `/api/admin/sellers/*`, `/api/admin/seller-products/*`.
 
 ### 2.3. Tự Động Hóa 24/7 (Automation & Crawlers)
 - **GitHub Actions Workflows**:

@@ -81,6 +81,33 @@ import * as adminCommentsApproveApi from './api/admin/comments/[id]/approve';
 import * as adminCommentsRejectApi from './api/admin/comments/[id]/reject';
 import * as codesTodayApi from './api/codes/today';
 
+// Marketplace Phase 1 (11/11/2026): Seller Center, Stores, Orders, Admin Moderation
+import * as sellerIndexApi from './api/seller/index';
+import * as sellerProductsIndexApi from './api/seller/products/index';
+import * as sellerProductsIdApi from './api/seller/products/[id]';
+import * as sellerProductsCodesApi from './api/seller/products/[id]/codes';
+import * as sellerCodesRevealApi from './api/seller/codes/[id]/reveal';
+import * as sellerCodesIdApi from './api/seller/codes/[id]';
+import * as sellerOrdersIndexApi from './api/seller/orders/index';
+import * as sellerOrdersResolveReportApi from './api/seller/orders/[id]/resolve-report';
+import * as sellerSubaccountsIndexApi from './api/seller/subaccounts/index';
+import * as sellerSubaccountsIdApi from './api/seller/subaccounts/[id]';
+import * as storesSlugIndexApi from './api/stores/[slug]/index';
+import * as storesSlugProductsApi from './api/stores/[slug]/products';
+import * as sellerOrdersCreateApi from './api/seller-orders/index';
+import * as sellerOrdersReportApi from './api/seller-orders/[id]/report';
+import * as mySellerOrdersApi from './api/my-seller-orders';
+import * as adminSellersIndexApi from './api/admin/sellers/index';
+import * as adminSellersApproveApi from './api/admin/sellers/[id]/approve';
+import * as adminSellersRejectApi from './api/admin/sellers/[id]/reject';
+import * as adminSellersRequestInfoApi from './api/admin/sellers/[id]/request-info';
+import * as adminSellersSuspendApi from './api/admin/sellers/[id]/suspend';
+import * as adminSellersUnsuspendApi from './api/admin/sellers/[id]/unsuspend';
+import * as adminSellerProductsIndexApi from './api/admin/seller-products/index';
+import * as adminSellerProductsApproveApi from './api/admin/seller-products/[id]/approve';
+import * as adminSellerProductsRejectApi from './api/admin/seller-products/[id]/reject';
+import * as adminSellerConfigApi from './api/admin/seller-config';
+
 // Dedicated Admin APIs for 9 Modules
 import * as adminMembersIndexApi from './api/admin/members/index';
 import * as adminMembersIdApi from './api/admin/members/[id]';
@@ -1274,6 +1301,210 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
       if (pathname === '/api/codes/today') {
         if (method === 'OPTIONS') return await codesTodayApi.onRequestOptions();
         if (method === 'GET') return await codesTodayApi.onRequestGet(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      // ==========================================
+      // 20. Marketplace Phase 1 (Sàn TMĐT Số) APIs
+      // ==========================================
+
+      // 20.1. Seller Center Profile & Registration
+      if (pathname === '/api/seller') {
+        if (method === 'OPTIONS') return await sellerIndexApi.onRequestOptions();
+        if (method === 'GET') return await sellerIndexApi.onRequestGet(context);
+        if (method === 'POST') return await sellerIndexApi.onRequestPost(context);
+        if (method === 'PUT') return await sellerIndexApi.onRequestPut(context);
+        if (method === 'PATCH') return await sellerIndexApi.onRequestPatch(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      // 20.2. Seller Products Management
+      if (pathname === '/api/seller/products') {
+        if (method === 'OPTIONS') return await sellerProductsIndexApi.onRequestOptions();
+        if (method === 'GET') return await sellerProductsIndexApi.onRequestGet(context);
+        if (method === 'POST') return await sellerProductsIndexApi.onRequestPost(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      const matchSellerProdCodes = pathname.match(/^\/api\/seller\/products\/([^/]+)\/codes$/);
+      if (matchSellerProdCodes) {
+        context.params = { ...(context.params || {}), id: matchSellerProdCodes[1] };
+        if (method === 'OPTIONS') return await sellerProductsCodesApi.onRequestOptions();
+        if (method === 'GET') return await sellerProductsCodesApi.onRequestGet(context);
+        if (method === 'POST') return await sellerProductsCodesApi.onRequestPost(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      const matchSellerProdId = pathname.match(/^\/api\/seller\/products\/([^/]+)$/);
+      if (matchSellerProdId) {
+        context.params = { ...(context.params || {}), id: matchSellerProdId[1] };
+        if (method === 'OPTIONS') return await sellerProductsIdApi.onRequestOptions();
+        if (method === 'GET') return await sellerProductsIdApi.onRequestGet(context);
+        if (method === 'PUT') return await sellerProductsIdApi.onRequestPut(context);
+        if (method === 'DELETE') return await sellerProductsIdApi.onRequestDelete(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      // 20.3. Seller Codes Actions (Reveal & Delete)
+      const matchSellerCodeReveal = pathname.match(/^\/api\/seller\/codes\/([^/]+)\/reveal$/);
+      if (matchSellerCodeReveal) {
+        context.params = { ...(context.params || {}), id: matchSellerCodeReveal[1] };
+        if (method === 'OPTIONS') return await sellerCodesRevealApi.onRequestOptions();
+        if (method === 'POST') return await sellerCodesRevealApi.onRequestPost(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      const matchSellerCodeId = pathname.match(/^\/api\/seller\/codes\/([^/]+)$/);
+      if (matchSellerCodeId) {
+        context.params = { ...(context.params || {}), id: matchSellerCodeId[1] };
+        if (method === 'OPTIONS') return await sellerCodesIdApi.onRequestOptions();
+        if (method === 'DELETE') return await sellerCodesIdApi.onRequestDelete(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      // 20.4. Seller Orders & Report Resolution
+      if (pathname === '/api/seller/orders') {
+        if (method === 'OPTIONS') return await sellerOrdersIndexApi.onRequestOptions();
+        if (method === 'GET') return await sellerOrdersIndexApi.onRequestGet(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      const matchSellerOrderResolve = pathname.match(/^\/api\/seller\/orders\/([^/]+)\/resolve-report$/);
+      if (matchSellerOrderResolve) {
+        context.params = { ...(context.params || {}), id: matchSellerOrderResolve[1] };
+        if (method === 'OPTIONS') return await sellerOrdersResolveReportApi.onRequestOptions();
+        if (method === 'POST') return await sellerOrdersResolveReportApi.onRequestPost(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      // 20.5. Seller Subaccounts
+      if (pathname === '/api/seller/subaccounts') {
+        if (method === 'OPTIONS') return await sellerSubaccountsIndexApi.onRequestOptions();
+        if (method === 'GET') return await sellerSubaccountsIndexApi.onRequestGet(context);
+        if (method === 'POST') return await sellerSubaccountsIndexApi.onRequestPost(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      const matchSellerSubId = pathname.match(/^\/api\/seller\/subaccounts\/([^/]+)$/);
+      if (matchSellerSubId) {
+        context.params = { ...(context.params || {}), id: matchSellerSubId[1] };
+        if (method === 'OPTIONS') return await sellerSubaccountsIdApi.onRequestOptions();
+        if (method === 'DELETE') return await sellerSubaccountsIdApi.onRequestDelete(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      // 20.6. Public Store Front (/api/stores/:slug)
+      const matchStoreProducts = pathname.match(/^\/api\/stores\/([^/]+)\/products$/);
+      if (matchStoreProducts) {
+        context.params = { ...(context.params || {}), slug: matchStoreProducts[1] };
+        if (method === 'OPTIONS') return await storesSlugProductsApi.onRequestOptions();
+        if (method === 'GET') return await storesSlugProductsApi.onRequestGet(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      const matchStoreIndex = pathname.match(/^\/api\/stores\/([^/]+)$/);
+      if (matchStoreIndex) {
+        context.params = { ...(context.params || {}), slug: matchStoreIndex[1] };
+        if (method === 'OPTIONS') return await storesSlugIndexApi.onRequestOptions();
+        if (method === 'GET') return await storesSlugIndexApi.onRequestGet(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      // 20.7. Core Wallet Purchase & Dispute Reporting
+      if (pathname === '/api/seller-orders') {
+        if (method === 'OPTIONS') return await sellerOrdersCreateApi.onRequestOptions();
+        if (method === 'POST') return await sellerOrdersCreateApi.onRequestPost(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      const matchSellerOrderReport = pathname.match(/^\/api\/seller-orders\/([^/]+)\/report$/);
+      if (matchSellerOrderReport) {
+        context.params = { ...(context.params || {}), id: matchSellerOrderReport[1] };
+        if (method === 'OPTIONS') return await sellerOrdersReportApi.onRequestOptions();
+        if (method === 'POST') return await sellerOrdersReportApi.onRequestPost(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      // 20.8. Buyer's Purchased Codes Vault
+      if (pathname === '/api/my-seller-orders') {
+        if (method === 'OPTIONS') return await mySellerOrdersApi.onRequestOptions();
+        if (method === 'GET') return await mySellerOrdersApi.onRequestGet(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      // 20.9. Admin Marketplace Moderation APIs
+      if (pathname === '/api/admin/sellers') {
+        if (method === 'OPTIONS') return await adminSellersIndexApi.onRequestOptions();
+        if (method === 'GET') return await adminSellersIndexApi.onRequestGet(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      const matchAdminSellerApprove = pathname.match(/^\/api\/admin\/sellers\/([^/]+)\/approve$/);
+      if (matchAdminSellerApprove) {
+        context.params = { ...(context.params || {}), id: matchAdminSellerApprove[1] };
+        if (method === 'OPTIONS') return await adminSellersApproveApi.onRequestOptions();
+        if (method === 'POST') return await adminSellersApproveApi.onRequestPost(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      const matchAdminSellerReject = pathname.match(/^\/api\/admin\/sellers\/([^/]+)\/reject$/);
+      if (matchAdminSellerReject) {
+        context.params = { ...(context.params || {}), id: matchAdminSellerReject[1] };
+        if (method === 'OPTIONS') return await adminSellersRejectApi.onRequestOptions();
+        if (method === 'POST') return await adminSellersRejectApi.onRequestPost(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      const matchAdminSellerReqInfo = pathname.match(/^\/api\/admin\/sellers\/([^/]+)\/request-info$/);
+      if (matchAdminSellerReqInfo) {
+        context.params = { ...(context.params || {}), id: matchAdminSellerReqInfo[1] };
+        if (method === 'OPTIONS') return await adminSellersRequestInfoApi.onRequestOptions();
+        if (method === 'POST') return await adminSellersRequestInfoApi.onRequestPost(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      const matchAdminSellerSuspend = pathname.match(/^\/api\/admin\/sellers\/([^/]+)\/suspend$/);
+      if (matchAdminSellerSuspend) {
+        context.params = { ...(context.params || {}), id: matchAdminSellerSuspend[1] };
+        if (method === 'OPTIONS') return await adminSellersSuspendApi.onRequestOptions();
+        if (method === 'POST') return await adminSellersSuspendApi.onRequestPost(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      const matchAdminSellerUnsuspend = pathname.match(/^\/api\/admin\/sellers\/([^/]+)\/unsuspend$/);
+      if (matchAdminSellerUnsuspend) {
+        context.params = { ...(context.params || {}), id: matchAdminSellerUnsuspend[1] };
+        if (method === 'OPTIONS') return await adminSellersUnsuspendApi.onRequestOptions();
+        if (method === 'POST') return await adminSellersUnsuspendApi.onRequestPost(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      if (pathname === '/api/admin/seller-products') {
+        if (method === 'OPTIONS') return await adminSellerProductsIndexApi.onRequestOptions();
+        if (method === 'GET') return await adminSellerProductsIndexApi.onRequestGet(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      const matchAdminProdApprove = pathname.match(/^\/api\/admin\/seller-products\/([^/]+)\/approve$/);
+      if (matchAdminProdApprove) {
+        context.params = { ...(context.params || {}), id: matchAdminProdApprove[1] };
+        if (method === 'OPTIONS') return await adminSellerProductsApproveApi.onRequestOptions();
+        if (method === 'POST') return await adminSellerProductsApproveApi.onRequestPost(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      const matchAdminProdReject = pathname.match(/^\/api\/admin\/seller-products\/([^/]+)\/reject$/);
+      if (matchAdminProdReject) {
+        context.params = { ...(context.params || {}), id: matchAdminProdReject[1] };
+        if (method === 'OPTIONS') return await adminSellerProductsRejectApi.onRequestOptions();
+        if (method === 'POST') return await adminSellerProductsRejectApi.onRequestPost(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      if (pathname === '/api/admin/seller-config') {
+        if (method === 'OPTIONS') return await adminSellerConfigApi.onRequestOptions();
+        if (method === 'GET') return await adminSellerConfigApi.onRequestGet(context);
+        if (method === 'PUT') return await adminSellerConfigApi.onRequestPut(context);
         return new Response('Method Not Allowed', { status: 405 });
       }
 

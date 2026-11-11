@@ -20,6 +20,7 @@ import {
   Globe,
   Send,
   Flame,
+  Store,
 } from 'lucide-react';
 import type { GameItem, UserProfile } from '../types/game';
 import { formatCore } from '../utils/textUtils';
@@ -29,8 +30,8 @@ import { growthService } from '../services/growthService';
 import { telegramService } from '../services/telegramService';
 
 interface HeaderProps {
-  currentTab: 'catalog' | 'news' | 'giveaways' | 'store' | 'utilities' | 'missions' | 'telegram' | 'today-codes';
-  onSelectTab: (tab: 'catalog' | 'news' | 'giveaways' | 'store' | 'utilities' | 'missions' | 'telegram' | 'today-codes') => void;
+  currentTab: 'catalog' | 'news' | 'giveaways' | 'store' | 'utilities' | 'missions' | 'telegram' | 'today-codes' | 'seller-center' | 'store-detail';
+  onSelectTab: (tab: 'catalog' | 'news' | 'giveaways' | 'store' | 'utilities' | 'missions' | 'telegram' | 'today-codes' | 'seller-center' | 'store-detail') => void;
   searchQuery?: string;
   onSearchChange?: (q: string) => void;
   bookmarkCount: number;
@@ -468,6 +469,25 @@ export const Header: React.FC<HeaderProps> = ({
                         </span>
                         <span className="text-[10px] text-primary-light font-bold">
                           Mã quà đã nhận ↗
+                        </span>
+                      </button>
+
+                      {/* 2.05 Kênh Người Bán / Sàn TMĐT */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIsUserMenuOpen(false);
+                          onSelectTab('seller-center');
+                        }}
+                        className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-purple-500/10 text-foreground cursor-pointer text-left group"
+                      >
+                        <span className="flex items-center gap-2">
+                          <Store className="w-4 h-4 text-purple-400 group-hover:scale-110 transition-transform" />
+                          <span className="font-bold text-purple-300">Kênh Người Bán</span>
+                        </span>
+                        <span className="text-[10px] text-purple-300 font-bold bg-purple-500/20 px-2 py-0.5 rounded-full border border-purple-500/30">
+                          Gian Hàng
                         </span>
                       </button>
 

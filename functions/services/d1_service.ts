@@ -760,6 +760,172 @@ export async function ensureGameCommentsSchema(db: D1Database): Promise<void> {
 }
 
 /**
+ * Safe runtime schema for Marketplace Phase 1 (Sàn TMĐT Số - Nền Gian Hàng MVP)
+ */
+export async function ensureMarketplaceSchema(db: D1Database): Promise<void> {
+  try {
+    // 1. Bảng gian hàng người bán
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS sellers (
+        id TEXT PRIMARY KEY,
+        owner_member_id TEXT NOT NULL UNIQUE,
+        name TEXT NOT NULL,
+        slug TEXT NOT NULL UNIQUE,
+        contact_phone TEXT,
+        bank_name TEXT,
+        bank_account TEXT,
+        bank_account_name TEXT,
+        avatar_url TEXT,
+        cover_url TEXT,
+        description TEXT,
+        support_hours TEXT DEFAULT '08:00 - 22:00',
+        warranty_policy TEXT,
+        refund_policy TEXT,
+        status TEXT NOT NULL DEFAULT 'PENDING',
+        reject_reason TEXT,
+        request_info_note TEXT,
+        is_vacation INTEGER NOT NULL DEFAULT 0,
+        trial_product_limit INTEGER NOT NULL DEFAULT 5,
+        trial_order_max INTEGER NOT NULL DEFAULT 200,
+        reputation_score INTEGER NOT NULL DEFAULT 100,
+        pending_balance_core INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+        deleted_at TEXT
+      );
+    `).run().catch(() => {});
+
+    // 2. Bảng sản phẩm của gian hàng
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS seller_products (
+        id TEXT PRIMARY KEY,
+        seller_id TEXT NOT NULL,
+        game_slug TEXT NOT NULL,
+        game_name TEXT,
+        name TEXT NOT NULL,
+        cover_url TEXT NOT NULL,
+        description TEXT,
+        price_core INTEGER NOT NULL,
+        original_price_core INTEGER,
+        ceiling_price_core INTEGER,
+        warranty_type TEXT NOT NULL DEFAULT '24H',
+        warranty_hours INTEGER NOT NULL DEFAULT 24,
+        delivery_type TEXT NOT NULL DEFAULT 'AUTO',
+        low_stock_threshold INTEGER NOT NULL DEFAULT 2,
+        status TEXT NOT NULL DEFAULT 'PENDING_REVIEW',
+        reject_reason TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+        deleted_at TEXT
+      );
+    `).run().catch(() => {});
+
+    // 3. Bảng kho mã của gian hàng
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS seller_codes (
+        id TEXT PRIMARY KEY,
+        seller_id TEXT NOT NULL,
+        product_id TEXT NOT NULL,
+        code_encrypted TEXT NOT NULL,
+        code_hash TEXT,
+        status TEXT NOT NULL DEFAULT 'IN_STOCK',
+        order_id TEXT,
+        batch_id TEXT,
+        sold_at TEXT,
+        reported_at TEXT,
+        recalled_at TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+        deleted_at TEXT
+      );
+    `).run().catch(() => {});
+
+    // 4. Bảng đơn hàng sàn TMĐT
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS seller_orders (
+        id TEXT PRIMARY KEY,
+        order_code TEXT NOT NULL UNIQUE,
+        buyer_member_id TEXT NOT NULL,
+        buyer_name TEXT,
+        buyer_email TEXT,
+        seller_id TEXT NOT NULL,
+        product_id TEXT NOT NULL,
+        product_name TEXT NOT NULL,
+        game_slug TEXT,
+        code_id TEXT,
+        delivered_code TEXT,
+        price_core INTEGER NOT NULL,
+        status TEXT NOT NULL DEFAULT 'DELIVERED',
+        report_reason TEXT,
+        report_note TEXT,
+        reported_at TEXT,
+        resolution_type TEXT,
+        resolution_note TEXT,
+        resolved_at TEXT,
+        replacement_code_id TEXT,
+        replacement_code TEXT,
+        expires_at TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+    `).run().catch(() => {});
+
+    // 5. Bảng nhật ký kiểm toán xem mã trong kho
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS seller_code_views (
+        id TEXT PRIMARY KEY,
+        code_id TEXT NOT NULL,
+        seller_id TEXT NOT NULL,
+        viewer_member_id TEXT NOT NULL,
+        viewer_name TEXT,
+        ip_address TEXT,
+        viewed_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+    `).run().catch(() => {});
+
+    // 6. Bảng tài khoản phụ gian hàng
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS seller_subaccounts (
+        id TEXT PRIMARY KEY,
+        seller_id TEXT NOT NULL,
+        member_id TEXT NOT NULL,
+        member_email TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'VIEW_ORDERS',
+        invited_by TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+    `).run().catch(() => {});
+
+    // Tạo các index
+    await db.prepare("CREATE INDEX IF NOT EXISTS idx_sellers_owner ON sellers(owner_member_id);").run().catch(() => {});
+    await db.prepare("CREATE INDEX IF NOT EXISTS idx_sellers_slug ON sellers(slug);").run().catch(() => {});
+    await db.prepare("CREATE INDEX IF NOT EXISTS idx_sellers_status ON sellers(status, deleted_at);").run().catch(() => {});
+
+    await db.prepare("CREATE INDEX IF NOT EXISTS idx_seller_products_seller ON seller_products(seller_id, deleted_at);").run().catch(() => {});
+    await db.prepare("CREATE INDEX IF NOT EXISTS idx_seller_products_game ON seller_products(game_slug, status);").run().catch(() => {});
+    await db.prepare("CREATE INDEX IF NOT EXISTS idx_seller_products_status ON seller_products(status, deleted_at);").run().catch(() => {});
+
+    await db.prepare("CREATE INDEX IF NOT EXISTS idx_seller_codes_prod_status ON seller_codes(product_id, status, deleted_at);").run().catch(() => {});
+    await db.prepare("CREATE INDEX IF NOT EXISTS idx_seller_codes_seller ON seller_codes(seller_id, status);").run().catch(() => {});
+    await db.prepare("CREATE INDEX IF NOT EXISTS idx_seller_codes_hash ON seller_codes(code_hash);").run().catch(() => {});
+    await db.prepare("CREATE INDEX IF NOT EXISTS idx_seller_codes_batch ON seller_codes(batch_id);").run().catch(() => {});
+
+    await db.prepare("CREATE INDEX IF NOT EXISTS idx_seller_orders_buyer ON seller_orders(buyer_member_id, created_at);").run().catch(() => {});
+    await db.prepare("CREATE INDEX IF NOT EXISTS idx_seller_orders_seller ON seller_orders(seller_id, created_at);").run().catch(() => {});
+    await db.prepare("CREATE INDEX IF NOT EXISTS idx_seller_orders_code ON seller_orders(order_code);").run().catch(() => {});
+
+    await db.prepare("CREATE INDEX IF NOT EXISTS idx_seller_code_views_code ON seller_code_views(code_id);").run().catch(() => {});
+    await db.prepare("CREATE INDEX IF NOT EXISTS idx_seller_code_views_seller ON seller_code_views(seller_id, viewed_at);").run().catch(() => {});
+
+    await db.prepare("CREATE INDEX IF NOT EXISTS idx_seller_subaccounts_seller ON seller_subaccounts(seller_id);").run().catch(() => {});
+    await db.prepare("CREATE INDEX IF NOT EXISTS idx_seller_subaccounts_member ON seller_subaccounts(member_id);").run().catch(() => {});
+  } catch (err: any) {
+    console.warn('[ensureMarketplaceSchema error]', err?.message);
+  }
+}
+
+/**
  * Ghi nhật ký kiểm toán quản trị (Admin Audit Logging) an toàn vào CSDL D1
  */
 export async function logAdminAudit(
@@ -810,6 +976,7 @@ export async function ensureSchemaUpgrades(db: D1Database): Promise<void> {
     await ensureMissionSchema(db);
     await ensureCodeReportsSchema(db);
     await ensureGameCommentsSchema(db);
+    await ensureMarketplaceSchema(db);
     // Safe schema migrations tracking
     try {
       await db.prepare("CREATE TABLE IF NOT EXISTS schema_migrations (id TEXT PRIMARY KEY, executed_at TEXT DEFAULT (datetime('now')));").run().catch(() => {});

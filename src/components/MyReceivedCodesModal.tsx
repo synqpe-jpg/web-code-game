@@ -17,6 +17,9 @@ import {
   Award,
   CheckCircle2,
   ArrowRight,
+  Store,
+  ShieldAlert,
+  AlertCircle,
 } from 'lucide-react';
 import { dataService } from '../services/dataService';
 import { missionService } from '../services/missionService';
@@ -27,7 +30,7 @@ import { GuideLinksBanner } from './GuideLinksBanner';
 
 interface MyReceivedCodesModalProps {
   isOpen: boolean;
-  initialTab?: 'giveaways' | 'orders' | 'privates' | 'missions';
+  initialTab?: 'giveaways' | 'orders' | 'privates' | 'missions' | 'marketplace';
   onClose: () => void;
   onShowToast: (title: string, message?: string, type?: 'success' | 'error' | 'info') => void;
   onNavigateToMissions?: () => void;
@@ -42,7 +45,7 @@ export const MyReceivedCodesModal: React.FC<MyReceivedCodesModalProps> = ({
   onNavigateToMissions,
   onOpenAuth,
 }) => {
-  const [tab, setTab] = useState<'giveaways' | 'orders' | 'privates' | 'missions'>(initialTab);
+  const [tab, setTab] = useState<'giveaways' | 'orders' | 'privates' | 'missions' | 'marketplace'>(initialTab);
   const [copied, setCopied] = useState<string | null>(null);
   
   // Real-time state
@@ -52,6 +55,14 @@ export const MyReceivedCodesModal: React.FC<MyReceivedCodesModalProps> = ({
   const [missionRewardsList, setMissionRewardsList] = useState<any[]>(() => dataService.getMissionRewards());
   const [isLoadingMissions, setIsLoadingMissions] = useState<boolean>(false);
   const [lookupEmail, setLookupEmail] = useState<string>('');
+
+  // Marketplace Orders State (§6.3)
+  const [marketplaceOrders, setMarketplaceOrders] = useState<any[]>([]);
+  const [isLoadingMarketplace, setIsLoadingMarketplace] = useState<boolean>(false);
+  const [reportingOrder, setReportingOrder] = useState<any>(null);
+  const [reportReason, setReportReason] = useState<'not_working' | 'expired'>('not_working');
+  const [reportNote, setReportNote] = useState<string>('');
+  const [isSubmittingReport, setIsSubmittingReport] = useState<boolean>(false);
 
   useEffect(() => {
     if (isOpen && initialTab) {
@@ -114,6 +125,52 @@ export const MyReceivedCodesModal: React.FC<MyReceivedCodesModalProps> = ({
         .finally(() => {
           setIsLoadingMissions(false);
         });
+
+      // Tải đơn hàng Sàn TMĐT
+      loadMarketplaceOrders();
+    }
+  };
+
+  const loadMarketplaceOrders = async () => {
+    const token = localStorage.getItem('wcg_auth_token') || sessionStorage.getItem('wcg_auth_token') || '';
+    if (!token) return;
+    setIsLoadingMarketplace(true);
+    try {
+      const res = await fetch('/api/my-seller-orders', {
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (data.success && Array.isArray(data.orders)) {
+        setMarketplaceOrders(data.orders);
+      }
+    } catch {}
+    setIsLoadingMarketplace(false);
+  };
+
+  const handleReportMarketplaceOrder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reportingOrder) return;
+    setIsSubmittingReport(true);
+    const token = localStorage.getItem('wcg_auth_token') || sessionStorage.getItem('wcg_auth_token') || '';
+    try {
+      const res = await fetch(`/api/seller-orders/${reportingOrder.id}/report`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ reason: reportReason, note: reportNote }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        onShowToast('Báo lỗi thành công!', data.message, 'success');
+        setReportingOrder(null);
+        setReportNote('');
+        loadMarketplaceOrders();
+      } else {
+        onShowToast('Lỗi', data.error || 'Báo lỗi thất bại.', 'error');
+      }
+    } catch {
+      onShowToast('Lỗi', 'Không thể kết nối đến máy chủ.', 'error');
+    } finally {
+      setIsSubmittingReport(false);
     }
   };
 
@@ -237,6 +294,21 @@ export const MyReceivedCodesModal: React.FC<MyReceivedCodesModalProps> = ({
           </button>
 
           <button
+            onClick={() => {
+              setTab('marketplace');
+              loadMarketplaceOrders();
+            }}
+            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              tab === 'marketplace'
+                ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md'
+                : 'bg-muted/60 text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Store className="w-3.5 h-3.5 text-purple-200" />
+            <span>Sàn TMĐT ({marketplaceOrders.length})</span>
+          </button>
+
+          <button
             onClick={() => setTab('missions')}
             className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
               tab === 'missions'
@@ -315,73 +387,101 @@ export const MyReceivedCodesModal: React.FC<MyReceivedCodesModalProps> = ({
             )
           )}
 
-          {tab === 'orders' && (
-            displayOrdersList.length === 0 ? (
+          {/* Tab Sàn TMĐT (§6.3: Tủ mã của khách & Báo lỗi 1 chạm) */}
+          {tab === 'marketplace' && (
+            marketplaceOrders.length === 0 ? (
               <div className="py-12 text-center text-muted-foreground">
-                <ShoppingBag className="w-10 h-10 mx-auto mb-2 opacity-30" />
-                <p className="text-xs">Bạn chưa có đơn hàng mua gói code nào.</p>
-                <p className="text-[11px] text-muted-foreground/70 mt-1">Truy cập "Cửa Hàng Code" để mua gói nạp và giftcode chiết khấu.</p>
+                <Store className="w-10 h-10 mx-auto mb-2 opacity-30 text-purple-400" />
+                <p className="text-xs">Bạn chưa mua mã nào từ các Gian Hàng trên Sàn TMĐT.</p>
+                <p className="text-[11px] text-muted-foreground/70 mt-1">Truy cập gian hàng người bán để săn mã code giá tốt.</p>
               </div>
             ) : (
-              displayOrdersList.map((order) => (
+              marketplaceOrders.map((mOrder) => (
                 <div
-                  key={order.id}
-                  className="p-4 rounded-2xl bg-muted/40 border border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-border-hover transition-colors"
+                  key={mOrder.id}
+                  className="p-4 rounded-2xl bg-card border border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-purple-500/40 transition-colors shadow-sm"
                 >
                   <div className="min-w-0 flex-1">
-                    <h4 className="font-heading font-bold text-sm text-foreground truncate">
-                      {order.product_title}
-                    </h4>
-                    <p className="text-xs text-secondary font-medium mt-0.5">
-                      {order.game_name} • {formatCore(order.amount)}
-                    </p>
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-[11px] text-muted-foreground font-mono">
-                      <span>Mã đơn: <strong className="text-foreground">{order.id}</strong></span>
-                      <span className="flex items-center gap-1 text-emerald-400">
-                        <Clock className="w-3.5 h-3.5 shrink-0" />
-                        <span>Thời gian nhận: <strong className="text-foreground">{formatFullDateTime(order.created_at)}</strong></span>
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                        {mOrder.seller_name || 'GIAN HÀNG'}
                       </span>
+                      <h4 className="font-heading font-bold text-sm text-foreground truncate">
+                        {mOrder.product_name}
+                      </h4>
                     </div>
 
-                    {(() => {
-                      const linkedItem = (dataService.getStoreProducts ? dataService.getStoreProducts().find((p) => p.id === order.product_id) : null)
-                        || (dataService.getUtilities ? dataService.getUtilities().find((u) => u.id === order.product_id) : null);
-                      if (!linkedItem) return null;
-                      return (
-                        <div className="mt-1.5">
-                          <GuideLinksBanner
-                            guideLinks={linkedItem.guide_links}
-                            guideUrl={linkedItem.guide_url}
-                            guideText={linkedItem.guide_text}
-                            showGuide={linkedItem.show_guide_link !== false}
-                            size="sm"
-                            theme={'category' in linkedItem ? 'teal' : 'indigo'}
-                          />
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1 flex-wrap">
+                      <span>Giá: <strong className="text-amber-500">{mOrder.price_core} Core</strong></span>
+                      <span>•</span>
+                      <span>Mã đơn: <strong className="font-mono text-foreground">{mOrder.order_code}</strong></span>
+                      <span>•</span>
+                      <span>{formatRelativeDate(mOrder.created_at)}</span>
+                    </div>
+
+                    {/* Hiển thị mã thay thế nếu đã được shop đổi */}
+                    {mOrder.replacement_code && (
+                      <div className="mt-2 p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs">
+                        <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider block mb-0.5">
+                          ✓ Shop đã đổi mã mới cho bạn:
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-bold text-emerald-400 select-all">
+                            {mOrder.replacement_code}
+                          </span>
+                          <button
+                            onClick={() => handleCopy(mOrder.replacement_code)}
+                            className="px-2 py-0.5 rounded bg-emerald-500 text-black text-[11px] font-bold"
+                          >
+                            Chép mã mới
+                          </button>
                         </div>
-                      );
-                    })()}
+                      </div>
+                    )}
+
+                    {/* Trạng thái xử lý khiếu nại */}
+                    {mOrder.status === 'REPORTED' && (
+                      <div className="mt-2 text-[11px] text-destructive font-semibold flex items-center gap-1.5">
+                        <AlertCircle className="w-3.5 h-3.5" />
+                        <span>Đã gửi báo lỗi ({mOrder.report_reason === 'expired' ? 'Hết hạn' : 'Không dùng được'}). Đang chờ shop đổi mã hoặc hoàn Core.</span>
+                      </div>
+                    )}
+                    {mOrder.status === 'REFUNDED' && (
+                      <div className="mt-2 text-[11px] text-purple-400 font-semibold flex items-center gap-1.5">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>Người bán đã hoàn lại {mOrder.price_core} Core vào ví của bạn.</span>
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className="px-3 py-1.5 rounded-xl bg-card border border-border font-mono font-bold text-emerald-400 text-xs shadow-inner">
-                      {order.code_content}
+                    <span className="px-3.5 py-1.5 rounded-xl bg-muted/80 border border-border font-mono font-bold text-primary-light text-xs shadow-inner select-all">
+                      {mOrder.delivered_code}
                     </span>
                     <button
-                      onClick={() => handleCopy(order.code_content)}
-                      className="px-3 py-1.5 rounded-xl bg-secondary hover:bg-secondary/90 text-white text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
+                      onClick={() => handleCopy(mOrder.delivered_code)}
+                      className="px-3 py-1.5 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
+                      title="Sao chép mã"
                     >
-                      {copied === order.code_content ? (
-                        <>
-                          <Check className="w-3.5 h-3.5" />
-                          <span>Đã chép</span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-3.5 h-3.5" />
-                          <span>Sao chép</span>
-                        </>
-                      )}
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>{copied === mOrder.delivered_code ? 'Đã chép' : 'Chép'}</span>
                     </button>
+
+                    {/* Nút Báo Lỗi Một Chạm (§6.3) */}
+                    {mOrder.status === 'DELIVERED' && (
+                      <button
+                        onClick={() => {
+                          setReportingOrder(mOrder);
+                          setReportReason('not_working');
+                          setReportNote('');
+                        }}
+                        className="px-2.5 py-1.5 rounded-xl bg-destructive/10 hover:bg-destructive/20 border border-destructive/20 text-destructive text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
+                        title="Báo mã lỗi 1 chạm để shop đổi mã mới hoặc hoàn tiền"
+                      >
+                        <ShieldAlert className="w-3.5 h-3.5" />
+                        <span>Báo Lỗi</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               ))
@@ -594,6 +694,86 @@ export const MyReceivedCodesModal: React.FC<MyReceivedCodesModalProps> = ({
             </div>
           )}
         </div>
+
+        {/* Modal Báo Mã Lỗi 1 Chạm (§6.3) */}
+        {reportingOrder && (
+          <div className="absolute inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-card border border-border rounded-2xl w-full max-w-sm p-5 shadow-2xl space-y-4 animate-scale-in">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-bold text-destructive flex items-center gap-1.5">
+                  <ShieldAlert className="w-4 h-4" /> Báo Lỗi Mã Đã Mua
+                </h4>
+                <button onClick={() => setReportingOrder(null)} className="p-1 rounded hover:bg-muted text-muted-foreground">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="text-xs bg-muted/60 p-3 rounded-xl space-y-1">
+                <div>Gói: <strong>{reportingOrder.product_name}</strong></div>
+                <div>Shop: <strong>{reportingOrder.seller_name}</strong></div>
+                <div className="font-mono text-muted-foreground text-[11px]">Mã: {reportingOrder.delivered_code}</div>
+              </div>
+
+              <form onSubmit={handleReportMarketplaceOrder} className="space-y-3 text-xs">
+                <div>
+                  <label className="block font-semibold mb-1">Lý do báo lỗi *</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setReportReason('not_working')}
+                      className={`p-2.5 rounded-xl border text-center font-bold transition-all ${
+                        reportReason === 'not_working'
+                          ? 'bg-destructive/10 border-destructive text-destructive'
+                          : 'border-border bg-background text-muted-foreground'
+                      }`}
+                    >
+                      Nhập Không Được
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setReportReason('expired')}
+                      className={`p-2.5 rounded-xl border text-center font-bold transition-all ${
+                        reportReason === 'expired'
+                          ? 'bg-destructive/10 border-destructive text-destructive'
+                          : 'border-border bg-background text-muted-foreground'
+                      }`}
+                    >
+                      Mã Đã Hết Hạn
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-semibold mb-1">Ghi chú thêm (Tùy chọn)</label>
+                  <input
+                    type="text"
+                    value={reportNote}
+                    onChange={(e) => setReportNote(e.target.value)}
+                    placeholder="Mô tả lỗi gặp phải..."
+                    className="w-full px-3 py-2 rounded-xl border border-border bg-background focus:outline-none focus:border-primary text-xs"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setReportingOrder(null)}
+                    className="px-3 py-1.5 rounded-xl border border-border hover:bg-muted font-semibold"
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmittingReport}
+                    className="px-4 py-1.5 rounded-xl bg-destructive text-white font-bold shadow-sm disabled:opacity-50"
+                  >
+                    {isSubmittingReport ? 'Đang gửi...' : 'Gửi Báo Lỗi Cho Shop'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     </div>,
     document.body

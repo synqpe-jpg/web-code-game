@@ -7,6 +7,29 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-11]
 
+### 367. Triển Khai Sàn Thương Mại Điện Tử Số CodeGame.shop — Giai Đoạn 1: Nền Gian Hàng (MVP)
+- **Triệu chứng & Bối cảnh**:
+  - Triển khai toàn diện Giai đoạn 1: Nền gian hàng số (MVP) theo bản kế hoạch sàn TMĐT số 16 trang (`ke-hoach-san-tmdt-so.pdf`, mục 11 lộ trình) ngày 11/11/2026.
+  - Phạm vi MVP:
+    1. Đăng ký & Duyệt gian hàng: Thành viên gửi hồ sơ `PENDING`, Quản trị viên duyệt vào `TRIAL`, từ chối (lý do bắt buộc), hoặc yêu cầu bổ sung (`NEED_MORE_INFO`), khóa/mở khóa gian hàng.
+    2. Trung tâm người bán (`/ban-hang`): Thống kê doanh thu Core hôm nay, 30 ngày, đơn chờ, cảnh báo kho thấp, điểm uy tín, số dư Core chờ rút, giờ hỗ trợ, chính sách bảo hành/hoàn tiền, quản lý sản phẩm, nạp kho mã hàng loạt, quản lý đơn, quản lý tài khoản phụ.
+    3. Sản phẩm theo khuôn bắt buộc: Gắn game từ catalog sẵn có, ảnh bìa chính thức từ game (`games.icon_url`), giá Core, kiểu giao (AUTO/MANUAL), kiểm duyệt sản phẩm (`PENDING_REVIEW` $\rightarrow$ `APPROVED`).
+    4. Quản lý kho mã: Nạp dán danh sách hoặc file .txt/.csv, tự lọc trùng cùng shop, cảnh báo trùng sàn, mã hóa AES-GCM Web Crypto, chống xóa mã đã bán/tranh chấp, tự đóng băng lô mã khi tỷ lệ lỗi vượt ngưỡng ($\ge 25\%$ lỗi trên lô $\ge 5$ mã). Xem mã che `••••••`, bấm hiện mã có ghi log kiểm toán bảo mật.
+    5. Trang gian hàng công khai (`/gian-hang/:slug`): Hiển thị sản phẩm `APPROVED` còn hàng, giấu số lượng tồn kho thật, nút Mua Ngay bằng Core tức thì.
+    6. Mua hàng bằng ví Core & Giao mã tự động 0s: Atomic D1 batch trừ Core khách, chuyển mã sang `SOLD`, cộng Core chờ rút cho người bán, sinh đơn `DELIVERED`, trả mã cho khách ngay lập tức.
+    7. Tủ mã đã mua ("Mã đã mua"): Xem mã đã mua, trạng thái, nút Báo Lỗi 1 chạm (`not_working`/`expired`), người bán giải quyết đổi mã mới (`REPLACE_CODE`) hoặc hoàn tiền Core (`REFUND_CORE`).
+    8. Chế độ Nghỉ Bán 1 chạm & Phân quyền tài khoản phụ (`VIEW_ORDERS`, `MANAGE_STOCK`, cấm xem/sửa thông tin thanh toán và cấm rút tiền).
+    9. Module Quản trị Sàn TMĐT trong Admin Portal (`SellerModerationModule.tsx` tuân thủ 100% Quy tắc 9 Single-Screen First).
+- **Nguyên nhân gốc rễ & Các nguyên tắc kiến trúc cốt lõi**:
+  - D1 là nguồn sự thật duy nhất với 6 bảng chuyên biệt: `sellers`, `seller_products`, `seller_codes`, `seller_orders`, `seller_code_views`, `seller_subaccounts`.
+  - Xóa mềm `deleted_at`: Cấm hard delete dữ liệu gian hàng, sản phẩm, mã kho.
+  - Giao dịch tiền và số dư ví Core đi qua một điểm ghi sổ duy nhất, đảm bảo tính nguyên tử tuyệt đối.
+  - Kiểm tra quyền chủ shop / tài khoản phụ nghiêm ngặt tại server side.
+  - Tuân thủ Quy tắc 8: Bổ sung quyền `MARKETPLACE_MANAGE` vào `hasScope` và `ApiKeysModule.tsx`.
+- **Kiểm thử & Triển khai**:
+  - Audit zero test artifacts passed 100%.
+  - Vite build, prerendering 595 trang game chuẩn SEO và Cloudflare Pages Edge Worker bundle hoàn tất thành công.
+
 ### 366. Sửa Lỗi Dòng Thống Kê Trang Mã Hôm Nay, Điều Hướng Đổi URL /ma-hom-nay & Số Lượng Game Tại Footer
 - **Triệu chứng & Bối cảnh**:
   - Live build `76299bd` phát sinh 3 vấn đề và 2 điểm lệch đặc tả:

@@ -138,6 +138,7 @@ export function hasScope(scopeStr: string | undefined | null, requiredScope: str
   if ((target === 'SECURITY_LOGS_FULL' || target === 'SECURITY_LOGS_VIEW') && (scopes.includes('SECURITY_LOGS_FULL') || scopes.includes('SECURITY_LOGS_VIEW') || scopes.includes('ADMIN_FULL'))) return true;
   if ((target === 'SYSTEM_SETTINGS_FULL' || target === 'SYSTEM_SETTINGS_MANAGE') && (scopes.includes('SYSTEM_SETTINGS_FULL') || scopes.includes('SYSTEM_SETTINGS_MANAGE') || scopes.includes('ADMIN_FULL'))) return true;
   if ((target === 'FIRST_PURCHASE_MANAGE' || target === 'STORE_OFFERS') && (scopes.includes('FIRST_PURCHASE_MANAGE') || scopes.includes('STORE_FULL') || scopes.includes('ADMIN_FULL'))) return true;
+  if ((target === 'MARKETPLACE_MANAGE' || target === 'SELLER_MANAGE' || target === 'SELLERS_FULL') && (scopes.includes('MARKETPLACE_MANAGE') || scopes.includes('STORE_FULL') || scopes.includes('ADMIN_FULL'))) return true;
   if ((target === 'ESCALATING_MANAGE' || target === 'ESCALATING_FULL') && (scopes.includes('ESCALATING_MANAGE') || scopes.includes('STORE_FULL') || scopes.includes('ADMIN_FULL'))) return true;
   // Cấp MEMBERS_FULL, WALLET_MANAGE, SEPAY_FULL cho khóa có MEMBERS_FULL, STORE_FULL hoặc ADMIN_FULL
   if ((target === 'MEMBERS_FULL' || target === 'MEMBERS_MANAGE' || target === 'WALLET_MANAGE' || target === 'SEPAY_FULL') && (scopes.includes('MEMBERS_FULL') || scopes.includes('STORE_FULL') || scopes.includes('ADMIN_FULL'))) return true;

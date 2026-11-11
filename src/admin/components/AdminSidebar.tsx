@@ -28,6 +28,7 @@ import {
   Mail,
   Send,
   Sparkles,
+  Store,
 } from 'lucide-react';
 import { AdminUser } from '../types/adminTypes';
 import { normalizeVietnamese } from '../../utils/textUtils';
@@ -52,6 +53,7 @@ export type AdminModuleTab =
   | 'email-notifications'
   | 'telegram'
   | 'orders'
+  | 'marketplace'
   | 'first-purchase'
   | 'sepay'
   | 'content'
@@ -204,6 +206,13 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
           icon: Sparkles,
           badge: 'HOT',
           badgeColor: 'bg-rose-500 text-white font-bold',
+        },
+        {
+          id: 'marketplace',
+          label: 'Sàn TMĐT & Gian Hàng',
+          icon: Store,
+          badge: 'MỚI',
+          badgeColor: 'bg-emerald-500 text-neutral-950 font-bold',
         },
       ],
     },
