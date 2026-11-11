@@ -117,6 +117,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         is_past_2230: isPast2230,
         total_codes: activeList.length,
         total_games: groupedGames.length,
+        count: activeList.length,
+        games_count: groupedGames.length,
         games: groupedGames,
         codes: activeList.map((item) => ({
           ...item,

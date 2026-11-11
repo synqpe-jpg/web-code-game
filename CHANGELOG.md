@@ -5,6 +5,35 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ---
 
+## [2026-11-11]
+
+### 366. Sửa Lỗi Dòng Thống Kê Trang Mã Hôm Nay, Điều Hướng Đổi URL /ma-hom-nay & Số Lượng Game Tại Footer
+- **Triệu chứng & Bối cảnh**:
+  - Live build `76299bd` phát sinh 3 vấn đề và 2 điểm lệch đặc tả:
+    1. Trang `/ma-hom-nay` hiển thị "undefined mã từ undefined tựa game" và "Đang hiển thị undefined tựa game có mã hôm nay".
+    2. Bấm tab "Mã Hôm Nay" trên header hoặc nút tắt trên trang chủ mở được nội dung nhưng thanh URL vẫn giữ nguyên `https://codegame.shop/` thay vì chuyển sang `/ma-hom-nay`.
+    3. Footer ghi cứng số `582` ở link "Danh Sách Game A-Z" thay vì số game live thực tế (591+ game).
+    4. Lệch đặc tả: Lý do báo lỗi cần thống nhất là `not_working`, câu tick xác nhận cần là *"Tôi vừa nhập được mã này"*.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Lỗi 1 (Thống kê undefined)*: Endpoint `/api/codes/today` trả về trường snake_case `total_codes` và `total_games`, trong khi component `TodayCodesView.tsx` lại đọc `data.count` và `data.games_count`.
+  2. *Lỗi 2 (URL không đổi)*: `App.tsx` trong `useEffect` đồng bộ title & URL (dòng 733) thiếu nhánh `currentTab === 'today-codes'`, khiến nó rơi vào nhánh fallback cuối cùng gọi `history.replaceState(null, '', '/')` đè mất URL vừa được push. Đồng thời `handlePopState` thiếu nhánh nhận diện `/ma-hom-nay` khi bấm Back/Forward.
+  3. *Lỗi 3 (Số game ở footer)*: Thẻ `<span>` ở dòng 145 của `Footer.tsx` bị ghi cứng số `582` thay vì đọc từ `totalGames` hoặc `dataService.getGames().length`.
+- **Giải pháp triệt để đã triển khai (Solution Applied)**:
+  1. `functions/api/codes/today.ts` & `src/components/TodayCodesView.tsx`:
+     - Trả về đồng thời cả `total_codes`, `total_games`, `count`, `games_count`.
+     - `TodayCodesView.tsx` tính toán `totalCodes` và `totalGames` an toàn từ nhiều nguồn fallback, triệt tiêu 100% tình trạng `undefined`.
+  2. `src/App.tsx`:
+     - Bổ sung nhánh `today-codes` vào `useEffect` đồng bộ `document.title` và `history.replaceState(null, '', '/ma-hom-nay')`.
+     - Bổ sung xử lý `hash === '#ma-hom-nay'` và `path === '/ma-hom-nay'` trong `handlePopState`, khôi phục hoạt động của nút Back/Forward.
+  3. `src/components/Footer.tsx` & `src/App.tsx`:
+     - Bổ sung prop `totalGames` vào `FooterProps`, cập nhật số lượng game động `liveGamesCount`.
+  4. Lệch đặc tả:
+     - `GameDetailModal.tsx`: Đổi câu tick thành *"Tôi vừa nhập được mã này"*.
+     - Rà soát toàn bộ repo đảm bảo lý do báo lỗi chuẩn hóa là `not_working` và `expired`.
+- **Kiểm thử & Triển khai**:
+  - `npm run build` thành công 100%, prerender toàn bộ 595 trang game + trang mã hôm nay + sitemap 886 links.
+  - Zero test artifacts trên production.
+
 ## [2026-11-10]
 
 ### 365. Triển Khai Trọn Gói 3 Tính Năng: Báo Mã Lỗi Một Chạm, Bình Luận & Đánh Giá Game, Trang Mã Hôm Nay (/ma-hom-nay)

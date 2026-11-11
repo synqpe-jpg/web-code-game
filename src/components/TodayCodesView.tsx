@@ -32,11 +32,17 @@ interface TodayGameGroup {
 
 interface TodayCodesResponse {
   success: boolean;
-  today: string;
-  expires_at_tonight: string;
-  count: number;
-  games_count: number;
+  date?: string;
+  formatted_date?: string;
+  is_past_2230?: boolean;
+  today?: string;
+  expires_at_tonight?: string;
+  total_codes?: number;
+  total_games?: number;
+  count?: number;
+  games_count?: number;
   games: TodayGameGroup[];
+  codes?: any[];
 }
 
 interface TodayCodesViewProps {
@@ -116,6 +122,19 @@ export const TodayCodesView: React.FC<TodayCodesViewProps> = ({
       setCopiedCodes((prev) => ({ ...prev, [codeStr]: false }));
     }, 2500);
   };
+
+  const totalCodes =
+    data?.total_codes ??
+    data?.count ??
+    data?.codes?.length ??
+    data?.games?.reduce((acc, g) => acc + (g.codes?.length || 0), 0) ??
+    0;
+
+  const totalGames =
+    data?.total_games ??
+    data?.games_count ??
+    data?.games?.length ??
+    0;
 
   return (
     <div className="min-h-screen bg-slate-950 text-foreground pb-20 pt-4 sm:pt-8 animate-fade-in">
@@ -198,7 +217,7 @@ export const TodayCodesView: React.FC<TodayCodesViewProps> = ({
               )}
 
               <span className="text-[10px] text-muted-foreground mt-2">
-                {data ? `${data.count} mã từ ${data.games_count} tựa game` : 'Đang đồng bộ...'}
+                {data ? `${totalCodes} mã từ ${totalGames} tựa game` : 'Đang đồng bộ...'}
               </span>
             </div>
           </div>
@@ -233,7 +252,7 @@ export const TodayCodesView: React.FC<TodayCodesViewProps> = ({
         ) : (
           <div className="space-y-6">
             <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
-              <span>Đang hiển thị {data.games_count} tựa game có mã hôm nay</span>
+              <span>Đang hiển thị {totalGames} tựa game có mã hôm nay</span>
               <span className="flex items-center gap-1 text-emerald-400 font-medium">
                 <ShieldCheck className="w-3.5 h-3.5" />
                 Mã công khai đã xác minh

@@ -9,15 +9,23 @@ interface FooterProps {
   onSelectCategory: (cat: string) => void;
   categories: string[];
   onOpenDownloadApp?: () => void;
+  totalGames?: number;
 }
 
-export const Footer: React.FC<FooterProps> = ({ onSelectCategory, categories, onOpenDownloadApp }) => {
+export const Footer: React.FC<FooterProps> = ({ onSelectCategory, categories, onOpenDownloadApp, totalGames }) => {
   const { t } = useLanguage();
   const [activeModal, setActiveModal] = useState<'terms' | 'privacy' | 'contact' | null>(null);
   const [footerData, setFooterData] = useState(() => dataService.getContentByKey('footer_support'));
   const [termsData, setTermsData] = useState(() => dataService.getContentByKey('terms_of_service'));
   const [privacyData, setPrivacyData] = useState(() => dataService.getContentByKey('privacy_policy'));
   const [telegramGroupLink, setTelegramGroupLink] = useState<string>('/telegram');
+  const [liveGamesCount, setLiveGamesCount] = useState<number>(() => totalGames || dataService.getGames().length || 591);
+
+  useEffect(() => {
+    if (totalGames) {
+      setLiveGamesCount(totalGames);
+    }
+  }, [totalGames]);
 
   useEffect(() => {
     telegramService.getConfig().then((cfg) => {
@@ -142,7 +150,9 @@ export const Footer: React.FC<FooterProps> = ({ onSelectCategory, categories, on
                     className="text-primary-light font-bold hover:underline transition-colors text-left flex items-center gap-1.5"
                   >
                     <span>📚 Danh Sách Game A-Z</span>
-                    <span className="text-[10px] bg-primary/20 text-primary-light px-1.5 py-0.5 rounded font-mono">582</span>
+                    <span className="text-[10px] bg-primary/20 text-primary-light px-1.5 py-0.5 rounded font-mono">
+                      {liveGamesCount}
+                    </span>
                   </a>
                 </li>
                 <li>

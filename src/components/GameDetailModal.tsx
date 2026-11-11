@@ -1455,7 +1455,7 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
                     onChange={(e) => setConfirmedWorking(e.target.checked)}
                     className="w-3.5 h-3.5 rounded accent-emerald-500 cursor-pointer"
                   />
-                  <span>Tôi vừa nhập thành công mã hôm nay</span>
+                  <span>Tôi vừa nhập được mã này</span>
                 </label>
               </div>
 

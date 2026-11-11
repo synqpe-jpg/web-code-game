@@ -797,6 +797,11 @@ export const App: React.FC = () => {
         if (window.location.pathname !== '/telegram' || window.location.hash) {
           window.history.replaceState(null, '', '/telegram');
         }
+      } else if (currentTab === 'today-codes') {
+        document.title = 'Giftcode Hôm Nay - Tổng Hợp Mã Code Game Có Hạn Trong Ngày 2026 | CodeGame.shop';
+        if (window.location.pathname !== '/ma-hom-nay' || window.location.hash) {
+          window.history.replaceState(null, '', '/ma-hom-nay');
+        }
       } else {
         document.title = 'CodeGame.shop - Cổng Tra Cứu Giftcode & Game Bản Quyền Hàng Đầu';
         if (window.location.pathname !== '/' || window.location.hash) {
@@ -864,6 +869,11 @@ export const App: React.FC = () => {
       if (hash === '#telegram' || hash.startsWith('#telegram') || path === '/telegram' || path.startsWith('/telegram/')) {
         setSelectedGame(null);
         setCurrentTab('telegram');
+        return;
+      }
+      if (hash === '#ma-hom-nay' || hash.startsWith('#ma-hom-nay') || hash.includes('today') || path === '/ma-hom-nay' || path.startsWith('/ma-hom-nay/')) {
+        setSelectedGame(null);
+        setCurrentTab('today-codes');
         return;
       }
 
@@ -943,6 +953,9 @@ export const App: React.FC = () => {
       } else if (path === '/missions' || path.startsWith('/missions/') || path === '/nhiem-vu' || path.startsWith('/nhiem-vu/')) {
         setSelectedGame(null);
         setCurrentTab('missions');
+      } else if (path === '/ma-hom-nay' || path.startsWith('/ma-hom-nay/')) {
+        setSelectedGame(null);
+        setCurrentTab('today-codes');
       } else if (path === '/' || path === '') {
         setSelectedGame(null);
         setCurrentTab('catalog');
@@ -1837,6 +1850,7 @@ export const App: React.FC = () => {
         {/* Footer */}
         <Footer
           categories={categories}
+          totalGames={totalResults || allGamesList.length || games.length || 591}
           onSelectCategory={(cat) => {
             handleSelectTab('catalog');
             handleFilterChange({ category: cat });
