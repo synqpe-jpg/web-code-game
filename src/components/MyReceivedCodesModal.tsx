@@ -264,11 +264,11 @@ export const MyReceivedCodesModal: React.FC<MyReceivedCodesModalProps> = ({
           </div>
         </div>
 
-        {/* Tab Switcher */}
-        <div className="p-4 pb-0 flex flex-wrap gap-2">
+        {/* Tab Switcher - 1 hàng duy nhất cho cả Desktop và Mobile 390px (§2.1) */}
+        <div className="p-3 sm:p-4 pb-0 flex items-center gap-1.5 sm:gap-2 overflow-x-auto scrollbar-none shrink-0">
           <button
             onClick={() => setTab('giveaways')}
-            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            className={`shrink-0 flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-[11px] sm:text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
               tab === 'giveaways'
                 ? 'bg-accent text-white shadow-sm'
                 : 'bg-muted/60 text-muted-foreground hover:text-foreground'
@@ -283,7 +283,7 @@ export const MyReceivedCodesModal: React.FC<MyReceivedCodesModalProps> = ({
               setTab('orders');
               dataService.refreshCurrentUserBalance().then(() => loadAll());
             }}
-            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            className={`shrink-0 flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-[11px] sm:text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
               tab === 'orders'
                 ? 'bg-secondary text-white shadow-sm'
                 : 'bg-muted/60 text-muted-foreground hover:text-foreground'
@@ -298,7 +298,7 @@ export const MyReceivedCodesModal: React.FC<MyReceivedCodesModalProps> = ({
               setTab('marketplace');
               loadMarketplaceOrders();
             }}
-            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            className={`shrink-0 flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-[11px] sm:text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
               tab === 'marketplace'
                 ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md'
                 : 'bg-muted/60 text-muted-foreground hover:text-foreground'
@@ -310,7 +310,7 @@ export const MyReceivedCodesModal: React.FC<MyReceivedCodesModalProps> = ({
 
           <button
             onClick={() => setTab('missions')}
-            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            className={`shrink-0 flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-[11px] sm:text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
               tab === 'missions'
                 ? 'bg-gradient-to-r from-amber-500 to-emerald-600 text-white shadow-md'
                 : 'bg-muted/60 text-muted-foreground hover:text-foreground'
@@ -322,7 +322,7 @@ export const MyReceivedCodesModal: React.FC<MyReceivedCodesModalProps> = ({
 
           <button
             onClick={() => setTab('privates')}
-            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            className={`shrink-0 flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-[11px] sm:text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
               tab === 'privates'
                 ? 'bg-primary text-white shadow-glow-primary'
                 : 'bg-muted/60 text-muted-foreground hover:text-foreground'

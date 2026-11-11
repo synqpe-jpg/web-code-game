@@ -221,10 +221,50 @@ export async function verifySellerAccess(
   return { allowed: true, role: sub.role, seller };
 }
 
+// Cấu hình sàn TMĐT & Hạn mức thử việc (TRIAL)
+export interface MarketplaceConfig {
+  default_trial_product_limit: number;
+  default_trial_order_max: number;
+  batch_freeze_error_rate: number;
+  min_batch_size_for_freeze: number;
+}
+
+export const DEFAULT_MARKETPLACE_CONFIG: MarketplaceConfig = {
+  default_trial_product_limit: 5,
+  default_trial_order_max: 200,
+  batch_freeze_error_rate: 0.25,
+  min_batch_size_for_freeze: 5,
+};
+
+// Đọc cấu hình sàn TMĐT từ D1 (system_settings), có fallback mặc định an toàn
+export async function getMarketplaceConfig(db: D1Database): Promise<MarketplaceConfig> {
+  try {
+    const row = await db
+      .prepare("SELECT value FROM system_settings WHERE key = 'wcg_marketplace_config_v1' LIMIT 1")
+      .first<{ value: string }>();
+
+    if (row && row.value) {
+      const parsed = typeof row.value === 'string' ? JSON.parse(row.value) : row.value;
+      return {
+        default_trial_product_limit: Number(parsed.default_trial_product_limit) || DEFAULT_MARKETPLACE_CONFIG.default_trial_product_limit,
+        default_trial_order_max: Number(parsed.default_trial_order_max) || DEFAULT_MARKETPLACE_CONFIG.default_trial_order_max,
+        batch_freeze_error_rate: typeof parsed.batch_freeze_error_rate === 'number'
+          ? parsed.batch_freeze_error_rate
+          : (parseFloat(parsed.batch_freeze_error_rate) || DEFAULT_MARKETPLACE_CONFIG.batch_freeze_error_rate),
+        min_batch_size_for_freeze: Number(parsed.min_batch_size_for_freeze) || DEFAULT_MARKETPLACE_CONFIG.min_batch_size_for_freeze,
+      };
+    }
+  } catch (err) {
+    console.warn('[getMarketplaceConfig error]', err);
+  }
+  return { ...DEFAULT_MARKETPLACE_CONFIG };
+}
+
 // Tự động kiểm tra tỷ lệ lỗi lô mã và đóng băng nếu vượt ngưỡng (§5.2)
 export async function checkAndFreezeBatchIfHighErrorRate(db: D1Database, batchId: string): Promise<boolean> {
   if (!batchId) return false;
   try {
+    const config = await getMarketplaceConfig(db);
     const stats = await db
       .prepare(`
         SELECT 
@@ -236,9 +276,9 @@ export async function checkAndFreezeBatchIfHighErrorRate(db: D1Database, batchId
       .bind(batchId)
       .first<{ total_count: number; reported_count: number }>();
 
-    if (stats && stats.total_count >= 5) {
+    if (stats && stats.total_count >= config.min_batch_size_for_freeze) {
       const errorRate = (stats.reported_count || 0) / stats.total_count;
-      if (errorRate >= 0.25) {
+      if (errorRate >= config.batch_freeze_error_rate) {
         // Tự động đóng băng các mã IN_STOCK còn lại trong lô này chuyển sang RECALLED
         await db
           .prepare(`

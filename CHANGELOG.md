@@ -7,6 +7,28 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-11]
 
+### 369. Nối Cấu Hình Hạn Mức Thử Việc (TRIAL) Vào Luồng Duyệt + Kiểm Tra & Sửa 3 Lỗi Giao Diện
+- **Triệu chứng & Bối cảnh**:
+  1. Hạn mức TRIAL trong bảng `system_settings` (`wcg_marketplace_config_v1`) và tab "Cấu Hình Hạn Mức" chưa được kết nối vào luồng duyệt: `approve.ts` chỉ update status mà không ghi `trial_product_limit` / `trial_order_max` vào seller record; `products/index.ts` chỉ fallback cứng 5/200.
+  2. Tab thứ 5 trong modal "Kho Mã Code Của Tôi" bị rớt xuống dòng thứ hai (`flex-wrap`).
+  3. Toast thông báo ở góc dưới trái bị cắt mép dưới, che dòng nút "Không hiện 1h" do thiếu khoảng đệm viewport an toàn và `contain: paint`.
+  4. Footer hiển thị thiếu khoảng trắng: `©2026CodeGame.Shop.Bảo lưu mọi quyền.`.
+- **Nguyên nhân gốc rễ & Giải pháp đã thực hiện**:
+  1. *Helper dùng chung `getMarketplaceConfig(db)`*:
+     - Viết helper tập trung trong `marketplace_service.ts`, đọc `wcg_marketplace_config_v1` với fallback an toàn `DEFAULT_MARKETPLACE_CONFIG` (5 sản phẩm, 200 Core, 0.25 tỷ lệ lỗi, 5 mã min batch).
+     - Áp dụng đồng bộ cho `seller-config.ts` (GET), `approve.ts` (POST), `products/index.ts` (POST) và `products/[id].ts` (PUT).
+  2. *Luồng duyệt gian hàng TRIAL*:
+     - `approve.ts` đọc cấu hình admin qua helper và ghi trực tiếp `trial_product_limit` và `trial_order_max` vào bản ghi seller trong D1, đồng thời lưu vào audit log.
+  3. *Kiểm tra giới hạn khi tạo/sửa sản phẩm*:
+     - `products/index.ts` và `products/[id].ts` áp dụng thứ tự ưu tiên: (1) giá trị riêng của seller nếu có $\rightarrow$ (2) cấu hình admin qua helper $\rightarrow$ (3) fallback 5/200.
+  4. *Sửa 3 lỗi giao diện*:
+     - `MyReceivedCodesModal.tsx`: Chuyển tab bar sang 1 hàng duy nhất (`overflow-x-auto scrollbar-none shrink-0 whitespace-nowrap`), căn chỉnh padding vừa vặn trên desktop 672px và vuốt ngang mượt mà trên mobile 390px mà không bị ngắt dòng.
+     - `MarketingNotificationToast.tsx`: Tăng khoảng cách an toàn lên `bottom-24` (mobile, cách xa BottomNav) và `sm:bottom-8 lg:bottom-10` (desktop), gỡ bỏ `contain: paint layout` chống cắt subpixel dòng nút "Không hiện 1h".
+     - `Footer.tsx`: Cập nhật template string `{`© ${new Date().getFullYear()} ${brandTitle || 'CodeGame.Shop'}. ${t.footer.rights}`}` đảm bảo hiển thị chuẩn `© 2026 CodeGame.Shop. Bảo lưu mọi quyền.`.
+- **Kiểm thử & Triển khai**:
+  - Chạy kiểm thử tự động 8 bài test hạn mức TRIAL, duyệt seller, tạo sản phẩm quá giá, tạo quá số lượng, và dọn sạch dữ liệu test.
+  - Build & Deploy đồng thời cả 3 host theo Quy tắc 6.
+
 ### 368. Sửa 3 Lỗi Sau Kiểm Chứng Live Sàn TMĐT Giai Đoạn 1 & Bảo Mật Khóa Mã Hóa
 - **Triệu chứng & Bối cảnh**:
   - Đối chiếu live sau build 6861258 ghi nhận:

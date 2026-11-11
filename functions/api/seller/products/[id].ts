@@ -1,5 +1,6 @@
 import { verifyMemberAuth } from '../../../services/mission_service';
 import { ensureMarketplaceSchema } from '../../../services/d1_service';
+import { getMarketplaceConfig } from '../../../services/marketplace_service';
 
 interface Env {
   DB: D1Database;
@@ -122,11 +123,16 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
           { status: 400, headers: CORS_HEADERS }
         );
       }
-      if (product.seller_status === 'TRIAL' && parsedPrice > (product.trial_order_max || 200)) {
+      const marketplaceConfig = await getMarketplaceConfig(env.DB);
+      const maxOrderPrice = (product.trial_order_max !== null && product.trial_order_max !== undefined)
+        ? Number(product.trial_order_max)
+        : marketplaceConfig.default_trial_order_max;
+
+      if (product.seller_status === 'TRIAL' && parsedPrice > maxOrderPrice) {
         return new Response(
           JSON.stringify({
             success: false,
-            error: `Gian hàng thử việc chỉ được đặt giá tối đa ${product.trial_order_max || 200} Core.`,
+            error: `Gian hàng thử việc chỉ được đặt giá tối đa ${maxOrderPrice} Core.`,
           }),
           { status: 400, headers: CORS_HEADERS }
         );

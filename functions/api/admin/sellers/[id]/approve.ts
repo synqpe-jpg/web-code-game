@@ -1,5 +1,6 @@
 import { verifyAdminAuth } from '../../../../services/mission_service';
 import { ensureMarketplaceSchema, logAdminAudit } from '../../../../services/d1_service';
+import { getMarketplaceConfig } from '../../../../services/marketplace_service';
 
 interface Env {
   DB: D1Database;
@@ -45,21 +46,37 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       );
     }
 
+    const config = await getMarketplaceConfig(env.DB);
     const nowIso = new Date().toISOString();
     await env.DB
       .prepare(`
         UPDATE sellers
-        SET status = 'TRIAL', reject_reason = NULL, request_info_note = NULL, updated_at = ?
+        SET status = 'TRIAL', 
+            trial_product_limit = ?, 
+            trial_order_max = ?, 
+            reject_reason = NULL, 
+            request_info_note = NULL, 
+            updated_at = ?
         WHERE id = ?
       `)
-      .bind(nowIso, sellerId)
+      .bind(
+        config.default_trial_product_limit,
+        config.default_trial_order_max,
+        nowIso,
+        sellerId
+      )
       .run();
 
     await logAdminAudit(env.DB, {
       actorName: auth.adminName || 'Admin',
       action: 'ADMIN_APPROVE_SELLER',
       targetId: sellerId,
-      details: { seller_name: seller.name, new_status: 'TRIAL' },
+      details: {
+        seller_name: seller.name,
+        new_status: 'TRIAL',
+        trial_product_limit: config.default_trial_product_limit,
+        trial_order_max: config.default_trial_order_max,
+      },
     });
 
     return new Response(
@@ -67,6 +84,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         success: true,
         message: `Đã duyệt gian hàng "${seller.name}" vào giai đoạn thử việc (TRIAL).`,
         status: 'TRIAL',
+        trial_product_limit: config.default_trial_product_limit,
+        trial_order_max: config.default_trial_order_max,
       }),
       { status: 200, headers: CORS_HEADERS }
     );

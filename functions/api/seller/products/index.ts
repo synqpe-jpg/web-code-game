@@ -1,6 +1,6 @@
 import { verifyMemberAuth } from '../../../services/mission_service';
 import { ensureMarketplaceSchema, logAdminAudit } from '../../../services/d1_service';
-import { verifySellerAccess } from '../../../services/marketplace_service';
+import { verifySellerAccess, getMarketplaceConfig } from '../../../services/marketplace_service';
 
 interface Env {
   DB: D1Database;
@@ -131,14 +131,19 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       );
     }
 
-    // 3. Kiểm tra giới hạn sản phẩm khi ở TRIAL (§3.2, §5.1)
+    // 3. Kiểm tra giới hạn sản phẩm khi ở TRIAL (§3.2, §5.1, §1.3)
+    const marketplaceConfig = await getMarketplaceConfig(env.DB);
+
     if (sellerRow.status === 'TRIAL') {
       const activeProdCount = await env.DB
         .prepare("SELECT COUNT(*) as count FROM seller_products WHERE seller_id = ? AND deleted_at IS NULL")
         .bind(sellerRow.id)
         .first<{ count: number }>();
 
-      const limit = sellerRow.trial_product_limit || 5;
+      const limit = (sellerRow.trial_product_limit !== null && sellerRow.trial_product_limit !== undefined)
+        ? Number(sellerRow.trial_product_limit)
+        : marketplaceConfig.default_trial_product_limit;
+
       if ((activeProdCount?.count || 0) >= limit) {
         return new Response(
           JSON.stringify({
@@ -181,12 +186,16 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       );
     }
 
-    // Nếu ở TRIAL, kiểm tra giới hạn giá tối đa 1 đơn (§3.2: mặc định 200 Core)
-    if (sellerRow.status === 'TRIAL' && priceCore > (sellerRow.trial_order_max || 200)) {
+    // Nếu ở TRIAL, kiểm tra giới hạn giá tối đa 1 đơn (§3.2, §1.3)
+    const maxOrderPrice = (sellerRow.trial_order_max !== null && sellerRow.trial_order_max !== undefined)
+      ? Number(sellerRow.trial_order_max)
+      : marketplaceConfig.default_trial_order_max;
+
+    if (sellerRow.status === 'TRIAL' && priceCore > maxOrderPrice) {
       return new Response(
         JSON.stringify({
           success: false,
-          error: `Gian hàng thử việc chỉ được đặt giá tối đa ${sellerRow.trial_order_max || 200} Core cho mỗi sản phẩm.`,
+          error: `Gian hàng thử việc chỉ được đặt giá tối đa ${maxOrderPrice} Core cho mỗi sản phẩm.`,
         }),
         { status: 400, headers: CORS_HEADERS }
       );

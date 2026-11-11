@@ -256,9 +256,9 @@ export const Footer: React.FC<FooterProps> = ({ onSelectCategory, categories, on
             </div>
           </div>
 
-          {/* Bottom Bar */}
+          {/* Bottom Bar (§2.3: Đảm bảo khoảng trắng sau © 2026 và sau dấu chấm) */}
           <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-slate-400">
-            <p>© {new Date().getFullYear()} {brandTitle || 'CodeGame.Shop'}. {t.footer.rights}</p>
+            <p>{`© ${new Date().getFullYear()} ${brandTitle || 'CodeGame.Shop'}. ${t.footer.rights}`}</p>
             <p className="flex items-center gap-1">
               {siteIntro}
             </p>

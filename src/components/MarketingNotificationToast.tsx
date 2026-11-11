@@ -758,7 +758,7 @@ export const MarketingNotificationToast: React.FC<MarketingNotificationToastProp
     switch (pos) {
       case 'bottom-right':
         return {
-          placement: 'bottom-20 left-3 right-3 sm:left-auto sm:right-6 sm:bottom-6',
+          placement: 'bottom-24 left-3 right-3 sm:left-auto sm:right-6 sm:bottom-8 lg:bottom-10',
           exitClass: 'opacity-0 translate-y-2 pointer-events-none',
         };
       case 'top-left':
@@ -774,7 +774,7 @@ export const MarketingNotificationToast: React.FC<MarketingNotificationToastProp
       case 'bottom-left':
       default:
         return {
-          placement: 'bottom-20 left-3 right-3 sm:right-auto sm:left-6 sm:bottom-6',
+          placement: 'bottom-24 left-3 right-3 sm:right-auto sm:left-6 sm:bottom-8 lg:bottom-10',
           exitClass: 'opacity-0 translate-y-2 pointer-events-none',
         };
     }
@@ -797,19 +797,18 @@ export const MarketingNotificationToast: React.FC<MarketingNotificationToastProp
         hideTimerRef.current = setTimeout(dismissNotification, duration);
       }}
       onClick={handleClickToast}
-      className={`fixed ${posStyle.placement} z-[95] pointer-events-auto sm:max-w-sm w-auto box-border overflow-hidden transition-all duration-300 select-none cursor-pointer ${
+      className={`fixed ${posStyle.placement} z-[95] pointer-events-auto sm:max-w-sm w-auto box-border transition-all duration-300 select-none cursor-pointer ${
         isExiting
           ? posStyle.exitClass
           : 'opacity-100 translate-y-0'
       }`}
       style={{
         maxWidth: 'calc(100vw - 24px)',
-        contain: 'paint layout',
         willChange: 'transform, opacity',
       }}
     >
       <div
-        className={`relative flex items-start gap-2.5 p-3 rounded-2xl bg-card/95 backdrop-blur-md border border-border/80 shadow-2xl ${meta.hoverBorder} transition-all duration-200 group overflow-hidden active:scale-[0.98] w-full max-w-full box-border min-h-[76px] sm:min-h-[80px]`}
+        className={`relative flex items-start gap-2.5 p-3 sm:p-3.5 pb-2.5 sm:pb-3 rounded-2xl bg-card/95 backdrop-blur-md border border-border/80 shadow-2xl ${meta.hoverBorder} transition-all duration-200 group active:scale-[0.98] w-full max-w-full box-border min-h-[76px] sm:min-h-[80px]`}
       >
         {/* Subtle accent highlight line */}
         <div

@@ -1,5 +1,6 @@
 import { verifyAdminAuth } from '../../services/mission_service';
 import { ensureMarketplaceSchema, logAdminAudit } from '../../services/d1_service';
+import { getMarketplaceConfig } from '../../services/marketplace_service';
 
 interface Env {
   DB: D1Database;
@@ -19,13 +20,6 @@ export const onRequestOptions: PagesFunction = async () => {
   return new Response(null, { status: 204, headers: CORS_HEADERS });
 };
 
-const DEFAULT_CONFIG = {
-  default_trial_product_limit: 5,
-  default_trial_order_max: 200,
-  batch_freeze_error_rate: 0.25,
-  min_batch_size_for_freeze: 5,
-};
-
 // GET: Lấy cấu hình sàn TMĐT
 export const onRequestGet: PagesFunction<Env> = async (context) => {
   const { request, env } = context;
@@ -39,16 +33,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       );
     }
 
-    const row = await env.DB
-      .prepare("SELECT value FROM system_settings WHERE key = 'wcg_marketplace_config_v1' LIMIT 1")
-      .first<{ value: string }>();
-
-    let config = DEFAULT_CONFIG;
-    if (row && row.value) {
-      try {
-        config = { ...DEFAULT_CONFIG, ...(typeof row.value === 'string' ? JSON.parse(row.value) : row.value) };
-      } catch {}
-    }
+    const config = await getMarketplaceConfig(env.DB);
 
     return new Response(
       JSON.stringify({ success: true, config }),
