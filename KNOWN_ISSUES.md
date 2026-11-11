@@ -10,6 +10,21 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-260: Bẫy Nhầm Tên Cột `core_balance` Thay Vì `balance` Trên Bảng Members Khi Thao Tác Với Ví Core & Bẫy Đọc Nhầm `currentUser.core_balance` Thay Vì `wallet_balance`
+- **Triệu chứng & Rủi ro**:
+  1. Khi người mua thanh toán đơn hàng bằng ví Core trên sàn TMĐT, D1 báo lỗi: `D1_ERROR: no such column: core_balance at offset 11: SQLITE_ERROR`, khiến toàn bộ giao dịch bị rollback, không tạo được đơn hàng và không giao mã cho khách.
+  2. Hộp thoại mua hàng đọc trường `currentUser.core_balance` hiển thị số dư 0 Core trong khi thực tế tài khoản có đủ tiền (như 500 Core).
+- **Nguyên nhân gốc rễ**:
+  1. Trong CSDL D1, bảng `members` sử dụng tên cột là `balance` (lưu trữ số dư Core của người dùng). Việc viết nhầm thành `core_balance` trong câu lệnh SQL gây lỗi syntax SQLite.
+  2. Ở frontend, object `currentUser` (kiểu `UserProfile`) lưu số dư trong trường `wallet_balance` (hoặc `balance`), không có trường `core_balance`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Luôn dùng cột `balance` khi SELECT / UPDATE số dư của bảng `members`.
+  2. Ở frontend, luôn dùng chuỗi fallback an toàn: `Number(currentUser?.wallet_balance ?? currentUser?.balance ?? currentUser?.core_balance) || 0`.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không viết câu lệnh SQL trên bảng `members` với tên cột `core_balance`.*
+  - ❌ *Không truy cập trực tiếp `currentUser.core_balance` mà không có fallback sang `currentUser.wallet_balance`.*
+
+
 ### ISSUE-259: Bẫy Giữ File wrangler.toml Trong Dự Án Cloudflare Pages Dùng Dashboard Bindings Khiến Deployment Lỗi "binding DB of type d1 failed to generate"
 - **Triệu chứng & Rủi ro**:
   1. Khi chạy `wrangler pages deploy dist`, quá trình tải file tĩnh và biên dịch Worker thành công (`✨ Compiled Worker successfully`), nhưng ở bước `Deploying...`, Cloudflare trả về lỗi: `Deployment failed! Failed to publish your Function. Got error: binding DB of type d1 failed to generate. Please try again later or contact support.`.

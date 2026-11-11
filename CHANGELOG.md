@@ -7,6 +7,27 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-11]
 
+### 372. Khắc Phục Lỗi Mua Hàng Sàn TMĐT: Đổi Cột `core_balance` Thành `balance` Trên Bảng Members & Sửa Lỗi Hộp Thoại Hiện 0 Core
+- **Triệu chứng & Bối cảnh**:
+  - Khi tài khoản `muse2` (500 Core) bấm "Xác Nhận Thanh Toán (100 Core)" cho sản phẩm "Test Key Product" trên gian hàng sàn, hệ thống báo lỗi:
+    `D1_ERROR: no such column: core_balance at offset 11: SQLITE_ERROR`
+  - Hậu quả: Không tạo được đơn hàng, không trừ tiền, không cộng `pending_balance_core` cho gian hàng, mã `TEST-KEY-001` chưa giao.
+  - Lỗi phụ: Hộp thoại "Mua Bằng Ví Core Nội Bộ" hiển thị "Số dư ví của bạn: 0 Core" trong khi Header hiển thị đúng 500 Core.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Lỗi Backend*: File `functions/api/seller-orders/index.ts` và `functions/api/seller/orders/[id]/resolve-report.ts` sử dụng tên cột `core_balance` trên bảng `members`. Tuy nhiên, trong CSDL D1 toàn bộ hệ thống, bảng `members` chỉ có cột `balance`.
+  2. *Lỗi Frontend*: Component `src/components/seller/PublicStoreView.tsx` đọc `currentUser.core_balance`. Trong kiểu dữ liệu `UserProfile` của frontend, trường số dư ví là `wallet_balance` (hoặc `balance`), dẫn đến `currentUser.core_balance` là `undefined` và fallback về `0 Core`.
+- **Giải pháp thành công (Solution)**:
+  1. *Đồng bộ tên cột CSDL D1*:
+     - `functions/api/seller-orders/index.ts`: Đổi `SELECT id, core_balance` $\rightarrow$ `SELECT id, balance`, đọc `memberRow?.balance`, và câu lệnh trừ tiền đổi thành `UPDATE members SET balance = balance - ?, updated_at = ? WHERE id = ? AND balance >= ?`.
+     - `functions/api/seller/orders/[id]/resolve-report.ts`: Đổi `SET core_balance = core_balance + ?` $\rightarrow$ `SET balance = balance + ?` khi hoàn tiền cho khách hàng.
+  2. *Sửa hiển thị số dư hộp thoại*:
+     - `src/components/seller/PublicStoreView.tsx`: Cập nhật đọc số dư chuẩn chuỗi fallback `Number(currentUser.wallet_balance ?? currentUser.balance ?? currentUser.core_balance) || 0`, hiển thị chính xác số dư thực tế `500 Core`.
+     - Gọi `dataService.refreshCurrentUserBalance()` ngay sau khi thanh toán thành công để tự động cập nhật số dư hiển thị trên toàn bộ trang web (Header, menu ví).
+- **Kiểm thử & Triển khai**:
+  - `npm run build` thành công 100%, zero test artifacts.
+  - Sẵn sàng triển khai lên cả 3 môi trường và tiến hành nghiệm thu mua thật bằng tài khoản `muse2`.
+
+
 ### 371. Tái Triển Khai Nhận Biến MARKETPLACE_CODE_KEY Mới & Khắc Phục Lỗi Cloudflare Pages D1 Binding
 - **Yêu cầu & Bối cảnh**:
   - Người dùng cấu hình biến môi trường bí mật mới `MARKETPLACE_CODE_KEY` trên Cloudflare Pages Dashboard cho cả 2 project `web-code-game` và `admin-code-game-shop`.

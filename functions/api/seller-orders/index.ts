@@ -111,11 +111,11 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
     // 3. Kiểm tra số dư Core của người mua
     const memberRow = await env.DB
-      .prepare("SELECT id, core_balance, email, username FROM members WHERE id = ? LIMIT 1")
+      .prepare("SELECT id, balance, email, username FROM members WHERE id = ? LIMIT 1")
       .bind(buyer.id)
       .first<any>();
 
-    const userCore = memberRow?.core_balance || 0;
+    const userCore = Number(memberRow?.balance ?? buyer.balance) || 0;
     const priceCore = product.price_core;
 
     if (userCore < priceCore) {
@@ -145,7 +145,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     const nowIso = new Date().toISOString();
 
     // 5. Giao dịch nguyên tử qua D1 Batch:
-    // - Trừ Core người mua (có điều kiện core_balance >= priceCore chống race-condition)
+    // - Trừ Core người mua (có điều kiện balance >= priceCore chống race-condition)
     // - Đổi mã kho sang SOLD gắn order_id
     // - Cộng pending_balance_core cho gian hàng
     // - Thêm bản ghi đơn hàng seller_orders
@@ -153,8 +153,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       // Statement 0: Trừ Core người mua
       env.DB.prepare(`
         UPDATE members
-        SET core_balance = core_balance - ?, updated_at = ?
-        WHERE id = ? AND core_balance >= ?
+        SET balance = balance - ?, updated_at = ?
+        WHERE id = ? AND balance >= ?
       `).bind(priceCore, nowIso, buyer.id, priceCore),
 
       // Statement 1: Đổi trạng thái mã kho sang SOLD

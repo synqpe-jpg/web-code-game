@@ -163,7 +163,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         // Hoàn Core vào số dư của khách
         env.DB.prepare(`
           UPDATE members
-          SET core_balance = core_balance + ?, updated_at = ?
+          SET balance = balance + ?, updated_at = ?
           WHERE id = ?
         `).bind(priceCore, nowIso, order.buyer_member_id),
 

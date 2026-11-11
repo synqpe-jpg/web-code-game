@@ -16,6 +16,7 @@ import {
   PauseCircle,
   Info,
 } from 'lucide-react';
+import { dataService } from '../../services/dataService';
 
 interface PublicStoreViewProps {
   slug: string;
@@ -111,6 +112,8 @@ export const PublicStoreView: React.FC<PublicStoreViewProps> = ({
       const data = await res.json();
       if (data.success) {
         setPurchasedOrder(data.order);
+        // Đồng bộ số dư ví của tài khoản người mua ngay sau khi giao dịch hoàn tất
+        dataService.refreshCurrentUserBalance().catch(() => {});
       } else {
         setPurchaseError(data.error || 'Thanh toán thất bại.');
       }
@@ -351,7 +354,11 @@ export const PublicStoreView: React.FC<PublicStoreViewProps> = ({
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Số dư ví của bạn:</span>
-                    <strong className="text-amber-500">{currentUser ? `${(currentUser.core_balance || 0).toLocaleString()} Core` : 'Chưa đăng nhập'}</strong>
+                    <strong className="text-amber-500">
+                      {currentUser
+                        ? `${(Number(currentUser.wallet_balance ?? (currentUser as any).balance ?? (currentUser as any).core_balance) || 0).toLocaleString('vi-VN')} Core`
+                        : 'Chưa đăng nhập'}
+                    </strong>
                   </div>
                   <div className="flex justify-between pt-1 border-t border-border/60">
                     <span className="text-muted-foreground">Thời gian giao:</span>
