@@ -52,11 +52,20 @@
   - Quản lý giao dịch mua hàng (`orders` — hỗ trợ `original_price`, `price_paid`, `discount_type`, `discount_amount`), kho mã chi tiết (`inventory_items`), tài khoản người dùng (`members` — hỗ trợ `email_verified`), giao dịch nạp tiền (`transactions`), lịch sử đặt lại ưu đãi (`first_purchase_resets`).
   - Chiến dịch Ưu đãi mua lần đầu (First Purchase Offer): Server-authoritative price engine, SQLite atomic batch guard chống race condition song song, bảng kiểm toán reset độc lập.
   - Endpoints: `GET /api/store/my-offer`, `GET/POST /api/admin/first-purchase`.
-  - **Sàn Thương Mại Điện Tử Số (Digital Marketplace Phase 1 MVP)**:
-    - 6 bảng D1: `sellers`, `seller_products`, `seller_codes`, `seller_orders`, `seller_code_views`, `seller_subaccounts`.
+  - **Sàn Thương Mại Điện Tử Số (Digital Marketplace Phase 1 & 2)**:
+    - 11 bảng D1: `sellers`, `seller_products`, `seller_codes`, `seller_orders`, `seller_code_views`, `seller_subaccounts`, `seller_parent_orders`, `seller_ledger`, `seller_withdrawals`, `reconciliation_runs`, `reconciliation_exceptions`.
     - Cơ chế bảo mật: Mã hóa mã code bằng AES-GCM Web Crypto, chống trùng lặp, chống xóa mã đã bán, tự động đóng băng lô mã khi tỷ lệ lỗi $\ge 25\%$.
-    - Thanh toán: Giao dịch nội bộ bằng ví Core nguyên tử (atomic batch), giao mã 0s, tủ mã khách hàng, báo lỗi 1 chạm, phân quyền tài khoản phụ.
-    - Endpoints: `/api/seller/*`, `/api/seller-orders/*`, `/api/stores/*`, `/api/admin/sellers/*`, `/api/admin/seller-products/*`.
+    - Phase 1: Mua bằng ví Core nội bộ, giao mã 0s, tủ mã khách hàng, báo lỗi 1 chạm, phân quyền tài khoản phụ.
+    - Phase 2 (Tiền thật qua sàn - Chế độ A):
+      - Giỏ hàng đa gian hàng & tự động tách đơn con (`seller_parent_orders` & `seller_orders`).
+      - Cổng QR sàn tập trung: Cú pháp chuyển khoản `WCG <child_order_code>`, sinh VietQR EMVCo tại chỗ (Data URL) chống chặn adblocker.
+      - Xử lý Webhook SePay 7 trường hợp (Khớp chính xác, chuyển thiếu, chuyển thừa, trùng lặp, hết hạn, sai khóa API, cảnh báo tấn công dò khóa).
+      - Giữ tiền 168 giờ (`hold_until`), tự động giải ngân (`RELEASE`) và thu phí sàn 5% (`FEE`).
+      - Sổ cái tài chính 3 ngăn (Đang giữ / Khả dụng / Đã chi trả - `seller_ledger`, APPEND-ONLY).
+      - Đối soát 3 nguồn hàng ngày (Đơn hàng $\leftrightarrow$ SePay $\leftrightarrow$ Sổ cái) và quản lý ngoại lệ.
+      - Quản trị rút tiền: Rút từ số dư khả dụng, tự động duyệt $\le 500$ Core, duyệt tay vượt ngưỡng, xác nhận chuyển khoản.
+      - Kiểm soát gian hàng thử nghiệm: Chỉ `sel_1794399949383_052f1` (Test Key Shop) được kích hoạt thanh toán tiền thật QR trong giai đoạn thử nghiệm; các gian hàng khác giao dịch bằng Core.
+    - Endpoints: `/api/seller/*`, `/api/seller-orders/*`, `/api/seller-orders/multi/*`, `/api/stores/*`, `/api/admin/sellers/*`, `/api/admin/seller-products/*`, `/api/admin/seller-finance/*`, `/api/admin/withdrawals/*`.
 
 ### 2.3. Tự Động Hóa 24/7 (Automation & Crawlers)
 - **GitHub Actions Workflows**:

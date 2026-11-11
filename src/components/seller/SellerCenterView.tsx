@@ -49,9 +49,17 @@ export const SellerCenterView: React.FC<SellerCenterViewProps> = ({
   const [loading, setLoading] = useState<boolean>(true);
   const [sellerData, setSellerData] = useState<any>(null);
   const [stats, setStats] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'codes' | 'orders' | 'settings'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'codes' | 'orders' | 'finance' | 'settings'>('dashboard');
   const [errorMsg, setErrorMsg] = useState<string>('');
   const [successMsg, setSuccessMsg] = useState<string>('');
+
+  // Finance & Withdraw State (Giai đoạn 2)
+  const [financeData, setFinanceData] = useState<any>(null);
+  const [loadingFinance, setLoadingFinance] = useState<boolean>(false);
+  const [sellerWithdrawals, setSellerWithdrawals] = useState<any[]>([]);
+  const [showWithdrawModal, setShowWithdrawModal] = useState<boolean>(false);
+  const [withdrawAmount, setWithdrawAmount] = useState<string>('');
+  const [isSubmittingWithdraw, setIsSubmittingWithdraw] = useState<boolean>(false);
 
   // Products State
   const [products, setProducts] = useState<any[]>([]);
@@ -205,6 +213,58 @@ export const SellerCenterView: React.FC<SellerCenterViewProps> = ({
     } catch {}
   };
 
+  // Fetch Finance & Sổ Cái & Lịch Sử Rút Tiền (Giai đoạn 2)
+  const fetchSellerFinance = async () => {
+    setLoadingFinance(true);
+    try {
+      const [resFin, resWdr] = await Promise.all([
+        fetch('/api/seller/finance', { headers: getHeaders() }),
+        fetch('/api/seller/finance/withdrawals', { headers: getHeaders() }),
+      ]);
+      const dataFin = await resFin.json();
+      const dataWdr = await resWdr.json();
+      if (dataFin.success) setFinanceData(dataFin);
+      if (dataWdr.success) setSellerWithdrawals(dataWdr.withdrawals || []);
+    } catch (err) {
+      console.warn('Fetch seller finance error:', err);
+    } finally {
+      setLoadingFinance(false);
+    }
+  };
+
+  // Gửi Yêu Cầu Rút Tiền (§8)
+  const handleRequestWithdraw = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const amt = parseInt(withdrawAmount, 10);
+    if (isNaN(amt) || amt < 1) {
+      setErrorMsg('Số tiền rút tối thiểu là 1 Core.');
+      return;
+    }
+    setIsSubmittingWithdraw(true);
+    setErrorMsg('');
+    try {
+      const res = await fetch('/api/seller/finance/withdraw', {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ amount_core: amt }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSuccessMsg(data.message || 'Gửi yêu cầu rút tiền thành công!');
+        setShowWithdrawModal(false);
+        setWithdrawAmount('');
+        fetchSellerFinance();
+        fetchSellerInfo();
+      } else {
+        setErrorMsg(data.error || 'Rút tiền thất bại.');
+      }
+    } catch {
+      setErrorMsg('Không thể kết nối đến máy chủ.');
+    } finally {
+      setIsSubmittingWithdraw(false);
+    }
+  };
+
   useEffect(() => {
     if (sellerData && (sellerData.status === 'TRIAL' || sellerData.status === 'ACTIVE')) {
       if (activeTab === 'products') fetchProducts();
@@ -213,6 +273,7 @@ export const SellerCenterView: React.FC<SellerCenterViewProps> = ({
         if (selectedProductId) fetchCodes(selectedProductId);
       }
       if (activeTab === 'orders') fetchOrders();
+      if (activeTab === 'finance') fetchSellerFinance();
       if (activeTab === 'settings') fetchSubaccounts();
     }
   }, [sellerData, activeTab, selectedProductId, orderFilter]);
@@ -797,6 +858,14 @@ export const SellerCenterView: React.FC<SellerCenterViewProps> = ({
           )}
         </button>
         <button
+          onClick={() => setActiveTab('finance')}
+          className={`px-4 py-2 rounded-xl font-bold flex items-center gap-2 whitespace-nowrap transition-all ${
+            activeTab === 'finance' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted/60'
+          }`}
+        >
+          <Coins className="w-4 h-4" /> Tài Chính & Rút Tiền
+        </button>
+        <button
           onClick={() => setActiveTab('settings')}
           className={`px-4 py-2 rounded-xl font-bold flex items-center gap-2 whitespace-nowrap transition-all ${
             activeTab === 'settings' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted/60'
@@ -1189,7 +1258,255 @@ export const SellerCenterView: React.FC<SellerCenterViewProps> = ({
         </div>
       )}
 
-      {/* Tab 5: Settings & Subaccounts (§6.5) */}
+      {/* Tab 5: Tài Chính & Rút Tiền (Giai đoạn 2) */}
+      {activeTab === 'finance' && (
+        <div className="space-y-6">
+          {/* 3 Ngăn số dư */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="p-5 rounded-2xl bg-card border border-border">
+              <div className="text-xs text-muted-foreground font-medium mb-1">Đang Giữ (Hold)</div>
+              <div className="text-2xl font-black text-amber-500 flex items-center gap-1.5">
+                {Number(financeData?.balances?.held_core ?? sellerData?.pending_balance_core ?? 0).toLocaleString('vi-VN')}
+                <span className="text-xs font-semibold">Core</span>
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-2">
+                Tạm giữ {financeData?.config?.hold_hours || 168}h sau khi giao mã thành công để bảo vệ người mua.
+              </p>
+            </div>
+
+            <div className="p-5 rounded-2xl bg-card border border-border">
+              <div className="text-xs text-muted-foreground font-medium mb-1">Khả Dụng (Available)</div>
+              <div className="text-2xl font-black text-emerald-500 flex items-center gap-1.5">
+                {Number(financeData?.balances?.available_core ?? sellerData?.available_balance_core ?? 0).toLocaleString('vi-VN')}
+                <span className="text-xs font-semibold">Core</span>
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-2">
+                Số dư đã hoàn tất thời gian giữ, có thể yêu cầu rút về tài khoản ngân hàng.
+              </p>
+            </div>
+
+            <div className="p-5 rounded-2xl bg-card border border-border">
+              <div className="text-xs text-muted-foreground font-medium mb-1">Đã Chi Trả (Withdrawn)</div>
+              <div className="text-2xl font-black text-blue-500 flex items-center gap-1.5">
+                {Number(financeData?.balances?.withdrawn_core ?? sellerData?.withdrawn_balance_core ?? 0).toLocaleString('vi-VN')}
+                <span className="text-xs font-semibold">Core</span>
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-2">
+                Tổng số Core đã chuyển khoản ra ngoài tài khoản ngân hàng của bạn.
+              </p>
+            </div>
+          </div>
+
+          {/* Hộp hành động rút tiền & Tài khoản ngân hàng */}
+          <div className="p-5 rounded-2xl bg-card border border-border flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                <Coins className="w-4 h-4 text-primary" /> Rút Tiền Về Tài Khoản Ngân Hàng
+              </h4>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Ngân hàng nhận: <span className="font-bold text-foreground">{sellerData?.bank_name || 'Chưa cài đặt'}</span> • STK: <span className="font-mono font-bold text-foreground">{sellerData?.bank_account || '—'}</span> ({sellerData?.bank_account_name || '—'})
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              {sellerData?.sub_role ? (
+                <span className="text-xs text-muted-foreground italic bg-muted px-3 py-1.5 rounded-xl border border-border">
+                  Tài khoản phụ không có quyền rút tiền
+                </span>
+              ) : (
+                <button
+                  onClick={() => setShowWithdrawModal(true)}
+                  disabled={Number(financeData?.balances?.available_core ?? sellerData?.available_balance_core ?? 0) < 1}
+                  className="px-5 py-2.5 rounded-xl bg-primary text-primary-foreground font-bold text-xs flex items-center gap-2 shadow-sm disabled:opacity-50 transition-all hover:bg-primary/90"
+                >
+                  <ArrowRight className="w-4 h-4" /> Yêu Cầu Rút Tiền
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Lịch sử yêu cầu rút tiền */}
+          <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
+            <div className="p-4 border-b border-border bg-muted/20 font-bold text-xs flex items-center justify-between">
+              <span>Lịch Sử Yêu Cầu Rút Tiền</span>
+              <button onClick={fetchSellerFinance} className="text-muted-foreground hover:text-foreground text-[11px] flex items-center gap-1">
+                <RefreshCw className={`w-3 h-3 ${loadingFinance ? 'animate-spin' : ''}`} /> Làm mới
+              </button>
+            </div>
+            <table className="table-fixed w-full text-xs text-left">
+              <thead className="bg-muted/40 border-b border-border text-[11px] uppercase tracking-wider text-muted-foreground font-bold">
+                <tr>
+                  <th style={{ width: '22%' }} className="p-3">Thời Gian</th>
+                  <th style={{ width: '22%' }} className="p-3">Số Core Yêu Cầu</th>
+                  <th style={{ width: '28%' }} className="p-3">Tài Khoản Nhận</th>
+                  <th style={{ width: '28%' }} className="p-3 text-right">Trạng Thái & Ghi Chú</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {sellerWithdrawals.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="p-6 text-center text-muted-foreground">
+                      Bạn chưa có yêu cầu rút tiền nào.
+                    </td>
+                  </tr>
+                ) : (
+                  sellerWithdrawals.map((w) => (
+                    <tr key={w.id} className="hover:bg-muted/20">
+                      <td className="p-3 font-semibold">{new Date(w.created_at).toLocaleString('vi-VN')}</td>
+                      <td className="p-3 font-bold font-mono text-primary text-sm">
+                        {Number(w.amount_core).toLocaleString('vi-VN')} Core
+                      </td>
+                      <td className="p-3">
+                        <div className="font-semibold truncate">{w.bank_name}</div>
+                        <div className="text-[10px] text-muted-foreground font-mono truncate">{w.bank_account} ({w.bank_account_name})</div>
+                      </td>
+                      <td className="p-3 text-right">
+                        <div>
+                          {w.status === 'PENDING' && <span className="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 font-bold text-[10px] border border-amber-500/20">Chờ duyệt</span>}
+                          {w.status === 'APPROVED' && <span className="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-500 font-bold text-[10px] border border-blue-500/20">Đã duyệt (Chờ chuyển)</span>}
+                          {w.status === 'PAID' && <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 font-bold text-[10px] border border-emerald-500/20">Đã chi trả</span>}
+                          {w.status === 'REJECTED' && <span className="px-2 py-0.5 rounded-full bg-destructive/10 text-destructive font-bold text-[10px] border border-destructive/20">Đã từ chối</span>}
+                        </div>
+                        {w.review_note && (
+                          <div className="text-[10px] text-muted-foreground mt-0.5 truncate" title={w.review_note}>
+                            {w.review_note}
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Sổ cái gian hàng */}
+          <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
+            <div className="p-4 border-b border-border bg-muted/20 font-bold text-xs flex items-center justify-between">
+              <span>Sổ Cái Biến Động Số Dư (Ledger)</span>
+              <span className="text-[11px] text-muted-foreground">Minh bạch 100% từng dòng giao dịch</span>
+            </div>
+            <table className="table-fixed w-full text-xs text-left">
+              <thead className="bg-muted/40 border-b border-border text-[11px] uppercase tracking-wider text-muted-foreground font-bold">
+                <tr>
+                  <th style={{ width: '20%' }} className="p-3">Thời Gian</th>
+                  <th style={{ width: '16%' }} className="p-3">Nghiệp Vụ</th>
+                  <th style={{ width: '18%' }} className="p-3">Biến Động (Core)</th>
+                  <th style={{ width: '26%' }} className="p-3">3 Ngăn Số Dư Sau Giao Dịch</th>
+                  <th style={{ width: '20%' }} className="p-3 text-right">Diễn Giải</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {(!financeData?.ledger || financeData.ledger.length === 0) ? (
+                  <tr>
+                    <td colSpan={5} className="p-6 text-center text-muted-foreground">
+                      Chưa có phát sinh biến động sổ cái.
+                    </td>
+                  </tr>
+                ) : (
+                  financeData.ledger.map((l: any) => (
+                    <tr key={l.id} className="hover:bg-muted/20">
+                      <td className="p-3 font-semibold">{new Date(l.created_at).toLocaleString('vi-VN')}</td>
+                      <td className="p-3">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                          l.type === 'HOLD' ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' :
+                          l.type === 'RELEASE' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' :
+                          l.type === 'FEE' ? 'bg-purple-500/10 text-purple-500 border-purple-500/20' :
+                          l.type === 'WITHDRAW' ? 'bg-blue-500/10 text-blue-500 border-blue-500/20' :
+                          l.type === 'REFUND' ? 'bg-destructive/10 text-destructive border-destructive/20' :
+                          'bg-muted text-muted-foreground border-border'
+                        }`}>
+                          {l.type}
+                        </span>
+                      </td>
+                      <td className="p-3 font-bold font-mono">
+                        <span className={l.amount_core >= 0 ? 'text-emerald-500' : 'text-destructive'}>
+                          {l.amount_core >= 0 ? `+${Number(l.amount_core).toLocaleString('vi-VN')}` : Number(l.amount_core).toLocaleString('vi-VN')} Core
+                        </span>
+                      </td>
+                      <td className="p-3 font-mono text-[11px]">
+                        <div>Giữ: <span className="text-amber-500 font-bold">{Number(l.balance_held_after).toLocaleString('vi-VN')}</span></div>
+                        <div className="text-[10px] text-muted-foreground">Khả dụng: <span className="text-emerald-500 font-bold">{Number(l.balance_available_after).toLocaleString('vi-VN')}</span> | Đã rút: {Number(l.balance_withdrawn_after).toLocaleString('vi-VN')}</div>
+                      </td>
+                      <td className="p-3 text-right">
+                        <span className="truncate block text-muted-foreground" title={l.reason}>
+                          {l.reason}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Yêu Cầu Rút Tiền (§8) */}
+      {showWithdrawModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-card border border-border rounded-2xl w-full max-w-sm p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between">
+              <h4 className="text-base font-bold flex items-center gap-2">
+                <Coins className="w-5 h-5 text-primary" /> Rút Tiền Về Ngân Hàng
+              </h4>
+              <button onClick={() => setShowWithdrawModal(false)}><X className="w-4 h-4" /></button>
+            </div>
+
+            <div className="p-3.5 bg-muted/40 rounded-xl space-y-1.5 text-xs">
+              <div className="text-muted-foreground">Số dư khả dụng hiện tại:</div>
+              <div className="text-xl font-black text-emerald-500">
+                {Number(financeData?.balances?.available_core ?? sellerData?.available_balance_core ?? 0).toLocaleString('vi-VN')} Core
+              </div>
+              <div className="pt-2 border-t border-border/60 text-[11px] text-muted-foreground">
+                Tài khoản nhận: <span className="font-bold text-foreground">{sellerData?.bank_name}</span> - <span className="font-mono font-bold text-foreground">{sellerData?.bank_account}</span> ({sellerData?.bank_account_name})
+              </div>
+            </div>
+
+            <form onSubmit={handleRequestWithdraw} className="space-y-4 text-xs">
+              <div>
+                <label className="block font-semibold mb-1">Số Core muốn rút *</label>
+                <input
+                  type="number"
+                  required
+                  min={1}
+                  max={Number(financeData?.balances?.available_core ?? sellerData?.available_balance_core ?? 0)}
+                  value={withdrawAmount}
+                  onChange={(e) => setWithdrawAmount(e.target.value)}
+                  placeholder="Nhập số Core (tối thiểu 1)..."
+                  className="w-full px-3 py-2 rounded-xl border border-border bg-background font-mono font-bold text-base focus:outline-none focus:border-primary"
+                />
+                <span className="text-[10px] text-muted-foreground mt-1 block">
+                  Tỷ lệ quy đổi: 1 Core = 1 VND. Số tiền chuyển khoản: {parseInt(withdrawAmount || '0', 10).toLocaleString('vi-VN')} VNĐ.
+                </span>
+              </div>
+
+              <div className="p-2.5 bg-primary/10 border border-primary/20 rounded-xl text-[11px] text-primary">
+                ℹ️ Lưu ý: Yêu cầu rút ≤ {financeData?.config?.withdraw_approval_threshold_core || 500} Core sẽ được duyệt tự động. Yêu cầu lớn hơn sẽ được Chủ Sàn duyệt thủ công.
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowWithdrawModal(false)}
+                  className="px-4 py-2 rounded-xl border border-border font-semibold hover:bg-muted"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingWithdraw}
+                  className="px-5 py-2 rounded-xl bg-primary text-primary-foreground font-bold shadow-sm disabled:opacity-50"
+                >
+                  {isSubmittingWithdraw ? 'Đang gửi...' : 'Xác Nhận Rút Tiền'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Tab 6: Settings & Subaccounts (§6.5) */}
       {activeTab === 'settings' && (
         <div className="space-y-6 max-w-3xl">
           <div className="p-6 rounded-2xl bg-card border border-border space-y-4">

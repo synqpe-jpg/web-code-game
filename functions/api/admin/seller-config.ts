@@ -61,11 +61,21 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
     }
 
     const body = (await request.json().catch(() => ({}))) as any;
+    const testIds = Array.isArray(body.test_seller_ids)
+      ? body.test_seller_ids
+      : (typeof body.test_seller_ids === 'string'
+          ? body.test_seller_ids.split(',').map((s: string) => s.trim()).filter(Boolean)
+          : ['sel_1794399949383_052f1']);
+
     const newConfig = {
       default_trial_product_limit: Math.max(1, parseInt(body.default_trial_product_limit || 5, 10)),
       default_trial_order_max: Math.max(10, parseInt(body.default_trial_order_max || 200, 10)),
       batch_freeze_error_rate: Math.min(1, Math.max(0.05, parseFloat(body.batch_freeze_error_rate || 0.25))),
       min_batch_size_for_freeze: Math.max(2, parseInt(body.min_batch_size_for_freeze || 5, 10)),
+      hold_hours: typeof body.hold_hours !== 'undefined' ? Math.max(0, parseInt(body.hold_hours, 10)) : 168,
+      fee_rate: typeof body.fee_rate !== 'undefined' ? Math.min(1, Math.max(0, parseFloat(body.fee_rate))) : 0.05,
+      withdraw_approval_threshold_core: typeof body.withdraw_approval_threshold_core !== 'undefined' ? Math.max(0, parseInt(body.withdraw_approval_threshold_core, 10)) : 500,
+      test_seller_ids: testIds,
     };
 
     const nowIso = new Date().toISOString();

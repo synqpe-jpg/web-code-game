@@ -10,6 +10,20 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-261: Bẫy Sổ Cái Tài Chính Đa Ngăn: Cập Nhật Trực Tiếp Số Dư Thay Vì Đi Qua Giao Dịch Ghi Sổ APPEND-ONLY & Bẫy Crash Khi Thiếu Khóa Mã Hóa Bí Mật
+- **Triệu chứng & Rủi ro**:
+  1. Nếu các hàm chức năng tự cộng trừ trực tiếp các trường số dư (`pending_balance_core`, `available_balance_core`, `withdrawn_balance_core`) trên bảng `sellers` mà không ghi nhận dòng giao dịch tương ứng trong `seller_ledger`, số dư thực tế sẽ bị lệch hoàn toàn so với lịch sử giao dịch khi đối soát (Reconciliation Exception).
+  2. Khi biến môi trường bí mật `MARKETPLACE_CODE_KEY` chưa được cấu hình hoặc bị thiếu trong runtime của Worker, webhook thanh toán giải mã code thất bại và ném ngoại lệ không xử lý (uncaught exception), khiến webhook trả về mã 500 cho SePay, giao dịch bị gián đoạn và khách hàng mất tiền mà không nhận được trạng thái.
+- **Nguyên nhân gốc rễ**:
+  1. Thiếu cơ chế ghi sổ nguyên tử (Atomic Double-entry/Append-only Ledger pattern): Mọi sự dịch chuyển dòng tiền bắt buộc phải xuất phát từ một dòng giao dịch sổ cái (`seller_ledger`).
+  2. Xử lý thiếu phòng thủ (non-defensive) khi gọi hàm mã hóa/giải mã mã số điện tử.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Nguyên tắc Sổ cái APPEND-ONLY*: Tuyệt đối không UPDATE trực tiếp số dư gian hàng. Mọi biến động phải đi qua hàm `recordLedgerTransaction`: vừa ghi một dòng mới vào `seller_ledger`, vừa đồng thời cập nhật đúng ngăn số dư tương ứng (`HOLD`, `RELEASE`, `FEE`, `WITHDRAW`, `REFUND`) trong cùng một batch nguyên tử.
+  2. *Cơ chế dự phòng khi thiếu khóa bí mật (`pending_manual_code = 1`)*: Nếu `MARKETPLACE_CODE_KEY` bị thiếu khi Webhook SePay xử lý thanh toán, hệ thống vẫn cập nhật trạng thái đơn hàng sang `PAID`, tiền người bán vẫn vào ngăn `HOLD`, mã code giữ trạng thái bảo lưu an toàn kèm cờ `pending_manual_code = 1`, mở ngay một ngoại lệ đối soát (`reconciliation_exceptions`) và gửi thông báo cho quản trị viên xử lý thủ công — tuyệt đối không crash Worker và không trả mã rỗng cho khách hàng.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không viết câu lệnh `UPDATE sellers SET available_balance_core = ...` độc lập bên ngoài `recordLedgerTransaction`.*
+  - ❌ *Không để lỗi giải mã ném 500 ra ngoài webhook SePay khi tiền đã vào tài khoản ngân hàng.*
+
 ### ISSUE-260: Bẫy Nhầm Tên Cột `core_balance` Thay Vì `balance` Trên Bảng Members Khi Thao Tác Với Ví Core & Bẫy Đọc Nhầm `currentUser.core_balance` Thay Vì `wallet_balance`
 - **Triệu chứng & Rủi ro**:
   1. Khi người mua thanh toán đơn hàng bằng ví Core trên sàn TMĐT, D1 báo lỗi: `D1_ERROR: no such column: core_balance at offset 11: SQLITE_ERROR`, khiến toàn bộ giao dịch bị rollback, không tạo được đơn hàng và không giao mã cho khách.

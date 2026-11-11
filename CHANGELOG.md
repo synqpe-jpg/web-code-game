@@ -7,6 +7,53 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-11]
 
+### 373. Triển Khai Hoàn Tất Giai Đoạn 2 Sàn TMĐT Số: Tiền Thật Qua Sàn (Chế Độ A), Sổ Cái 3 Ngăn, Đối Soát 3 Nguồn & Quản Trị Rút Tiền
+- **Yêu cầu & Phạm vi (Phase 2 Prompt)**:
+  - Triển khai toàn diện Giai đoạn 2 Sàn TMĐT số CodeGame.shop theo kế hoạch 16 trang (`ke-hoach-san-tmdt-so.pdf`, mục 6, 7, 10, 11, 12).
+  - Hỗ trợ giỏ hàng đa gian hàng & tự động tách đơn con theo từng gian hàng.
+  - Cổng thanh toán VietQR ngân hàng qua SePay cho đơn con sàn TMĐT (`WCG <child_order_code>`).
+  - Xử lý 7 trường hợp SePay webhook (khớp tiền, thiếu tiền, thừa tiền, trùng lặp, hết hạn, sai khóa API, cảnh báo bảo mật $\ge 3$ lần sai liên tiếp).
+  - Tự động giao mã số sau khi thanh toán thành công; nếu thiếu biến bí mật `MARKETPLACE_CODE_KEY`, tiền vẫn giữ an toàn trong trạng thái HOLD và gán cờ `pending_manual_code = 1` để admin xử lý thủ công (không bao giờ crash hay giao mã rỗng).
+  - Cơ chế giữ tiền 168 giờ (`hold_until`), tự động giải ngân (`RELEASE`) chuyển từ ngăn Đang giữ sang Khả dụng và thu phí sàn 5% (`FEE`).
+  - Hệ thống sổ cái tài chính 3 ngăn (Đang giữ / Khả dụng / Đã chi trả - `seller_ledger`, APPEND-ONLY tuyệt đối không cập nhật/xóa dòng).
+  - Tự động đối soát 3 nguồn hàng ngày (Đơn hàng $\leftrightarrow$ SePay $\leftrightarrow$ Sổ cái) và kiểm tra tính toàn vẹn số dư gian hàng so với tổng sổ cái.
+  - Vận hành rút tiền: Tự động duyệt yêu cầu $\le 500$ Core, duyệt tay vượt ngưỡng, xác nhận chuyển khoản ngân hàng và khấu trừ vào ngăn Đã chi trả.
+  - Bổ sung 4 tab tài chính mới trong Quản trị Sàn (`SellerModerationModule.tsx`): Sổ Cái, Đối Soát, Rút Tiền, Ngoại Lệ Webhook; tuân thủ 100% Rule 9 (`table-fixed w-full`, tổng 100% cột, zero horizontal scroll).
+  - Thêm tab "Tài Chính & Rút Tiền" trong Kênh Người Bán (`SellerCenterView.tsx`).
+  - Đăng ký quyền API mới `MARKETPLACE_FINANCE_MANAGE` theo Rule 8.
+  - Giới hạn gian hàng thử nghiệm: Chỉ `sel_1794399949383_052f1` (Test Key Shop) được kích hoạt thanh toán tiền thật QR trong giai đoạn thử nghiệm.
+- **Giải pháp kỹ thuật đã triển khai (Solution)**:
+  1. *Cơ sở dữ liệu D1 (`functions/services/d1_service.ts`)*:
+     - Thêm 5 bảng mới: `seller_parent_orders`, `seller_ledger`, `seller_withdrawals`, `reconciliation_runs`, `reconciliation_exceptions`.
+     - Thêm cột và index: `sellers` (`available_balance_core`, `withdrawn_balance_core`), `seller_orders` (`parent_order_id`, `payment_method`, `sepay_transaction_id`, `hold_until`, `released_at`, `fee_core`, `refund_core`, `deleted_at`, `pending_manual_code`).
+     - Tự động hủy đơn quá hạn 15 phút và trả mã về kho (`checkAndExpireSellerOrdersD1`).
+  2. *Dịch vụ Sàn (`functions/services/marketplace_service.ts`)*:
+     - Mở rộng cấu hình: `hold_hours: 168`, `fee_rate: 0.05`, `withdraw_approval_threshold_core: 500`, `test_seller_ids: ['sel_1794399949383_052f1']`.
+     - Hàm ghi sổ cái nguyên tử `recordLedgerTransaction`: APPEND-ONLY, tự động cập nhật số dư 3 ngăn trên bảng `sellers`.
+     - Hàm giải ngân tự động `releaseDueSellerOrders`: Quét đơn `PAID` quá `hold_until`, ghi dòng `RELEASE` và `FEE` (5%), chuyển trạng thái `COMPLETED`.
+     - Hàm đối soát 3 nguồn `runDailyReconciliation`: Đối chiếu giao dịch SePay, đơn hàng và sổ cái; phát hiện chênh lệch số dư gian hàng.
+  3. *Endpoints Serverless Edge mới & nâng cấp*:
+     - `POST /api/seller-orders/multi`: Tạo đơn cha và tách đơn con theo gian hàng, giữ mã nguyên tử.
+     - `GET /api/seller-orders/multi/:id`: Lấy thông tin đơn cha, đơn con và mã thanh toán VietQR EMVCo sinh tại chỗ.
+     - `POST /api/seller-orders/multi/:id/pay-core`: Thanh toán đơn cha bằng ví Core nội bộ.
+     - `POST /api/webhooks/sepay`: Nhận diện đơn con sàn TMĐT, xử lý toàn diện 7 kịch bản giao dịch.
+     - `GET /api/seller/finance`: Tra cứu số dư 3 ngăn, lịch sử sổ cái gian hàng.
+     - `POST /api/seller/finance/withdraw`: Tạo yêu cầu rút tiền từ số dư khả dụng (tự động duyệt nếu $\le$ 500 Core).
+     - `GET /api/seller/finance/withdrawals`: Lịch sử rút tiền của gian hàng.
+     - `GET /api/admin/seller-finance`: Toàn cảnh sổ cái sàn, bộ lọc nâng cao, cảnh báo bảo mật SePay.
+     - `GET /api/admin/seller-finance/reconciliation`: Danh sách phiên đối soát và ngoại lệ.
+     - `POST /api/admin/seller-finance/reconciliation/run`: Kích hoạt phiên đối soát thủ công.
+     - `POST /api/admin/seller-finance/release-held`: Kích hoạt quét và giải ngân các đơn đã hết thời hạn tạm giữ.
+     - `GET /api/admin/withdrawals`, `[id]/approve`, `[id]/reject`, `[id]/mark-paid`: Quy trình xét duyệt và hoàn tất chi trả tiền cho người bán.
+  4. *Giao diện Frontend*:
+     - `SellerModerationModule.tsx`: Bổ sung 4 tab tài chính, tích hợp banner cảnh báo SePay brute-force, tuân thủ 100% Rule 9 (`table-fixed w-full`, không tràn ngang).
+     - `SellerCenterView.tsx`: Tab Tài Chính & Rút Tiền với 3 thẻ số dư (Đang giữ, Khả dụng, Đã chi trả), modal rút tiền, bảng lịch sử rút tiền và bảng sổ cái biến động số dư.
+  5. *Phân quyền API (Rule 8)*:
+     - Khai báo scope `MARKETPLACE_FINANCE_MANAGE` trong `src/admin/modules/ApiKeysModule.tsx` và hàm `hasScope` trong `functions/services/mission_service.ts`.
+- **Kiểm thử & Triển khai**:
+  - `npm run build`: Hoàn tất 100% thành công, 0 lỗi TypeScript, 0 lỗi Vite, Edge Worker bundle 18.6MB.
+  - Zero test artifacts: Bộ kiểm tra tự động xác nhận CSDL và kho tĩnh sạch 100%.
+
 ### 372. Khắc Phục Lỗi Mua Hàng Sàn TMĐT: Đổi Cột `core_balance` Thành `balance` Trên Bảng Members & Sửa Lỗi Hộp Thoại Hiện 0 Core
 - **Triệu chứng & Bối cảnh**:
   - Khi tài khoản `muse2` (500 Core) bấm "Xác Nhận Thanh Toán (100 Core)" cho sản phẩm "Test Key Product" trên gian hàng sàn, hệ thống báo lỗi:

@@ -4,11 +4,21 @@ import {
   completeQrOrderD1,
   recordSepayExceptionD1,
   checkAndExpireOrdersD1,
+  ensureMarketplaceSchema,
+  checkAndExpireSellerOrdersD1,
+  logAdminAudit,
 } from '../../services/d1_service';
+import {
+  decryptCode,
+  recordLedgerTransaction,
+  getMarketplaceConfig,
+} from '../../services/marketplace_service';
 
 interface Env {
   DB: D1Database;
   SEPAY_API_KEY?: string;
+  MARKETPLACE_CODE_KEY?: string;
+  ADMIN_SYNC_SECRET?: string;
 }
 
 const CORS_HEADERS = {
@@ -231,6 +241,37 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
               ) VALUES (?, ?, ?, ?, ?, NULL, 'FAILED', ?, datetime('now'))
             `).bind(transactionId, gateway, accountNumber, amount, content, authNote).run();
           }
+
+          // Trường hợp 7 (§5): Cảnh báo khi webhook nhận liên tiếp >= 3 giao dịch UNAUTHORIZED
+          const recentUnauth = await env.DB.prepare(`
+            SELECT COUNT(*) as unauth_count 
+            FROM sepay_transactions 
+            WHERE status = 'FAILED' 
+              AND note LIKE 'UNAUTHORIZED%' 
+              AND created_at >= datetime('now', '-1 hour')
+          `).first<{ unauth_count: number }>();
+
+          const unauthCount = Number(recentUnauth?.unauth_count || 0);
+          if (unauthCount >= 3) {
+            await logAdminAudit(env.DB, {
+              actorName: 'SePay Webhook',
+              actorEmail: 'system@codegame.shop',
+              action: 'SEPAY_UNAUTHORIZED_ALERT',
+              targetId: 'sepay_config',
+              details: `Phát hiện ${unauthCount} giao dịch SePay liên tiếp bị từ chối xác thực (UNAUTHORIZED) trong 1 giờ qua. Cần kiểm tra khóa API SePay trên máy chủ.`,
+            }).catch(() => {});
+
+            await env.DB.prepare(`
+              INSERT INTO system_settings (key, value, updated_at)
+              VALUES ('wcg_sepay_unauthorized_alert', ?, datetime('now'))
+              ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+            `).bind(JSON.stringify({
+              active: true,
+              count: unauthCount,
+              last_alert_at: new Date().toISOString(),
+              message: `CẢNH BÁO: Phát hiện ${unauthCount} giao dịch SePay liên tiếp bị từ chối xác thực (UNAUTHORIZED). Vui lòng kiểm tra lại cấu hình API Key SePay của sàn ngay lập tức!`
+            })).run().catch(() => {});
+          }
         } catch (e) {
           console.warn('[SePay Webhook] Failed to log unauthorized tx:', e);
         }
@@ -281,9 +322,11 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     const cleanContent = content.replace(/\u00a0/g, ' ').trim();
 
     // 4b. Kiểm tra xem giao dịch có phải là thanh toán ĐƠN HÀNG TRỰC TIẾP (Direct QR Order) hay không
-    // Cú pháp: WCG ORD-QR-... hoặc ORD-QR-... hoặc WCG ORD-...
+    // Cú pháp: WCG ORD-QR-... hoặc ORD-QR-... hoặc WCG ORD-... hoặc CGM-...
     const orderIdMatch = cleanContent.match(/\b(ORD(?:-QR)?-[A-Za-z0-9_-]+)\b/i) ||
-      cleanContent.match(/(?:WCG|COD)\s*[:\-\s]?\s*(ORD[A-Za-z0-9_-]+)/i);
+      cleanContent.match(/\b(CGM-[A-Za-z0-9_-]+)\b/i) ||
+      cleanContent.match(/(?:WCG|COD)\s*[:\-\s]?\s*(ORD[A-Za-z0-9_-]+)/i) ||
+      cleanContent.match(/(?:WCG|COD)\s*[:\-\s]?\s*(CGM-[A-Za-z0-9_-]+)/i);
 
     if (orderIdMatch) {
       const orderId = orderIdMatch[1].trim();
@@ -424,6 +467,305 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
             { status: 200, headers: CORS_HEADERS }
           );
         }
+      }
+    }
+
+    // 4c. Kiểm tra xem giao dịch có phải là thanh toán ĐƠN HÀNG SÀN TMĐT (Seller Child Order)
+    if (orderIdMatch) {
+      const orderCandidate = orderIdMatch[1].trim();
+      const matchedSellerOrder = await env.DB.prepare(
+        "SELECT * FROM seller_orders WHERE (id = ? OR order_code = ?) COLLATE NOCASE LIMIT 1"
+      ).bind(orderCandidate, orderCandidate).first<any>();
+
+      if (matchedSellerOrder) {
+        const orderCode = matchedSellerOrder.order_code || matchedSellerOrder.id;
+        const buyerId = matchedSellerOrder.buyer_member_id;
+
+        // TÌNH HUỐNG 1 (Trùng thanh toán): Đơn hàng sàn đã hoàn tất trước đó
+        if (matchedSellerOrder.status === 'PAID' || matchedSellerOrder.status === 'COMPLETED' || matchedSellerOrder.status === 'DELIVERED') {
+          const dupNote = `DUPLICATE_PAYMENT: Đơn hàng sàn ${orderCode} đã hoàn tất trước đó, khách chuyển tiền lần 2 (+${amount.toLocaleString('vi-VN')}đ). Không giao thêm mã. Chờ admin xử lý.`;
+          await recordSepayExceptionD1(env.DB, {
+            transactionId,
+            gateway,
+            accountNumber,
+            amount,
+            content,
+            orderId: matchedSellerOrder.id,
+            memberId: buyerId,
+            status: 'FAILED',
+            note: dupNote,
+            action: 'SEPAY_DUPLICATE_PAYMENT',
+          });
+
+          return new Response(
+            JSON.stringify({
+              success: true,
+              status: 'DUPLICATE_PAYMENT',
+              message: `Đơn hàng sàn ${orderCode} đã hoàn tất trước đó. Không giao thêm mã. Ghi nhận giao dịch lần 2 để quản trị viên xử lý thủ công.`,
+              transactionId,
+              orderId: matchedSellerOrder.id,
+            }),
+            { status: 200, headers: CORS_HEADERS }
+          );
+        }
+
+        // TÌNH HUỐNG 2: Đơn hàng sàn đã hết hạn (> 15 phút) hoặc đã bị hủy
+        const isOrderExpired = matchedSellerOrder.status === 'CANCELLED' ||
+          matchedSellerOrder.status === 'EXPIRED' ||
+          (matchedSellerOrder.expires_at && new Date(matchedSellerOrder.expires_at).getTime() <= Date.now());
+
+        if (isOrderExpired) {
+          await checkAndExpireSellerOrdersD1(env.DB, matchedSellerOrder.id);
+          const expNote = `EXPIRED_PAYMENT: Khách chuyển tiền (+${amount.toLocaleString('vi-VN')}đ) sau khi đơn sàn ${orderCode} đã hết hạn 15 phút (mã đã trả về kho). Không giao mã. Chờ admin xử lý.`;
+          await recordSepayExceptionD1(env.DB, {
+            transactionId,
+            gateway,
+            accountNumber,
+            amount,
+            content,
+            orderId: matchedSellerOrder.id,
+            memberId: buyerId,
+            status: 'FAILED',
+            note: expNote,
+            action: 'SEPAY_EXPIRED_PAYMENT',
+          });
+
+          return new Response(
+            JSON.stringify({
+              success: true,
+              status: 'EXPIRED_PAYMENT',
+              message: `Đơn hàng sàn ${orderCode} đã hết hạn (quá 15 phút). Không giao mã. Đã ghi nhận khoản tiền để quản trị viên xử lý thủ công.`,
+              transactionId,
+              orderId: matchedSellerOrder.id,
+            }),
+            { status: 200, headers: CORS_HEADERS }
+          );
+        }
+
+        // TÌNH HUỐNG 3: Chuyển thiếu tiền
+        const requiredAmount = Number(matchedSellerOrder.price_core || 0);
+        if (amount < requiredAmount) {
+          const underNote = `UNDERPAID: Chuyển thiếu tiền cho đơn sàn ${orderCode} (nhận ${amount.toLocaleString('vi-VN')}đ, cần ${requiredAmount.toLocaleString('vi-VN')}đ). Không giao mã. Chờ admin xử lý.`;
+          await recordSepayExceptionD1(env.DB, {
+            transactionId,
+            gateway,
+            accountNumber,
+            amount,
+            content,
+            orderId: matchedSellerOrder.id,
+            memberId: buyerId,
+            status: 'FAILED',
+            note: underNote,
+            action: 'SEPAY_UNDERPAID',
+          });
+
+          return new Response(
+            JSON.stringify({
+              success: true,
+              status: 'UNDERPAID',
+              message: `Số tiền chuyển (${amount.toLocaleString('vi-VN')}đ) không đủ đơn hàng sàn (${requiredAmount.toLocaleString('vi-VN')}đ). Đã ghi nhận để quản trị viên xử lý thủ công.`,
+              transactionId,
+              orderId: matchedSellerOrder.id,
+              received: amount,
+              required: requiredAmount,
+            }),
+            { status: 200, headers: CORS_HEADERS }
+          );
+        }
+
+        // TÌNH HUỐNG 4: Chuyển đúng tiền hoặc thừa tiền, còn hạn
+        const isOverpaid = amount > requiredAmount;
+        const excessAmount = isOverpaid ? (amount - requiredAmount) : 0;
+        const nowIso = new Date().toISOString();
+
+        let reservedCode = null;
+        if (matchedSellerOrder.code_id) {
+          reservedCode = await env.DB.prepare("SELECT * FROM seller_codes WHERE id = ? LIMIT 1")
+            .bind(matchedSellerOrder.code_id).first<any>();
+        }
+        if (!reservedCode) {
+          reservedCode = await env.DB.prepare("SELECT * FROM seller_codes WHERE order_id = ? AND status = 'RESERVED' LIMIT 1")
+            .bind(matchedSellerOrder.id).first<any>();
+        }
+
+        // Thử giải mã mã code
+        let plainDeliveredCode = '';
+        let keyMissingOrFailed = false;
+
+        if (!env.MARKETPLACE_CODE_KEY || !env.MARKETPLACE_CODE_KEY.trim()) {
+          keyMissingOrFailed = true;
+        } else if (reservedCode?.code_encrypted) {
+          try {
+            plainDeliveredCode = await decryptCode(reservedCode.code_encrypted, env.MARKETPLACE_CODE_KEY);
+          } catch {
+            keyMissingOrFailed = true;
+          }
+        } else {
+          keyMissingOrFailed = true;
+        }
+
+        // 1. Luôn ghi nhận dòng tiền HOLD vào sổ cái của gian hàng
+        await recordLedgerTransaction(env.DB, {
+          sellerId: matchedSellerOrder.seller_id,
+          orderId: matchedSellerOrder.id,
+          type: 'HOLD',
+          amountCore: requiredAmount,
+          actor: 'sepay_webhook',
+          reason: `Nhận thanh toán tiền thật qua QR SePay (Đơn sàn ${orderCode})${keyMissingOrFailed ? ' - Chờ giải mã thủ công do thiếu key' : ''}`,
+        });
+
+        const mConfig = await getMarketplaceConfig(env.DB);
+        const holdHours = mConfig.hold_hours || 168;
+        const holdUntil = new Date(Date.now() + holdHours * 3600 * 1000).toISOString();
+
+        if (keyMissingOrFailed) {
+          // Trường hợp thiếu key hoặc giải mã thất bại:
+          // Đơn con chuyển sang trạng thái PENDING_PAYMENT kèm cờ pending_manual_code = 1 (§4.5).
+          // Tiền vẫn giữ trong sổ cái, không tự hoàn tiền, quản trị xử lý tay.
+          await env.DB.prepare(`
+            UPDATE seller_orders
+            SET sepay_transaction_id = ?,
+                pending_manual_code = 1,
+                updated_at = ?
+            WHERE id = ?
+          `).bind(transactionId, nowIso, matchedSellerOrder.id).run();
+
+          const manualNote = `PAID_WAITING_MANUAL_CODE: Đã nhận ${amount}đ cho đơn sàn ${orderCode}. Chưa có khóa MARKETPLACE_CODE_KEY để giải mã tự động. Tiền đã vào ngăn đang giữ, quản trị cần giao mã thủ công.`;
+          await env.DB.prepare(`
+            INSERT INTO sepay_transactions (
+              transaction_id, gateway, account_number, amount_in, transaction_content, member_id, status, note, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, 'SUCCESS', ?, datetime('now'))
+          `).bind(transactionId, gateway, accountNumber, amount, content, buyerId, manualNote).run();
+
+          // Mở 1 ngoại lệ đối soát để quản trị giao mã thủ công
+          await env.DB.prepare(`
+            INSERT INTO reconciliation_exceptions (
+              id, run_id, source, reference_id, expected_amount, actual_amount, suggested_cause, status, created_at, updated_at
+            ) VALUES (?, ?, 'ORDERS', ?, ?, ?, ?, 'OPEN', datetime('now'), datetime('now'))
+          `).bind(
+            `ex_manual_${transactionId}`,
+            `rec_adhoc_${transactionId}`,
+            orderCode,
+            requiredAmount,
+            amount,
+            `Đơn sàn ${orderCode} đã thanh toán thành công nhưng thiếu MARKETPLACE_CODE_KEY để giải mã. Quản trị cần giao mã thủ công.`
+          ).run().catch(() => {});
+
+          return new Response(
+            JSON.stringify({
+              success: true,
+              status: 'PENDING_MANUAL_CODE',
+              message: `Thanh toán đơn hàng sàn ${orderCode} thành công. Mã đang chờ quản trị viên giao thủ công do hệ thống chưa nạp khóa giải mã.`,
+              transactionId,
+              orderId: matchedSellerOrder.id,
+            }),
+            { status: 200, headers: CORS_HEADERS }
+          );
+        }
+
+        // Nếu giải mã thành công: Hoàn tất đơn con, đổi mã sang SOLD, cập nhật PAID
+        const batchStatements = [
+          env.DB.prepare(`
+            UPDATE seller_orders
+            SET status = 'PAID',
+                code_id = ?,
+                delivered_code = ?,
+                sepay_transaction_id = ?,
+                payment_method = 'QR_SEPAY',
+                hold_until = ?,
+                updated_at = ?
+            WHERE id = ?
+          `).bind(
+            reservedCode?.id || matchedSellerOrder.code_id,
+            plainDeliveredCode,
+            transactionId,
+            holdUntil,
+            nowIso,
+            matchedSellerOrder.id
+          ),
+        ];
+
+        if (reservedCode?.id) {
+          batchStatements.push(
+            env.DB.prepare(`
+              UPDATE seller_codes
+              SET status = 'SOLD',
+                  order_id = ?,
+                  sold_at = ?,
+                  updated_at = ?
+              WHERE id = ?
+            `).bind(matchedSellerOrder.id, nowIso, nowIso, reservedCode.id)
+          );
+        }
+
+        await env.DB.batch(batchStatements);
+
+        // Ghi transaction SePay
+        const successNote = isOverpaid
+          ? `OVERPAID: Đã nhận ${amount}đ (thừa ${excessAmount}đ) cho đơn sàn ${orderCode}. Đã giao mã, mở ngoại lệ để admin xử lý số tiền thừa.`
+          : `COMPLETED: Đã nhận đủ ${amount}đ cho đơn sàn ${orderCode}. Đã giao mã cho khách, tiền vào ngăn đang giữ ${holdHours}h.`;
+
+        await env.DB.prepare(`
+          INSERT INTO sepay_transactions (
+            transaction_id, gateway, account_number, amount_in, transaction_content, member_id, status, note, created_at
+          ) VALUES (?, ?, ?, ?, ?, ?, 'SUCCESS', ?, datetime('now'))
+        `).bind(transactionId, gateway, accountNumber, amount, content, buyerId, successNote).run();
+
+        // Nếu thừa tiền, mở ngoại lệ đối soát để admin xử lý số tiền thừa (§5 tình huống 3)
+        if (isOverpaid) {
+          await env.DB.prepare(`
+            INSERT INTO reconciliation_exceptions (
+              id, run_id, source, reference_id, expected_amount, actual_amount, suggested_cause, status, created_at, updated_at
+            ) VALUES (?, ?, 'SEPAY', ?, ?, ?, ?, 'OPEN', datetime('now'), datetime('now'))
+          `).bind(
+            `ex_overpaid_${transactionId}`,
+            `rec_adhoc_${transactionId}`,
+            transactionId,
+            requiredAmount,
+            amount,
+            `Khách chuyển thừa ${excessAmount.toLocaleString('vi-VN')}đ cho đơn con ${orderCode}. Quản trị viên cần hoàn thừa hoặc cộng ví Core cho khách.`
+          ).run().catch(() => {});
+        }
+
+        // Cập nhật trạng thái đơn cha (nếu có)
+        if (matchedSellerOrder.parent_order_id) {
+          const siblingsRes = await env.DB.prepare(`
+            SELECT status FROM seller_orders WHERE parent_order_id = ?
+          `).bind(matchedSellerOrder.parent_order_id).all<any>();
+
+          const siblings = siblingsRes?.results || [];
+          const allPaid = siblings.length > 0 && siblings.every((s: any) =>
+            s.status === 'PAID' || s.status === 'COMPLETED' || s.status === 'DELIVERED'
+          );
+
+          await env.DB.prepare(`
+            UPDATE seller_parent_orders
+            SET status = ?, updated_at = ?
+            WHERE id = ?
+          `).bind(
+            allPaid ? 'PAID' : 'PARTIALLY_PAID',
+            nowIso,
+            matchedSellerOrder.parent_order_id
+          ).run().catch(() => {});
+        }
+
+        const buyer = await env.DB.prepare("SELECT * FROM members WHERE id = ?").bind(buyerId).first<any>();
+        if (buyer) {
+          await broadcastRealDepositToHub(env, buyer, amount, requiredAmount);
+        }
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            status: 'COMPLETED',
+            message: `Thanh toán đơn hàng sàn ${orderCode} thành công! Đã giao mã quà tặng cho khách.`,
+            transactionId,
+            orderId: matchedSellerOrder.id,
+            deliveredCode: plainDeliveredCode,
+            holdUntil,
+          }),
+          { status: 200, headers: CORS_HEADERS }
+        );
       }
     }
 

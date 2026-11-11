@@ -897,6 +897,108 @@ export async function ensureMarketplaceSchema(db: D1Database): Promise<void> {
       );
     `).run().catch(() => {});
 
+    // --- GIAI ĐOẠN 2: TIỀN THẬT QUA SÀN (CHẾ ĐỘ A) ---
+    // 7. Bảng đơn hàng cha đa gian hàng
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS seller_parent_orders (
+        id TEXT PRIMARY KEY,
+        parent_order_code TEXT UNIQUE,
+        buyer_member_id TEXT NOT NULL,
+        buyer_email TEXT,
+        total_amount INTEGER NOT NULL DEFAULT 0,
+        payment_method TEXT NOT NULL DEFAULT 'QR_SEPAY',
+        status TEXT NOT NULL DEFAULT 'PENDING_PAYMENT',
+        expires_at TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+        deleted_at TEXT
+      );
+    `).run().catch(() => {});
+
+    // 8. Bảng sổ cái gian hàng (APPEND-ONLY, cấm sửa/xóa trực tiếp)
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS seller_ledger (
+        id TEXT PRIMARY KEY,
+        seller_id TEXT NOT NULL,
+        order_id TEXT,
+        type TEXT NOT NULL,
+        amount_core REAL NOT NULL,
+        balance_held_after REAL NOT NULL DEFAULT 0,
+        balance_available_after REAL NOT NULL DEFAULT 0,
+        balance_withdrawn_after REAL NOT NULL DEFAULT 0,
+        actor TEXT NOT NULL,
+        reason TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+    `).run().catch(() => {});
+
+    // 9. Bảng yêu cầu rút tiền của người bán
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS seller_withdrawals (
+        id TEXT PRIMARY KEY,
+        seller_id TEXT NOT NULL,
+        amount_core REAL NOT NULL,
+        bank_name TEXT NOT NULL,
+        bank_account TEXT NOT NULL,
+        bank_account_name TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'PENDING',
+        requested_by TEXT NOT NULL,
+        reviewed_by TEXT,
+        review_note TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+        deleted_at TEXT
+      );
+    `).run().catch(() => {});
+
+    // 10. Bảng phiên đối soát 3 nguồn hằng ngày
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS reconciliation_runs (
+        id TEXT PRIMARY KEY,
+        run_date TEXT NOT NULL,
+        total_orders INTEGER NOT NULL DEFAULT 0,
+        total_sepay_transactions INTEGER NOT NULL DEFAULT 0,
+        total_ledger_lines INTEGER NOT NULL DEFAULT 0,
+        matched_count INTEGER NOT NULL DEFAULT 0,
+        exception_count INTEGER NOT NULL DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'COMPLETED',
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+    `).run().catch(() => {});
+
+    // 11. Bảng danh sách ngoại lệ đối soát
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS reconciliation_exceptions (
+        id TEXT PRIMARY KEY,
+        run_id TEXT NOT NULL,
+        source TEXT NOT NULL,
+        reference_id TEXT NOT NULL,
+        expected_amount REAL NOT NULL DEFAULT 0,
+        actual_amount REAL NOT NULL DEFAULT 0,
+        suggested_cause TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'OPEN',
+        resolved_by TEXT,
+        resolved_note TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+    `).run().catch(() => {});
+
+    // Nâng cấp cột cho bảng sellers (3 ngăn số dư: pending_balance_core, available_balance_core, withdrawn_balance_core)
+    await db.prepare("ALTER TABLE sellers ADD COLUMN available_balance_core REAL NOT NULL DEFAULT 0;").run().catch(() => {});
+    await db.prepare("ALTER TABLE sellers ADD COLUMN withdrawn_balance_core REAL NOT NULL DEFAULT 0;").run().catch(() => {});
+
+    // Nâng cấp cột cho bảng seller_orders (liên kết đơn cha, giữ tiền, phí sàn, sepay)
+    await db.prepare("ALTER TABLE seller_orders ADD COLUMN parent_order_id TEXT;").run().catch(() => {});
+    await db.prepare("ALTER TABLE seller_orders ADD COLUMN payment_method TEXT DEFAULT 'CORE';").run().catch(() => {});
+    await db.prepare("ALTER TABLE seller_orders ADD COLUMN sepay_transaction_id TEXT;").run().catch(() => {});
+    await db.prepare("ALTER TABLE seller_orders ADD COLUMN hold_until TEXT;").run().catch(() => {});
+    await db.prepare("ALTER TABLE seller_orders ADD COLUMN released_at TEXT;").run().catch(() => {});
+    await db.prepare("ALTER TABLE seller_orders ADD COLUMN fee_core REAL DEFAULT 0;").run().catch(() => {});
+    await db.prepare("ALTER TABLE seller_orders ADD COLUMN refund_core REAL DEFAULT 0;").run().catch(() => {});
+    await db.prepare("ALTER TABLE seller_orders ADD COLUMN deleted_at TEXT;").run().catch(() => {});
+    await db.prepare("ALTER TABLE seller_orders ADD COLUMN pending_manual_code INTEGER DEFAULT 0;").run().catch(() => {});
+
     // Tạo các index
     await db.prepare("CREATE INDEX IF NOT EXISTS idx_sellers_owner ON sellers(owner_member_id);").run().catch(() => {});
     await db.prepare("CREATE INDEX IF NOT EXISTS idx_sellers_slug ON sellers(slug);").run().catch(() => {});
@@ -914,6 +1016,22 @@ export async function ensureMarketplaceSchema(db: D1Database): Promise<void> {
     await db.prepare("CREATE INDEX IF NOT EXISTS idx_seller_orders_buyer ON seller_orders(buyer_member_id, created_at);").run().catch(() => {});
     await db.prepare("CREATE INDEX IF NOT EXISTS idx_seller_orders_seller ON seller_orders(seller_id, created_at);").run().catch(() => {});
     await db.prepare("CREATE INDEX IF NOT EXISTS idx_seller_orders_code ON seller_orders(order_code);").run().catch(() => {});
+    await db.prepare("CREATE INDEX IF NOT EXISTS idx_seller_orders_parent ON seller_orders(parent_order_id);").run().catch(() => {});
+    await db.prepare("CREATE INDEX IF NOT EXISTS idx_seller_orders_hold ON seller_orders(status, hold_until);").run().catch(() => {});
+
+    await db.prepare("CREATE INDEX IF NOT EXISTS idx_seller_parent_orders_buyer ON seller_parent_orders(buyer_member_id, created_at);").run().catch(() => {});
+    await db.prepare("CREATE INDEX IF NOT EXISTS idx_seller_parent_orders_status ON seller_parent_orders(status, expires_at);").run().catch(() => {});
+
+    await db.prepare("CREATE INDEX IF NOT EXISTS idx_seller_ledger_seller ON seller_ledger(seller_id, created_at);").run().catch(() => {});
+    await db.prepare("CREATE INDEX IF NOT EXISTS idx_seller_ledger_order ON seller_ledger(order_id);").run().catch(() => {});
+    await db.prepare("CREATE INDEX IF NOT EXISTS idx_seller_ledger_type ON seller_ledger(type, created_at);").run().catch(() => {});
+
+    await db.prepare("CREATE INDEX IF NOT EXISTS idx_seller_withdrawals_seller ON seller_withdrawals(seller_id, created_at);").run().catch(() => {});
+    await db.prepare("CREATE INDEX IF NOT EXISTS idx_seller_withdrawals_status ON seller_withdrawals(status, created_at);").run().catch(() => {});
+
+    await db.prepare("CREATE INDEX IF NOT EXISTS idx_reconciliation_runs_date ON reconciliation_runs(run_date);").run().catch(() => {});
+    await db.prepare("CREATE INDEX IF NOT EXISTS idx_reconciliation_exceptions_run ON reconciliation_exceptions(run_id, status);").run().catch(() => {});
+    await db.prepare("CREATE INDEX IF NOT EXISTS idx_reconciliation_exceptions_ref ON reconciliation_exceptions(reference_id);").run().catch(() => {});
 
     await db.prepare("CREATE INDEX IF NOT EXISTS idx_seller_code_views_code ON seller_code_views(code_id);").run().catch(() => {});
     await db.prepare("CREATE INDEX IF NOT EXISTS idx_seller_code_views_seller ON seller_code_views(seller_id, viewed_at);").run().catch(() => {});
@@ -5084,6 +5202,87 @@ export async function checkAndExpireOrdersD1(db: D1Database, targetOrderId?: str
       .catch((e) => console.warn('[Log ORDER_QR_EXPIRED non-blocking error]', e));
     } catch (err) {
       console.warn(`[ExpireOrder] Error expiring order ${oId}:`, err);
+    }
+  }
+
+  return count;
+}
+
+/**
+ * Tự động kiểm tra và hủy các đơn hàng sàn TMĐT đã hết hạn (> 15 phút chưa thanh toán).
+ * Hoàn trả lại mã kho về trạng thái IN_STOCK.
+ */
+export async function checkAndExpireSellerOrdersD1(db: D1Database, targetOrderId?: string): Promise<number> {
+  await ensureMarketplaceSchema(db);
+  const nowIso = new Date().toISOString();
+
+  let query = `
+    SELECT id, order_code, product_id, seller_id, parent_order_id, code_id, expires_at 
+    FROM seller_orders 
+    WHERE status = 'PENDING_PAYMENT' 
+      AND (datetime(expires_at) <= datetime('now') OR expires_at <= ?)
+  `;
+  const binds: any[] = [nowIso];
+
+  if (targetOrderId) {
+    query += ` AND (id = ? OR order_code = ? OR parent_order_id = ?)`;
+    binds.push(targetOrderId, targetOrderId, targetOrderId);
+  }
+
+  const expiredRes = await db.prepare(query).bind(...binds).all<any>();
+  if (!expiredRes?.results || expiredRes.results.length === 0) {
+    // Kiểm tra thêm đơn cha quá hạn
+    if (targetOrderId) {
+      await db.prepare(`
+        UPDATE seller_parent_orders
+        SET status = 'EXPIRED', updated_at = datetime('now')
+        WHERE (id = ? OR parent_order_code = ?) AND status = 'PENDING_PAYMENT' AND (datetime(expires_at) <= datetime('now') OR expires_at <= ?)
+      `).bind(targetOrderId, targetOrderId, nowIso).run().catch(() => {});
+    }
+    return 0;
+  }
+
+  let count = 0;
+  for (const ord of expiredRes.results) {
+    const oId = String(ord.id);
+    const parentId = ord.parent_order_id ? String(ord.parent_order_id) : null;
+
+    try {
+      // 1. Cập nhật đơn con sang EXPIRED
+      const stmtOrder = db.prepare(`
+        UPDATE seller_orders
+        SET status = 'EXPIRED', updated_at = datetime('now')
+        WHERE id = ? AND status = 'PENDING_PAYMENT'
+      `).bind(oId);
+
+      // 2. Trả mã RESERVED về lại IN_STOCK
+      const stmtCodes = db.prepare(`
+        UPDATE seller_codes
+        SET status = 'IN_STOCK', order_id = NULL, updated_at = datetime('now')
+        WHERE order_id = ? AND status = 'RESERVED'
+      `).bind(oId);
+
+      await db.batch([stmtOrder, stmtCodes]);
+      count++;
+
+      // 3. Nếu thuộc đơn cha, kiểm tra nếu tất cả các đơn con của đơn cha đều đã đóng
+      if (parentId) {
+        const remainingPending = await db.prepare(`
+          SELECT COUNT(*) as pending_count 
+          FROM seller_orders 
+          WHERE parent_order_id = ? AND status = 'PENDING_PAYMENT'
+        `).bind(parentId).first<{ pending_count: number }>();
+
+        if (!remainingPending || remainingPending.pending_count === 0) {
+          await db.prepare(`
+            UPDATE seller_parent_orders
+            SET status = 'EXPIRED', updated_at = datetime('now')
+            WHERE id = ? AND status = 'PENDING_PAYMENT'
+          `).bind(parentId).run().catch(() => {});
+        }
+      }
+    } catch (err) {
+      console.warn(`[ExpireSellerOrder] Error expiring seller order ${oId}:`, err);
     }
   }
 

@@ -375,6 +375,27 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       }
     } catch {}
 
+    // 4b. Kiểm tra khóa SePay (§5 Trường hợp 6: Nếu khóa SePay của sàn đang rỗng/thiếu thì từ chối tạo đơn ngay)
+    let configuredApiKey = (env.SEPAY_API_KEY || '').trim();
+    if (!configuredApiKey) {
+      try {
+        const privSetting = await env.DB.prepare(
+          "SELECT value FROM system_settings WHERE key = 'wcg_admin_sepay_private_v1' LIMIT 1"
+        ).first<any>();
+        if (privSetting?.value) {
+          const parsedPriv = typeof privSetting.value === 'string' ? JSON.parse(privSetting.value) : privSetting.value;
+          if (parsedPriv?.apiKey) configuredApiKey = parsedPriv.apiKey.trim();
+        }
+      } catch {}
+    }
+
+    if (!configuredApiKey && !env.ADMIN_SYNC_SECRET) {
+      return new Response(
+        JSON.stringify({ success: false, message: 'Chưa cấu hình SePay API Key trên máy chủ. Không thể tạo đơn thanh toán QR lúc này.' }),
+        { status: 500, headers: CORS_HEADERS }
+      );
+    }
+
     // 5. Kiểm tra Ngưỡng tối thiểu thanh toán trực tiếp qua mã QR (Mặc định 2.000 Core/VND)
     // Tỷ giá cố định: 1 VND = 1 Core
     if (finalTotalAmount < minQrAmount) {

@@ -70,6 +70,7 @@ export type ApiKeyScope =
   | 'EVENT_SCHEDULER_FULL'
   | 'STORE_FULL'
   | 'MARKETPLACE_MANAGE'
+  | 'MARKETPLACE_FINANCE_MANAGE'
   | 'FIRST_PURCHASE_MANAGE'
   | 'ESCALATING_MANAGE'
   | 'MEMBERS_FULL'
@@ -249,6 +250,17 @@ export const ALL_API_SCOPES: ScopeOption[] = [
     badgeText: 'text-amber-400',
     badgeBorder: 'border-amber-500/20',
     icon: Store,
+  },
+  {
+    id: 'MARKETPLACE_FINANCE_MANAGE',
+    name: 'Tài Chính & Đối Soát Sàn TMĐT (Marketplace Finance & Reconciliation API)',
+    category: 'Thương Mại & Kho',
+    description: 'Toàn quyền quản trị tài chính sàn TMĐT: Giám sát sổ cái 3 ngăn, đối soát 3 nguồn (sổ đơn - SePay - sổ cái), giải ngân đơn hết giữ, duyệt và xác nhận chi trả rút tiền, xử lý ngoại lệ webhook.',
+    color: 'emerald',
+    badgeBg: 'bg-emerald-500/10',
+    badgeText: 'text-emerald-400',
+    badgeBorder: 'border-emerald-500/20',
+    icon: Coins,
   },
   {
     id: 'FIRST_PURCHASE_MANAGE',
