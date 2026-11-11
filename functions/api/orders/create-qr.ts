@@ -23,6 +23,104 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Sync-Key, X-Requested-With, Idempotency-Key, idempotency-key',
 };
 
+// --- Helper sinh chuỗi VietQR Payload chuẩn EMVCo / NAPAS 247 (§4.1) ---
+function tlv(tag: string, value: string): string {
+  const len = String(value.length).padStart(2, '0');
+  return `${tag}${len}${value}`;
+}
+
+function crc16Ccitt(str: string): string {
+  let crc = 0xFFFF;
+  for (let c = 0; c < str.length; c++) {
+    crc ^= str.charCodeAt(c) << 8;
+    for (let i = 0; i < 8; i++) {
+      if ((crc & 0x8000) !== 0) {
+        crc = ((crc << 1) ^ 0x1021) & 0xFFFF;
+      } else {
+        crc = (crc << 1) & 0xFFFF;
+      }
+    }
+  }
+  return crc.toString(16).toUpperCase().padStart(4, '0');
+}
+
+function removeVietnameseAccents(str: string): string {
+  return (str || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D');
+}
+
+const BANK_BIN_MAP: Record<string, string> = {
+  TPBANK: '970423',
+  TPB: '970423',
+  MBBANK: '970422',
+  MB: '970422',
+  VIETCOMBANK: '970436',
+  VCB: '970436',
+  VIETINBANK: '970415',
+  CTG: '970415',
+  TECHCOMBANK: '970407',
+  TCB: '970407',
+  VPBANK: '970432',
+  ACB: '970416',
+  BIDV: '970418',
+  SACOMBANK: '970403',
+  MSB: '970426',
+  VIB: '970441',
+  SHB: '970443',
+  HDBANK: '970437',
+  OCB: '970448',
+  AGRIBANK: '970405',
+};
+
+function getBankBin(bankName: string): string {
+  const clean = (bankName || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  for (const [key, bin] of Object.entries(BANK_BIN_MAP)) {
+    if (clean.includes(key)) return bin;
+  }
+  return '970423'; // Default TPBank BIN
+}
+
+function generateVietQrPayload(params: {
+  bankName: string;
+  accountNumber: string;
+  amount: number;
+  content: string;
+}): string {
+  const bin = getBankBin(params.bankName);
+  const cleanAcc = params.accountNumber.trim().replace(/\s+/g, '');
+  const cleanContent = removeVietnameseAccents(params.content.trim()).slice(0, 50);
+
+  const sub00 = tlv('00', 'A000000727');
+  const subBank = tlv('00', bin) + tlv('01', cleanAcc);
+  const sub01 = tlv('01', subBank);
+  const sub02 = tlv('02', 'QRIBFTTA');
+  const tag38 = tlv('38', sub00 + sub01 + sub02);
+
+  const isDynamic = params.amount > 0;
+  let raw =
+    tlv('00', '01') +
+    tlv('01', isDynamic ? '12' : '11') +
+    tag38 +
+    tlv('53', '704');
+
+  if (isDynamic) {
+    raw += tlv('54', String(Math.round(params.amount)));
+  }
+  raw += tlv('58', 'VN');
+
+  if (cleanContent) {
+    const sub08 = tlv('08', cleanContent);
+    raw += tlv('62', sub08);
+  }
+
+  raw += '6304';
+  const checksum = crc16Ccitt(raw);
+  return raw + checksum;
+}
+
 export const onRequestOptions: PagesFunction = async () => {
   return new Response(null, {
     status: 204,
@@ -324,7 +422,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       );
     }
 
-    // 7. Tạo thông tin VietQR (1 VND = 1 Core)
+    // 7. Tạo thông tin VietQR (1 VND = 1 Core) & Chuỗi Payload EMVCo chuẩn (§4.1)
     const transferAmount = finalTotalAmount;
     const memoContent = `${paymentPrefix} ${orderId}`;
     const cleanAcc = accountNumber.replace(/\s+/g, '');
@@ -332,10 +430,17 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
     const primaryQrUrl = `https://qr.sepay.vn/img?acc=${encodeURIComponent(cleanAcc)}&bank=${encodeURIComponent(cleanBank)}&amount=${transferAmount}&des=${encodeURIComponent(memoContent)}&template=qr_only`;
     const fallbackQrUrl = `https://img.vietqr.io/image/${encodeURIComponent(cleanBank)}-${encodeURIComponent(cleanAcc)}-qr_only.svg?amount=${transferAmount}&addInfo=${encodeURIComponent(memoContent)}&accountName=${encodeURIComponent(bankAccount)}`;
+    const qrPayload = generateVietQrPayload({
+      bankName: cleanBank,
+      accountNumber: cleanAcc,
+      amount: transferAmount,
+      content: memoContent,
+    });
 
     return new Response(
       JSON.stringify({
         success: true,
+        qrPayload,
         qrUrls: {
           primary: primaryQrUrl,
           fallback: fallbackQrUrl,
@@ -361,6 +466,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
             content: memoContent,
             formattedAmount: `${transferAmount.toLocaleString('vi-VN')} đ`,
           },
+          qrPayload,
           qrUrls: {
             primary: primaryQrUrl,
             fallback: fallbackQrUrl,

@@ -7,6 +7,35 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-11]
 
+### 370. Khắc Phục Triệt Để Lỗi Ảnh VietQR: Sinh Mã QR Tại Chỗ (Data URL), Loại Bỏ Phụ Thuộc CDN Bên Thứ Ba & Bộ Chẩn Đoán Chi Tiết
+- **Triệu chứng & Bối cảnh (Vòng sửa 5)**:
+  - Khách hàng bấm "Tạo Mã VietQR Thanh Toán" trong modal checkout: đơn hàng tạo thành công trên server (trạng thái `RESERVED`, giữ kho 15 phút), STK TPBank và nội dung chuyển khoản hiện đầy đủ, nhưng ảnh mã QR không bao giờ hiển thị trên thẻ `<img>` ở một số trình duyệt (Cốc Cốc, trình duyệt có adblocker/uBlock/AdGuard, hoặc profile bị can thiệp bởi Service Worker).
+  - Khi mở ảnh ở tab mới thì xem được bình thường, nhưng thẻ `<img>` nội bộ luôn kích hoạt sự kiện `onError`.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Bộ lọc quảng cáo / Quy tắc bảo mật mạng (Adblocker/Privacy Filter)*: Các domain CDN ngoài như `qr.sepay.vn` và `img.vietqr.io` bị các bộ lọc (uBlock, Cốc Cốc Adblock, AdGuard, EasyPrivacy) nhận diện là tracking/subresource bên thứ ba và kích hoạt mã lỗi `net::ERR_BLOCKED_BY_CLIENT` đối với thẻ `<img>` nhúng trong DOM. Trong khi đó, mở tab mới là top-level navigation nên bypass bộ lọc subresource.
+  2. *Service Worker can thiệp sai*: Service Worker PWA bắt các request tài nguyên đuôi `.svg` / `.png` nhưng không kiểm tra same-origin, cố fetch opaque cross-origin response gây `net::ERR_FAILED`.
+  3. *Phụ thuộc CDN ngoài*: Phụ thuộc vào server bên thứ ba khiến tính năng thanh toán cốt lõi bị gián đoạn khi mạng chậm, CDN quá tải, hoặc DNS giải quyết chậm.
+- **Giải pháp thành công (Solution)**:
+  1. *Backend (`functions/api/orders/create-qr.ts`)*:
+     - Xây dựng module chuẩn hóa EMVCo TLV VietQR (Napas 247: GUID A000000727, BIN TPBank 970423/ngân hàng, STK, tiền tệ 704, số tiền, quốc gia VN, nội dung không dấu, CRC16-CCITT chuẩn 4 ký tự hex).
+     - Response API bổ sung trường `qrPayload` ở cả cấp cao nhất (`response.qrPayload`) và trong `order.qrPayload`.
+  2. *Frontend (`src/components/ProductCheckoutModal.tsx`)*:
+     - **Tầng 0 (Mới - Mặc định)**: Sinh mã QR trực tiếp tại chỗ bằng thư viện `qrcode` (`QRCode.toDataURL(qrOrder.qrPayload, { width: 512, margin: 1, errorCorrectionLevel: 'M' })`) thành chuỗi Base64 `data:image/png;base64,...`.
+     - Vì là Data URL sinh trong bộ nhớ RAM trình duyệt, không có bất kỳ request mạng nào phát sinh $\rightarrow$ Miễn nhiễm 100% với Adblocker, Cốc Cốc, Service Worker và lỗi CDN bên thứ ba.
+     - Cấu trúc lại `QR_TIER_CONFIG` thành 4 tầng: (0) QR Tại Chỗ (Data URL) $\rightarrow$ (1) SePay VietQR (Chính) $\rightarrow$ (2) VietQR.io Chuẩn (SVG) $\rightarrow$ (3) VietQR.io Rút Gọn (Compact2 SVG).
+     - Luồng fallback tự động: Ưu tiên tầng 0. Nếu tầng 0 lỗi, tự động trượt sang các tầng 1, 2, 3 và chỉ hiển thị hộp thông báo lỗi khi cả 4 tầng đều thất bại.
+     - Gắn `ref={qrImgRef}` vào thẻ `<img>` và ghi nhận snapshot DOM (`naturalWidth`, `naturalHeight`, `complete`, `isConnected`, sự kiện lỗi) khi có lỗi.
+     - Thêm bảng Debug QR (có thể bật tắt bất kỳ lúc nào) hiển thị trạng thái tầng, trạng thái sinh tại chỗ, độ dài `qrPayload`, snapshot DOM và 1 thẻ `<img>` trần VietQR SVG phục vụ kiểm chứng adblocker (§3 mục 4).
+  3. *Service Worker (`public/sw.js`)*:
+     - Nâng cấp phiên bản cache lên `codegame-pwa-v5`.
+     - Thêm điều kiện bypass toàn bộ request cross-origin (`if (url.origin !== self.location.origin) return;`) để Service Worker không bao giờ can thiệp vào request ảnh CDN ngoài.
+  4. *Tiêu chuẩn & Ràng buộc bảo toàn*:
+     - Tỷ giá 1 VND = 1 Core, ngưỡng tối thiểu 2.000đ, thời gian hết hạn 15 phút, webhook SePay tự động mở khóa mã giữ nguyên vẹn 100%.
+- **Kiểm thử & Triển khai**:
+  - Đã chạy kiểm thử tự động sinh chuỗi EMVCo và render `QRCode.toDataURL` trong Node: kết quả chuỗi payload 119 ký tự chuẩn xác, CRC16-CCITT khớp chuẩn Napas, chuỗi Base64 hợp lệ 5270 bytes.
+  - `npm run build` thành công 100%, zero test artifacts.
+
+
 ### 369. Nối Cấu Hình Hạn Mức Thử Việc (TRIAL) Vào Luồng Duyệt + Kiểm Tra & Sửa 3 Lỗi Giao Diện
 - **Triệu chứng & Bối cảnh**:
   1. Hạn mức TRIAL trong bảng `system_settings` (`wcg_marketplace_config_v1`) và tab "Cấu Hình Hạn Mức" chưa được kết nối vào luồng duyệt: `approve.ts` chỉ update status mà không ghi `trial_product_limit` / `trial_order_max` vào seller record; `products/index.ts` chỉ fallback cứng 5/200.

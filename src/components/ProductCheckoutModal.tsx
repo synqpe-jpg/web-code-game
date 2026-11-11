@@ -24,10 +24,12 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import QRCode from 'qrcode';
 import { CyberLoader } from './CyberLoader';
 import type { StoreProduct, OrderRecord, UserProfile } from '../types/game';
 import { dataService } from '../services/dataService';
 import { offerService } from '../services/offerService';
+import { generateVietQrEmvCo } from '../utils/vietQrUtils';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import { marketingService } from '../services/marketingService';
 import { formatCore } from '../utils/textUtils';
@@ -107,14 +109,62 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
   const qrStepRef = React.useRef<number>(0);
   const [qrLastErrorMsg, setQrLastErrorMsg] = useState<string>('');
   const [showQrDiagnostics, setShowQrDiagnostics] = useState<boolean>(false);
+  const [localQrDataUrl, setLocalQrDataUrl] = useState<string>('');
+  const [localQrGenStatus, setLocalQrGenStatus] = useState<string>('idle');
+  const [domErrorSnapshot, setDomErrorSnapshot] = useState<{
+    timestamp?: string;
+    step?: number;
+    tierName?: string;
+    srcPreview?: string;
+    naturalWidth?: number;
+    naturalHeight?: number;
+    complete?: boolean;
+    isConnected?: boolean;
+    errorMessage?: string;
+  } | null>(null);
+  const qrImgRef = React.useRef<HTMLImageElement | null>(null);
   const pollTimerRef = React.useRef<any>(null);
   const countdownTimerRef = React.useRef<any>(null);
 
+  // 4 tầng QR: Tầng 0 sinh tại chỗ (Data URL) -> SePay -> VietQR Chuẩn -> VietQR Rút Gọn (§4.2)
   const QR_TIER_CONFIG = [
-    { id: 0, label: 'SePay VietQR (Chính)', short: 'SePay' },
-    { id: 1, label: 'VietQR.io Chuẩn (SVG)', short: 'VietQR Chuẩn' },
-    { id: 2, label: 'VietQR.io Rút Gọn (Compact2)', short: 'VietQR Rút Gọn' },
+    { id: 0, label: 'QR Tại Chỗ (Data URL - Không cần mạng)', short: 'QR Tại Chỗ' },
+    { id: 1, label: 'SePay VietQR (Chính)', short: 'SePay' },
+    { id: 2, label: 'VietQR.io Chuẩn (SVG)', short: 'VietQR Chuẩn' },
+    { id: 3, label: 'VietQR.io Rút Gọn (Compact2)', short: 'VietQR Rút Gọn' },
   ];
+
+  // Helper sinh mã QR tại chỗ bằng chuỗi EMVCo (§4.2)
+  const generateLocalQr = async (order: any): Promise<string> => {
+    try {
+      let payload = order?.qrPayload;
+      if (!payload && order?.bankInfo) {
+        payload = generateVietQrEmvCo({
+          bin: '970423',
+          accountNumber: order.bankInfo.accountNumber || '',
+          amount: Number(order.bankInfo.amount) || 0,
+          content: order.bankInfo.content || '',
+        });
+      }
+      if (!payload) {
+        throw new Error('Không có chuỗi qrPayload để sinh mã QR.');
+      }
+      const dataUrl = await QRCode.toDataURL(payload, {
+        width: 512,
+        margin: 1,
+        color: { dark: '#000000', light: '#ffffff' },
+        errorCorrectionLevel: 'M',
+      });
+      setLocalQrDataUrl(dataUrl);
+      setLocalQrGenStatus(`Thành công (Data URL ${dataUrl.length} bytes)`);
+      return dataUrl;
+    } catch (err: any) {
+      const msg = err?.message || String(err);
+      console.warn('[ProductCheckoutModal] Lỗi sinh QR tại chỗ:', err);
+      setLocalQrGenStatus(`Lỗi sinh QR: ${msg}`);
+      return '';
+    }
+  };
 
   const getClientQrFallbackUrl = (order: any, template = 'compact2') => {
     if (!order?.bankInfo) return '';
@@ -130,13 +180,15 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
     if (!order) return '';
     let url = '';
     if (step === 0) {
-      url = order.qrUrls?.primary || `https://qr.sepay.vn/img?acc=${encodeURIComponent((order.bankInfo?.accountNumber || '').replace(/\s+/g, ''))}&bank=${encodeURIComponent((order.bankInfo?.bankName || 'TPBank').replace(/\s+/g, ''))}&amount=${order.bankInfo?.amount || 0}&des=${encodeURIComponent(order.bankInfo?.content || '')}&template=qr_only`;
+      url = localQrDataUrl;
     } else if (step === 1) {
+      url = order.qrUrls?.primary || `https://qr.sepay.vn/img?acc=${encodeURIComponent((order.bankInfo?.accountNumber || '').replace(/\s+/g, ''))}&bank=${encodeURIComponent((order.bankInfo?.bankName || 'TPBank').replace(/\s+/g, ''))}&amount=${order.bankInfo?.amount || 0}&des=${encodeURIComponent(order.bankInfo?.content || '')}&template=qr_only`;
+    } else if (step === 2) {
       url = order.qrUrls?.fallback || getClientQrFallbackUrl(order, 'qr_only');
     } else {
       url = getClientQrFallbackUrl(order, 'compact2');
     }
-    if (cacheBust && url) {
+    if (cacheBust && url && !url.startsWith('data:')) {
       const sep = url.includes('?') ? '&' : '?';
       return `${url}${sep}_t=${Date.now()}`;
     }
@@ -150,21 +202,39 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
       setQrImageLoadFailed(false);
       setIsQrImageLoading(true);
       setQrLastErrorMsg('');
-      const initialUrl = getQrTierUrl(qrOrder, 0);
-      setCurrentQrImageSrc(initialUrl);
-      console.log('[ProductCheckoutModal] Khởi tạo đơn QR thành công:', {
-        orderId: qrOrder.id,
-        qrUrls: qrOrder.qrUrls,
-        bankInfo: qrOrder.bankInfo,
-        initialUrl,
+      setDomErrorSnapshot(null);
+
+      // Thử sinh QR tại chỗ ngay lập tức (§4.2)
+      generateLocalQr(qrOrder).then((localSrc) => {
+        if (localSrc) {
+          qrStepRef.current = 0;
+          setQrAttemptStep(0);
+          setCurrentQrImageSrc(localSrc);
+          setIsQrImageLoading(false);
+          setQrImageLoadFailed(false);
+          console.log('[ProductCheckoutModal] Đã sinh QR tại chỗ thành công (Data URL):', {
+            orderId: qrOrder.id,
+            dataUrlLength: localSrc.length,
+          });
+        } else {
+          // Sinh tại chỗ không thành công -> tự động chuyển Tầng 1 (SePay)
+          qrStepRef.current = 1;
+          setQrAttemptStep(1);
+          setIsQrImageLoading(true);
+          const nextUrl = getQrTierUrl(qrOrder, 1);
+          setCurrentQrImageSrc(nextUrl);
+        }
       });
     } else {
       setCurrentQrImageSrc('');
+      setLocalQrDataUrl('');
+      setLocalQrGenStatus('idle');
       setQrImageLoadFailed(false);
       setIsQrImageLoading(false);
       setQrAttemptStep(0);
       qrStepRef.current = 0;
       setQrLastErrorMsg('');
+      setDomErrorSnapshot(null);
     }
   }, [qrOrder]);
 
@@ -176,12 +246,28 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
     }
 
     const currentStep = qrStepRef.current;
-    const errMsg = `Lỗi tải ảnh tầng ${currentStep + 1} (${QR_TIER_CONFIG[currentStep]?.short}): ${currentQrImageSrc}`;
+    const isData = currentQrImageSrc.startsWith('data:');
+    const previewSrc = isData ? `data:image/png;base64... (${currentQrImageSrc.length} bytes)` : currentQrImageSrc;
+    const errMsg = `Lỗi tải ảnh tầng ${currentStep + 1}/4 (${QR_TIER_CONFIG[currentStep]?.short}): ${previewSrc}`;
     console.warn('[VietQR Diagnostic]:', errMsg, e);
     setQrLastErrorMsg(errMsg);
 
+    // Ghi nhận snapshot DOM thật lúc lỗi phục vụ chẩn đoán (§3 mục 5)
+    const imgEl = qrImgRef.current;
+    setDomErrorSnapshot({
+      timestamp: new Date().toLocaleTimeString(),
+      step: currentStep,
+      tierName: QR_TIER_CONFIG[currentStep]?.short || 'Không xác định',
+      srcPreview: previewSrc,
+      naturalWidth: imgEl?.naturalWidth || 0,
+      naturalHeight: imgEl?.naturalHeight || 0,
+      complete: imgEl?.complete || false,
+      isConnected: imgEl?.isConnected || false,
+      errorMessage: e?.type ? `DOM Event "${e.type}"` : (e?.message || 'onError triggered'),
+    });
+
     if (currentStep === 0) {
-      // Tầng 0 (SePay) thất bại -> tự động thử tầng 1 (VietQR Chuẩn SVG)
+      // Tầng 0 (tại chỗ) thất bại -> tự động thử tầng 1 (SePay)
       qrStepRef.current = 1;
       setQrAttemptStep(1);
       setIsQrImageLoading(true);
@@ -191,7 +277,7 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
     }
 
     if (currentStep === 1) {
-      // Tầng 1 (VietQR SVG) thất bại -> tự động thử tầng 2 (VietQR Compact2)
+      // Tầng 1 (SePay) thất bại -> tự động thử tầng 2 (VietQR Chuẩn SVG)
       qrStepRef.current = 2;
       setQrAttemptStep(2);
       setIsQrImageLoading(true);
@@ -200,33 +286,66 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
       return;
     }
 
-    // Tất cả 3 tầng đều thất bại (adblocker hoặc trình duyệt chặn ảnh thứ 3)
+    if (currentStep === 2) {
+      // Tầng 2 (VietQR SVG) thất bại -> tự động thử tầng 3 (VietQR Compact2)
+      qrStepRef.current = 3;
+      setQrAttemptStep(3);
+      setIsQrImageLoading(true);
+      const nextUrl = getQrTierUrl(qrOrder, 3);
+      setCurrentQrImageSrc(nextUrl);
+      return;
+    }
+
+    // Tất cả 4 tầng đều thất bại
     setQrImageLoadFailed(true);
     setIsQrImageLoading(false);
   };
 
-  const handleReloadQrImage = () => {
+  const handleReloadQrImage = async () => {
     if (!qrOrder) return;
     setQrImageLoadFailed(false);
     setIsQrImageLoading(true);
     setQrLastErrorMsg('');
-    // Bắt đầu lại từ tầng 0 (primary SePay) với cache-busting timestamp
+    setDomErrorSnapshot(null);
+    // Bắt đầu lại từ tầng 0 (sinh QR tại chỗ)
     qrStepRef.current = 0;
     setQrAttemptStep(0);
-    const freshUrl = getQrTierUrl(qrOrder, 0, true);
-    setCurrentQrImageSrc(freshUrl);
+    const freshDataUrl = await generateLocalQr(qrOrder);
+    if (freshDataUrl) {
+      setCurrentQrImageSrc(freshDataUrl);
+      setIsQrImageLoading(false);
+    } else {
+      qrStepRef.current = 1;
+      setQrAttemptStep(1);
+      const freshUrl = getQrTierUrl(qrOrder, 1, true);
+      setCurrentQrImageSrc(freshUrl);
+    }
   };
 
-  const handleCycleQrTier = () => {
+  const handleCycleQrTier = async () => {
     if (!qrOrder) return;
-    const nextStep = (qrStepRef.current + 1) % 3;
+    const nextStep = (qrStepRef.current + 1) % 4;
     qrStepRef.current = nextStep;
     setQrAttemptStep(nextStep);
     setIsQrImageLoading(true);
     setQrImageLoadFailed(false);
     setQrLastErrorMsg('');
-    const nextUrl = getQrTierUrl(qrOrder, nextStep, true);
-    setCurrentQrImageSrc(nextUrl);
+
+    if (nextStep === 0) {
+      let src = localQrDataUrl;
+      if (!src) src = await generateLocalQr(qrOrder);
+      if (src) {
+        setCurrentQrImageSrc(src);
+        setIsQrImageLoading(false);
+      } else {
+        qrStepRef.current = 1;
+        setQrAttemptStep(1);
+        setCurrentQrImageSrc(getQrTierUrl(qrOrder, 1, true));
+      }
+    } else {
+      const nextUrl = getQrTierUrl(qrOrder, nextStep, true);
+      setCurrentQrImageSrc(nextUrl);
+    }
   };
 
   const [priceEscalatedDialog, setPriceEscalatedDialog] = useState<{
@@ -1330,21 +1449,21 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
                         </span>
                       </div>
 
-                      {/* VietQR Image with Automatic Multi-tier Fallback & no-referrer */}
+                      {/* VietQR Image with Automatic Multi-tier Fallback & Local QR (§4.2) */}
                       <div className="text-center space-y-2.5">
                         <div className="inline-block p-2 rounded-2xl bg-white border-2 border-emerald-500/50 shadow-xl shadow-emerald-500/10 min-w-[200px] min-h-[200px]">
                           {qrImageLoadFailed ? (
                             <div className="w-52 sm:w-60 mx-auto flex flex-col items-center justify-center p-3.5 rounded-xl bg-slate-900 border border-amber-500/30 text-center space-y-2.5">
                               <AlertCircle className="w-8 h-8 text-amber-400 shrink-0" />
                               <p className="text-[11px] text-amber-200 font-medium leading-tight">
-                                Không thể tải ảnh mã QR (có thể do trình duyệt hoặc trình chặn quảng cáo chặn ảnh thứ 3).
+                                Không thể tải ảnh mã QR sau 4 tầng thử nghiệm (có thể do trình chặn quảng cáo hoặc trình duyệt chặn ảnh).
                               </p>
                               <div className="flex flex-col sm:flex-row items-center gap-2 w-full pt-1">
                                 <button
                                   type="button"
                                   onClick={handleReloadQrImage}
                                   className="w-full sm:w-1/2 px-2.5 py-2 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-all active:scale-95"
-                                  title="Thử lại từ nguồn chính SePay"
+                                  title="Thử lại từ tầng 0 (QR Tại Chỗ)"
                                 >
                                   <RefreshCw className="w-3.5 h-3.5" />
                                   <span>Tải lại QR</span>
@@ -1353,13 +1472,13 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
                                   type="button"
                                   onClick={handleCycleQrTier}
                                   className="w-full sm:w-1/2 px-2.5 py-2 rounded-lg bg-secondary/20 hover:bg-secondary/30 text-secondary border border-secondary/40 text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-all active:scale-95"
-                                  title="Chuyển sang nguồn VietQR dự phòng"
+                                  title="Chuyển sang tầng QR kế tiếp"
                                 >
-                                  <span>Đổi nguồn QR</span>
+                                  <span>Đổi nguồn ({qrAttemptStep + 1}/4)</span>
                                 </button>
                               </div>
 
-                              {currentQrImageSrc && (
+                              {currentQrImageSrc && !currentQrImageSrc.startsWith('data:') && (
                                 <a
                                   href={currentQrImageSrc}
                                   target="_blank"
@@ -1371,7 +1490,7 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
                                 </a>
                               )}
 
-                              {/* Toggle Chi tiết chẩn đoán dành cho kỹ thuật / debug */}
+                              {/* Toggle Chi tiết chẩn đoán dành cho kỹ thuật / debug (§3) */}
                               <div className="w-full pt-1.5 border-t border-slate-800 text-left">
                                 <button
                                   type="button"
@@ -1382,12 +1501,31 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
                                 </button>
                                 {showQrDiagnostics && (
                                   <div className="mt-1.5 p-2 rounded-lg bg-black/60 border border-slate-800 text-[10px] font-mono space-y-1 text-slate-300 overflow-x-auto">
-                                    <div className="text-amber-400 font-bold">Tầng lỗi: {qrAttemptStep + 1}/3 ({QR_TIER_CONFIG[qrAttemptStep]?.short})</div>
-                                    <div className="break-all"><strong>URL đang gọi:</strong> {currentQrImageSrc}</div>
-                                    <div><strong>qrUrls.primary:</strong> {qrOrder.qrUrls?.primary ? '✅ Có giá trị' : '❌ Rỗng'}</div>
-                                    <div><strong>qrUrls.fallback:</strong> {qrOrder.qrUrls?.fallback ? '✅ Có giá trị' : '❌ Rỗng'}</div>
-                                    <div><strong>bankInfo:</strong> {qrOrder.bankInfo?.accountNumber ? `✅ STK ${qrOrder.bankInfo.accountNumber} (${qrOrder.bankInfo.bankName})` : '❌ Rỗng'}</div>
+                                    <div className="text-amber-400 font-bold">Tầng lỗi: {qrAttemptStep + 1}/4 ({QR_TIER_CONFIG[qrAttemptStep]?.short})</div>
+                                    <div><strong>Tầng tại chỗ:</strong> {qrAttemptStep === 0 ? '✅ Đúng (Data URL nội bộ)' : '🌐 Không (Gọi CDN mạng ngoài)'}</div>
+                                    <div><strong>qrPayload:</strong> {qrOrder.qrPayload ? `✅ Có (${qrOrder.qrPayload.length} ký tự)` : '❌ Rỗng'}</div>
+                                    <div><strong>Trạng thái sinh tại chỗ:</strong> {localQrGenStatus}</div>
+                                    <div className="break-all"><strong>URL/Data preview:</strong> {currentQrImageSrc.substring(0, 100)}...</div>
+                                    {domErrorSnapshot && (
+                                      <div className="text-amber-300 border-t border-slate-700/60 pt-1 mt-1">
+                                        <div><strong>Snapshot DOM lúc lỗi:</strong></div>
+                                        <div>- Kích thước: {domErrorSnapshot.naturalWidth}x{domErrorSnapshot.naturalHeight}</div>
+                                        <div>- complete: {String(domErrorSnapshot.complete)} | isConnected: {String(domErrorSnapshot.isConnected)}</div>
+                                        <div>- Sự kiện: {domErrorSnapshot.errorMessage}</div>
+                                      </div>
+                                    )}
                                     {qrLastErrorMsg && <div className="text-rose-300"><strong>Chi tiết lỗi:</strong> {qrLastErrorMsg}</div>}
+
+                                    {/* Ảnh trần thử nghiệm adblocker (§3 mục 4) */}
+                                    <div className="pt-2 border-t border-slate-700/60">
+                                      <div className="text-amber-200 font-bold mb-1">Thử ảnh trần (§3 mục 4):</div>
+                                      <img
+                                        src={getClientQrFallbackUrl(qrOrder, 'compact2')}
+                                        alt="Test Plain Img"
+                                        style={{ width: '64px', height: '64px', display: 'inline-block', border: '1px dashed #f59e0b', background: '#fff' }}
+                                      />
+                                      <div className="text-[9px] text-slate-400 mt-0.5">Thẻ img trần VietQR SVG không bọc khung flex/Tailwind</div>
+                                    </div>
                                   </div>
                                 )}
                               </div>
@@ -1404,6 +1542,7 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
                               )}
                               {currentQrImageSrc && (
                                 <img
+                                  ref={qrImgRef}
                                   src={currentQrImageSrc}
                                   alt="VietQR Payment"
                                   referrerPolicy="no-referrer"
@@ -1432,13 +1571,13 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
                               type="button"
                               onClick={handleCycleQrTier}
                               className="text-[11px] font-medium text-emerald-400 hover:text-emerald-300 underline cursor-pointer inline-flex items-center gap-1"
-                              title="Bấm để chuyển qua lại giữa SePay và VietQR"
+                              title="Bấm để chuyển qua lại giữa các tầng QR"
                             >
                               <RefreshCw className="w-3 h-3" />
-                              <span>Nguồn QR: {QR_TIER_CONFIG[qrAttemptStep]?.short} ({qrAttemptStep + 1}/3)</span>
+                              <span>Nguồn QR: {QR_TIER_CONFIG[qrAttemptStep]?.short} ({qrAttemptStep + 1}/4)</span>
                             </button>
 
-                            {currentQrImageSrc && (
+                            {currentQrImageSrc && !currentQrImageSrc.startsWith('data:') && (
                               <a
                                 href={currentQrImageSrc}
                                 target="_blank"
@@ -1450,7 +1589,35 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
                                 <span>Mở tab mới</span>
                               </a>
                             )}
+
+                            <button
+                              type="button"
+                              onClick={() => setShowQrDiagnostics(!showQrDiagnostics)}
+                              className="text-[11px] font-medium text-slate-400 hover:text-slate-300 underline cursor-pointer"
+                              title="Bật/Tắt bảng thông số kỹ thuật mã QR"
+                            >
+                              {showQrDiagnostics ? 'Ẩn debug' : 'Debug QR'}
+                            </button>
                           </div>
+
+                          {showQrDiagnostics && !qrImageLoadFailed && (
+                            <div className="mt-2 p-2 rounded-lg bg-black/80 border border-slate-800 text-[10px] font-mono space-y-1 text-slate-300 text-left max-w-sm mx-auto">
+                              <div className="text-emerald-400 font-bold">Trạng thái QR: Hoạt động ({qrAttemptStep + 1}/4 - {QR_TIER_CONFIG[qrAttemptStep]?.short})</div>
+                              <div><strong>Tầng tại chỗ:</strong> {qrAttemptStep === 0 ? '✅ Đúng (Data URL nội bộ)' : '🌐 Không (Gọi CDN mạng ngoài)'}</div>
+                              <div><strong>qrPayload:</strong> {qrOrder.qrPayload ? `✅ Có (${qrOrder.qrPayload.length} ký tự)` : '❌ Rỗng'}</div>
+                              <div><strong>Trạng thái sinh tại chỗ:</strong> {localQrGenStatus}</div>
+                              <div className="break-all"><strong>URL/Data:</strong> {currentQrImageSrc.substring(0, 80)}...</div>
+                              {/* Ảnh trần thử nghiệm adblocker (§3 mục 4) */}
+                              <div className="pt-1.5 border-t border-slate-700/60 flex items-center gap-2">
+                                <img
+                                  src={getClientQrFallbackUrl(qrOrder, 'compact2')}
+                                  alt="Test Plain Img"
+                                  style={{ width: '40px', height: '40px', display: 'inline-block', border: '1px dashed #f59e0b', background: '#fff' }}
+                                />
+                                <span className="text-[9px] text-slate-400">Ảnh trần VietQR SVG (§3 mục 4)</span>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
 

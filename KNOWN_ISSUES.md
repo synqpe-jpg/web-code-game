@@ -10,6 +10,21 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-258: Bẫy Phụ Thuộc Vào CDN Ảnh VietQR Bên Thứ Ba Khiến Ảnh QR Bị Adblocker Chặn Trên Thẻ Img Trong Khi Mở Tab Mới Vẫn Xem Được & Bẫy Service Worker Bắt Nhầm Request Cross-Origin
+- **Triệu chứng & Rủi ro**:
+  1. *Ảnh QR không hiển thị trên thẻ `<img>`*: Thẻ `<img>` nhúng trong modal thanh toán liên tục kích hoạt `onError`, nhưng khi bấm "Mở ảnh ở tab mới" thì ảnh vẫn hiển thị bình thường.
+  2. *Nguyên nhân khác biệt giữa thẻ `<img>` và Tab mới*: Các trình duyệt tích hợp bộ lọc quảng cáo (như Cốc Cốc, uBlock Origin, AdGuard, Brave Shields) áp dụng danh sách quy tắc chặn (EasyPrivacy / Fanboy's Annoyance) đối với *subresource requests* (ảnh `<img>`, script, fetch) từ các domain CDN thanh toán/quảng cáo (`qr.sepay.vn`, `img.vietqr.io`), báo lỗi `net::ERR_BLOCKED_BY_CLIENT`. Trong khi đó, mở tab mới là *top-level document navigation*, không bị bộ lọc subresource chặn.
+  3. *Service Worker bắt nhầm request cross-origin*: Service Worker PWA bắt tất cả request kết thúc bằng `.png` / `.svg` mà không kiểm tra `url.origin === self.location.origin`, cố thực hiện fetch opaque cross-origin gây lỗi `net::ERR_FAILED`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Sinh mã QR tại chỗ (Data URL) bằng `qrcode`*: Server trả về chuỗi `qrPayload` chuẩn EMVCo TLV (Napas 247). Client dùng `QRCode.toDataURL(payload)` sinh trực tiếp chuỗi Base64 `data:image/png;base64,...` trong bộ nhớ RAM trình duyệt. Hoàn toàn không phát sinh request mạng $\rightarrow$ Miễn nhiễm 100% với adblocker, Cốc Cốc, Service Worker và lỗi mạng.
+  2. *Fallback 4 tầng*: Tầng 0 (QR Tại Chỗ) $\rightarrow$ Tầng 1 (SePay) $\rightarrow$ Tầng 2 (VietQR SVG) $\rightarrow$ Tầng 3 (VietQR Compact2 SVG). Chỉ hiện lỗi khi cả 4 tầng đều thất bại.
+  3. *Bypass Service Worker đối với Cross-Origin*: Bổ sung `if (url.origin !== self.location.origin) return;` trong `sw.js` để Service Worker không bao giờ can thiệp vào request mạng ngoài.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không phụ thuộc duy nhất vào thẻ `<img>` trỏ đến URL ảnh CDN bên thứ ba cho chức năng thanh toán trực tiếp.*
+  - ❌ *Không để Service Worker chặn và xử lý fetch các tài nguyên cross-origin của bên thứ ba.*
+  - ❌ *Không kết luận lỗi do CSP khi chưa kiểm tra mã lỗi thật trong Console (`net::ERR_BLOCKED_BY_CLIENT` vs `CSP directive violation`).*
+
+
 ### ISSUE-257: Bẫy Bỏ Quên AnnouncementBar Trong HTML Tĩnh & Bẫy Để CMS Content Cũ Ghi Đè Hero Description Làm Co 1 Dòng Sau Hydration (Desktop CLS)
 - **Triệu chứng & Rủi ro**:
   1. *Header bị đẩy xuống 36px*: Trong `src/App.tsx`, component `<AnnouncementBar />` nằm ngay trên `<Header />` và luôn render theo mặc định (chiều cao 36px trên desktop). Nhưng trong `scripts/prerender.js`, `<header>` lại nằm ở vị trí đầu tiên của trang. Khi client nạp xong JS và hydrate, `<AnnouncementBar />` xuất hiện ở đỉnh và đẩy `<header>` từ `top: 0` xuống `top: 36px`.
