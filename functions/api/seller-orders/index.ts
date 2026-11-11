@@ -6,6 +6,7 @@ interface Env {
   DB: D1Database;
   JWT_SECRET?: string;
   ADMIN_SYNC_SECRET?: string;
+  MARKETPLACE_CODE_KEY?: string;
 }
 
 const CORS_HEADERS = {
@@ -129,8 +130,15 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       );
     }
 
+    if (!env.MARKETPLACE_CODE_KEY || !env.MARKETPLACE_CODE_KEY.trim()) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Chưa cấu hình biến môi trường MARKETPLACE_CODE_KEY trên máy chủ.' }),
+        { status: 500, headers: CORS_HEADERS }
+      );
+    }
+
     // 4. Giải mã code trước để giao ngay
-    const plainDeliveredCode = await decryptCode(availableCode.code_encrypted);
+    const plainDeliveredCode = await decryptCode(availableCode.code_encrypted, env.MARKETPLACE_CODE_KEY);
 
     const orderId = `sord_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const orderCode = `CGM-${Date.now().toString().slice(-6)}-${Math.random().toString(36).substring(2, 5).toUpperCase()}`;

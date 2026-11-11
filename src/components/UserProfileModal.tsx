@@ -37,6 +37,7 @@ import {
   Gift,
   RefreshCw,
   ArrowRight,
+  Store,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import type { UserProfile } from '../types/game';
@@ -55,13 +56,14 @@ interface UserProfileModalProps {
   currentUser: UserProfile | null;
   onUpdateUser: (user: UserProfile) => void;
   onOpenWallet: () => void;
-  onOpenReceivedCodes?: (initialTab?: 'giveaways' | 'orders' | 'privates' | 'missions') => void;
+  onOpenReceivedCodes?: (initialTab?: 'giveaways' | 'orders' | 'privates' | 'missions' | 'marketplace') => void;
   onLogout: () => void;
   onShowToast: (title: string, message?: string, type?: 'success' | 'error' | 'info') => void;
   isDarkMode?: boolean;
   onToggleTheme?: () => void;
   initialTab?: 'profile' | 'security' | 'telegram' | 'missions';
   onOpenAuth?: () => void;
+  onNavigateToSellerCenter?: () => void;
 }
 
 // 12 Curated Gaming/Cyber Chibi Avatar Presets
@@ -93,6 +95,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   onToggleTheme,
   initialTab = 'profile',
   onOpenAuth,
+  onNavigateToSellerCenter,
 }) => {
   const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'telegram' | 'missions'>(initialTab);
 
@@ -628,14 +631,14 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                     </button>
                   </div>
 
-                  {/* Quick Action: Kho mã & Nhiệm vụ */}
-                  {onOpenReceivedCodes && (
-                    <div className="flex items-center justify-center sm:justify-start gap-2 pt-2 border-t border-border/40">
+                  {/* Quick Action: Kho mã & Kênh Người Bán */}
+                  <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-2 border-t border-border/40">
+                    {onOpenReceivedCodes && (
                       <button
                         type="button"
                         onClick={() => {
                           onClose();
-                          onOpenReceivedCodes('missions');
+                          onOpenReceivedCodes();
                         }}
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500/20 to-emerald-500/20 hover:from-amber-500/30 hover:to-emerald-500/30 text-foreground border border-amber-500/30 text-xs font-bold transition-all cursor-pointer shadow-sm active:scale-95"
                       >
@@ -646,13 +649,44 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                           Mã Quà ↗
                         </span>
                       </button>
-                    </div>
-                  )}
+                    )}
+
+                    {/* Mục Kênh Người Bán (§1: hiển thị cho mọi thành viên đã đăng nhập) */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        if (onNavigateToSellerCenter) onNavigateToSellerCenter();
+                        else window.location.href = '/ban-hang';
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-purple-500/20 to-indigo-500/20 hover:from-purple-500/30 hover:to-indigo-500/30 text-purple-200 border border-purple-500/40 text-xs font-bold transition-all cursor-pointer shadow-sm active:scale-95"
+                    >
+                      <Store className="w-3.5 h-3.5 text-purple-400" />
+                      <span>Kênh Người Bán</span>
+                      <span className="text-[10px] text-purple-300 bg-purple-500/30 px-2 py-0.5 rounded-full border border-purple-500/40 font-semibold">
+                        Gian Hàng ↗
+                      </span>
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              {/* Lối Tắt Nhanh: Nhiệm Vụ & Thông Báo Telegram */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {/* Lối Tắt Nhanh: Nhiệm Vụ, Kênh Người Bán & Tiện Ích */}
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    if (onNavigateToSellerCenter) onNavigateToSellerCenter();
+                    else window.location.href = '/ban-hang';
+                  }}
+                  className="p-2.5 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 text-purple-300 font-bold text-xs flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95 group shadow-sm col-span-2 sm:col-span-1"
+                >
+                  <Store className="w-5 h-5 text-purple-400 group-hover:scale-110 transition-transform" />
+                  <span className="text-center font-bold">Kênh Người Bán</span>
+                  <span className="text-[9px] font-normal text-purple-400/80">Quản lý gian hàng</span>
+                </button>
+
                 <button
                   type="button"
                   onClick={() => setActiveTab('missions')}

@@ -108,50 +108,67 @@ export async function hashCode(code: string): Promise<string> {
   return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-// Mã hóa mã code đơn giản an toàn với Web Crypto
-export async function encryptCode(code: string, secretKeyStr: string = 'WCG_SELLER_KEY_SAFE_SALT_2026'): Promise<string> {
-  try {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(code.trim());
-    const keyData = encoder.encode(secretKeyStr.padEnd(32, '0').slice(0, 32));
-    const cryptoKey = await crypto.subtle.importKey('raw', keyData, { name: 'AES-GCM' }, false, ['encrypt']);
-    const iv = crypto.getRandomValues(new Uint8Array(12));
-    const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, cryptoKey, data);
-    
-    // Ghép iv và ciphertext thành base64
-    const ivHex = Array.from(iv).map((b) => b.toString(16).padStart(2, '0')).join('');
-    const encryptedArray = Array.from(new Uint8Array(encrypted));
-    const cipherHex = encryptedArray.map((b) => b.toString(16).padStart(2, '0')).join('');
-    return `enc_v1:${ivHex}:${cipherHex}`;
-  } catch {
-    // Fallback an toàn nếu crypto bị lỗi
-    return `b64:${btoa(unescape(encodeURIComponent(code.trim())))}`;
+// Mã hóa mã code an toàn chuẩn AES-GCM với Web Crypto
+// BẮT BUỘC dùng biến môi trường MARKETPLACE_CODE_KEY; cấm hardcode, cấm fallback sang dạng đọc được
+export async function encryptCode(code: string, secretKeyStr?: string): Promise<string> {
+  if (!secretKeyStr || typeof secretKeyStr !== 'string' || !secretKeyStr.trim()) {
+    throw new Error('Chưa cấu hình biến môi trường MARKETPLACE_CODE_KEY trên máy chủ.');
   }
+
+  const clean = code.trim();
+  if (!clean) {
+    throw new Error('Mã code không được để trống.');
+  }
+
+  const encoder = new TextEncoder();
+  const data = encoder.encode(clean);
+  const keyData = encoder.encode(secretKeyStr.padEnd(32, '0').slice(0, 32));
+  const cryptoKey = await crypto.subtle.importKey('raw', keyData, { name: 'AES-GCM' }, false, ['encrypt']);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, cryptoKey, data);
+  
+  // Ghép iv và ciphertext thành chuỗi hex có tiền tố enc_v1
+  const ivHex = Array.from(iv).map((b) => b.toString(16).padStart(2, '0')).join('');
+  const encryptedArray = Array.from(new Uint8Array(encrypted));
+  const cipherHex = encryptedArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+  return `enc_v1:${ivHex}:${cipherHex}`;
 }
 
-// Giải mã mã code
-export async function decryptCode(cipherText: string, secretKeyStr: string = 'WCG_SELLER_KEY_SAFE_SALT_2026'): Promise<string> {
-  try {
-    if (cipherText.startsWith('enc_v1:')) {
-      const parts = cipherText.split(':');
-      if (parts.length === 3) {
-        const ivHex = parts[1];
-        const cipherHex = parts[2];
-        const iv = new Uint8Array(ivHex.match(/.{1,2}/g)!.map((byte) => parseInt(byte, 16)));
-        const cipherBytes = new Uint8Array(cipherHex.match(/.{1,2}/g)!.map((byte) => parseInt(byte, 16)));
-        const encoder = new TextEncoder();
-        const keyData = encoder.encode(secretKeyStr.padEnd(32, '0').slice(0, 32));
-        const cryptoKey = await crypto.subtle.importKey('raw', keyData, { name: 'AES-GCM' }, false, ['decrypt']);
-        const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, cryptoKey, cipherBytes);
-        return new TextDecoder().decode(decrypted);
-      }
-    } else if (cipherText.startsWith('b64:')) {
-      return decodeURIComponent(escape(atob(cipherText.slice(4))));
-    }
-  } catch {
-    // Return original if cannot decrypt
+// Giải mã mã code (BẮT BUỘC dùng MARKETPLACE_CODE_KEY; cấm fallback base64)
+export async function decryptCode(cipherText: string, secretKeyStr?: string): Promise<string> {
+  if (!secretKeyStr || typeof secretKeyStr !== 'string' || !secretKeyStr.trim()) {
+    throw new Error('Chưa cấu hình biến môi trường MARKETPLACE_CODE_KEY trên máy chủ.');
   }
-  return cipherText;
+
+  if (!cipherText || typeof cipherText !== 'string') {
+    throw new Error('Dữ liệu mã hóa không hợp lệ.');
+  }
+
+  if (!cipherText.startsWith('enc_v1:')) {
+    throw new Error('Định dạng mã hóa không hợp lệ hoặc không được hỗ trợ.');
+  }
+
+  const parts = cipherText.split(':');
+  if (parts.length !== 3) {
+    throw new Error('Cấu trúc mã hóa enc_v1 không hợp lệ.');
+  }
+
+  const ivHex = parts[1];
+  const cipherHex = parts[2];
+  const ivMatches = ivHex.match(/.{1,2}/g);
+  const cipherMatches = cipherHex.match(/.{1,2}/g);
+
+  if (!ivMatches || !cipherMatches) {
+    throw new Error('Dữ liệu hex mã hóa bị hỏng.');
+  }
+
+  const iv = new Uint8Array(ivMatches.map((byte) => parseInt(byte, 16)));
+  const cipherBytes = new Uint8Array(cipherMatches.map((byte) => parseInt(byte, 16)));
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(secretKeyStr.padEnd(32, '0').slice(0, 32));
+  const cryptoKey = await crypto.subtle.importKey('raw', keyData, { name: 'AES-GCM' }, false, ['decrypt']);
+  const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, cryptoKey, cipherBytes);
+  return new TextDecoder().decode(decrypted);
 }
 
 // Ẩn một phần mã code để bảo vệ bí mật

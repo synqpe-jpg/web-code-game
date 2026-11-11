@@ -518,7 +518,7 @@ export const SellerCenterView: React.FC<SellerCenterViewProps> = ({
             <div>
               <label className="block text-xs font-semibold mb-1.5">Đường Dẫn Gian Hàng (Slug) *</label>
               <div className="flex items-center">
-                <span className="px-3 py-2.5 bg-muted text-muted-foreground text-xs rounded-l-xl border border-r-0 border-border select-none">
+                <span className="px-3 py-2.5 bg-muted text-muted-foreground text-xs rounded-l-xl border border-r-0 border-border select-none whitespace-nowrap shrink-0">
                   /gian-hang/
                 </span>
                 <input
@@ -591,19 +591,21 @@ export const SellerCenterView: React.FC<SellerCenterViewProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold mb-1.5">Chính Sách Bảo Hành</label>
-              <input
-                type="text"
+              <textarea
+                rows={3}
                 value={regWarranty}
                 onChange={(e) => setRegWarranty(e.target.value)}
+                placeholder="Ví dụ: Đổi mã mới trong 15 phút nếu mã lỗi, hoàn tiền nếu hết mã..."
                 className="w-full px-3.5 py-2.5 rounded-xl border border-border bg-background text-sm focus:outline-none focus:border-primary"
               />
             </div>
             <div>
               <label className="block text-xs font-semibold mb-1.5">Chính Sách Hoàn Tiền</label>
-              <input
-                type="text"
+              <textarea
+                rows={3}
                 value={regRefund}
                 onChange={(e) => setRegRefund(e.target.value)}
+                placeholder="Ví dụ: Hoàn 100% Core nếu mã không đúng mô tả hoặc không sử dụng được..."
                 className="w-full px-3.5 py-2.5 rounded-xl border border-border bg-background text-sm focus:outline-none focus:border-primary"
               />
             </div>

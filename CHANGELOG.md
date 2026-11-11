@@ -7,6 +7,30 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-11]
 
+### 368. Sửa 3 Lỗi Sau Kiểm Chứng Live Sàn TMĐT Giai Đoạn 1 & Bảo Mật Khóa Mã Hóa
+- **Triệu chứng & Bối cảnh**:
+  - Đối chiếu live sau build 6861258 ghi nhận:
+    1. Menu avatar thiếu mục "Kênh Người Bán" trong `UserProfileModal.tsx`, thành viên không truy cập được trực tiếp `/ban-hang` từ modal hồ sơ.
+    2. Tab "Sàn TMĐT" trong modal Kho Mã không xuất hiện do edge cache HTML stale (`s-maxage=3600`) và service worker PWA v3 cache.
+    3. Trang `/ban-hang`: tiền tố `/gian-hang/` bị ngắt dòng trên màn hình hẹp; 2 ô Chính Sách Bảo Hành & Hoàn Tiền là input một dòng làm cụt nội dung gợi ý.
+    4. Bảo mật: `marketplace_service.ts` chứa khóa mặc định ghi cứng và nhánh fallback base64 (`b64:`).
+- **Nguyên nhân gốc rễ & Giải pháp đã thực hiện**:
+  1. *Lỗi 1 (Menu avatar)*: Bổ sung mục "Kênh Người Bán" vào cả thanh tác vụ nhanh (cùng nhóm với "Kho Mã Của Tôi") và lưới lối tắt (cùng nhóm với "Nhiệm Vụ Nhận Quà") trong `UserProfileModal.tsx`. Thêm prop `onNavigateToSellerCenter` trong `App.tsx` chuyển mượt mà tới `/ban-hang`.
+  2. *Lỗi 2 (Tab Sàn TMĐT & Cache)*:
+     - Chỉnh sửa `public/_headers`: chuyển `/index.html`, `/*.html`, `/` về `Cache-Control: public, max-age=0, must-revalidate` để trình duyệt và CDN luôn nhận HTML mới nhất.
+     - Nâng cấp `public/sw.js` lên `codegame-pwa-v4` để tự động xóa sạch cache stale PWA cũ khi kích hoạt.
+     - Bổ sung `'marketplace'` vào kiểu `handleOpenReceivedCodes` trong `App.tsx`.
+  3. *Lỗi 3 (Trang /ban-hang)*:
+     - Thêm `whitespace-nowrap shrink-0` vào tiền tố `/gian-hang/` trong `SellerCenterView.tsx`, chống ngắt dòng tuyệt đối trên desktop và mobile 390px.
+     - Chuyển 2 ô Chính Sách Bảo Hành và Hoàn Tiền sang `<textarea rows={3}>` hiển thị trọn vẹn văn bản gợi ý.
+  4. *Lỗi 4 (Bảo mật khóa mã hóa)*:
+     - Xóa 100% chuỗi khóa ghi cứng khỏi repo.
+     - Khóa mã hóa bắt buộc đọc từ biến môi trường `MARKETPLACE_CODE_KEY`. Nếu thiếu biến môi trường, hệ thống báo lỗi rõ ràng và dừng thao tác.
+     - Xóa triệt để nhánh fallback base64 `b64:`.
+     - Kiểm tra dữ liệu: Đã xác nhận `seller_codes` có đúng 0 bản ghi (chưa có mã nào nạp vào bằng khóa cũ).
+- **Kiểm thử & Triển khai**:
+  - `npm run build` thành công 100%, zero test artifacts.
+
 ### 367. Triển Khai Sàn Thương Mại Điện Tử Số CodeGame.shop — Giai Đoạn 1: Nền Gian Hàng (MVP)
 - **Triệu chứng & Bối cảnh**:
   - Triển khai toàn diện Giai đoạn 1: Nền gian hàng số (MVP) theo bản kế hoạch sàn TMĐT số 16 trang (`ke-hoach-san-tmdt-so.pdf`, mục 11 lộ trình) ngày 11/11/2026.

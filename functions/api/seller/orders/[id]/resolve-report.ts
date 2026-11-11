@@ -6,6 +6,7 @@ interface Env {
   DB: D1Database;
   JWT_SECRET?: string;
   ADMIN_SYNC_SECRET?: string;
+  MARKETPLACE_CODE_KEY?: string;
 }
 
 const CORS_HEADERS = {
@@ -96,7 +97,14 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         );
       }
 
-      const plainNewCode = await decryptCode(newCodeRow.code_encrypted);
+      if (!env.MARKETPLACE_CODE_KEY || !env.MARKETPLACE_CODE_KEY.trim()) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Chưa cấu hình biến môi trường MARKETPLACE_CODE_KEY trên máy chủ.' }),
+          { status: 500, headers: CORS_HEADERS }
+        );
+      }
+
+      const plainNewCode = await decryptCode(newCodeRow.code_encrypted, env.MARKETPLACE_CODE_KEY);
 
       // Cập nhật nguyên tử:
       // - Mã mới -> SOLD, gắn order_id

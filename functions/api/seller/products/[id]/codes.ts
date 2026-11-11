@@ -6,6 +6,7 @@ interface Env {
   DB: D1Database;
   JWT_SECRET?: string;
   ADMIN_SYNC_SECRET?: string;
+  MARKETPLACE_CODE_KEY?: string;
 }
 
 const CORS_HEADERS = {
@@ -92,7 +93,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       (codesResult.results || []).map(async (row) => {
         let plainCode = '';
         try {
-          plainCode = await decryptCode(row.code_encrypted);
+          plainCode = await decryptCode(row.code_encrypted, env.MARKETPLACE_CODE_KEY);
         } catch {
           plainCode = 'CODE_MASKED';
         }
@@ -194,6 +195,13 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       );
     }
 
+    if (!env.MARKETPLACE_CODE_KEY || !env.MARKETPLACE_CODE_KEY.trim()) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Chưa cấu hình biến môi trường MARKETPLACE_CODE_KEY trên máy chủ.' }),
+        { status: 500, headers: CORS_HEADERS }
+      );
+    }
+
     const batchId = `bat_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const nowIso = new Date().toISOString();
 
@@ -238,7 +246,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         warningFloorDuplicateCount++;
       }
 
-      const encrypted = await encryptCode(rawCode);
+      const encrypted = await encryptCode(rawCode, env.MARKETPLACE_CODE_KEY);
       const codeId = `scd_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 
       insertStatements.push(

@@ -278,7 +278,7 @@ export const App: React.FC = () => {
   };
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
 
-  const handleOpenReceivedCodes = (tab: 'giveaways' | 'orders' | 'privates' | 'missions' = 'giveaways') => {
+  const handleOpenReceivedCodes = (tab: 'giveaways' | 'orders' | 'privates' | 'missions' | 'marketplace' = 'giveaways') => {
     setReceivedCodesInitialTab(tab);
     setIsReceivedCodesOpen(true);
   };
@@ -2113,6 +2113,10 @@ export const App: React.FC = () => {
           onUpdateUser={handleUpdateUser}
           onOpenWallet={() => setIsWalletModalOpen(true)}
           onOpenReceivedCodes={handleOpenReceivedCodes}
+          onNavigateToSellerCenter={() => {
+            setIsProfileModalOpen(false);
+            handleSelectTab('seller-center');
+          }}
           onLogout={handleLogout}
           onShowToast={showToast}
           isDarkMode={isDarkMode}
