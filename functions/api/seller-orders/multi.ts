@@ -38,9 +38,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
     // 1. Xác thực người mua đăng nhập (verifyMemberAuth)
     const auth = await verifyMemberAuth(request, env as any);
-    if (!auth.authenticated || !auth.member) {
+    if (!auth.authorized || !auth.member) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Vui lòng đăng nhập để thanh toán đơn hàng.' }),
+        JSON.stringify({ success: false, error: auth.error || 'Vui lòng đăng nhập để thanh toán đơn hàng.' }),
         { status: 401, headers: CORS_HEADERS }
       );
     }
