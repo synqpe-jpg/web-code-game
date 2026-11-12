@@ -4008,17 +4008,23 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
             // If the latest transaction overall is a DEPOSIT, check if it's a new confirmed top-up
             if (latestTx.type === 'DEPOSIT') {
               const currentBal = Number(currentUser.wallet_balance || 0);
-              if (!isNaN(latestTxBal) && latestTxBal > currentBal) {
+              const txTime = parseTxTime(latestTx.createdAt);
+              // Only treat as newly confirmed top-up if the deposit was made within the last 15 minutes
+              const isRecent = txTime > 0 && (Date.now() - txTime) < 15 * 60 * 1000;
+              if (isRecent && !isNaN(latestTxBal) && latestTxBal > currentBal) {
                 currentUser.wallet_balance = latestTxBal;
                 this.saveCurrentUser(currentUser);
                 this.notifyListeners();
                 return { confirmed: true, transaction: latestTx, newBalance: latestTxBal };
               }
             } else if (!isNaN(latestTxBal) && currentUser.wallet_balance !== latestTxBal) {
-              // The latest transaction is an ORDER / PURCHASE — ensure local balance strictly matches the latest transaction ledger balance!
-              currentUser.wallet_balance = latestTxBal;
-              this.saveCurrentUser(currentUser);
-              this.notifyListeners();
+              const txTime = parseTxTime(latestTx.createdAt);
+              const isRecent = txTime > 0 && (Date.now() - txTime) < 15 * 60 * 1000;
+              if (isRecent) {
+                currentUser.wallet_balance = latestTxBal;
+                this.saveCurrentUser(currentUser);
+                this.notifyListeners();
+              }
             }
           }
         }
@@ -4116,21 +4122,28 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
 
       if (res.ok) {
         const data = await res.json();
-          if (data?.success && data?.user && (data.user.id === user.id || data.user.email?.toLowerCase() === user.email?.toLowerCase())) {
-            if (data.token) {
-              user.session_token = data.token;
-              this.persistUserMultiTier(user);
-            }
-            const updatedBal = Number(data.user.wallet_balance) || 0;
-            let changed = false;
-            if (user.wallet_balance !== updatedBal) {
-              user.wallet_balance = updatedBal;
-              changed = true;
-            }
-            if (data.user.role && user.role !== data.user.role) {
-              user.role = data.user.role;
-              changed = true;
-            }
+        const matchesUser =
+          data?.success &&
+          data?.user &&
+          (data.user.id === user.id ||
+            (user.email && data.user.email?.toLowerCase() === user.email?.toLowerCase()) ||
+            (user.username && data.user.username?.toLowerCase() === user.username?.toLowerCase()));
+
+        if (matchesUser) {
+          if (data.token) {
+            user.session_token = data.token;
+            this.persistUserMultiTier(user);
+          }
+          const updatedBal = Number(data.user.wallet_balance ?? data.user.balance) || 0;
+          let changed = false;
+          if (user.wallet_balance !== updatedBal) {
+            user.wallet_balance = updatedBal;
+            changed = true;
+          }
+          if (data.user.role && user.role !== data.user.role) {
+            user.role = data.user.role;
+            changed = true;
+          }
 
             // Sync User's Private Codes from Cloudflare KV
             if (Array.isArray(data.privateCodes) && data.privateCodes.length > 0) {
@@ -4259,10 +4272,14 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
         }
       } catch {}
 
-    // 2. Check recent transactions fallback
-    const checkRes = await this.checkUserDepositStatus(user.id);
-    if (checkRes.confirmed && checkRes.newBalance !== undefined) {
-      return checkRes.newBalance;
+    // 2. Never fallback to checkUserDepositStatus for registered users with a token
+    // Server-authoritative balance via /api/auth/me is the single source of truth.
+    // checkUserDepositStatus only reads top-up transactions which would incorrectly overwrite reduced balances.
+    if (!token) {
+      const checkRes = await this.checkUserDepositStatus(user.id);
+      if (checkRes.confirmed && checkRes.newBalance !== undefined) {
+        return checkRes.newBalance;
+      }
     }
 
     return user.wallet_balance || 0;

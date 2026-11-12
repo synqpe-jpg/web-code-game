@@ -121,7 +121,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       if (!prodId) continue;
 
       const product = await env.DB.prepare(`
-        SELECT sp.*, s.name as seller_name, s.status as seller_status, s.is_vacation, s.deleted_at as seller_deleted_at
+        SELECT sp.*, s.owner_member_id, s.name as seller_name, s.status as seller_status, s.is_vacation, s.deleted_at as seller_deleted_at
         FROM seller_products sp
         JOIN sellers s ON sp.seller_id = s.id
         WHERE sp.id = ? AND sp.deleted_at IS NULL LIMIT 1
@@ -130,6 +130,16 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       if (!product) {
         return new Response(
           JSON.stringify({ success: false, error: `Sản phẩm (${prodId}) không tồn tại hoặc đã bị xóa.` }),
+          { status: 400, headers: CORS_HEADERS }
+        );
+      }
+
+      if (product.owner_member_id === buyer.id) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: `Bạn không thể tự mua sản phẩm của chính gian hàng mình ("${product.seller_name}").`,
+          }),
           { status: 400, headers: CORS_HEADERS }
         );
       }

@@ -21,6 +21,7 @@ import {
   Send,
   Flame,
   Store,
+  ShoppingCart,
 } from 'lucide-react';
 import type { GameItem, UserProfile } from '../types/game';
 import { formatCore } from '../utils/textUtils';
@@ -28,6 +29,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { LanguageSelector } from './LanguageSelector';
 import { growthService } from '../services/growthService';
 import { telegramService } from '../services/telegramService';
+import { cartService } from '../services/cartService';
 
 interface HeaderProps {
   currentTab: 'catalog' | 'news' | 'giveaways' | 'store' | 'utilities' | 'missions' | 'telegram' | 'today-codes' | 'seller-center' | 'store-detail';
@@ -40,6 +42,7 @@ interface HeaderProps {
   onOpenPlayground: () => void;
   onOpenDownloadApp?: () => void;
   onOpenNotificationModal?: () => void;
+  onOpenCart?: () => void;
   onOpenAuth: () => void;
   onOpenWallet: () => void;
   onOpenReceivedCodes: (initialTab?: 'giveaways' | 'orders' | 'privates' | 'missions') => void;
@@ -70,6 +73,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenPlayground,
   onOpenDownloadApp,
   onOpenNotificationModal,
+  onOpenCart,
   onOpenAuth,
   onOpenWallet,
   onOpenReceivedCodes,
@@ -83,6 +87,16 @@ export const Header: React.FC<HeaderProps> = ({
   const { t } = useLanguage();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const [cartCount, setCartCount] = useState<number>(() => cartService.getCartCount());
+
+  useEffect(() => {
+    const handleCartUpdate = (e: any) => {
+      setCartCount(Number(e?.detail?.count ?? cartService.getCartCount()));
+    };
+    window.addEventListener('wcg_cart_updated', handleCartUpdate);
+    return () => window.removeEventListener('wcg_cart_updated', handleCartUpdate);
+  }, []);
+
   const [isGrowthEnabled, setIsGrowthEnabled] = useState(() => {
     try {
       return Boolean(growthService.getConfig().isEnabled);
@@ -318,6 +332,24 @@ export const Header: React.FC<HeaderProps> = ({
               </span>
             </button>
 
+            {/* Giỏ Hàng Đa Gian Hàng */}
+            {onOpenCart && (
+              <button
+                type="button"
+                onClick={onOpenCart}
+                className="relative p-1.5 sm:p-2 min-w-[32px] min-h-[32px] sm:min-w-[38px] sm:min-h-[38px] flex items-center justify-center rounded-xl bg-card hover:bg-card-hover border border-border text-slate-300 hover:text-foreground transition-all cursor-pointer active:scale-95 shadow-sm shrink-0"
+                title="Giỏ hàng đa gian hàng"
+                aria-label="Giỏ hàng đa gian hàng"
+              >
+                <ShoppingCart className="w-4 h-4 text-primary" />
+                {cartCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-primary text-primary-foreground text-[9px] font-black flex items-center justify-center shadow-sm">
+                    {cartCount > 99 ? '99+' : cartCount}
+                  </span>
+                )}
+              </button>
+            )}
+
             {/* Bookmark Button (Desktop & Mobile) - Chỉ hiển thị cho khách vãng lai chưa đăng nhập */}
             {!currentUser && (
               <button
@@ -471,6 +503,31 @@ export const Header: React.FC<HeaderProps> = ({
                           Mã quà đã nhận ↗
                         </span>
                       </button>
+
+                      {/* 2.04 Giỏ Hàng Đa Gian Hàng */}
+                      {onOpenCart && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setIsUserMenuOpen(false);
+                            onOpenCart();
+                          }}
+                          className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-muted text-foreground cursor-pointer text-left group"
+                        >
+                          <span className="flex items-center gap-2">
+                            <ShoppingCart className="w-4 h-4 text-primary group-hover:scale-110 transition-transform" />
+                            <span className="font-medium">Giỏ Hàng Đa Gian Hàng</span>
+                          </span>
+                          {cartCount > 0 ? (
+                            <span className="text-[10px] text-primary font-bold bg-primary/20 px-2 py-0.5 rounded-full">
+                              {cartCount} món
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-muted-foreground font-medium">0 món</span>
+                          )}
+                        </button>
+                      )}
 
                       {/* 2.05 Kênh Người Bán / Sàn TMĐT */}
                       <button

@@ -5,6 +5,35 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ---
 
+## [2026-11-12]
+
+### 375. Sửa 3 Lỗi Nghiệm Thu Giai Đoạn 2 Sàn TMĐT: Giỏ Hàng Đa Gian Hàng, Chặn Tự Mua Hàng & Đồng Bộ Số Dư Core SSOT
+- **Hiện tượng & Bối cảnh (3 lỗi nghiệm thu 12/11/2026)**:
+  1. *Lỗi 1 (Nặng)*: Thiếu giao diện giỏ hàng đa gian hàng — trên trang gian hàng (`/gian-hang/:slug`), thẻ sản phẩm chỉ có nút "Mua Ngay" mở modal mua lẻ bằng Core; không có nút "Thêm vào giỏ", không có drawer/modal giỏ hàng, các route `/gio-hang`, `/cart` chuyển về trang chủ, chưa gọi được `POST /api/seller-orders/multi`.
+  2. *Lỗi 2 (Trung bình)*: Đơn đa gian hàng không chặn người bán tự mua hàng của chính mình (trong cả `multi.ts` và `pay-core.ts`).
+  3. *Lỗi 3 (Nhẹ, hiển thị)*: Số dư ví Core trên Header, menu tài khoản và hộp thoại ví bị reset/hiển thị cũ (500 Core) sau khi thực hiện giao dịch mua hàng marketplace do fallback `checkUserDepositStatus` đọc transaction nạp tiền cũ trong `localStorage`.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Lỗi 1*: Chưa có `cartService.ts` quản lý giỏ hàng marketplace và `CartDrawerModal.tsx` để gom nhóm theo gian hàng, tích hợp API `multi.ts`, thanh toán ví Core (`pay-core.ts`), và hiển thị VietQR cho các đơn con.
+  2. *Lỗi 2*: Trong `functions/api/seller-orders/multi.ts` và `functions/api/seller-orders/multi/[id]/pay-core.ts`, câu lệnh SQL không lấy `owner_member_id` của gian hàng và thiếu điều kiện kiểm tra `owner_member_id === buyer.id`.
+  3. *Lỗi 3*: Bảng `wcg_admin_transactions_v4` chỉ lưu các giao dịch nạp tiền (DEPOSIT) và đơn mua shop cũ. Khi mua hàng sàn, tiền bị trừ trên D1 `members.balance` nhưng không phát sinh transaction nạp tiền. Hàm `checkUserDepositStatus` thấy `latestTx.balanceAfter (500) > currentUser.wallet_balance (100)` nên ngộ nhận là giao dịch nạp tiền mới và ghi đè `currentUser.wallet_balance = 500`.
+- **Giải pháp xử lý (Solution)**:
+  1. *Giỏ hàng đa gian hàng*:
+     - Tạo `src/services/cartService.ts`: Quản lý giỏ hàng `wcg_marketplace_cart_v1`, gom nhóm sản phẩm theo người bán (`getGroupedBySeller`), phát sự kiện `wcg_cart_updated`.
+     - Tạo `src/components/cart/CartDrawerModal.tsx`: Hỗ trợ đặt hàng đa gian hàng qua `POST /api/seller-orders/multi`, thanh toán ví Core qua `POST /api/seller-orders/multi/:id/pay-core`, và hiển thị VietQR sinh tại chỗ (`QRCode.toDataURL`) cho từng đơn con kèm polling tự động mỗi 3.5s.
+     - Cập nhật `PublicStoreView.tsx`: Thêm nút "Thêm vào giỏ" trên từng thẻ sản phẩm kèm toast thông báo.
+     - Cập nhật `Header.tsx`: Thêm icon `ShoppingCart` với badge đếm số lượng trên cả Desktop & Mobile và menu tài khoản.
+     - Cập nhật `App.tsx`: Hỗ trợ route `/gio-hang`, `/cart`, `#cart`, `#gio-hang` và mở `CartDrawerModal`.
+  2. *Chặn tự mua hàng*:
+     - Trong `multi.ts`: `JOIN sellers s` lấy `s.owner_member_id`, kiểm tra `product.owner_member_id === buyer.id` -> trả về 400: `Bạn không thể tự mua sản phẩm của chính gian hàng mình ("${product.seller_name}").`
+     - Trong `pay-core.ts`: `JOIN sellers s` lấy `s.owner_member_id`, kiểm tra `selfPurchaseOrder` -> trả về 400.
+  3. *Đồng bộ số dư Core SSOT*:
+     - Trong `functions/api/seller-orders/index.ts`: Bổ sung `new_balance: newBalance` vào response.
+     - Trong `src/services/dataService.ts`: Bỏ fallback `checkUserDepositStatus` cho tài khoản đã đăng nhập có token hợp lệ. Trong `checkUserDepositStatus`, thêm điều kiện chỉ xác nhận top-up mới nếu giao dịch phát sinh trong vòng 15 phút gần nhất.
+     - Trong `PublicStoreView.tsx`: Cập nhật `currentUser.wallet_balance` trực tiếp từ response `new_balance` và đồng bộ `refreshCurrentUserBalance()` trong `finally`.
+- **Kiểm thử & Triển khai**:
+  - `npm run build` thành công 100%, 0 lỗi TypeScript, Edge Worker bundle 18.7MB, Zero test artifacts.
+  - Tự động triển khai lên cả 3 máy chủ theo Rule 6.
+
 ## [2026-11-11]
 
 ### 374. Đăng Ký Toàn Bộ Endpoints Giai Đoạn 2 Vào Manual Router `functions/_worker.ts` & Sửa Lỗi Import `verifyMemberAuth`

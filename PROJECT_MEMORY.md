@@ -57,7 +57,9 @@
     - Cơ chế bảo mật: Mã hóa mã code bằng AES-GCM Web Crypto, chống trùng lặp, chống xóa mã đã bán, tự động đóng băng lô mã khi tỷ lệ lỗi $\ge 25\%$.
     - Phase 1: Mua bằng ví Core nội bộ, giao mã 0s, tủ mã khách hàng, báo lỗi 1 chạm, phân quyền tài khoản phụ.
     - Phase 2 (Tiền thật qua sàn - Chế độ A):
-      - Giỏ hàng đa gian hàng & tự động tách đơn con (`seller_parent_orders` & `seller_orders`).
+      - Giỏ hàng đa gian hàng & tự động tách đơn con (`seller_parent_orders` & `seller_orders`): Hỗ trợ thêm vào giỏ từ mọi gian hàng, quản lý qua `cartService.ts` (`wcg_marketplace_cart_v1`), modal `CartDrawerModal.tsx` mở qua `/gio-hang` / `/cart` hoặc icon Header, gom nhóm theo người bán, thanh toán ví Core hoặc chuyển khoản VietQR cho từng đơn con.
+      - Quy tắc chống tự mua: Chặn người bán tự mua sản phẩm của chính gian hàng mình ở cả 3 tầng (đơn lẻ `index.ts`, tạo giỏ `multi.ts`, thanh toán ví `pay-core.ts`).
+      - Cơ chế đồng bộ số dư Core SSOT: Tuyệt đối không fallback vào giao dịch nạp tiền cũ để ghi đè số dư; `/api/auth/me` và `new_balance` là nguồn sự thật duy nhất.
       - Cổng QR sàn tập trung: Cú pháp chuyển khoản `WCG <child_order_code>`, sinh VietQR EMVCo tại chỗ (Data URL) chống chặn adblocker.
       - Xử lý Webhook SePay 7 trường hợp (Khớp chính xác, chuyển thiếu, chuyển thừa, trùng lặp, hết hạn, sai khóa API, cảnh báo tấn công dò khóa).
       - Giữ tiền 168 giờ (`hold_until`), tự động giải ngân (`RELEASE`) và thu phí sàn 5% (`FEE`).

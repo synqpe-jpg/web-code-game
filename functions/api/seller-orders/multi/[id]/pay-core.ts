@@ -84,14 +84,27 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
     // 3. Tìm các đơn con còn chờ thanh toán
     const childOrdersRes = await env.DB.prepare(`
-      SELECT * FROM seller_orders
-      WHERE parent_order_id = ? AND status = 'PENDING_PAYMENT' AND deleted_at IS NULL
+      SELECT so.*, s.owner_member_id, s.name as seller_name
+      FROM seller_orders so
+      JOIN sellers s ON so.seller_id = s.id
+      WHERE so.parent_order_id = ? AND so.status = 'PENDING_PAYMENT' AND so.deleted_at IS NULL
     `).bind(parentOrder.id).all<any>();
 
     const childOrders = childOrdersRes?.results || [];
     if (childOrders.length === 0) {
       return new Response(
         JSON.stringify({ success: false, error: 'Không có đơn con nào cần thanh toán.' }),
+        { status: 400, headers: CORS_HEADERS }
+      );
+    }
+
+    const selfPurchaseOrder = childOrders.find((co: any) => co.owner_member_id === buyer.id);
+    if (selfPurchaseOrder) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `Bạn không thể tự mua sản phẩm của chính gian hàng mình ("${selfPurchaseOrder.seller_name || selfPurchaseOrder.seller_id}").`,
+        }),
         { status: 400, headers: CORS_HEADERS }
       );
     }

@@ -44,6 +44,7 @@ const EmailSubscriptionModal = lazyWithRetry(() => import('./components/notifica
 const TodayCodesView = lazyWithRetry(() => import('./components/TodayCodesView').then((m) => ({ default: m.TodayCodesView })));
 const SellerCenterView = lazyWithRetry(() => import('./components/seller/SellerCenterView').then((m) => ({ default: m.SellerCenterView })));
 const PublicStoreView = lazyWithRetry(() => import('./components/seller/PublicStoreView').then((m) => ({ default: m.PublicStoreView })));
+const CartDrawerModal = lazyWithRetry(() => import('./components/cart/CartDrawerModal').then((m) => ({ default: m.CartDrawerModal })));
 import { dataService } from './services/dataService';
 import { marketingService } from './services/marketingService';
 import { authService } from './services/authService';
@@ -271,6 +272,14 @@ export const App: React.FC = () => {
   const [receivedCodesInitialTab, setReceivedCodesInitialTab] = useState<'giveaways' | 'orders' | 'privates' | 'missions'>('giveaways');
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [profileInitialTab, setProfileInitialTab] = useState<'profile' | 'security' | 'telegram' | 'missions'>('profile');
+  const [isCartOpen, setIsCartOpen] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname.toLowerCase();
+      const hash = window.location.hash.toLowerCase();
+      return path === '/gio-hang' || path === '/cart' || hash === '#cart' || hash === '#gio-hang';
+    }
+    return false;
+  });
 
   const handleOpenProfile = (tab: 'profile' | 'security' | 'telegram' | 'missions' = 'profile') => {
     setProfileInitialTab(tab);
@@ -917,6 +926,9 @@ export const App: React.FC = () => {
         setSelectedGame(null);
         setCurrentTab('today-codes');
         return;
+      }
+      if (hash === '#cart' || hash === '#gio-hang' || path === '/gio-hang' || path === '/cart') {
+        setIsCartOpen(true);
       }
 
       // 2. Pathname routes
@@ -1673,6 +1685,7 @@ export const App: React.FC = () => {
           }}
           onOpenDownloadApp={() => setIsDownloadModalOpen(true)}
           onOpenNotificationModal={() => setIsEmailModalOpen(true)}
+          onOpenCart={() => setIsCartOpen(true)}
           onOpenAuth={() => setIsAuthModalOpen(true)}
           onOpenWallet={() => setIsWalletModalOpen(true)}
           onOpenReceivedCodes={handleOpenReceivedCodes}
@@ -1911,6 +1924,7 @@ export const App: React.FC = () => {
                 onOpenLogin={() => setIsAuthModalOpen(true)}
                 onNavigateHome={() => handleSelectTab('catalog')}
                 onOpenProfile={() => setIsProfileModalOpen(true)}
+                onOpenCart={() => setIsCartOpen(true)}
               />
             )}
           </Suspense>
@@ -2122,6 +2136,37 @@ export const App: React.FC = () => {
           isDarkMode={isDarkMode}
           onToggleTheme={handleToggleTheme}
         />
+
+        {isCartOpen && (
+          <CartDrawerModal
+            isOpen={isCartOpen}
+            onClose={() => {
+              setIsCartOpen(false);
+              const path = window.location.pathname.toLowerCase();
+              if (path === '/gio-hang' || path === '/cart') {
+                window.history.pushState(null, '', '/');
+              }
+            }}
+            currentUser={currentUser}
+            onOpenLogin={() => {
+              setIsCartOpen(false);
+              setIsAuthModalOpen(true);
+            }}
+            onOpenWallet={() => {
+              setIsCartOpen(false);
+              setIsWalletModalOpen(true);
+            }}
+            onOpenReceivedCodes={(initialTab) => {
+              setIsCartOpen(false);
+              handleOpenReceivedCodes(initialTab);
+            }}
+            onNavigateStore={(slug) => {
+              setIsCartOpen(false);
+              setCurrentStoreSlug(slug);
+              handleSelectTab('store-detail');
+            }}
+          />
+        )}
 
         <DownloadAppModal
           isOpen={isDownloadModalOpen}

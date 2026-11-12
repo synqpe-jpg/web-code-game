@@ -15,8 +15,10 @@ import {
   X,
   PauseCircle,
   Info,
+  ShoppingCart,
 } from 'lucide-react';
 import { dataService } from '../../services/dataService';
+import { cartService } from '../../services/cartService';
 
 interface PublicStoreViewProps {
   slug: string;
@@ -24,6 +26,7 @@ interface PublicStoreViewProps {
   onOpenLogin: () => void;
   onNavigateHome: () => void;
   onOpenProfile?: () => void;
+  onOpenCart?: () => void;
 }
 
 export const PublicStoreView: React.FC<PublicStoreViewProps> = ({
@@ -32,12 +35,14 @@ export const PublicStoreView: React.FC<PublicStoreViewProps> = ({
   onOpenLogin,
   onNavigateHome,
   onOpenProfile,
+  onOpenCart,
 }) => {
   const [loading, setLoading] = useState<boolean>(true);
   const [store, setStore] = useState<any>(null);
   const [products, setProducts] = useState<any[]>([]);
   const [isVacation, setIsVacation] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string>('');
+  const [cartToast, setCartToast] = useState<{ message: string; success: boolean } | null>(null);
 
   // Purchase Modal State
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
@@ -93,6 +98,24 @@ export const PublicStoreView: React.FC<PublicStoreViewProps> = ({
     }
   }, [slug]);
 
+  // Handle Add to Cart
+  const handleAddToCart = (p: any) => {
+    const res = cartService.addToCart({
+      productId: p.id,
+      productName: p.name,
+      priceCore: p.price_core,
+      sellerId: store?.id || p.seller_id,
+      sellerName: store?.name || 'Gian Hàng',
+      sellerSlug: slug,
+      sellerAvatar: store?.avatar_url,
+      gameSlug: p.game_slug,
+      gameName: p.game_name,
+      coverUrl: p.cover_url,
+    });
+    setCartToast({ message: res.message, success: res.success });
+    setTimeout(() => setCartToast(null), 3000);
+  };
+
   // Handle Purchase
   const handlePurchase = async () => {
     if (!currentUser) {
@@ -112,8 +135,10 @@ export const PublicStoreView: React.FC<PublicStoreViewProps> = ({
       const data = await res.json();
       if (data.success) {
         setPurchasedOrder(data.order);
-        // Đồng bộ số dư ví của tài khoản người mua ngay sau khi giao dịch hoàn tất
-        dataService.refreshCurrentUserBalance().catch(() => {});
+        if (typeof data.new_balance === 'number' && currentUser) {
+          currentUser.wallet_balance = data.new_balance;
+          dataService.saveCurrentUser(currentUser);
+        }
       } else {
         setPurchaseError(data.error || 'Thanh toán thất bại.');
       }
@@ -121,6 +146,7 @@ export const PublicStoreView: React.FC<PublicStoreViewProps> = ({
       setPurchaseError('Lỗi kết nối máy chủ.');
     } finally {
       setPurchasing(false);
+      dataService.refreshCurrentUserBalance().catch(() => {});
     }
   };
 
@@ -301,17 +327,29 @@ export const PublicStoreView: React.FC<PublicStoreViewProps> = ({
                   )}
                 </div>
 
-                <button
-                  disabled={!p.has_stock || isVacation}
-                  onClick={() => {
-                    setSelectedProduct(p);
-                    setPurchasedOrder(null);
-                    setPurchaseError('');
-                  }}
-                  className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:opacity-95 transition-all shadow-sm shadow-primary/20 disabled:opacity-40 disabled:pointer-events-none"
-                >
-                  Mua Ngay
-                </button>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    disabled={!p.has_stock || isVacation}
+                    onClick={() => handleAddToCart(p)}
+                    className="p-2 rounded-xl bg-card hover:bg-muted border border-border text-foreground hover:text-primary transition-all disabled:opacity-40 disabled:pointer-events-none active:scale-95 shadow-sm"
+                    title="Thêm vào giỏ hàng"
+                    aria-label="Thêm vào giỏ hàng"
+                  >
+                    <ShoppingCart className="w-4 h-4" />
+                  </button>
+                  <button
+                    disabled={!p.has_stock || isVacation}
+                    onClick={() => {
+                      setSelectedProduct(p);
+                      setPurchasedOrder(null);
+                      setPurchaseError('');
+                    }}
+                    className="px-3.5 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:opacity-95 transition-all shadow-sm shadow-primary/20 disabled:opacity-40 disabled:pointer-events-none active:scale-95"
+                  >
+                    Mua Ngay
+                  </button>
+                </div>
               </div>
             </div>
           ))}
@@ -441,6 +479,32 @@ export const PublicStoreView: React.FC<PublicStoreViewProps> = ({
                   )}
                 </div>
               </div>
+            )}
+          </div>
+        </div>
+      )}
+      {/* Floating Cart Toast Notification */}
+      {cartToast && (
+        <div className="fixed bottom-6 right-6 z-50 animate-in fade-in slide-in-from-bottom-4 duration-200">
+          <div className="p-3.5 rounded-2xl bg-card border border-border shadow-xl flex items-center gap-3 max-w-sm">
+            <div
+              className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                cartToast.success ? 'bg-emerald-500/20 text-emerald-500' : 'bg-destructive/20 text-destructive'
+              }`}
+            >
+              {cartToast.success ? <CheckCircle2 className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-xs font-semibold text-foreground truncate">{cartToast.message}</div>
+            </div>
+            {onOpenCart && cartToast.success && (
+              <button
+                type="button"
+                onClick={onOpenCart}
+                className="px-2.5 py-1 rounded-lg bg-primary text-primary-foreground text-[11px] font-bold shrink-0 hover:opacity-90 shadow-sm"
+              >
+                Mở Giỏ
+              </button>
             )}
           </div>
         </div>

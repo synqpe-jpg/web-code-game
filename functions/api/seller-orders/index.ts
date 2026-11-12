@@ -219,10 +219,13 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       },
     });
 
+    const newBalance = Math.max(0, userCore - priceCore);
+
     return new Response(
       JSON.stringify({
         success: true,
         message: 'Thanh toán thành công! Mã của bạn đã được giao ngay lập tức.',
+        new_balance: newBalance,
         order: {
           id: orderId,
           order_code: orderCode,

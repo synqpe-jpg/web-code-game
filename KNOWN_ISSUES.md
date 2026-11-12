@@ -10,6 +10,25 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-263: Bẫy Đồng Bộ Số Dư Ví Fallback Từ Lịch Sử Nạp Tiền Cũ (`checkUserDepositStatus`) Ghi Đè Số Dư Sau Giao Dịch Sàn & Bẫy Đơn Đa Gian Hàng Không Chặn Tự Mua Hàng
+- **Triệu chứng & Rủi ro**:
+  1. Sau khi thành viên mua hàng trên Sàn TMĐT bằng ví Core (hoặc đơn đa gian hàng), số dư ví bị trừ hợp lệ trên D1 `members.balance` (ví dụ từ 500 Core xuống 400 Core hoặc 100 Core). Tuy nhiên sau đó (khi mở modal ví hoặc chuyển trang), số dư ví trên Header và Profile bị reset hiển thị ngược trở lại 500 Core.
+  2. Người bán có thể đưa chính sản phẩm của gian hàng mình vào giỏ hàng đa gian hàng và tiến hành tạo đơn/thanh toán bằng ví Core mà không bị hệ thống chặn.
+- **Nguyên nhân gốc rễ**:
+  1. Bảng `wcg_admin_transactions_v4` trong `localStorage` chỉ ghi nhận các giao dịch nạp tiền (DEPOSIT) qua SePay, không theo dõi các đơn hàng trừ tiền của Sàn TMĐT (lưu trong `seller_orders`). Hàm `checkUserDepositStatus` đọc giao dịch nạp tiền gần nhất trong `wcg_admin_transactions_v4` có `balanceAfter: 500`, thấy `500 > 100` (số dư hiện tại của user) nên ngộ nhận là một khoản nạp tiền mới và tự ý ghi đè `currentUser.wallet_balance = 500`.
+  2. Trong `functions/api/seller-orders/multi.ts` và `functions/api/seller-orders/multi/[id]/pay-core.ts`, câu truy vấn không lấy `s.owner_member_id` từ bảng `sellers` và không kiểm tra `product.owner_member_id === buyer.id`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Đồng bộ số dư chuẩn SSOT*:
+     - Trong `dataService.ts`: Bỏ hoàn toàn fallback `checkUserDepositStatus` đối với tài khoản đã đăng nhập có token phiên (`/api/auth/me` là nguồn sự thật duy nhất). Trong `checkUserDepositStatus`, chỉ chấp nhận xác nhận nạp tiền mới nếu giao dịch đó xảy ra trong vòng 15 phút gần nhất.
+     - Trong `functions/api/seller-orders/index.ts`: Bổ sung `new_balance: newBalance` vào response JSON.
+     - Trong `PublicStoreView.tsx`: Cập nhật `currentUser.wallet_balance` trực tiếp từ `new_balance` và chạy `refreshCurrentUserBalance()` trong `finally`.
+  2. *Chặn tự mua hàng đa gian hàng*:
+     - Trong `multi.ts`: `JOIN sellers s` lấy `s.owner_member_id`, kiểm tra `product.owner_member_id === buyer.id` -> trả về HTTP 400.
+     - Trong `pay-core.ts`: `JOIN sellers s` lấy `s.owner_member_id`, kiểm tra `childOrders.find(co => co.owner_member_id === buyer.id)` -> trả về HTTP 400.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không dùng `checkUserDepositStatus` để khôi phục hoặc suy đoán số dư ví của tài khoản đã đăng nhập.*
+  - ❌ *Không kiểm tra `owner_member_id` chỉ ở bước mua đơn lẻ mà bỏ quên bước tạo đơn cha đa gian hàng (`multi.ts`) và thanh toán đơn con (`pay-core.ts`).*
+
 ### ISSUE-262: Bẫy Tạo File Endpoint Mới Trong `functions/api/` Nhưng Quên Đăng Ký Vào Manual Router `functions/_worker.ts` Gây Lỗi 404 Trên Môi Trường Live
 - **Triệu chứng & Rủi ro**:
   - File API endpoint đã được tạo đầy đủ trong `functions/api/...`, chạy test cục bộ hoặc type-check không báo lỗi, nhưng khi deploy lên môi trường live thì mọi request gửi tới endpoint đều trả về HTTP 404 `{"success": false, "error": "Endpoint not found"}`.
