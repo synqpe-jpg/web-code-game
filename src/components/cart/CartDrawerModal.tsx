@@ -182,15 +182,27 @@ export const CartDrawerModal: React.FC<CartDrawerModalProps> = ({
     setIsSubmitting(true);
     setCheckoutError('');
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
     try {
       const itemsPayload = cartItems.map((i) => ({ product_id: i.productId }));
       const res = await fetch('/api/seller-orders/multi', {
         method: 'POST',
         headers: getHeaders(),
         body: JSON.stringify({ items: itemsPayload }),
+        signal: controller.signal,
       });
 
-      const data = await res.json();
+      clearTimeout(timeoutId);
+
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error('Máy chủ phản hồi không đúng định dạng. Vui lòng thử lại sau.');
+      }
+
       if (!res.ok || !data.success) {
         setCheckoutError(data.error || 'Tạo đơn hàng đa gian hàng thất bại.');
         return;
@@ -202,9 +214,14 @@ export const CartDrawerModal: React.FC<CartDrawerModalProps> = ({
       setSecondsLeft(data.parent_order.seconds_left || 900);
       // Clear cart once order is confirmed
       cartService.clearCart();
-    } catch {
-      setCheckoutError('Lỗi kết nối máy chủ khi tạo đơn hàng.');
+    } catch (err: any) {
+      if (err?.name === 'AbortError') {
+        setCheckoutError('Thời gian phản hồi từ máy chủ quá lâu (hơn 15 giây). Đơn hàng chưa được tạo, vui lòng bấm thử lại.');
+      } else {
+        setCheckoutError(err?.message || 'Lỗi kết nối máy chủ khi tạo đơn hàng. Vui lòng thử lại.');
+      }
     } finally {
+      clearTimeout(timeoutId);
       setIsSubmitting(false);
     }
   };
@@ -220,13 +237,25 @@ export const CartDrawerModal: React.FC<CartDrawerModalProps> = ({
     setIsPayingCore(true);
     setCorePayError('');
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
     try {
       const res = await fetch(`/api/seller-orders/multi/${activeParentOrder.id}/pay-core`, {
         method: 'POST',
         headers: getHeaders(),
+        signal: controller.signal,
       });
 
-      const data = await res.json();
+      clearTimeout(timeoutId);
+
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error('Máy chủ phản hồi không đúng định dạng khi trừ ví.');
+      }
+
       if (!res.ok || !data.success) {
         setCorePayError(data.error || 'Thanh toán bằng ví Core thất bại.');
         return;
@@ -247,9 +276,14 @@ export const CartDrawerModal: React.FC<CartDrawerModalProps> = ({
         }
       }
       dataService.refreshCurrentUserBalance().catch(() => {});
-    } catch {
-      setCorePayError('Lỗi kết nối khi thanh toán bằng ví Core.');
+    } catch (err: any) {
+      if (err?.name === 'AbortError') {
+        setCorePayError('Hết thời gian chờ phản hồi thanh toán (hơn 15 giây). Vui lòng thử lại hoặc kiểm tra lịch sử đơn hàng.');
+      } else {
+        setCorePayError(err?.message || 'Lỗi kết nối khi thanh toán bằng ví Core.');
+      }
     } finally {
+      clearTimeout(timeoutId);
       setIsPayingCore(false);
     }
   };
@@ -483,6 +517,17 @@ export const CartDrawerModal: React.FC<CartDrawerModalProps> = ({
                             </div>
 
                             {co.status !== 'PAID' && co.status !== 'COMPLETED' ? (
+                              co.qr_allowed === false || (!co.qr_payload && !co.qr_content) ? (
+                                <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs space-y-1.5">
+                                  <div className="font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                                    <AlertCircle className="w-4 h-4 shrink-0" />
+                                    Chỉ hỗ trợ thanh toán bằng Ví Core
+                                  </div>
+                                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                                    Gian hàng <strong>{co.seller_name}</strong> hiện chưa mở cổng chuyển khoản QR SePay tiền thật. Vui lòng chuyển sang tab <strong>Ví Core Nội Bộ</strong> phía trên để hoàn tất thanh toán cho đơn này.
+                                  </p>
+                                </div>
+                              ) : (
                               <div className="flex flex-col sm:flex-row items-center gap-4">
                                 <div className="p-2 rounded-xl bg-white shadow-sm border border-border shrink-0">
                                   {qrImages[co.id] ? (
@@ -537,7 +582,8 @@ export const CartDrawerModal: React.FC<CartDrawerModalProps> = ({
                                   </div>
                                 </div>
                               </div>
-                            ) : (
+                            )
+                          ) : (
                               /* Đơn con đã hoàn tất -> hiển thị code */
                               <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 space-y-1">
                                 <div className="text-[10px] font-semibold text-emerald-500 uppercase">Mã code đã nhận:</div>
@@ -745,6 +791,18 @@ export const CartDrawerModal: React.FC<CartDrawerModalProps> = ({
         {/* Modal Footer (When in Cart Overview) */}
         {!activeParentOrder && cartItems.length > 0 && (
           <div className="p-4 sm:p-5 border-t border-border/80 bg-muted/20 space-y-3 shrink-0">
+            {checkoutError && (
+              <div className="p-3 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive text-xs flex items-start gap-2.5 animate-in fade-in">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <div className="font-bold">{checkoutError}</div>
+                  <div className="text-[11px] text-destructive/80 mt-0.5">
+                    Đơn hàng chưa được tạo và kho mã được bảo toàn. Bạn có thể kiểm tra lại hoặc bấm đặt hàng lại.
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="flex items-center justify-between text-xs">
               <span className="text-muted-foreground">Tổng ({cartItems.length} sản phẩm):</span>
               <div className="text-right">

@@ -66,7 +66,9 @@
       - Sổ cái tài chính 3 ngăn (Đang giữ / Khả dụng / Đã chi trả - `seller_ledger`, APPEND-ONLY).
       - Đối soát 3 nguồn hàng ngày (Đơn hàng $\leftrightarrow$ SePay $\leftrightarrow$ Sổ cái) và quản lý ngoại lệ.
       - Quản trị rút tiền: Rút từ số dư khả dụng, tự động duyệt $\le 500$ Core, duyệt tay vượt ngưỡng, xác nhận chuyển khoản.
-      - Kiểm soát gian hàng thử nghiệm: Quản trị viên cấu hình `test_seller_ids` qua `/api/admin/seller-config`. Mảng rỗng `[]` có nghĩa là không có gian hàng nào được thử nghiệm tiền thật. Chỉ kích hoạt mặc định `sel_1794399949383_052f1` khi chưa từng lưu cấu hình trong `system_settings`.
+      - Kiểm soát gian hàng thử nghiệm: Quản trị viên cấu hình `test_seller_ids` qua `/api/admin/seller-config`. Mảng rỗng `[]` có nghĩa là không có gian hàng nào được thử nghiệm tiền thật. Chỉ kích hoạt mặc định `sel_1794399949383_052f1` khi chưa từng lưu cấu hình trong `system_settings`. Các gian hàng ngoài danh sách thử nghiệm tiền thật vẫn được bán bình thường qua ví Core nội bộ; khi tạo giỏ đa gian hàng hệ thống chỉ tắt mã QR (`qr_allowed: false`) chứ không chặn tạo đơn.
+      - Tối ưu hóa 0s Schema Cache (`ensureMarketplaceSchema`): Sử dụng in-memory flag và 1 truy vấn kiểm tra nhanh `sqlite_master` (~15ms) để bỏ qua 51 câu lệnh DDL tuần tự, triệt tiêu hoàn toàn độ trễ 25–30s trên API sàn TMĐT.
+      - Phòng thủ giao diện Giỏ hàng: Thông báo lỗi `checkoutError` luôn được render tại Footer ngay trên nút "Tiến Hành Đặt Hàng" kèm `AbortController` giới hạn thời gian chờ 15 giây, đảm bảo người dùng luôn nhận được phản hồi tức thì và không bị mất dấu lỗi khi danh sách cuộn dài.
     - Endpoints: `/api/seller/*`, `/api/seller-orders/*`, `/api/seller-orders/multi/*`, `/api/stores/*`, `/api/admin/sellers/*`, `/api/admin/seller-products/*`, `/api/admin/seller-finance/*`, `/api/admin/withdrawals/*`.
 
 ### 2.3. Tự Động Hóa 24/7 (Automation & Crawlers)

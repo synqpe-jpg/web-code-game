@@ -166,15 +166,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       }
 
       // Kiểm tra danh sách thử nghiệm tiền thật (§1.11)
-      if (!isTestSellerAllowed(config, product.seller_id)) {
-        return new Response(
-          JSON.stringify({
-            success: false,
-            error: `Gian hàng "${product.seller_name}" hiện chỉ hỗ trợ thanh toán bằng ví Core (chưa mở bán tiền thật ở Giai đoạn 2).`,
-          }),
-          { status: 400, headers: CORS_HEADERS }
-        );
-      }
+      // Lưu ý: Các gian hàng ngoài danh sách này vẫn tiếp tục bán bằng ví Core bình thường; chỉ không sinh mã QR SePay tiền thật
+      const isRealMoneyAllowed = isTestSellerAllowed(config, product.seller_id);
 
       // Tìm 1 mã IN_STOCK để giữ mã nguyên tử (§4.1: IN_STOCK -> RESERVED)
       const availableCode = await env.DB.prepare(`
@@ -197,12 +190,14 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       totalAmount += priceCore;
 
       const transferContent = `${paymentPrefix} ${childOrderCode}`;
-      const qrPayload = generateVietQrPayload({
-        bankName,
-        accountNumber,
-        amount: priceCore,
-        content: transferContent,
-      });
+      const qrPayload = isRealMoneyAllowed
+        ? generateVietQrPayload({
+            bankName,
+            accountNumber,
+            amount: priceCore,
+            content: transferContent,
+          })
+        : null;
 
       childOrdersToInsert.push({
         id: childOrderId,
@@ -218,8 +213,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         status: 'PENDING_PAYMENT',
         payment_method: 'QR_SEPAY',
         expires_at: expiresAt,
+        qr_allowed: isRealMoneyAllowed,
         qr_payload: qrPayload,
-        qr_content: transferContent,
+        qr_content: isRealMoneyAllowed ? transferContent : null,
         bank_name: bankName,
         account_number: accountNumber,
         bank_account: bankAccount,
@@ -331,6 +327,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           price_core: co.price_core,
           status: co.status,
           expires_at: co.expires_at,
+          qr_allowed: co.qr_allowed,
           qr_payload: co.qr_payload,
           qr_content: co.qr_content,
           bank_name: co.bank_name,

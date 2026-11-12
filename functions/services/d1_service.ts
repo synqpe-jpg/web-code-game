@@ -759,11 +759,26 @@ export async function ensureGameCommentsSchema(db: D1Database): Promise<void> {
   }
 }
 
+let _marketplaceSchemaEnsured = false;
+
 /**
  * Safe runtime schema for Marketplace Phase 1 (Sàn TMĐT Số - Nền Gian Hàng MVP)
+ * Tối ưu hóa 0s: Sử dụng in-memory cache và fast check 1 query để tránh gọi 51 DDL queries tuần tự
  */
 export async function ensureMarketplaceSchema(db: D1Database): Promise<void> {
+  if (_marketplaceSchemaEnsured) return;
+
   try {
+    // ⚡ Fast-path: Kiểm tra 1 query duy nhất (~15ms) xem bảng đơn cha đã tồn tại trong D1 chưa
+    const quickCheck = await db
+      .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'seller_parent_orders' LIMIT 1")
+      .first<any>();
+
+    if (quickCheck) {
+      _marketplaceSchemaEnsured = true;
+      return;
+    }
+
     // 1. Bảng gian hàng người bán
     await db.prepare(`
       CREATE TABLE IF NOT EXISTS sellers (
@@ -1038,6 +1053,7 @@ export async function ensureMarketplaceSchema(db: D1Database): Promise<void> {
 
     await db.prepare("CREATE INDEX IF NOT EXISTS idx_seller_subaccounts_seller ON seller_subaccounts(seller_id);").run().catch(() => {});
     await db.prepare("CREATE INDEX IF NOT EXISTS idx_seller_subaccounts_member ON seller_subaccounts(member_id);").run().catch(() => {});
+    _marketplaceSchemaEnsured = true;
   } catch (err: any) {
     console.warn('[ensureMarketplaceSchema error]', err?.message);
   }

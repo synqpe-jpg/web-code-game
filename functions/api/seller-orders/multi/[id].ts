@@ -1,5 +1,5 @@
 import { ensureMarketplaceSchema, checkAndExpireSellerOrdersD1 } from '../../../services/d1_service';
-import { generateVietQrPayload } from '../../../services/marketplace_service';
+import { generateVietQrPayload, getMarketplaceConfig, isTestSellerAllowed } from '../../../services/marketplace_service';
 
 interface Env {
   DB: D1Database;
@@ -70,6 +70,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       }
     } catch {}
 
+    const config = await getMarketplaceConfig(env.DB);
+
     // 3. Tìm các đơn con
     const childOrdersRes = await env.DB.prepare(`
       SELECT so.*, s.name as seller_name, s.avatar_url as seller_avatar
@@ -80,13 +82,16 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     `).bind(parentOrder.id).all<any>();
 
     const childOrders = (childOrdersRes?.results || []).map((co: any) => {
+      const isRealMoneyAllowed = isTestSellerAllowed(config, co.seller_id);
       const transferContent = `${paymentPrefix} ${co.order_code}`;
-      const qrPayload = generateVietQrPayload({
-        bankName,
-        accountNumber,
-        amount: co.price_core,
-        content: transferContent,
-      });
+      const qrPayload = isRealMoneyAllowed
+        ? generateVietQrPayload({
+            bankName,
+            accountNumber,
+            amount: co.price_core,
+            content: transferContent,
+          })
+        : null;
 
       return {
         id: co.id,
@@ -101,8 +106,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         delivered_code: co.delivered_code,
         hold_until: co.hold_until,
         expires_at: co.expires_at,
+        qr_allowed: isRealMoneyAllowed,
         qr_payload: qrPayload,
-        qr_content: transferContent,
+        qr_content: isRealMoneyAllowed ? transferContent : null,
         bank_name: bankName,
         account_number: accountNumber,
         bank_account: bankAccount,

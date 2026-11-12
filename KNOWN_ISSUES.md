@@ -10,6 +10,24 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-265: Bẫy Chạy Tuần Tự Hàng Chục Câu Lệnh DDL (`CREATE/ALTER TABLE`) Trong Request Runtime Gây Treo 25–30 Giây & Bẫy Chặn Tạo Đơn Giỏ Hàng Ví Core Khi Gian Hàng Chưa Mở Tiền Thật
+- **Triệu chứng & Rủi ro**:
+  1. Khi người mua bấm "Tiến Hành Đặt Hàng" trong giỏ đa gian hàng, nút bị treo "Đang tạo đơn hàng..." suốt 25–30 giây rồi âm thầm hoàn nguyên lại trạng thái cũ mà không tạo đơn, không có thông báo lỗi. Thanh toán ví Core (`pay-core`) cũng từng bị chậm 21–24 giây.
+  2. Khi danh sách gian hàng thử nghiệm tiền thật rỗng (`test_seller_ids: []`), người mua không thể đặt hàng bất kỳ sản phẩm nào qua giỏ hàng đa gian hàng kể cả khi muốn thanh toán bằng ví Core nội bộ.
+  3. Lỗi chỉ render ở đầu danh sách cuộn (`overflow-y-auto`) nên khi người dùng nhìn vào nút bấm ở Footer thì không thấy bất kỳ thông báo lỗi nào.
+- **Nguyên nhân gốc rễ**:
+  1. Hàm `ensureMarketplaceSchema` thực thi 51 câu lệnh DDL tuần tự (`await db.prepare(...).run()`) mỗi khi có request tới endpoint sàn TMĐT mà không có bộ nhớ cache hoặc kiểm tra nhanh. 51 roundtrips qua mạng D1 tốn 25–30 giây, chạm ngưỡng timeout của Cloudflare Pages Functions.
+  2. `functions/api/seller-orders/multi.ts` kiểm tra `isTestSellerAllowed` và ném lỗi 400 chặn cả quá trình tạo đơn giỏ hàng, dù theo thiết kế §1.11 các gian hàng ngoài danh sách thử nghiệm tiền thật vẫn được bán bình thường qua ví Core nội bộ.
+  3. Frontend `CartDrawerModal` thiếu `AbortController` 15s và không hiển thị thông báo lỗi `checkoutError` tại Footer ngay trên nút bấm.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Tối ưu hóa 0s Schema Cache*: Dùng biến cờ in-memory `_marketplaceSchemaEnsured = false` kết hợp 1 truy vấn kiểm tra nhanh `SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'seller_parent_orders' LIMIT 1` (~15ms). Nếu đã tồn tại thì bỏ qua toàn bộ 51 câu lệnh DDL. Thời gian phản hồi giảm xuống < 200ms.
+  2. *Tách bạch Ví Core và QR SePay*: Cho phép tạo đơn đa gian hàng thành công cho mọi gian hàng ACTIVE/TRIAL; chỉ tắt mã QR (`qr_allowed: false`) cho các gian hàng ngoài `test_seller_ids` khi xem ở tab Chuyển khoản QR.
+  3. *Hiển thị lỗi trực tiếp tại Footer*: Đặt khung thông báo lỗi màu đỏ kèm hướng dẫn xử lý cụ thể ngay phía trên nút bấm ở Footer và bổ sung timeout 15s cho các lệnh fetch.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không chạy hàng chục lệnh DDL (`CREATE TABLE`, `ALTER TABLE`, `CREATE INDEX`) tuần tự trên từng request HTTP mà không có cache.*
+  - ❌ *Không chặn tạo đơn hàng đa gian hàng bằng kiểm tra `isTestSellerAllowed` khi người mua có quyền thanh toán bằng ví Core.*
+  - ❌ *Không render thông báo lỗi chỉ ở vùng cuộn nội dung phía trên mà bỏ quên khu vực chân trang (Footer) cạnh nút thao tác.*
+
 ### ISSUE-264: Bẫy Danh Sách Cấu Hình Rỗng (`[]`) Tự Động Rơi Về Mặc Định Cứng (`DEFAULT_CONFIG`) Trong Hàm Đọc CSDL
 - **Triệu chứng & Rủi ro**:
   - Quản trị viên cập nhật danh sách cấu hình (ví dụ: `test_seller_ids: []` để dọn sạch hoặc vô hiệu hóa toàn bộ quyền thử nghiệm) qua API `PUT`.

@@ -327,16 +327,17 @@ export const PublicStoreView: React.FC<PublicStoreViewProps> = ({
                   )}
                 </div>
 
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 shrink-0">
                   <button
                     type="button"
                     disabled={!p.has_stock || isVacation}
                     onClick={() => handleAddToCart(p)}
-                    className="p-2 rounded-xl bg-card hover:bg-muted border border-border text-foreground hover:text-primary transition-all disabled:opacity-40 disabled:pointer-events-none active:scale-95 shadow-sm"
-                    title="Thêm vào giỏ hàng"
+                    className="px-2.5 py-1.5 rounded-xl bg-card hover:bg-muted border-2 border-primary/40 hover:border-primary text-foreground hover:text-primary transition-all disabled:opacity-40 disabled:pointer-events-none active:scale-95 shadow-sm flex items-center gap-1.5 text-xs font-semibold"
+                    title="Thêm sản phẩm này vào giỏ hàng"
                     aria-label="Thêm vào giỏ hàng"
                   >
-                    <ShoppingCart className="w-4 h-4" />
+                    <ShoppingCart className="w-3.5 h-3.5 text-primary" />
+                    <span>Thêm vào giỏ</span>
                   </button>
                   <button
                     disabled={!p.has_stock || isVacation}
@@ -345,7 +346,7 @@ export const PublicStoreView: React.FC<PublicStoreViewProps> = ({
                       setPurchasedOrder(null);
                       setPurchaseError('');
                     }}
-                    className="px-3.5 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:opacity-95 transition-all shadow-sm shadow-primary/20 disabled:opacity-40 disabled:pointer-events-none active:scale-95"
+                    className="px-3.5 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:opacity-95 transition-all shadow-sm shadow-primary/20 disabled:opacity-40 disabled:pointer-events-none active:scale-95 whitespace-nowrap"
                   >
                     Mua Ngay
                   </button>

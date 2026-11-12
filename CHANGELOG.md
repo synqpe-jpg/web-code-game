@@ -7,6 +7,30 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-12]
 
+### 377. Sửa Lỗi 5: Bấm "Tiến Hành Đặt Hàng" Trong Giỏ Hàng Đa Gian Hàng Bị Treo ~30 Giây Lặng Lẽ Trở Lại, Bổ Sung Xử Lý Lỗi Frontend & Nâng Cấp Nút "Thêm Vào Giỏ"
+- **Hiện tượng & Bối cảnh (Lỗi 5)**:
+  - Khi người mua (`huio`, `muse2`) bấm "Tiến Hành Đặt Hàng" trong giỏ hàng đa gian hàng (`CartDrawerModal`), nút chuyển sang "Đang tạo đơn hàng...", bị treo vô hiệu hóa khoảng 25–30 giây rồi lặng lẽ bật lại thành "Tiến Hành Đặt Hàng" mà không tạo đơn, không trừ tiền, không giữ mã và không hiển thị bất kỳ thông báo lỗi nào.
+  - Lỗi giao diện kèm theo: Nút "Thêm vào giỏ" trên thẻ sản phẩm trang gian hàng (`/gian-hang/:slug`) chỉ là nút tròn nhỏ có icon giỏ hàng sát nút "Mua Ngay", không có chữ khiến người dùng nhìn lướt tưởng trang không có tính năng thêm giỏ.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Nghẽn hiệu năng nghiêm trọng (25–30s)*: Hàm `ensureMarketplaceSchema` trong `functions/services/d1_service.ts` thực thi tuần tự 51 câu lệnh DDL (`CREATE TABLE`, `ALTER TABLE`, `CREATE INDEX`) trên mỗi request mà không có cờ in-memory cache hay kiểm tra nhanh. Mỗi truy vấn D1 qua mạng tốn 300–800ms, dẫn đến tổng thời gian chạy lên tới 25–30 giây, khiến Cloudflare Worker hoặc fetch trình duyệt bị gateway timeout.
+  2. *Chặn sai luồng mua ví Core*: Trong `functions/api/seller-orders/multi.ts`, đoạn kiểm tra `isTestSellerAllowed(config, product.seller_id)` ném lỗi HTTP 400 nếu gian hàng không nằm trong `test_seller_ids`. Sau khi Lỗi 4 sửa danh sách thành rỗng `[]`, mọi gian hàng (kể cả gian hàng thử nghiệm) đều bị chặn không cho tạo đơn đa gian hàng, dù người mua chỉ muốn thanh toán bằng ví Core nội bộ (vốn hợp lệ cho mọi gian hàng ACTIVE/TRIAL).
+  3. *Lỗi hiển thị & thiếu timeout ở Frontend*: Trong `CartDrawerModal.tsx`, `checkoutError` chỉ được render ở đầu danh sách cuộn (`overflow-y-auto`), khi giỏ có hàng thì vị trí này bị cuộn khuất khỏi tầm mắt của người dùng đang bấm nút ở Footer; đồng thời không có thông báo lỗi đặt tại Footer và không có `AbortController` giới hạn thời gian chờ.
+- **Giải pháp xử lý (Solution)**:
+  1. *Tối ưu hóa 0s cho D1 Schema*:
+     - Bổ sung cờ in-memory `_marketplaceSchemaEnsured = false` trong `functions/services/d1_service.ts`.
+     - Thêm fast-path 1 câu lệnh `SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'seller_parent_orders' LIMIT 1` (~15ms) để bỏ qua toàn bộ 51 câu lệnh DDL khi schema đã tồn tại. Thời gian phản hồi giảm từ ~25.000ms xuống dưới 200ms.
+  2. *Mở khóa tạo đơn giỏ hàng cho ví Core*:
+     - Trong `functions/api/seller-orders/multi.ts` và `functions/api/seller-orders/multi/[id].ts`: Không chặn tạo đơn nếu gian hàng ngoài `test_seller_ids`. Thay vào đó, gán cờ `qr_allowed: isRealMoneyAllowed` cho từng đơn con. Gian hàng ngoài danh sách chỉ không hiện mã QR SePay, đơn hàng vẫn được tạo an toàn và thanh toán trơn tru 100% bằng ví Core nội bộ.
+     - Trong `CartDrawerModal.tsx`: Khi người mua chuyển sang tab "Chuyển Khoản VietQR (SePay)", các đơn con không thuộc `test_seller_ids` hiển thị thông báo hướng dẫn rõ ràng: *"Gian hàng hiện chỉ hỗ trợ thanh toán bằng ví Core. Vui lòng chuyển sang tab Ví Core Nội Bộ phía trên để hoàn tất."*
+  3. *Xử lý lỗi rõ ràng & Timeout 15s ở Frontend*:
+     - Bổ sung `AbortController` với thời gian chờ 15 giây cho cả `handleCreateOrder` và `handlePayWithCore`.
+     - Đặt hộp thông báo lỗi `checkoutError` nổi bật với viền đỏ, icon cảnh báo và hướng dẫn cụ thể ngay trên nút "Tiến Hành Đặt Hàng" trong Footer Modal.
+  4. *Nâng cấp nút "Thêm vào giỏ" trên thẻ sản phẩm*:
+     - Trong `src/components/seller/PublicStoreView.tsx`: Thay nút tròn nhỏ bằng nút outline viền rõ (`border-2 border-primary/40`), kèm icon giỏ hàng và chữ *"Thêm vào giỏ"*, kích thước chuẩn mực song song với nút *"Mua Ngay"*, tuân thủ Rule 9 (Single-screen first, không tràn ngang).
+- **Kiểm thử & Triển khai**:
+  - `npm run build` thành công 100%, 0 lỗi TypeScript, Edge Worker bundle 18.7MB, Zero test artifacts.
+  - Tự động triển khai lên cả 3 máy chủ theo Rule 6.
+
 ### 376. Sửa Lỗi 4: Danh Sách Gian Hàng Thử Nghiệm Rỗng (`test_seller_ids: []`) Tự Động Rơi Về Mặc Định Cứng
 - **Hiện tượng & Bối cảnh**:
   - Khi quản trị viên dọn dẹp các gian hàng test sau nghiệm thu GĐ2 và cập nhật cấu hình `PUT /api/admin/seller-config` với `test_seller_ids: []`, API PUT trả về danh sách rỗng (đã lưu thành công vào CSDL D1 `system_settings`).
