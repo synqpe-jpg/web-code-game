@@ -10,6 +10,21 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-264: Bẫy Danh Sách Cấu Hình Rỗng (`[]`) Tự Động Rơi Về Mặc Định Cứng (`DEFAULT_CONFIG`) Trong Hàm Đọc CSDL
+- **Triệu chứng & Rủi ro**:
+  - Quản trị viên cập nhật danh sách cấu hình (ví dụ: `test_seller_ids: []` để dọn sạch hoặc vô hiệu hóa toàn bộ quyền thử nghiệm) qua API `PUT`.
+  - API `PUT` lưu thành công mảng rỗng `[]` vào CSDL `system_settings`. Tuy nhiên, khi gọi `GET` hoặc hàm đọc cấu hình `getMarketplaceConfig` được kích hoạt, hệ thống lại tự động trả về `['sel_1794399949383_052f1']`.
+  - Hậu quả: Không thể xóa sạch danh sách thử nghiệm tiền thật qua API. Hệ thống vẫn ngầm bật quyền cho gian hàng mặc định nếu gian hàng đó hoạt động trở lại.
+- **Nguyên nhân gốc rễ**:
+  - Sử dụng biểu thức điều kiện kiểm tra độ dài mảng: `testIds.length > 0 ? testIds : DEFAULT_CONFIG.test_seller_ids`.
+  - Khi mảng rỗng `[]` (độ dài bằng 0), biểu thức bị coi là `falsy` và tự động rớt về danh sách mặc định cứng.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Phân biệt rõ giữa *chưa từng lưu cấu hình* (không có bản ghi trong `system_settings`) và *đã lưu danh sách rỗng* (`Array.isArray(parsed.test_seller_ids)`).
+  - Trả về trực tiếp mảng đã lưu `testIds`, cho phép mảng rỗng `[]` đại diện cho trạng thái tắt hoàn toàn.
+  - Chỉ fallback về `DEFAULT_CONFIG` khi chưa có bản ghi trong CSDL.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không dùng `list.length > 0 ? list : DEFAULT` khi `[]` là một giá trị cấu hình hợp lệ của người dùng.*
+
 ### ISSUE-263: Bẫy Đồng Bộ Số Dư Ví Fallback Từ Lịch Sử Nạp Tiền Cũ (`checkUserDepositStatus`) Ghi Đè Số Dư Sau Giao Dịch Sàn & Bẫy Đơn Đa Gian Hàng Không Chặn Tự Mua Hàng
 - **Triệu chứng & Rủi ro**:
   1. Sau khi thành viên mua hàng trên Sàn TMĐT bằng ví Core (hoặc đơn đa gian hàng), số dư ví bị trừ hợp lệ trên D1 `members.balance` (ví dụ từ 500 Core xuống 400 Core hoặc 100 Core). Tuy nhiên sau đó (khi mở modal ví hoặc chuyển trang), số dư ví trên Header và Profile bị reset hiển thị ngược trở lại 500 Core.

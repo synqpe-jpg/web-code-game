@@ -327,8 +327,10 @@ export async function getMarketplaceConfig(db: D1Database): Promise<MarketplaceC
     if (row && row.value) {
       const parsed = typeof row.value === 'string' ? JSON.parse(row.value) : row.value;
       const testIds = Array.isArray(parsed.test_seller_ids)
-        ? parsed.test_seller_ids
-        : (typeof parsed.test_seller_ids === 'string' ? parsed.test_seller_ids.split(',').map((s: string) => s.trim()).filter(Boolean) : DEFAULT_MARKETPLACE_CONFIG.test_seller_ids);
+        ? parsed.test_seller_ids.map((s: any) => String(s).trim()).filter(Boolean)
+        : (typeof parsed.test_seller_ids === 'string'
+            ? parsed.test_seller_ids.split(',').map((s: string) => s.trim()).filter(Boolean)
+            : DEFAULT_MARKETPLACE_CONFIG.test_seller_ids);
 
       return {
         default_trial_product_limit: Number(parsed.default_trial_product_limit) || DEFAULT_MARKETPLACE_CONFIG.default_trial_product_limit,
@@ -340,7 +342,7 @@ export async function getMarketplaceConfig(db: D1Database): Promise<MarketplaceC
         hold_hours: Number(parsed.hold_hours) >= 0 ? Number(parsed.hold_hours) : DEFAULT_MARKETPLACE_CONFIG.hold_hours,
         fee_rate: typeof parsed.fee_rate === 'number' ? parsed.fee_rate : (parseFloat(parsed.fee_rate) >= 0 ? parseFloat(parsed.fee_rate) : DEFAULT_MARKETPLACE_CONFIG.fee_rate),
         withdraw_approval_threshold_core: Number(parsed.withdraw_approval_threshold_core) >= 0 ? Number(parsed.withdraw_approval_threshold_core) : DEFAULT_MARKETPLACE_CONFIG.withdraw_approval_threshold_core,
-        test_seller_ids: testIds.length > 0 ? testIds : DEFAULT_MARKETPLACE_CONFIG.test_seller_ids,
+        test_seller_ids: testIds,
       };
     }
   } catch (err) {

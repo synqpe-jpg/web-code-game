@@ -7,6 +7,26 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-12]
 
+### 376. Sửa Lỗi 4: Danh Sách Gian Hàng Thử Nghiệm Rỗng (`test_seller_ids: []`) Tự Động Rơi Về Mặc Định Cứng
+- **Hiện tượng & Bối cảnh**:
+  - Khi quản trị viên dọn dẹp các gian hàng test sau nghiệm thu GĐ2 và cập nhật cấu hình `PUT /api/admin/seller-config` với `test_seller_ids: []`, API PUT trả về danh sách rỗng (đã lưu thành công vào CSDL D1 `system_settings`).
+  - Tuy nhiên khi gọi `GET /api/admin/seller-config` hoặc kiểm tra quyền mở bán tiền thật, hệ thống lại trả về `test_seller_ids: ['sel_1794399949383_052f1']` (Test Key Shop).
+  - Hệ quả: Quản trị viên không thể xóa trắng danh sách gian hàng thử nghiệm tiền thật qua API. Khi cấu hình rỗng, hệ thống vẫn ngầm cho phép Test Key Shop thanh toán tiền thật nếu gian hàng được mở lại.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Trong `functions/services/marketplace_service.ts` hàm `getMarketplaceConfig` (dòng 343), đoạn code trả về sử dụng biểu thức điều kiện:
+    `test_seller_ids: testIds.length > 0 ? testIds : DEFAULT_MARKETPLACE_CONFIG.test_seller_ids`
+  - Khi quản trị viên đã lưu mảng rỗng `[]`, `testIds.length === 0` dẫn đến biểu thức đánh giá thành `false` và tự động rớt về giá trị mặc định cứng `DEFAULT_MARKETPLACE_CONFIG.test_seller_ids`.
+- **Giải pháp xử lý (Solution)**:
+  - Trong `functions/services/marketplace_service.ts`:
+    - Cho phép danh sách rỗng `[]` mang đúng ý nghĩa "không có bất kỳ gian hàng nào được phép bán tiền thật".
+    - `test_seller_ids` nhận trực tiếp `testIds` từ bản ghi đã lưu trong `system_settings`.
+    - Chỉ sử dụng mặc định cứng `DEFAULT_MARKETPLACE_CONFIG.test_seller_ids` khi chưa từng có bản ghi cấu hình nào tồn tại trong `system_settings`.
+  - Trong `functions/api/admin/seller-config.ts`:
+    - Khi nhận request `PUT`, nếu `test_seller_ids` không được truyền trong `body`, giữ nguyên giá trị cấu hình hiện tại thay vì tự ý gán lại về mảng mặc định cứng.
+- **Kiểm thử & Triển khai**:
+  - `npm run build` thành công 100%, 0 lỗi TypeScript, Edge Worker bundle 18.7MB, Zero test artifacts.
+  - Tự động triển khai lên cả 3 máy chủ theo Rule 6.
+
 ### 375. Sửa 3 Lỗi Nghiệm Thu Giai Đoạn 2 Sàn TMĐT: Giỏ Hàng Đa Gian Hàng, Chặn Tự Mua Hàng & Đồng Bộ Số Dư Core SSOT
 - **Hiện tượng & Bối cảnh (3 lỗi nghiệm thu 12/11/2026)**:
   1. *Lỗi 1 (Nặng)*: Thiếu giao diện giỏ hàng đa gian hàng — trên trang gian hàng (`/gian-hang/:slug`), thẻ sản phẩm chỉ có nút "Mua Ngay" mở modal mua lẻ bằng Core; không có nút "Thêm vào giỏ", không có drawer/modal giỏ hàng, các route `/gio-hang`, `/cart` chuyển về trang chủ, chưa gọi được `POST /api/seller-orders/multi`.

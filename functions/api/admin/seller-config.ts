@@ -61,11 +61,17 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
     }
 
     const body = (await request.json().catch(() => ({}))) as any;
-    const testIds = Array.isArray(body.test_seller_ids)
-      ? body.test_seller_ids
-      : (typeof body.test_seller_ids === 'string'
-          ? body.test_seller_ids.split(',').map((s: string) => s.trim()).filter(Boolean)
-          : ['sel_1794399949383_052f1']);
+    const currentConfig = await getMarketplaceConfig(env.DB);
+    let testIds: string[];
+    if (Array.isArray(body.test_seller_ids)) {
+      testIds = body.test_seller_ids.map((s: any) => String(s).trim()).filter(Boolean);
+    } else if (typeof body.test_seller_ids === 'string') {
+      testIds = body.test_seller_ids.split(',').map((s: string) => s.trim()).filter(Boolean);
+    } else if (typeof body.test_seller_ids !== 'undefined') {
+      testIds = [];
+    } else {
+      testIds = currentConfig.test_seller_ids || [];
+    }
 
     const newConfig = {
       default_trial_product_limit: Math.max(1, parseInt(body.default_trial_product_limit || 5, 10)),
