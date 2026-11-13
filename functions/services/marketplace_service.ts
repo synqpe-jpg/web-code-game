@@ -232,6 +232,7 @@ export interface MarketplaceConfig {
   fee_rate: number; // Mặc định 0.05 (5%)
   withdraw_approval_threshold_core: number; // Mặc định 500 Core
   test_seller_ids: string[]; // Danh sách gian hàng thử nghiệm bán tiền thật
+  max_rejected_disputes_30d: number; // Ngưỡng số khiếu nại bị từ chối trong 30 ngày để gắn cờ lạm dụng (mặc định 3)
 }
 
 export const DEFAULT_MARKETPLACE_CONFIG: MarketplaceConfig = {
@@ -243,6 +244,7 @@ export const DEFAULT_MARKETPLACE_CONFIG: MarketplaceConfig = {
   fee_rate: 0.05,
   withdraw_approval_threshold_core: 500,
   test_seller_ids: ['sel_1794399949383_052f1'], // Test Key Shop
+  max_rejected_disputes_30d: 3,
 };
 
 // Interface các thực thể Giai đoạn 2
@@ -343,6 +345,7 @@ export async function getMarketplaceConfig(db: D1Database): Promise<MarketplaceC
         fee_rate: typeof parsed.fee_rate === 'number' ? parsed.fee_rate : (parseFloat(parsed.fee_rate) >= 0 ? parseFloat(parsed.fee_rate) : DEFAULT_MARKETPLACE_CONFIG.fee_rate),
         withdraw_approval_threshold_core: Number(parsed.withdraw_approval_threshold_core) >= 0 ? Number(parsed.withdraw_approval_threshold_core) : DEFAULT_MARKETPLACE_CONFIG.withdraw_approval_threshold_core,
         test_seller_ids: testIds,
+        max_rejected_disputes_30d: Number(parsed.max_rejected_disputes_30d) > 0 ? Number(parsed.max_rejected_disputes_30d) : DEFAULT_MARKETPLACE_CONFIG.max_rejected_disputes_30d,
       };
     }
   } catch (err) {

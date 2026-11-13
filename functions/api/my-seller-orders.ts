@@ -43,10 +43,17 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           so.id, so.order_code, so.seller_id, s.name as seller_name, s.slug as seller_slug,
           so.product_id, so.product_name, so.game_slug, so.delivered_code, so.replacement_code,
           so.price_core, so.status, so.report_reason, so.resolution_type, so.resolution_note,
-          so.reported_at, so.resolved_at, so.created_at, sp.cover_url, sp.warranty_type
+          so.reported_at, so.resolved_at, so.created_at, sp.cover_url, sp.warranty_type,
+          sr.id as rating_id, sr.stars as rating_stars, sr.comment as rating_comment,
+          sr.status as rating_status, sr.reject_reason as rating_reject_reason,
+          sd.id as dispute_id, sd.status as dispute_status, sd.reason as dispute_reason,
+          sd.detail as dispute_detail, sd.seller_response as dispute_seller_response,
+          sd.resolution_note as dispute_resolution_note
         FROM seller_orders so
         LEFT JOIN sellers s ON so.seller_id = s.id
         LEFT JOIN seller_products sp ON so.product_id = sp.id
+        LEFT JOIN seller_ratings sr ON so.id = sr.order_id
+        LEFT JOIN seller_disputes sd ON so.id = sd.order_id
         WHERE so.buyer_member_id = ?
         ORDER BY so.created_at DESC
         LIMIT ? OFFSET ?

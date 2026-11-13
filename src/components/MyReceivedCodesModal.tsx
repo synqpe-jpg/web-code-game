@@ -20,6 +20,7 @@ import {
   Store,
   ShieldAlert,
   AlertCircle,
+  Star,
 } from 'lucide-react';
 import { dataService } from '../services/dataService';
 import { missionService } from '../services/missionService';
@@ -63,6 +64,18 @@ export const MyReceivedCodesModal: React.FC<MyReceivedCodesModalProps> = ({
   const [reportReason, setReportReason] = useState<'not_working' | 'expired'>('not_working');
   const [reportNote, setReportNote] = useState<string>('');
   const [isSubmittingReport, setIsSubmittingReport] = useState<boolean>(false);
+
+  // Marketplace Ratings State (§A)
+  const [ratingOrder, setRatingOrder] = useState<any>(null);
+  const [ratingStars, setRatingStars] = useState<number>(5);
+  const [ratingComment, setRatingComment] = useState<string>('');
+  const [isSubmittingRating, setIsSubmittingRating] = useState<boolean>(false);
+
+  // Marketplace Disputes State (§B)
+  const [disputeOrder, setDisputeOrder] = useState<any>(null);
+  const [disputeReason, setDisputeReason] = useState<string>('WRONG_CODE');
+  const [disputeDetail, setDisputeDetail] = useState<string>('');
+  const [isSubmittingDispute, setIsSubmittingDispute] = useState<boolean>(false);
 
   useEffect(() => {
     if (isOpen && initialTab) {
@@ -171,6 +184,60 @@ export const MyReceivedCodesModal: React.FC<MyReceivedCodesModalProps> = ({
       onShowToast('Lỗi', 'Không thể kết nối đến máy chủ.', 'error');
     } finally {
       setIsSubmittingReport(false);
+    }
+  };
+
+  const handleRateMarketplaceOrder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!ratingOrder) return;
+    setIsSubmittingRating(true);
+    const token = localStorage.getItem('wcg_auth_token') || sessionStorage.getItem('wcg_auth_token') || '';
+    try {
+      const res = await fetch(`/api/seller-orders/${ratingOrder.id}/rate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ stars: ratingStars, comment: ratingComment }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        onShowToast('Đánh giá thành công!', data.message, 'success');
+        setRatingOrder(null);
+        setRatingComment('');
+        loadMarketplaceOrders();
+      } else {
+        onShowToast('Lỗi', data.error || 'Đánh giá thất bại.', 'error');
+      }
+    } catch {
+      onShowToast('Lỗi', 'Không thể kết nối đến máy chủ.', 'error');
+    } finally {
+      setIsSubmittingRating(false);
+    }
+  };
+
+  const handleDisputeMarketplaceOrder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!disputeOrder) return;
+    setIsSubmittingDispute(true);
+    const token = localStorage.getItem('wcg_auth_token') || sessionStorage.getItem('wcg_auth_token') || '';
+    try {
+      const res = await fetch(`/api/seller-orders/${disputeOrder.id}/dispute`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ reason: disputeReason, detail: disputeDetail }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        onShowToast('Gửi khiếu nại thành công!', data.message, 'success');
+        setDisputeOrder(null);
+        setDisputeDetail('');
+        loadMarketplaceOrders();
+      } else {
+        onShowToast('Lỗi', data.error || 'Gửi khiếu nại thất bại.', 'error');
+      }
+    } catch {
+      onShowToast('Lỗi', 'Không thể kết nối đến máy chủ.', 'error');
+    } finally {
+      setIsSubmittingDispute(false);
     }
   };
 
@@ -419,10 +486,40 @@ export const MyReceivedCodesModal: React.FC<MyReceivedCodesModalProps> = ({
                       <span>{formatRelativeDate(mOrder.created_at)}</span>
                     </div>
 
+                    {/* Hiển thị đánh giá gian hàng đã gửi (§A) */}
+                    {mOrder.rating_stars ? (
+                      <div className="mt-2 flex items-center gap-2 text-xs flex-wrap">
+                        <span className="flex items-center text-amber-400 font-bold bg-amber-500/10 px-2 py-0.5 rounded-lg border border-amber-500/20">
+                          <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400 mr-1" />
+                          {mOrder.rating_stars} sao
+                        </span>
+                        {mOrder.rating_status === 'PENDING' && (
+                          <span className="text-[10px] px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20 font-medium">
+                            Đang chờ duyệt
+                          </span>
+                        )}
+                        {mOrder.rating_status === 'APPROVED' && (
+                          <span className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">
+                            Đã duyệt công khai
+                          </span>
+                        )}
+                        {mOrder.rating_status === 'REJECTED' && (
+                          <span className="text-[10px] px-2 py-0.5 rounded-md bg-destructive/10 text-destructive border border-destructive/20 font-medium" title={mOrder.rating_reject_reason}>
+                            Bị từ chối {mOrder.rating_reject_reason ? `(${mOrder.rating_reject_reason})` : ''}
+                          </span>
+                        )}
+                        {mOrder.rating_comment && (
+                          <span className="text-[11px] text-muted-foreground italic truncate max-w-xs">
+                            "{mOrder.rating_comment}"
+                          </span>
+                        )}
+                      </div>
+                    ) : null}
+
                     {/* Hiển thị mã thay thế nếu đã được shop đổi */}
                     {mOrder.replacement_code && (
-                      <div className="mt-2 p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs">
-                        <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider block mb-0.5">
+                      <div className="mt-2 p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs">
+                        <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider block mb-1">
                           ✓ Shop đã đổi mã mới cho bạn:
                         </span>
                         <div className="flex items-center gap-2">
@@ -431,7 +528,7 @@ export const MyReceivedCodesModal: React.FC<MyReceivedCodesModalProps> = ({
                           </span>
                           <button
                             onClick={() => handleCopy(mOrder.replacement_code)}
-                            className="px-2 py-0.5 rounded bg-emerald-500 text-black text-[11px] font-bold"
+                            className="px-2.5 py-1 rounded-lg bg-emerald-500 text-black text-[11px] font-bold hover:bg-emerald-400 transition-colors"
                           >
                             Chép mã mới
                           </button>
@@ -439,35 +536,96 @@ export const MyReceivedCodesModal: React.FC<MyReceivedCodesModalProps> = ({
                       </div>
                     )}
 
-                    {/* Trạng thái xử lý khiếu nại */}
+                    {/* Trạng thái xử lý tranh chấp / khiếu nại (§B) */}
+                    {mOrder.status === 'DISPUTED' && (
+                      <div className="mt-2 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs space-y-1">
+                        <div className="text-amber-400 font-bold flex items-center gap-1.5">
+                          <ShieldAlert className="w-4 h-4 shrink-0" />
+                          <span>Đang trong diện khiếu nại (DISPUTED)</span>
+                        </div>
+                        <div className="text-muted-foreground text-[11px]">
+                          Lý do: <strong className="text-foreground">{
+                            mOrder.dispute_reason === 'WRONG_CODE' ? 'Mã sai định dạng / không tồn tại' :
+                            mOrder.dispute_reason === 'USED_CODE' ? 'Mã đã qua sử dụng' :
+                            mOrder.dispute_reason === 'EXPIRED_CODE' ? 'Mã đã hết hạn' :
+                            mOrder.dispute_reason === 'NOT_AS_DESCRIBED' ? 'Mã không đúng mô tả' :
+                            (mOrder.dispute_reason || mOrder.report_reason || 'Khiếu nại mã')
+                          }</strong>
+                          {mOrder.dispute_detail && ` — "${mOrder.dispute_detail}"`}
+                        </div>
+                        {mOrder.dispute_seller_response && (
+                          <div className="text-[11px] bg-card p-2 rounded-lg border border-border mt-1">
+                            <span className="text-primary-light font-semibold block">Phản hồi từ người bán:</span>
+                            <span className="text-foreground">{mOrder.dispute_seller_response}</span>
+                          </div>
+                        )}
+                        <div className="text-[10px] text-muted-foreground mt-0.5 italic">
+                          Tiền đơn đang được tạm giữ an toàn, chờ Ban Quản Trị xem xét giải quyết.
+                        </div>
+                      </div>
+                    )}
+
                     {mOrder.status === 'REPORTED' && (
                       <div className="mt-2 text-[11px] text-destructive font-semibold flex items-center gap-1.5">
                         <AlertCircle className="w-3.5 h-3.5" />
                         <span>Đã gửi báo lỗi ({mOrder.report_reason === 'expired' ? 'Hết hạn' : 'Không dùng được'}). Đang chờ shop đổi mã hoặc hoàn Core.</span>
                       </div>
                     )}
+
                     {mOrder.status === 'REFUNDED' && (
-                      <div className="mt-2 text-[11px] text-purple-400 font-semibold flex items-center gap-1.5">
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        <span>Người bán đã hoàn lại {mOrder.price_core} Core vào ví của bạn.</span>
+                      <div className="mt-2 p-2 rounded-xl bg-purple-500/10 border border-purple-500/20 text-[11px] text-purple-300 font-semibold flex items-center gap-1.5">
+                        <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-purple-400" />
+                        <span>Người bán / Sàn đã hoàn lại {mOrder.price_core} Core vào ví của bạn. {mOrder.resolution_note || mOrder.dispute_resolution_note || ''}</span>
                       </div>
                     )}
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="px-3.5 py-1.5 rounded-xl bg-muted/80 border border-border font-mono font-bold text-primary-light text-xs shadow-inner select-all">
+                  <div className="flex items-center gap-2 shrink-0 flex-wrap sm:flex-nowrap">
+                    <span className="px-3 py-1.5 rounded-xl bg-muted/80 border border-border font-mono font-bold text-primary-light text-xs shadow-inner select-all">
                       {mOrder.delivered_code}
                     </span>
                     <button
                       onClick={() => handleCopy(mOrder.delivered_code)}
-                      className="px-3 py-1.5 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
+                      className="px-2.5 py-1.5 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
                       title="Sao chép mã"
                     >
                       <Copy className="w-3.5 h-3.5" />
                       <span>{copied === mOrder.delivered_code ? 'Đã chép' : 'Chép'}</span>
                     </button>
 
-                    {/* Nút Báo Lỗi Một Chạm (§6.3) */}
+                    {/* Nút Đánh Giá Gian Hàng (§A) */}
+                    {(mOrder.status === 'PAID' || mOrder.status === 'COMPLETED' || mOrder.status === 'DELIVERED') && !mOrder.rating_stars && (
+                      <button
+                        onClick={() => {
+                          setRatingOrder(mOrder);
+                          setRatingStars(5);
+                          setRatingComment('');
+                        }}
+                        className="px-2.5 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-400 text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
+                        title="Đánh giá gian hàng người bán"
+                      >
+                        <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                        <span>Đánh Giá</span>
+                      </button>
+                    )}
+
+                    {/* Nút Khiếu Nại Tự Động Trong Thời Gian Giữ Tiền (§B) */}
+                    {mOrder.status === 'PAID' && !mOrder.dispute_id && (
+                      <button
+                        onClick={() => {
+                          setDisputeOrder(mOrder);
+                          setDisputeReason('WRONG_CODE');
+                          setDisputeDetail('');
+                        }}
+                        className="px-2.5 py-1.5 rounded-xl bg-destructive/10 hover:bg-destructive/20 border border-destructive/20 text-destructive text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
+                        title="Gửi khiếu nại mã lỗi trong 168h giữ tiền"
+                      >
+                        <ShieldAlert className="w-3.5 h-3.5" />
+                        <span>Khiếu Nại</span>
+                      </button>
+                    )}
+
+                    {/* Nút Báo Lỗi Một Chạm Cũ (§6.3) */}
                     {mOrder.status === 'DELIVERED' && (
                       <button
                         onClick={() => {
@@ -768,6 +926,181 @@ export const MyReceivedCodesModal: React.FC<MyReceivedCodesModalProps> = ({
                     className="px-4 py-1.5 rounded-xl bg-destructive text-white font-bold shadow-sm disabled:opacity-50"
                   >
                     {isSubmittingReport ? 'Đang gửi...' : 'Gửi Báo Lỗi Cho Shop'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Đánh Giá Gian Hàng (§A) */}
+        {ratingOrder && (
+          <div className="absolute inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-card border border-border rounded-2xl w-full max-w-sm p-5 shadow-2xl space-y-4 animate-scale-in">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-bold text-amber-400 flex items-center gap-1.5">
+                  <Star className="w-4 h-4 fill-amber-400 text-amber-400" /> Đánh Giá Gian Hàng
+                </h4>
+                <button onClick={() => setRatingOrder(null)} className="p-1 rounded hover:bg-muted text-muted-foreground">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="text-xs bg-muted/60 p-3 rounded-xl space-y-1">
+                <div>Shop: <strong>{ratingOrder.seller_name}</strong></div>
+                <div>Gói: <strong>{ratingOrder.product_name}</strong></div>
+                <div className="font-mono text-muted-foreground text-[11px]">Đơn: {ratingOrder.order_code}</div>
+              </div>
+
+              <form onSubmit={handleRateMarketplaceOrder} className="space-y-3.5 text-xs">
+                <div>
+                  <label className="block font-semibold mb-1.5">Mức độ hài lòng *</label>
+                  <div className="flex items-center justify-center gap-2 p-3 bg-muted/30 rounded-xl border border-border/80">
+                    {[1, 2, 3, 4, 5].map((starVal) => (
+                      <button
+                        type="button"
+                        key={starVal}
+                        onClick={() => setRatingStars(starVal)}
+                        className="p-1 hover:scale-125 transition-transform"
+                      >
+                        <Star
+                          className={`w-7 h-7 ${
+                            starVal <= ratingStars
+                              ? 'text-amber-400 fill-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.5)]'
+                              : 'text-muted-foreground/30 hover:text-amber-300'
+                          }`}
+                        />
+                      </button>
+                    ))}
+                  </div>
+                  <div className="text-center font-bold text-amber-400 text-xs mt-1">
+                    {ratingStars === 5 ? '5 sao — Rất hài lòng' :
+                     ratingStars === 4 ? '4 sao — Hài lòng' :
+                     ratingStars === 3 ? '3 sao — Bình thường' :
+                     ratingStars === 2 ? '2 sao — Chưa hài lòng' :
+                     '1 sao — Rất thất vọng'}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-semibold mb-1">Nhận xét chi tiết (Tùy chọn, tối đa 500 ký tự)</label>
+                  <textarea
+                    rows={3}
+                    maxLength={500}
+                    value={ratingComment}
+                    onChange={(e) => setRatingComment(e.target.value)}
+                    placeholder="Mã dùng tốt, giao nhanh, shop hỗ trợ nhiệt tình..."
+                    className="w-full px-3 py-2 rounded-xl border border-border bg-background focus:outline-none focus:border-amber-400 text-xs resize-none"
+                  />
+                  <div className="text-[10px] text-muted-foreground text-right mt-0.5">
+                    {ratingComment.length}/500 ký tự
+                  </div>
+                </div>
+
+                <div className="text-[10px] text-muted-foreground bg-muted/30 p-2 rounded-lg">
+                  ℹ️ Đánh giá sẽ được Ban Quản Trị duyệt trước khi hiển thị công khai trên trang gian hàng.
+                </div>
+
+                <div className="flex justify-end gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setRatingOrder(null)}
+                    className="px-3 py-1.5 rounded-xl border border-border hover:bg-muted font-semibold"
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmittingRating}
+                    className="px-4 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-black font-bold shadow-sm disabled:opacity-50 transition-colors"
+                  >
+                    {isSubmittingRating ? 'Đang gửi...' : 'Gửi Đánh Giá'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Gửi Khiếu Nại Tự Động (§B) */}
+        {disputeOrder && (
+          <div className="absolute inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-card border border-destructive/30 rounded-2xl w-full max-w-sm p-5 shadow-2xl space-y-4 animate-scale-in">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-bold text-destructive flex items-center gap-1.5">
+                  <ShieldAlert className="w-4 h-4" /> Khiếu Nại Đơn Hàng Sàn
+                </h4>
+                <button onClick={() => setDisputeOrder(null)} className="p-1 rounded hover:bg-muted text-muted-foreground">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="text-xs bg-muted/60 p-3 rounded-xl space-y-1">
+                <div>Shop: <strong>{disputeOrder.seller_name}</strong></div>
+                <div>Gói: <strong>{disputeOrder.product_name}</strong></div>
+                <div className="font-mono text-muted-foreground text-[11px]">Đơn: {disputeOrder.order_code}</div>
+              </div>
+
+              <div className="text-[11px] bg-destructive/10 border border-destructive/20 text-destructive p-2.5 rounded-xl leading-relaxed">
+                ⚠️ Khiếu nại sẽ lập tức chuyển đơn sang trạng thái tranh chấp (DISPUTED) và tạm khóa giải ngân tiền cho shop. Người bán sẽ có cơ hội phản hồi hoặc cấp mã mới.
+              </div>
+
+              <form onSubmit={handleDisputeMarketplaceOrder} className="space-y-3 text-xs">
+                <div>
+                  <label className="block font-semibold mb-1">Lý do khiếu nại *</label>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {[
+                      { id: 'WRONG_CODE', label: 'Mã Sai Định Dạng' },
+                      { id: 'USED_CODE', label: 'Mã Đã Qua Sử Dụng' },
+                      { id: 'EXPIRED_CODE', label: 'Mã Đã Hết Hạn' },
+                      { id: 'NOT_AS_DESCRIBED', label: 'Không Đúng Mô Tả' },
+                    ].map((opt) => (
+                      <button
+                        type="button"
+                        key={opt.id}
+                        onClick={() => setDisputeReason(opt.id)}
+                        className={`p-2 rounded-xl border text-center font-bold text-[11px] transition-all ${
+                          disputeReason === opt.id
+                            ? 'bg-destructive/15 border-destructive text-destructive shadow-sm'
+                            : 'border-border bg-background text-muted-foreground hover:border-border/80'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-semibold mb-1">Mô tả chi tiết lỗi gặp phải *</label>
+                  <textarea
+                    rows={3}
+                    maxLength={500}
+                    required
+                    value={disputeDetail}
+                    onChange={(e) => setDisputeDetail(e.target.value)}
+                    placeholder="Mô tả cụ thể thông báo lỗi khi bạn nhập mã vào game/ứng dụng..."
+                    className="w-full px-3 py-2 rounded-xl border border-border bg-background focus:outline-none focus:border-destructive text-xs resize-none"
+                  />
+                  <div className="text-[10px] text-muted-foreground text-right mt-0.5">
+                    {disputeDetail.length}/500 ký tự
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setDisputeOrder(null)}
+                    className="px-3 py-1.5 rounded-xl border border-border hover:bg-muted font-semibold"
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmittingDispute}
+                    className="px-4 py-1.5 rounded-xl bg-destructive hover:opacity-95 text-white font-bold shadow-sm disabled:opacity-50 transition-opacity"
+                  >
+                    {isSubmittingDispute ? 'Đang gửi...' : 'Gửi Khiếu Nại Cho Sàn'}
                   </button>
                 </div>
               </form>

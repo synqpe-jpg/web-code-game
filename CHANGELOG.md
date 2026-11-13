@@ -5,6 +5,42 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ---
 
+## [2026-11-13]
+
+### 378. Triển Khai Hệ Thống Đánh Giá Gian Hàng & Khiếu Nại Tự Động Cho Sàn TMĐT Số
+- **Hiện tượng & Bối cảnh**:
+  - Sàn TMĐT số CodeGame.shop sau khi hoàn thành Giai đoạn 1 & 2 cần hoàn thiện cơ chế bảo vệ người tiêu dùng và xây dựng niềm tin cộng đồng:
+    1. *Đánh giá gian hàng*: Khách mua chưa thể chấm điểm hoặc viết đánh giá trải nghiệm mua hàng cho gian hàng; trang gian hàng chưa có điểm sao uy tín.
+    2. *Khiếu nại tự động*: Khi gặp sự cố mã sai/mã đã dùng/hết hạn/sai mô tả trong thời gian giữ tiền (168 giờ), người mua chưa có luồng khiếu nại tự động gắn liền với đơn con và sổ cái; chưa có cơ chế người bán phản hồi/nạp mã thay thế và quản trị viên xử lý phán quyết 3 nhánh (Hoàn tiền, Đổi mã, Từ chối).
+    3. *Chống lạm dụng khiếu nại*: Chưa có cơ chế nhận diện và tự động gắn cờ các tài khoản cố tình lạm dụng gửi khiếu nại thất thiệt nhiều lần.
+- **Nguyên nhân gốc rễ & Yêu cầu nghiệp vụ**:
+  - CSDL D1 thiếu 2 bảng lưu trữ trạng thái chuyên biệt: `seller_ratings` và `seller_disputes`.
+  - Cần tích hợp chặt chẽ với kiến trúc sổ cái 3 ngăn (`seller_ledger`): khi khiếu nại mở thì đơn sang `DISPUTED` và đóng băng giải ngân tự động; khi hoàn tiền thì hoàn nguyên tử qua `recordLedgerTransaction`, giảm pending/available balance, ghi nhận ngoại lệ đối soát nếu khách đã xem mã.
+  - Cần tuân thủ tuyệt đối Rule 8 (Tự động đồng bộ quyền API mới vào quản lý API) và Rule 9 (100% giao diện nằm trọn trong 1 màn hình, zero horizontal overflow).
+- **Giải pháp xử lý (Solution)**:
+  1. *Phần A — Đánh giá gian hàng (Seller Ratings)*:
+     - Tạo bảng D1 `seller_ratings` (với ràng buộc `order_id UNIQUE`, `stars 1-5`, `status PENDING/APPROVED/REJECTED`, `reject_reason`, chỉ mục tối ưu).
+     - API `POST /api/seller-orders/:id/rate`: Cho phép người mua đánh giá đơn hàng đã hoàn tất (`PAID/COMPLETED/DELIVERED`) đúng 1 lần; chặn spam bình luận trùng lặp; đưa vào hàng đợi `PENDING`.
+     - API `GET /api/stores/:slug/ratings`: Công khai, tính sao trung bình (1 chữ số thập phân), đếm tổng lượt đã duyệt, ẩn tên người mua dạng `h***o`. Nếu chưa có đánh giá thì trả null (không hiển thị 0 sao).
+     - API Quản trị `GET /api/admin/seller-ratings` & `POST /api/admin/seller-ratings/:id/moderate`: Xem danh sách, KPI thống kê, duyệt `APPROVED` hoặc từ chối `REJECTED` (bắt buộc nhập lý do).
+     - Frontend: Hiển thị sao trung bình trên header trang shop (`PublicStoreView`), sao trên thẻ sản phẩm, khối bình luận khách hàng; modal đánh giá và huy hiệu kiểm duyệt trong tủ mã người mua (`MyReceivedCodesModal`); tab quản trị kiểm duyệt đánh giá chuẩn Rule 9 (`SellerModerationModule`).
+  2. *Phần B — Khiếu nại tự động (Disputes)*:
+     - Tạo bảng D1 `seller_disputes` (`order_id UNIQUE`, `buyer_member_id`, `seller_id`, 4 lý do `WRONG_CODE/USED_CODE/EXPIRED_CODE/NOT_AS_DESCRIBED`, `seller_response`, `seller_replacement_code`, `status`, `is_flagged_abusive`).
+     - Bổ sung cấu hình `max_rejected_disputes_30d` (mặc định 3) vào `wcg_marketplace_config_v1` và API `seller-config`.
+     - API `POST /api/seller-orders/:id/dispute`: Người mua gửi khiếu nại trong thời hạn giữ tiền. Tự động kiểm tra lịch sử 30 ngày, nếu $\ge 3$ khiếu nại bị từ chối thì gắn cờ lạm dụng `is_flagged_abusive = 1`. Cập nhật trạng thái đơn con sang `DISPUTED` (dừng giải ngân tự động).
+     - Kênh người bán `GET /api/seller/disputes` & `POST /api/seller/disputes/:id/respond`: Người bán nhận thông báo, xem danh sách và phản hồi 1 lần (có thể nạp mã đổi).
+     - Phán quyết quản trị `POST /api/admin/seller-disputes/:id/resolve`:
+       - *REFUND*: Hoàn Core về ví khách, cập nhật mã sang `RECALLED` nếu chưa xem mã (hoặc ghi rõ biên bản/ngoại lệ nếu đã xem qua `seller_code_views`), ghi dòng sổ cái `REFUND` giảm số dư gian hàng, chuyển đơn sang `REFUNDED`.
+       - *REPLACE*: Giao mã thay thế cho khách, đưa đơn về `PAID`, giữ nguyên `hold_until` cũ.
+       - *REJECT*: Đưa đơn về `PAID`, giữ nguyên `hold_until` cũ, tiếp tục giải ngân bình thường.
+     - Frontend: Nút "Khiếu Nại" trong tủ mã; Tab "Khiếu Nại Sàn" trong Kênh Người Bán kèm badge số lượng chưa xử lý; Tab "Khiếu Nại Sàn" trong Quản Trị kèm cờ lạm dụng và modal phán quyết.
+  3. *Tuân thủ quy chuẩn Rule 8 & Rule 9*:
+     - Đồng bộ quyền API `MARKETPLACE_RATINGS_MANAGE` và `MARKETPLACE_DISPUTES_MANAGE` vào `ApiKeysModule.tsx` và `functions/services/mission_service.ts`.
+     - Toàn bộ bảng quản trị sử dụng `table-fixed w-full`, phân bổ chính xác 100% tỷ lệ cột, không phát sinh thanh cuộn ngang trên màn hình 1366x768.
+- **Kiểm thử & Triển khai**:
+  - `npm run build` thành công 100%, 0 lỗi TypeScript, Edge Worker bundle 18.7MB, Zero test artifacts.
+  - Tự động triển khai lên Cloudflare Pages và đồng bộ GitHub theo Rule 6.
+
 ## [2026-11-12]
 
 ### 377. Sửa Lỗi 5: Bấm "Tiến Hành Đặt Hàng" Trong Giỏ Hàng Đa Gian Hàng Bị Treo ~30 Giây Lặng Lẽ Trở Lại, Bổ Sung Xử Lý Lỗi Frontend & Nâng Cấp Nút "Thêm Vào Giỏ"

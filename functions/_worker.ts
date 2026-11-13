@@ -125,6 +125,17 @@ import * as adminWithdrawalsApproveApi from './api/admin/withdrawals/[id]/approv
 import * as adminWithdrawalsRejectApi from './api/admin/withdrawals/[id]/reject';
 import * as adminWithdrawalsMarkPaidApi from './api/admin/withdrawals/[id]/mark-paid';
 
+// Marketplace Ratings & Automated Disputes (12/11/2026)
+import * as sellerOrdersRateApi from './api/seller-orders/[id]/rate';
+import * as storesSlugRatingsApi from './api/stores/[slug]/ratings';
+import * as adminSellerRatingsIndexApi from './api/admin/seller-ratings/index';
+import * as adminSellerRatingsModerateApi from './api/admin/seller-ratings/[id]/moderate';
+import * as sellerOrdersDisputeApi from './api/seller-orders/[id]/dispute';
+import * as sellerDisputesIndexApi from './api/seller/disputes/index';
+import * as sellerDisputesRespondApi from './api/seller/disputes/[id]/respond';
+import * as adminSellerDisputesIndexApi from './api/admin/seller-disputes/index';
+import * as adminSellerDisputesResolveApi from './api/admin/seller-disputes/[id]/resolve';
+
 // Dedicated Admin APIs for 9 Modules
 import * as adminMembersIndexApi from './api/admin/members/index';
 import * as adminMembersIdApi from './api/admin/members/[id]';
@@ -1638,6 +1649,84 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
         context.params = { ...(context.params || {}), id: matchAdminWithdrawMarkPaid[1] };
         if (method === 'OPTIONS') return await adminWithdrawalsMarkPaidApi.onRequestOptions();
         if (method === 'POST') return await adminWithdrawalsMarkPaidApi.onRequestPost(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      // =========================================================================
+      // 20.15. Marketplace Ratings & Automated Disputes (12/11/2026)
+      // =========================================================================
+      // Đánh giá gian hàng từ đơn con
+      const matchSellerOrderRate = pathname.match(/^\/api\/seller-orders\/([^/]+)\/rate$/);
+      if (matchSellerOrderRate) {
+        context.params = { ...(context.params || {}), id: matchSellerOrderRate[1] };
+        if (method === 'OPTIONS') return await sellerOrdersRateApi.onRequestOptions();
+        if (method === 'POST') return await sellerOrdersRateApi.onRequestPost(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      // Đánh giá công khai của gian hàng
+      const matchStoreRatings = pathname.match(/^\/api\/stores\/([^/]+)\/ratings$/);
+      if (matchStoreRatings) {
+        context.params = { ...(context.params || {}), slug: matchStoreRatings[1] };
+        if (method === 'OPTIONS') return await storesSlugRatingsApi.onRequestOptions();
+        if (method === 'GET') return await storesSlugRatingsApi.onRequestGet(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      // Quản trị kiểm duyệt đánh giá
+      if (pathname === '/api/admin/seller-ratings') {
+        if (method === 'OPTIONS') return await adminSellerRatingsIndexApi.onRequestOptions();
+        if (method === 'GET') return await adminSellerRatingsIndexApi.onRequestGet(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      const matchAdminRatingModerate = pathname.match(/^\/api\/admin\/seller-ratings\/([^/]+)\/moderate$/);
+      if (matchAdminRatingModerate) {
+        context.params = { ...(context.params || {}), id: matchAdminRatingModerate[1] };
+        if (method === 'OPTIONS') return await adminSellerRatingsModerateApi.onRequestOptions();
+        if (method === 'POST') return await adminSellerRatingsModerateApi.onRequestPost(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      // Khiếu nại từ người mua (Gửi khiếu nại hoặc xem chi tiết khiếu nại của đơn)
+      const matchSellerOrderDispute = pathname.match(/^\/api\/seller-orders\/([^/]+)\/dispute$/);
+      if (matchSellerOrderDispute) {
+        context.params = { ...(context.params || {}), id: matchSellerOrderDispute[1] };
+        if (method === 'OPTIONS') return await sellerOrdersDisputeApi.onRequestOptions();
+        if (method === 'GET') return await sellerOrdersDisputeApi.onRequestGet(context);
+        if (method === 'POST') return await sellerOrdersDisputeApi.onRequestPost(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      // Danh sách khiếu nại phía người bán
+      if (pathname === '/api/seller/disputes') {
+        if (method === 'OPTIONS') return await sellerDisputesIndexApi.onRequestOptions();
+        if (method === 'GET') return await sellerDisputesIndexApi.onRequestGet(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      // Người bán phản hồi khiếu nại
+      const matchSellerDisputeRespond = pathname.match(/^\/api\/seller\/disputes\/([^/]+)\/respond$/);
+      if (matchSellerDisputeRespond) {
+        context.params = { ...(context.params || {}), id: matchSellerDisputeRespond[1] };
+        if (method === 'OPTIONS') return await sellerDisputesRespondApi.onRequestOptions();
+        if (method === 'POST') return await sellerDisputesRespondApi.onRequestPost(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      // Quản trị viên quản lý danh sách khiếu nại
+      if (pathname === '/api/admin/seller-disputes') {
+        if (method === 'OPTIONS') return await adminSellerDisputesIndexApi.onRequestOptions();
+        if (method === 'GET') return await adminSellerDisputesIndexApi.onRequestGet(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      // Quản trị viên xử lý khiếu nại (REFUND / REPLACE / REJECT)
+      const matchAdminDisputeResolve = pathname.match(/^\/api\/admin\/seller-disputes\/([^/]+)\/resolve$/);
+      if (matchAdminDisputeResolve) {
+        context.params = { ...(context.params || {}), id: matchAdminDisputeResolve[1] };
+        if (method === 'OPTIONS') return await adminSellerDisputesResolveApi.onRequestOptions();
+        if (method === 'POST') return await adminSellerDisputesResolveApi.onRequestPost(context);
         return new Response('Method Not Allowed', { status: 405 });
       }
 

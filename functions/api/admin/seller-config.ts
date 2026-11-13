@@ -82,6 +82,9 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
       fee_rate: typeof body.fee_rate !== 'undefined' ? Math.min(1, Math.max(0, parseFloat(body.fee_rate))) : 0.05,
       withdraw_approval_threshold_core: typeof body.withdraw_approval_threshold_core !== 'undefined' ? Math.max(0, parseInt(body.withdraw_approval_threshold_core, 10)) : 500,
       test_seller_ids: testIds,
+      max_rejected_disputes_30d: typeof body.max_rejected_disputes_30d !== 'undefined'
+        ? Math.max(1, parseInt(body.max_rejected_disputes_30d, 10))
+        : (currentConfig.max_rejected_disputes_30d || 3),
     };
 
     const nowIso = new Date().toISOString();

@@ -16,6 +16,7 @@ import {
   PauseCircle,
   Info,
   ShoppingCart,
+  Star,
 } from 'lucide-react';
 import { dataService } from '../../services/dataService';
 import { cartService } from '../../services/cartService';
@@ -43,6 +44,13 @@ export const PublicStoreView: React.FC<PublicStoreViewProps> = ({
   const [isVacation, setIsVacation] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string>('');
   const [cartToast, setCartToast] = useState<{ message: string; success: boolean } | null>(null);
+
+  // Ratings State (§A)
+  const [ratingsData, setRatingsData] = useState<{ avg_stars: number | null; total_ratings: number; ratings: any[] }>({
+    avg_stars: null,
+    total_ratings: 0,
+    ratings: [],
+  });
 
   // Purchase Modal State
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
@@ -85,6 +93,21 @@ export const PublicStoreView: React.FC<PublicStoreViewProps> = ({
         if (prodsData.success) {
           setProducts(prodsData.products || []);
           if (prodsData.is_vacation) setIsVacation(true);
+        }
+
+        // Tải đánh giá gian hàng (§A)
+        try {
+          const ratingsRes = await fetch(`/api/stores/${encodeURIComponent(slug)}/ratings`);
+          const ratingsJson = await ratingsRes.json();
+          if (ratingsJson.success) {
+            setRatingsData({
+              avg_stars: ratingsJson.avg_stars,
+              total_ratings: ratingsJson.total_ratings || 0,
+              ratings: ratingsJson.ratings || [],
+            });
+          }
+        } catch {
+          // Bỏ qua lỗi đánh giá phụ
         }
       } catch {
         setErrorMsg('Không thể kết nối đến máy chủ.');
@@ -209,6 +232,15 @@ export const PublicStoreView: React.FC<PublicStoreViewProps> = ({
                   <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 flex items-center gap-1">
                     <ShieldCheck className="w-3.5 h-3.5" /> Uy tín {store.reputation_score || 100}
                   </span>
+                  {ratingsData.total_ratings > 0 && ratingsData.avg_stars !== null ? (
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center gap-1">
+                      <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" /> {ratingsData.avg_stars} ({ratingsData.total_ratings} đánh giá)
+                    </span>
+                  ) : (
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-muted/60 text-muted-foreground border border-border flex items-center gap-1">
+                      <Star className="w-3.5 h-3.5 text-muted-foreground/60" /> Chưa có đánh giá
+                    </span>
+                  )}
                   {isVacation && (
                     <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20 flex items-center gap-1">
                       <PauseCircle className="w-3.5 h-3.5" /> Đang Nghỉ Bán
@@ -300,11 +332,20 @@ export const PublicStoreView: React.FC<PublicStoreViewProps> = ({
                   </p>
                 )}
 
-                <div className="flex items-center gap-2 text-[11px] text-muted-foreground mb-4">
+                <div className="flex items-center gap-2 text-[11px] text-muted-foreground mb-4 flex-wrap">
                   <span className="px-2 py-0.5 rounded bg-muted/80">BH {p.warranty_type}</span>
                   <span className="px-2 py-0.5 rounded bg-muted/80">
                     {p.delivery_type === 'AUTO' ? 'Giao tức thì 24/7' : 'Giao thủ công'}
                   </span>
+                  {ratingsData.total_ratings > 0 && ratingsData.avg_stars !== null ? (
+                    <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 font-bold flex items-center gap-1">
+                      <Star className="w-3 h-3 fill-amber-400 text-amber-400" /> {ratingsData.avg_stars}
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded bg-muted/60 text-muted-foreground text-[10px]">
+                      Chưa có đánh giá
+                    </span>
+                  )}
                   {p.has_stock ? (
                     <span className="text-emerald-500 font-bold ml-auto flex items-center gap-1">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Còn hàng
@@ -356,6 +397,74 @@ export const PublicStoreView: React.FC<PublicStoreViewProps> = ({
           ))}
         </div>
       )}
+
+      {/* Customer Reviews Section (§A) */}
+      <div className="mt-12 pt-8 border-t border-border">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+          <div>
+            <h2 className="text-lg font-bold flex items-center gap-2">
+              <Star className="w-5 h-5 text-amber-400 fill-amber-400" />
+              <span>Đánh Giá Của Khách Hàng</span>
+              {ratingsData.total_ratings > 0 && ratingsData.avg_stars !== null && (
+                <span className="ml-2 text-xs px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 font-bold border border-amber-500/20">
+                  {ratingsData.avg_stars} / 5 ⭐ ({ratingsData.total_ratings} lượt)
+                </span>
+              )}
+            </h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Đánh giá thực tế từ khách hàng đã mua và thanh toán đơn hàng thành công trên sàn.
+            </p>
+          </div>
+        </div>
+
+        {ratingsData.ratings.length === 0 ? (
+          <div className="py-12 text-center bg-card border border-border rounded-2xl p-6">
+            <Star className="w-10 h-10 text-muted-foreground/30 mx-auto mb-2" />
+            <div className="text-sm font-semibold text-foreground">Chưa có đánh giá nào</div>
+            <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
+              Gian hàng này chưa có lượt đánh giá nào được duyệt. Mua sản phẩm để trở thành người đầu tiên đánh giá!
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {ratingsData.ratings.map((r: any) => (
+              <div key={r.id} className="p-4 rounded-2xl bg-card border border-border shadow-sm flex flex-col justify-between space-y-3">
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1">
+                      {[1, 2, 3, 4, 5].map((starVal) => (
+                        <Star
+                          key={starVal}
+                          className={`w-3.5 h-3.5 ${
+                            starVal <= r.stars
+                              ? 'text-amber-400 fill-amber-400'
+                              : 'text-muted-foreground/30'
+                          }`}
+                        />
+                      ))}
+                      <span className="text-xs font-bold text-amber-400 ml-1">{r.stars} sao</span>
+                    </div>
+                    <span className="text-[11px] text-muted-foreground font-mono">
+                      {r.created_at ? new Date(r.created_at).toLocaleDateString('vi-VN') : ''}
+                    </span>
+                  </div>
+                  {r.comment && (
+                    <p className="text-xs text-foreground leading-relaxed whitespace-pre-wrap">
+                      {r.comment}
+                    </p>
+                  )}
+                </div>
+                <div className="text-[11px] text-muted-foreground pt-2 border-t border-border/40 flex items-center justify-between">
+                  <span className="font-semibold text-foreground">Người mua: <strong className="font-mono">{r.buyer_name}</strong></span>
+                  <span className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3" /> Đã mua hàng
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Modal Mua Hàng Bằng Core (§6.2) */}
       {selectedProduct && (

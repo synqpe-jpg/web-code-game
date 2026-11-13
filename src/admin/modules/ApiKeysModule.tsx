@@ -54,6 +54,8 @@ import {
   Megaphone,
   Globe,
   Mail,
+  Star,
+  ShieldAlert,
 } from 'lucide-react';
 
 export type ApiKeyScope =
@@ -71,6 +73,8 @@ export type ApiKeyScope =
   | 'STORE_FULL'
   | 'MARKETPLACE_MANAGE'
   | 'MARKETPLACE_FINANCE_MANAGE'
+  | 'MARKETPLACE_RATINGS_MANAGE'
+  | 'MARKETPLACE_DISPUTES_MANAGE'
   | 'FIRST_PURCHASE_MANAGE'
   | 'ESCALATING_MANAGE'
   | 'MEMBERS_FULL'
@@ -261,6 +265,28 @@ export const ALL_API_SCOPES: ScopeOption[] = [
     badgeText: 'text-emerald-400',
     badgeBorder: 'border-emerald-500/20',
     icon: Coins,
+  },
+  {
+    id: 'MARKETPLACE_RATINGS_MANAGE',
+    name: 'Kiểm Duyệt Đánh Giá Sàn (Marketplace Ratings Moderation API)',
+    category: 'Thương Mại & Kho',
+    description: 'Toàn quyền tra cứu danh sách đánh giá gian hàng, phê duyệt (APPROVED) hiển thị công khai hoặc từ chối (REJECTED) kèm lý do qua /api/admin/seller-ratings.',
+    color: 'yellow',
+    badgeBg: 'bg-yellow-500/10',
+    badgeText: 'text-yellow-400',
+    badgeBorder: 'border-yellow-500/20',
+    icon: Star,
+  },
+  {
+    id: 'MARKETPLACE_DISPUTES_MANAGE',
+    name: 'Xử Lý Khiếu Nại Sàn (Marketplace Disputes Resolution API)',
+    category: 'Thương Mại & Kho',
+    description: 'Toàn quyền điều hành khiếu nại sàn TMĐT: Xem chi tiết tranh chấp, giám sát cờ lạm dụng, và ra quyết định xử lý (Hoàn tiền REFUND, Đổi mã REPLACE, Từ chối REJECT) qua /api/admin/seller-disputes.',
+    color: 'red',
+    badgeBg: 'bg-red-500/10',
+    badgeText: 'text-red-400',
+    badgeBorder: 'border-red-500/20',
+    icon: ShieldAlert,
   },
   {
     id: 'FIRST_PURCHASE_MANAGE',

@@ -49,9 +49,19 @@ export const SellerCenterView: React.FC<SellerCenterViewProps> = ({
   const [loading, setLoading] = useState<boolean>(true);
   const [sellerData, setSellerData] = useState<any>(null);
   const [stats, setStats] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'codes' | 'orders' | 'finance' | 'settings'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'codes' | 'orders' | 'disputes' | 'finance' | 'settings'>('dashboard');
   const [errorMsg, setErrorMsg] = useState<string>('');
   const [successMsg, setSuccessMsg] = useState<string>('');
+
+  // Disputes State (§B)
+  const [disputes, setDisputes] = useState<any[]>([]);
+  const [loadingDisputes, setLoadingDisputes] = useState<boolean>(false);
+  const [disputeFilter, setDisputeFilter] = useState<string>('');
+  const [unresolvedDisputeCount, setUnresolvedDisputeCount] = useState<number>(0);
+  const [respondingDispute, setRespondingDispute] = useState<any>(null);
+  const [disputeResponseMsg, setDisputeResponseMsg] = useState<string>('');
+  const [disputeReplacementCode, setDisputeReplacementCode] = useState<string>('');
+  const [isSubmittingDisputeResp, setIsSubmittingDisputeResp] = useState<boolean>(false);
 
   // Finance & Withdraw State (Giai đoạn 2)
   const [financeData, setFinanceData] = useState<any>(null);
@@ -137,6 +147,7 @@ export const SellerCenterView: React.FC<SellerCenterViewProps> = ({
         if (data.has_seller) {
           setSellerData(data.seller);
           setStats(data.stats);
+          fetchDisputes();
         } else {
           setSellerData(null);
         }
@@ -273,10 +284,11 @@ export const SellerCenterView: React.FC<SellerCenterViewProps> = ({
         if (selectedProductId) fetchCodes(selectedProductId);
       }
       if (activeTab === 'orders') fetchOrders();
+      if (activeTab === 'disputes') fetchDisputes();
       if (activeTab === 'finance') fetchSellerFinance();
       if (activeTab === 'settings') fetchSubaccounts();
     }
-  }, [sellerData, activeTab, selectedProductId, orderFilter]);
+  }, [sellerData, activeTab, selectedProductId, orderFilter, disputeFilter]);
 
   // Handle Register
   const handleRegister = async (e: React.FormEvent) => {
@@ -464,6 +476,56 @@ export const SellerCenterView: React.FC<SellerCenterViewProps> = ({
       }
     } catch {
       setErrorMsg('Lỗi kết nối máy chủ.');
+    }
+  };
+
+  // Fetch Disputes (§B)
+  const fetchDisputes = async () => {
+    setLoadingDisputes(true);
+    try {
+      const url = disputeFilter ? `/api/seller/disputes?status=${disputeFilter}` : '/api/seller/disputes';
+      const res = await fetch(url, { headers: getHeaders() });
+      const data = await res.json();
+      if (data.success) {
+        setDisputes(data.disputes || []);
+        setUnresolvedDisputeCount(data.unresolved_count || 0);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setLoadingDisputes(false);
+    }
+  };
+
+  // Handle Respond Dispute (§B)
+  const handleRespondDispute = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!respondingDispute || !disputeResponseMsg.trim()) return;
+    setIsSubmittingDisputeResp(true);
+    setErrorMsg('');
+    try {
+      const res = await fetch(`/api/seller/disputes/${respondingDispute.id}/respond`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({
+          message: disputeResponseMsg.trim(),
+          replacement_code: disputeReplacementCode.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setRespondingDispute(null);
+        setDisputeResponseMsg('');
+        setDisputeReplacementCode('');
+        setSuccessMsg(data.message || 'Đã gửi phản hồi khiếu nại thành công!');
+        fetchDisputes();
+      } else {
+        setErrorMsg(data.error || 'Phản hồi thất bại.');
+      }
+    } catch {
+      setErrorMsg('Lỗi kết nối máy chủ.');
+    } finally {
+      setIsSubmittingDisputeResp(false);
     }
   };
 
@@ -858,6 +920,22 @@ export const SellerCenterView: React.FC<SellerCenterViewProps> = ({
           )}
         </button>
         <button
+          onClick={() => {
+            setActiveTab('disputes');
+            fetchDisputes();
+          }}
+          className={`px-4 py-2 rounded-xl font-bold flex items-center gap-2 whitespace-nowrap transition-all ${
+            activeTab === 'disputes' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted/60'
+          }`}
+        >
+          <ShieldAlert className="w-4 h-4" /> Khiếu Nại Sàn
+          {unresolvedDisputeCount > 0 && (
+            <span className="px-1.5 py-0.5 rounded-full bg-destructive text-white text-[10px] font-bold">
+              {unresolvedDisputeCount}
+            </span>
+          )}
+        </button>
+        <button
           onClick={() => setActiveTab('finance')}
           className={`px-4 py-2 rounded-xl font-bold flex items-center gap-2 whitespace-nowrap transition-all ${
             activeTab === 'finance' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted/60'
@@ -1247,6 +1325,162 @@ export const SellerCenterView: React.FC<SellerCenterViewProps> = ({
                           </button>
                         ) : (
                           <span className="text-[11px] text-muted-foreground">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Tab 4b: Quản Lý Khiếu Nại Sàn TMĐT (§B) */}
+      {activeTab === 'disputes' && (
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h3 className="text-base font-bold flex items-center gap-2">
+                <ShieldAlert className="w-5 h-5 text-destructive" /> Khiếu Nại & Tranh Chấp Sàn TMĐT
+              </h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Các đơn hàng đang trong thời hạn 168h giữ tiền bị người mua báo lỗi cần phản hồi hoặc cấp mã thay thế.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <select
+                value={disputeFilter}
+                onChange={(e) => setDisputeFilter(e.target.value)}
+                className="px-3 py-1.5 rounded-xl border border-border bg-card text-foreground text-xs font-semibold focus:outline-none"
+              >
+                <option value="">Tất cả trạng thái</option>
+                <option value="OPEN">Chờ Shop phản hồi (OPEN)</option>
+                <option value="WAITING_SELLER">Đã phản hồi (WAITING)</option>
+                <option value="RESOLVED_REPLACED">Đã đổi mã (REPLACED)</option>
+                <option value="RESOLVED_REFUNDED">Đã hoàn tiền (REFUNDED)</option>
+                <option value="REJECTED">Từ chối khiếu nại (REJECTED)</option>
+              </select>
+
+              <button
+                onClick={fetchDisputes}
+                disabled={loadingDisputes}
+                className="p-2 rounded-xl border border-border bg-card hover:bg-muted text-muted-foreground transition-all"
+                title="Làm mới danh sách"
+              >
+                <RefreshCw className={`w-4 h-4 ${loadingDisputes ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
+          </div>
+
+          {loadingDisputes ? (
+            <div className="py-16 text-center text-muted-foreground">
+              <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin mx-auto mb-2" />
+              <p className="text-xs">Đang tải danh sách khiếu nại...</p>
+            </div>
+          ) : disputes.length === 0 ? (
+            <div className="py-16 text-center bg-card border border-border rounded-2xl">
+              <CheckCircle2 className="w-12 h-12 text-emerald-500/30 mx-auto mb-2" />
+              <div className="text-sm font-semibold">Không có khiếu nại nào</div>
+              <p className="text-xs text-muted-foreground mt-1">Gian hàng của bạn hiện không có đơn hàng nào bị khiếu nại.</p>
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-border overflow-hidden bg-card shadow-sm">
+              <table className="table-fixed w-full text-xs">
+                <thead>
+                  <tr className="border-b border-border bg-muted/40 text-muted-foreground font-semibold">
+                    <th className="w-[22%] p-3 text-left">Đơn Hàng & Gói</th>
+                    <th className="w-[20%] p-3 text-left">Khách & Lý Do</th>
+                    <th className="w-[28%] p-3 text-left">Nội Dung Chi Tiết</th>
+                    <th className="w-[15%] p-3 text-center">Trạng Thái</th>
+                    <th className="w-[15%] p-3 text-center">Thao Tác</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {disputes.map((d) => (
+                    <tr key={d.id} className="hover:bg-muted/20 transition-colors">
+                      <td className="p-3">
+                        <div className="font-mono font-bold text-foreground text-xs">{d.order_code}</div>
+                        <div className="text-[11px] text-muted-foreground truncate" title={d.product_name}>
+                          {d.product_name}
+                        </div>
+                        <div className="text-[10px] text-amber-500 font-semibold mt-0.5">
+                          {Number(d.price_core).toLocaleString()} Core
+                        </div>
+                      </td>
+
+                      <td className="p-3">
+                        <div className="font-semibold text-foreground truncate" title={d.buyer_username}>
+                          {d.buyer_username || 'Khách hàng'}
+                        </div>
+                        <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          d.reason === 'WRONG_CODE'
+                            ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                            : d.reason === 'USED_CODE'
+                            ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                            : d.reason === 'EXPIRED_CODE'
+                            ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20'
+                            : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                        }`}>
+                          {d.reason === 'WRONG_CODE' ? 'Mã Sai' :
+                           d.reason === 'USED_CODE' ? 'Mã Đã Dùng' :
+                           d.reason === 'EXPIRED_CODE' ? 'Hết Hạn' : 'Sai Mô Tả'}
+                        </span>
+                      </td>
+
+                      <td className="p-3">
+                        {d.detail && (
+                          <div className="text-foreground text-[11px] line-clamp-2" title={d.detail}>
+                            "{d.detail}"
+                          </div>
+                        )}
+                        {d.seller_response && (
+                          <div className="mt-1 text-[10px] text-primary-light bg-muted/40 p-1.5 rounded-lg border border-border/60">
+                            <strong>Shop:</strong> {d.seller_response}
+                          </div>
+                        )}
+                        {d.seller_replacement_code && (
+                          <div className="mt-0.5 text-[10px] font-mono text-emerald-400">
+                            Mã đổi: {d.seller_replacement_code}
+                          </div>
+                        )}
+                      </td>
+
+                      <td className="p-3 text-center">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          d.status === 'OPEN'
+                            ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30 animate-pulse'
+                            : d.status === 'WAITING_SELLER'
+                            ? 'bg-sky-500/15 text-sky-400 border border-sky-500/30'
+                            : d.status === 'RESOLVED_REPLACED'
+                            ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                            : d.status === 'RESOLVED_REFUNDED'
+                            ? 'bg-purple-500/15 text-purple-400 border border-purple-500/30'
+                            : 'bg-destructive/15 text-destructive border border-destructive/30'
+                        }`}>
+                          {d.status === 'OPEN' ? 'Chờ Phản Hồi' :
+                           d.status === 'WAITING_SELLER' ? 'Đã Phản Hồi' :
+                           d.status === 'RESOLVED_REPLACED' ? 'Đã Đổi Mã' :
+                           d.status === 'RESOLVED_REFUNDED' ? 'Đã Hoàn Core' :
+                           'Đã Từ Chối'}
+                        </span>
+                      </td>
+
+                      <td className="p-3 text-center">
+                        {(d.status === 'OPEN' || d.status === 'WAITING_SELLER') ? (
+                          <button
+                            onClick={() => {
+                              setRespondingDispute(d);
+                              setDisputeResponseMsg(d.seller_response || '');
+                              setDisputeReplacementCode(d.seller_replacement_code || '');
+                            }}
+                            className="px-2.5 py-1 rounded-xl bg-primary hover:opacity-90 text-primary-foreground text-[11px] font-bold shadow-sm transition-opacity"
+                          >
+                            Phản Hồi
+                          </button>
+                        ) : (
+                          <span className="text-[11px] text-muted-foreground font-mono">Đã xong</span>
                         )}
                       </td>
                     </tr>
@@ -1819,6 +2053,85 @@ export const SellerCenterView: React.FC<SellerCenterViewProps> = ({
                   className="px-5 py-2 rounded-xl bg-destructive text-white font-bold shadow-sm"
                 >
                   Xác Nhận Giải Quyết
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Phản Hồi Khiếu Nại Sàn TMĐT (§B) */}
+      {respondingDispute && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-card border border-border rounded-2xl w-full max-w-md p-6 shadow-xl space-y-4 animate-scale-in">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold flex items-center gap-2 text-foreground">
+                <ShieldAlert className="w-5 h-5 text-primary" /> Phản Hồi Khiếu Nại Đơn Hàng
+              </h3>
+              <button onClick={() => setRespondingDispute(null)} className="p-1 rounded hover:bg-muted text-muted-foreground">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="text-xs bg-muted/60 p-3 rounded-xl space-y-1">
+              <div>Đơn hàng: <strong className="font-mono">{respondingDispute.order_code}</strong> ({Number(respondingDispute.price_core).toLocaleString()} Core)</div>
+              <div>Gói: <strong>{respondingDispute.product_name}</strong></div>
+              <div>Khách: <strong>{respondingDispute.buyer_username || 'Khách hàng'}</strong></div>
+              <div>Lý do khiếu nại: <span className="text-destructive font-semibold">
+                {respondingDispute.reason === 'WRONG_CODE' ? 'Mã sai định dạng' :
+                 respondingDispute.reason === 'USED_CODE' ? 'Mã đã dùng' :
+                 respondingDispute.reason === 'EXPIRED_CODE' ? 'Mã hết hạn' : 'Sai mô tả'}
+              </span></div>
+              {respondingDispute.detail && (
+                <div className="text-muted-foreground italic">Khách viết: "{respondingDispute.detail}"</div>
+              )}
+            </div>
+
+            <form onSubmit={handleRespondDispute} className="space-y-3.5 text-xs">
+              <div>
+                <label className="block font-semibold mb-1">Nội dung phản hồi / Giải trình *</label>
+                <textarea
+                  rows={3}
+                  maxLength={1000}
+                  required
+                  value={disputeResponseMsg}
+                  onChange={(e) => setDisputeResponseMsg(e.target.value)}
+                  placeholder="Giải thích nguyên nhân hoặc hướng dẫn khách hàng nhập mã..."
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-border bg-background focus:outline-none focus:border-primary text-xs resize-none"
+                />
+                <div className="text-[10px] text-muted-foreground text-right mt-0.5">
+                  {disputeResponseMsg.length}/1000 ký tự
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold mb-1">Đính kèm mã thay thế mới (Tùy chọn)</label>
+                <input
+                  type="text"
+                  value={disputeReplacementCode}
+                  onChange={(e) => setDisputeReplacementCode(e.target.value)}
+                  placeholder="Nhập mã giftcode thay thế nếu có..."
+                  className="w-full font-mono px-3.5 py-2 rounded-xl border border-border bg-background focus:outline-none focus:border-primary text-xs"
+                />
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  Nếu bạn nạp mã thay thế tại đây, Quản trị viên có thể bàn giao ngay mã này cho khách hàng khi duyệt đổi mã.
+                </p>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setRespondingDispute(null)}
+                  className="px-4 py-2 rounded-xl border border-border hover:bg-muted font-semibold"
+                >
+                  Đóng
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingDisputeResp}
+                  className="px-5 py-2 rounded-xl bg-primary text-primary-foreground font-bold shadow-sm disabled:opacity-50 transition-opacity"
+                >
+                  {isSubmittingDisputeResp ? 'Đang gửi...' : 'Gửi Phản Hồi'}
                 </button>
               </div>
             </form>

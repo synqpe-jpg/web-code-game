@@ -53,10 +53,10 @@
   - Chiến dịch Ưu đãi mua lần đầu (First Purchase Offer): Server-authoritative price engine, SQLite atomic batch guard chống race condition song song, bảng kiểm toán reset độc lập.
   - Endpoints: `GET /api/store/my-offer`, `GET/POST /api/admin/first-purchase`.
   - **Sàn Thương Mại Điện Tử Số (Digital Marketplace Phase 1 & 2)**:
-    - 11 bảng D1: `sellers`, `seller_products`, `seller_codes`, `seller_orders`, `seller_code_views`, `seller_subaccounts`, `seller_parent_orders`, `seller_ledger`, `seller_withdrawals`, `reconciliation_runs`, `reconciliation_exceptions`.
+    - 13 bảng D1: `sellers`, `seller_products`, `seller_codes`, `seller_orders`, `seller_code_views`, `seller_subaccounts`, `seller_parent_orders`, `seller_ledger`, `seller_withdrawals`, `reconciliation_runs`, `reconciliation_exceptions`, `seller_ratings`, `seller_disputes`.
     - Cơ chế bảo mật: Mã hóa mã code bằng AES-GCM Web Crypto, chống trùng lặp, chống xóa mã đã bán, tự động đóng băng lô mã khi tỷ lệ lỗi $\ge 25\%$.
     - Phase 1: Mua bằng ví Core nội bộ, giao mã 0s, tủ mã khách hàng, báo lỗi 1 chạm, phân quyền tài khoản phụ.
-    - Phase 2 (Tiền thật qua sàn - Chế độ A):
+    - Phase 2 (Tiền thật qua sàn - Chế độ A & Mở rộng):
       - Giỏ hàng đa gian hàng & tự động tách đơn con (`seller_parent_orders` & `seller_orders`): Hỗ trợ thêm vào giỏ từ mọi gian hàng, quản lý qua `cartService.ts` (`wcg_marketplace_cart_v1`), modal `CartDrawerModal.tsx` mở qua `/gio-hang` / `/cart` hoặc icon Header, gom nhóm theo người bán, thanh toán ví Core hoặc chuyển khoản VietQR cho từng đơn con.
       - Quy tắc chống tự mua: Chặn người bán tự mua sản phẩm của chính gian hàng mình ở cả 3 tầng (đơn lẻ `index.ts`, tạo giỏ `multi.ts`, thanh toán ví `pay-core.ts`).
       - Cơ chế đồng bộ số dư Core SSOT: Tuyệt đối không fallback vào giao dịch nạp tiền cũ để ghi đè số dư; `/api/auth/me` và `new_balance` là nguồn sự thật duy nhất.
@@ -66,10 +66,12 @@
       - Sổ cái tài chính 3 ngăn (Đang giữ / Khả dụng / Đã chi trả - `seller_ledger`, APPEND-ONLY).
       - Đối soát 3 nguồn hàng ngày (Đơn hàng $\leftrightarrow$ SePay $\leftrightarrow$ Sổ cái) và quản lý ngoại lệ.
       - Quản trị rút tiền: Rút từ số dư khả dụng, tự động duyệt $\le 500$ Core, duyệt tay vượt ngưỡng, xác nhận chuyển khoản.
+      - Đánh giá gian hàng (`seller_ratings`): Người mua đánh giá đơn hoàn tất (`PAID/COMPLETED/DELIVERED`) 1-5 sao + bình luận (chống spam trùng lặp), hàng đợi duyệt PENDING bởi Admin, trang gian hàng tính sao trung bình (1 chữ số thập phân, không hiện 0 sao khi chưa có đánh giá), danh sách review ẩn tên người mua `h***o`.
+      - Khiếu nại tự động (`seller_disputes`): Khiếu nại 4 lý do chuẩn trong 168h giữ tiền, tự động đóng băng giải ngân đơn sang DISPUTED, phát hiện và gắn cờ lạm dụng $\ge 3$ lần rejected trong 30 ngày (`max_rejected_disputes_30d`), người bán phản hồi 1 lần (có thể nạp mã đổi), phán quyết quản trị 3 cách: REFUND (hoàn tiền ví Core nguyên tử qua `seller_ledger`, thu hồi mã `RECALLED` nếu chưa xem hoặc mở ngoại lệ đối soát nếu đã xem), REPLACE (giao mã mới, đơn về `PAID`, giữ nguyên `hold_until`), REJECT (từ chối, đơn về `PAID`, giữ nguyên `hold_until`).
       - Kiểm soát gian hàng thử nghiệm: Quản trị viên cấu hình `test_seller_ids` qua `/api/admin/seller-config`. Mảng rỗng `[]` có nghĩa là không có gian hàng nào được thử nghiệm tiền thật. Chỉ kích hoạt mặc định `sel_1794399949383_052f1` khi chưa từng lưu cấu hình trong `system_settings`. Các gian hàng ngoài danh sách thử nghiệm tiền thật vẫn được bán bình thường qua ví Core nội bộ; khi tạo giỏ đa gian hàng hệ thống chỉ tắt mã QR (`qr_allowed: false`) chứ không chặn tạo đơn.
       - Tối ưu hóa 0s Schema Cache (`ensureMarketplaceSchema`): Sử dụng in-memory flag và 1 truy vấn kiểm tra nhanh `sqlite_master` (~15ms) để bỏ qua 51 câu lệnh DDL tuần tự, triệt tiêu hoàn toàn độ trễ 25–30s trên API sàn TMĐT.
       - Phòng thủ giao diện Giỏ hàng: Thông báo lỗi `checkoutError` luôn được render tại Footer ngay trên nút "Tiến Hành Đặt Hàng" kèm `AbortController` giới hạn thời gian chờ 15 giây, đảm bảo người dùng luôn nhận được phản hồi tức thì và không bị mất dấu lỗi khi danh sách cuộn dài.
-    - Endpoints: `/api/seller/*`, `/api/seller-orders/*`, `/api/seller-orders/multi/*`, `/api/stores/*`, `/api/admin/sellers/*`, `/api/admin/seller-products/*`, `/api/admin/seller-finance/*`, `/api/admin/withdrawals/*`.
+    - Endpoints: `/api/seller/*`, `/api/seller-orders/*`, `/api/seller-orders/multi/*`, `/api/stores/*`, `/api/admin/sellers/*`, `/api/admin/seller-products/*`, `/api/admin/seller-finance/*`, `/api/admin/withdrawals/*`, `/api/admin/seller-ratings/*`, `/api/admin/seller-disputes/*`.
 
 ### 2.3. Tự Động Hóa 24/7 (Automation & Crawlers)
 - **GitHub Actions Workflows**:

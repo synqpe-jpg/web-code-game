@@ -10,6 +10,24 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-266: Bẫy JSX Ký Tự So Sánh Trần (`>`, `>=`) Trong React Gây Lỗi Build Esbuild & Bẫy Đánh Giá/Khiếu Nại Không Gắn Liền Với Sổ Cái Ngăn Tiền Sàn
+- **Triệu chứng & Rủi ro**:
+  1. Trong mã nguồn JSX (`SellerModerationModule.tsx`), viết ký tự so sánh trần như `(>= 3 khiếu nại)` khiến bộ biên dịch `esbuild` / `vite build` báo lỗi nghiêm trọng `The character ">" is not valid inside a JSX element` và làm gãy toàn bộ tiến trình build.
+  2. Khi xử lý khiếu nại hoàn tiền (REFUND), nếu chỉ cập nhật trạng thái đơn con `seller_orders.status = 'REFUNDED'` và cộng tiền cho khách mà không ghi nhận dòng sổ cái `seller_ledger` tương ứng (`REFUND`), số dư ví gian hàng (`pending_balance_core` hoặc `available_balance_core`) sẽ bị lệch với tổng lịch sử giao dịch sổ cái, làm đổ vỡ cơ chế đối soát 3 nguồn (§7).
+  3. Khi hoàn tiền cho đơn mà khách hàng đã bấm xem mã (`seller_code_views`), nếu hệ thống tự động đổi mã `SOLD` về `ACTIVE` (kho hàng mở bán lại) sẽ dẫn đến nguy cơ khách khác mua phải mã đã bị lộ thông tin.
+- **Nguyên nhân gốc rễ**:
+  1. Cú pháp JSX coi các ký tự `<`, `>`, `>=` là thẻ HTML/XML chưa đóng, phải dùng thực thể HTML hoặc chuỗi text trong biểu thức JSX `{'>='}` hoặc viết rõ bằng chữ tiếng Việt.
+  2. Kiến trúc tài chính sàn TMĐT là Append-only Financial Ledger (Sổ cái ghi tăng dần), số dư gian hàng là phép cộng dồn các dòng giao dịch từ `seller_ledger`.
+  3. Bảo mật mã thẻ: mã đã xem (`has_viewed_code = true`) có khả năng đã được người mua cũ sao lưu, không được phép tái lưu hành vào kho mở bán.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Thay thế ký tự so sánh trần trong JSX bằng chữ hoặc biểu thức `{'>='}`.
+  2. Bắt buộc gọi `recordLedgerTransaction` với type `REFUND`, tự động phân bổ trừ đúng ngăn tiền (`pending_balance_core` nếu đang trong thời gian giữ tiền, hoặc `available_balance_core` nếu đã giải ngân).
+  3. Kiểm tra bảng `seller_code_views`: nếu chưa xem mã thì chuyển trạng thái mã về `RECALLED` an toàn; nếu đã xem thì ghi chú rõ vào biên bản giải quyết tranh chấp và mở ngoại lệ đối soát để quản trị viên kiểm tra với nhà cung cấp.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không viết ký tự `<`, `>`, `>=` trần trong JSX text nodes.*
+  - ❌ *Không hoàn tiền đơn hàng sàn TMĐT bằng cách update số dư trực tiếp mà bỏ qua sổ cái `seller_ledger`.*
+  - ❌ *Không chuyển mã đã bị người mua xem (`seller_code_views`) về trạng thái `ACTIVE` trong kho để bán lại cho khách khác.*
+
 ### ISSUE-265: Bẫy Chạy Tuần Tự Hàng Chục Câu Lệnh DDL (`CREATE/ALTER TABLE`) Trong Request Runtime Gây Treo 25–30 Giây & Bẫy Chặn Tạo Đơn Giỏ Hàng Ví Core Khi Gian Hàng Chưa Mở Tiền Thật
 - **Triệu chứng & Rủi ro**:
   1. Khi người mua bấm "Tiến Hành Đặt Hàng" trong giỏ đa gian hàng, nút bị treo "Đang tạo đơn hàng..." suốt 25–30 giây rồi âm thầm hoàn nguyên lại trạng thái cũ mà không tạo đơn, không có thông báo lỗi. Thanh toán ví Core (`pay-core`) cũng từng bị chậm 21–24 giây.

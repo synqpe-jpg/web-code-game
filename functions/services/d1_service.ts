@@ -769,9 +769,9 @@ export async function ensureMarketplaceSchema(db: D1Database): Promise<void> {
   if (_marketplaceSchemaEnsured) return;
 
   try {
-    // ⚡ Fast-path: Kiểm tra 1 query duy nhất (~15ms) xem bảng đơn cha đã tồn tại trong D1 chưa
+    // ⚡ Fast-path: Kiểm tra 1 query duy nhất (~15ms) xem bảng khiếu nại sàn đã tồn tại trong D1 chưa
     const quickCheck = await db
-      .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'seller_parent_orders' LIMIT 1")
+      .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'seller_disputes' LIMIT 1")
       .first<any>();
 
     if (quickCheck) {
@@ -999,6 +999,44 @@ export async function ensureMarketplaceSchema(db: D1Database): Promise<void> {
       );
     `).run().catch(() => {});
 
+    // 12. Bảng đánh giá gian hàng (§A)
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS seller_ratings (
+        id TEXT PRIMARY KEY,
+        seller_id TEXT NOT NULL,
+        order_id TEXT NOT NULL UNIQUE,
+        buyer_member_id TEXT NOT NULL,
+        stars INTEGER NOT NULL CHECK (stars >= 1 AND stars <= 5),
+        comment TEXT,
+        status TEXT NOT NULL DEFAULT 'PENDING',
+        reject_reason TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        moderated_by TEXT,
+        moderated_at TEXT
+      );
+    `).run().catch(() => {});
+
+    // 13. Bảng khiếu nại tự động sàn TMĐT (§B)
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS seller_disputes (
+        id TEXT PRIMARY KEY,
+        order_id TEXT NOT NULL UNIQUE,
+        buyer_member_id TEXT NOT NULL,
+        seller_id TEXT NOT NULL,
+        reason TEXT NOT NULL,
+        detail TEXT,
+        seller_response TEXT,
+        seller_replacement_code TEXT,
+        seller_responded_at TEXT,
+        status TEXT NOT NULL DEFAULT 'OPEN',
+        resolved_by TEXT,
+        resolution_note TEXT,
+        is_flagged_abusive INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+    `).run().catch(() => {});
+
     // Nâng cấp cột cho bảng sellers (3 ngăn số dư: pending_balance_core, available_balance_core, withdrawn_balance_core)
     await db.prepare("ALTER TABLE sellers ADD COLUMN available_balance_core REAL NOT NULL DEFAULT 0;").run().catch(() => {});
     await db.prepare("ALTER TABLE sellers ADD COLUMN withdrawn_balance_core REAL NOT NULL DEFAULT 0;").run().catch(() => {});
@@ -1053,6 +1091,16 @@ export async function ensureMarketplaceSchema(db: D1Database): Promise<void> {
 
     await db.prepare("CREATE INDEX IF NOT EXISTS idx_seller_subaccounts_seller ON seller_subaccounts(seller_id);").run().catch(() => {});
     await db.prepare("CREATE INDEX IF NOT EXISTS idx_seller_subaccounts_member ON seller_subaccounts(member_id);").run().catch(() => {});
+
+    // Index cho đánh giá và khiếu nại sàn TMĐT
+    await db.prepare("CREATE INDEX IF NOT EXISTS idx_seller_ratings_seller_status ON seller_ratings(seller_id, status);").run().catch(() => {});
+    await db.prepare("CREATE INDEX IF NOT EXISTS idx_seller_ratings_order ON seller_ratings(order_id);").run().catch(() => {});
+    await db.prepare("CREATE INDEX IF NOT EXISTS idx_seller_ratings_buyer ON seller_ratings(buyer_member_id);").run().catch(() => {});
+
+    await db.prepare("CREATE INDEX IF NOT EXISTS idx_seller_disputes_seller_status ON seller_disputes(seller_id, status);").run().catch(() => {});
+    await db.prepare("CREATE INDEX IF NOT EXISTS idx_seller_disputes_order ON seller_disputes(order_id);").run().catch(() => {});
+    await db.prepare("CREATE INDEX IF NOT EXISTS idx_seller_disputes_buyer ON seller_disputes(buyer_member_id);").run().catch(() => {});
+    await db.prepare("CREATE INDEX IF NOT EXISTS idx_seller_disputes_status ON seller_disputes(status, created_at);").run().catch(() => {});
     _marketplaceSchemaEnsured = true;
   } catch (err: any) {
     console.warn('[ensureMarketplaceSchema error]', err?.message);
