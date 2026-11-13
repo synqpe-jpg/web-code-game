@@ -209,13 +209,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       ''
     ).trim().replace(/^Bearer\s+/i, '').replace(/^Apikey\s+/i, '').trim();
 
-    // Default Fallback Key đồng bộ với SePayModule / adminDataService
-    const DEFAULT_FALLBACK_KEY = 'SP-KEY-WCG-SECURE-2026-TOKEN';
-
-    // Xác thực an toàn tuyệt đối: Webhook bắt buộc phải có API Key chính xác
+    // Xác thực an toàn tuyệt đối: Webhook bắt buộc phải có API Key chính xác từ cấu hình SePay hoặc ADMIN_SYNC_SECRET
     const isAuthorized = Boolean(
       (configuredApiKey && incomingApiKey && (incomingApiKey === configuredApiKey || timingSafeEqualStr(incomingApiKey, configuredApiKey))) ||
-      (incomingApiKey && (incomingApiKey === DEFAULT_FALLBACK_KEY || timingSafeEqualStr(incomingApiKey, DEFAULT_FALLBACK_KEY))) ||
       (env.ADMIN_SYNC_SECRET && incomingApiKey && (incomingApiKey === env.ADMIN_SYNC_SECRET || timingSafeEqualStr(incomingApiKey, env.ADMIN_SYNC_SECRET)))
     );
 

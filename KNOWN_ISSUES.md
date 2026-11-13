@@ -10,6 +10,22 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-268: Bẫy Đảo Lộn Thứ Tự Router Phục Vụ Static Assets Trước D1 Làm Upload Icon Không Có Hiệu Lực & Bẫy Khóa Dự Phòng Hardcoded Trong Code
+- **Triệu chứng & Rủi ro**:
+  1. Gọi API `POST /api/games/upload-icon` trả về HTTP 200 thành công và đã ghi nhận Base64 WebP vào bảng D1 `uploaded_game_icons`, nhưng khi truy cập trực tiếp file URL công khai `/game_icons/<slug>.webp` thì vẫn hiển thị ảnh tĩnh cũ từ lần deploy trước.
+  2. Tồn tại chuỗi khóa fallback tĩnh `SP-KEY-WCG-SECURE-2026-TOKEN` trong code, làm rò rỉ cơ chế xác thực nếu môi trường live chưa cấu hình biến môi trường hoặc bị lộ token tĩnh trong mã nguồn frontend.
+- **Nguyên nhân gốc rễ**:
+  1. Trong router chính `functions/_worker.ts`, hàm `handleGameIconRequest` thực hiện `env.ASSETS.fetch(request)` trước khi truy vấn D1. Do file ảnh tĩnh cũ đã có sẵn trong thư mục `public/game_icons/` tại thời điểm build, Cloudflare Assets trả về HTTP 200 ngay lập tức và chặn hoàn toàn cơ chế lấy ảnh tùy chỉnh từ D1.
+  2. Khóa fallback tạm thời để phát triển offline chưa được gỡ bỏ sau khi môi trường sản xuất đã được cấu hình biến môi trường `ADMIN_SYNC_SECRET`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Luôn ưu tiên tra cứu bảng D1 `uploaded_game_icons` trước static assets trong mọi router phục vụ tài nguyên động (`functions/_worker.ts` và `functions/game_icons/[file].ts`). Nếu D1 có bản ghi thì trả về ngay kèm header `X-Icon-Source: d1-uploaded`. Chỉ rơi vào fallback `env.ASSETS.fetch` khi D1 không có bản ghi.
+  2. Bổ sung cờ `bypassCache` cho router phục vụ icon khi nhận tham số `nocache`, `fresh` hoặc header `Cache-Control: no-cache`.
+  3. Xóa sạch mọi chuỗi token dự phòng ghi cứng; 100% xác thực webhook và API nhạy cảm phải đi qua `env.ADMIN_SYNC_SECRET` hoặc cấu hình động lưu trữ trong CSDL có băm bảo mật.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không sửa chuỗi URL trong D1 để lách cơ chế phục vụ icon (vi phạm chuẩn đường dẫn tĩnh).*
+  - ❌ *Không kiểm tra `env.ASSETS.fetch` trước D1 đối với các tài nguyên cho phép người dùng hoặc quản trị viên upload/ghi đè động.*
+  - ❌ *Không ghi cứng token bảo mật/fallback key trong mã nguồn ứng dụng.*
+
 ### ISSUE-267: Bẫy Tham Chiếu Nhầm Cột `order_id` Trên Bảng `seller_code_views` (Chỉ Có `code_id`) & Bẫy Đơn "Mua Ngay" Bỏ Quên Dòng Sổ Cái `HOLD` Làm Lệch Đối Soát Số Dư
 - **Triệu chứng & Rủi ro**:
   1. API `GET /api/admin/seller-disputes` và phán quyết hoàn tiền `resolve.ts` báo lỗi HTTP 500 (`no such column: order_id: SQLITE_ERROR`). Quản trị viên không thể xem danh sách khiếu nại và không thể hoàn tiền cho khách.

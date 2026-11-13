@@ -3517,10 +3517,14 @@ async function handleGameIconRequest(
   const isThumb = slug.includes('-thumb');
   const baseSlug = slug.replace(/-thumb(?:-256)?$/i, '');
 
-  // 1. Kiểm tra Cloudflare Edge Cache trước (zero D1 read for repeated requests)
+  // 1. Kiểm tra Cloudflare Edge Cache (bỏ qua nếu client yêu cầu làm mới ?nocache/?fresh hoặc Cache-Control: no-cache)
+  const urlObj = new URL(request.url);
+  const bypassCache = urlObj.searchParams.has('nocache') ||
+                      urlObj.searchParams.has('fresh') ||
+                      request.headers.get('Cache-Control')?.includes('no-cache');
   const cache = typeof caches !== 'undefined' ? (caches as any).default : null;
   const cacheKey = cache ? new Request(request.url, { method: 'GET' }) : null;
-  if (cache && cacheKey) {
+  if (cache && cacheKey && !bypassCache) {
     try {
       const cached = await cache.match(cacheKey);
       if (cached) {
@@ -3529,33 +3533,7 @@ async function handleGameIconRequest(
     } catch {}
   }
 
-  // 2. Thử static assets trước (zero D1 read cho 560+ game có sẵn trong dist)
-  try {
-    const assetRes = await env.ASSETS.fetch(request);
-    if (assetRes && assetRes.status === 200) {
-      return assetRes;
-    }
-    // Nếu yêu cầu -thumb-256.webp mà chưa có trong assets, thử -thumb.webp (128px nhẹ) thay vì file gốc
-    if (filename.toLowerCase().endsWith('-thumb-256.webp')) {
-      const origUrl = new URL(request.url);
-      origUrl.pathname = `/game_icons/${baseSlug}-thumb.webp`;
-      const origRes = await env.ASSETS.fetch(new Request(origUrl, request));
-      if (origRes && origRes.status === 200) {
-        return origRes;
-      }
-    }
-    // Nếu yêu cầu .jpg mà không có trong assets, thử .webp trong assets trước khi rơi vào D1
-    if (filename.toLowerCase().endsWith('.jpg')) {
-      const webpUrl = new URL(request.url);
-      webpUrl.pathname = `/game_icons/${baseSlug}.webp`;
-      const webpRes = await env.ASSETS.fetch(new Request(webpUrl, request));
-      if (webpRes && webpRes.status === 200) {
-        return webpRes;
-      }
-    }
-  } catch {}
-
-  // 3. Nếu static asset không có (404), kiểm tra trong D1 bảng uploaded_game_icons
+  // 2. Tra cứu D1 bảng uploaded_game_icons trước (ƯU TIÊN TUYỆT ĐỐI icon upload mới nhất override file tĩnh cũ)
   if (env.DB) {
     try {
       // Nếu là thumb, CHỈ tìm chính xác slug thumbnail trong D1, KHÔNG fallback sang file gốc baseSlug
@@ -3595,6 +3573,32 @@ async function handleGameIconRequest(
       console.warn('[GameIconRoute] Lỗi đọc uploaded_game_icons từ D1:', err);
     }
   }
+
+  // 3. Fallback static assets (khi chưa có icon upload tùy chỉnh trong D1)
+  try {
+    const assetRes = await env.ASSETS.fetch(request);
+    if (assetRes && assetRes.status === 200) {
+      return assetRes;
+    }
+    // Nếu yêu cầu -thumb-256.webp mà chưa có trong assets, thử -thumb.webp (128px nhẹ) thay vì file gốc
+    if (filename.toLowerCase().endsWith('-thumb-256.webp')) {
+      const origUrl = new URL(request.url);
+      origUrl.pathname = `/game_icons/${baseSlug}-thumb.webp`;
+      const origRes = await env.ASSETS.fetch(new Request(origUrl, request));
+      if (origRes && origRes.status === 200) {
+        return origRes;
+      }
+    }
+    // Nếu yêu cầu .jpg mà không có trong assets, thử .webp trong assets trước khi 404
+    if (filename.toLowerCase().endsWith('.jpg')) {
+      const webpUrl = new URL(request.url);
+      webpUrl.pathname = `/game_icons/${baseSlug}.webp`;
+      const webpRes = await env.ASSETS.fetch(new Request(webpUrl, request));
+      if (webpRes && webpRes.status === 200) {
+        return webpRes;
+      }
+    }
+  } catch {}
 
   return new Response('Icon not found', { status: 404 });
 }

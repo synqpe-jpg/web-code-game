@@ -55,10 +55,14 @@ export const onRequestGet = async (context: {
   const isThumb = slug.includes('-thumb');
   const baseSlug = slug.replace(/-thumb(?:-256)?$/i, '');
 
-  // 1. Kiểm tra Cloudflare Edge Cache
+  // 1. Kiểm tra Cloudflare Edge Cache (bỏ qua nếu client yêu cầu làm mới ?nocache/?fresh hoặc Cache-Control: no-cache)
+  const urlObj = new URL(request.url);
+  const bypassCache = urlObj.searchParams.has('nocache') ||
+                      urlObj.searchParams.has('fresh') ||
+                      request.headers.get('Cache-Control')?.includes('no-cache');
   const cache = typeof caches !== 'undefined' ? (caches as any).default : null;
   const cacheKey = cache ? new Request(request.url, { method: 'GET' }) : null;
-  if (cache && cacheKey) {
+  if (cache && cacheKey && !bypassCache) {
     try {
       const cached = await cache.match(cacheKey);
       if (cached) {

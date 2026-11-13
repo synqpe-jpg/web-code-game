@@ -138,7 +138,7 @@ class AdminDataService {
     } catch {}
   }
   private sepayConfig: SePayConfig = {
-    apiKey: 'SP-KEY-WCG-SECURE-2026-TOKEN',
+    apiKey: '',
     isConnected: true,
     webhookUrl: 'https://admin-code-game-shop.pages.dev/api/webhooks/sepay',
     webhookSecretSet: true,

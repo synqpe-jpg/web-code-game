@@ -24,7 +24,7 @@ const getAuthToken = (): string => {
     sessionStorage.getItem('wcg_auth_token') ||
     localStorage.getItem('wcg_admin_sync_key') ||
     sessionStorage.getItem('wcg_admin_sync_key') ||
-    'SP-KEY-WCG-SECURE-2026-TOKEN'
+    ''
   );
 };
 

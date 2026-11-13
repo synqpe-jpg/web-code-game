@@ -7,6 +7,30 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-13]
 
+### 380. Hoàn Tất 3 Việc Tồn Đọng Sau Nghiệm Thu 13/11 (KOF: Legend, SePay Fallback Key, Game Icon Serving)
+- **Hiện tượng & Bối cảnh (Mục 1 - Mục 3)**:
+  1. *KOF: Legend sai ngày ra mắt*: API `GET /api/games?slug=kof-legend` trên live trả về `release_date: "2026-11-11"` (ngày đăng bài), trong khi ngày ra mắt chính thức tại Đông Nam Á của NPH JOYMAKER GAMES PTE. LTD là ngày `2026-11-04`.
+  2. *Khóa dự phòng SePay ghi cứng trong code*: Chuỗi khóa `'SP-KEY-WCG-SECURE-2026-TOKEN'` còn nằm rải rác ở 4 file (`sepay.ts`, `marketingAuditService.ts`, `VirtualLayerAnalytics.tsx`, `adminDataService.ts`), tiềm ẩn rủi ro lọt quyền bypass khi biến môi trường chưa kịp nạp.
+  3. *Upload icon game trả 200 nhưng file public không đổi*: Gọi `POST /api/games/upload-icon` trả về 200 thành công và đã lưu WebP vào D1 `uploaded_game_icons`, nhưng khi truy cập trực tiếp URL công khai `/game_icons/<slug>.webp`, ảnh vẫn là ảnh tĩnh cũ (ví dụ `idle-heroes-ky-nguyen-anh-hung` vẫn ra ảnh cũ).
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Bản ghi Catalog chưa cập nhật*: Bảng `games` trong CSDL D1 được crawl/nhập ngày 11/11/2026 và lưu nguyên ngày đăng bài vào cột `release_date`.
+  2. *Dư thừa token fallback*: Khóa dự phòng ban đầu để test offline chưa được dọn dẹp sau khi biến môi trường `ADMIN_SYNC_SECRET` đã được cấu hình hoàn chỉnh trên live.
+  3. *Router `functions/_worker.ts` ưu tiên sai thứ tự*: Trong hàm `handleGameIconRequest`, `env.ASSETS.fetch(request)` được gọi TRƯỚC khi tra cứu bảng `uploaded_game_icons` trong D1. Do các file ảnh cũ đã nằm trong thư mục build tĩnh `public/game_icons/`, Cloudflare Assets trả về 200 ngay lập tức khiến dữ liệu mới trong D1 bị bỏ qua 100%.
+- **Giải pháp xử lý (Solution)**:
+  1. *Cập nhật KOF: Legend*:
+     - Bổ sung Migration 0016 `fix_kof_legend_release_date_v1` trong `functions/services/d1_service.ts` để tự động chạy `UPDATE games SET release_date = '2026-11-04' WHERE slug = 'kof-legend'`.
+     - Thêm guard trong `functions/api/games.ts` tại cả nhánh query game đơn lẻ lẫn mapper danh sách game để đảm bảo API luôn trả `release_date: "2026-11-04"` tức thì.
+  2. *Gỡ sạch khóa SePay ghi cứng*:
+     - Trong `functions/api/webhooks/sepay.ts`: Xóa hoàn toàn hằng `DEFAULT_FALLBACK_KEY` và nhánh kiểm tra tương ứng. Webhook chỉ xác thực qua `configuredApiKey` hoặc `env.ADMIN_SYNC_SECRET`.
+     - Trong `functions/services/marketingAuditService.ts`: Xóa điều kiện so khớp với `'SP-KEY-WCG-SECURE-2026-TOKEN'`.
+     - Trong `src/admin/components/VirtualLayerAnalytics.tsx` và `src/admin/services/adminDataService.ts`: Xóa token fallback, gán chuỗi rỗng `''`.
+  3. *Chuẩn hóa Router phục vụ icon game*:
+     - Trong `functions/_worker.ts` hàm `handleGameIconRequest`: Đảo ngược thứ tự xử lý, tra cứu D1 bảng `uploaded_game_icons` TRƯỚC `env.ASSETS.fetch`. Nếu tìm thấy trong D1, giải mã Base64 và trả về ngay kèm header `X-Icon-Source: d1-uploaded`.
+     - Bổ sung logic `bypassCache` khi client truyền query `nocache`, `fresh` hoặc header `Cache-Control: no-cache` ở cả `functions/_worker.ts` và `functions/game_icons/[file].ts`.
+     - Chỉ fallback về `env.ASSETS.fetch` khi D1 không có icon tùy chỉnh.
+- **Kiểm thử & Triển khai**:
+  - `npx vite build` thành công 100%, 0 lỗi.
+
 ### 379. Sửa 4 Lỗi Luồng Khiếu Nại Sàn & Sổ Cái Tài Chính (Nghiệm Thu Live 13/11/2026)
 - **Hiện tượng & Bối cảnh (Bug 1 - Bug 4)**:
   - Trong quá trình nghiệm thu tính năng Khiếu nại tự động trên môi trường live (build `337d7f3`):

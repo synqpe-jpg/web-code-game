@@ -343,7 +343,7 @@ export function formatGameItem(g: any, allCodes: GiftCode[]): GameItem {
     license_issued_date: g.license_issued_date || g.ngay_cap_phep || g.license_date || '',
     license_status: g.license_status || '',
     license_source_url: g.license_source_url || '',
-    release_date: g.release_date || g.gp_release_date || '',
+    release_date: g.slug === 'kof-legend' ? '2026-11-04' : (g.release_date || g.gp_release_date || ''),
     download_android: g.download_android || g.google_play_url || g.downloadLinks?.android || '',
     download_ios: g.download_ios || g.app_store_url || g.downloadLinks?.ios || '',
     download_pc: g.download_pc || g.downloadLinks?.pc || '',
@@ -675,6 +675,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       );
 
       if (gameRow) {
+        if (gameRow.slug === 'kof-legend' || cleanSlug === 'kof-legend') {
+          gameRow.release_date = '2026-11-04';
+        }
         const isYenVan = gameRow.slug === 'yen-van-thap-luc-thanh' ||
                          gameRow.slug === 'where-winds-meet-mobile' ||
                          gameRow.slug === 'where-winds-meet' ||
@@ -814,7 +817,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           license_issued_date: gameRow.license_issued_date || gameRow.ngay_cap_phep || '',
           license_status: gameRow.license_status || '',
           license_source_url: gameRow.license_source_url || '',
-          release_date: gameRow.release_date || '',
+          release_date: (gameRow.slug === 'kof-legend' || cleanSlug === 'kof-legend') ? '2026-11-04' : (gameRow.release_date || ''),
           download_android: finalPlay,
           download_ios: finalIos,
           download_pc: finalPc,
