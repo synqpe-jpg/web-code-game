@@ -1,4 +1,4 @@
-import { getMultipleSettingsD1, getSettingD1, withD1Timeout } from '../services/d1_service';
+import { getMultipleSettingsD1, getSettingD1, withD1Timeout, ensureSchemaUpgrades } from '../services/d1_service';
 import { isCodeExpired, parseExpirationDate, decodeHtmlEntities } from '../../src/utils/codeUtils';
 import fallbackGamesData from '../../src/data/games188.json';
 import fallbackCodesData from '../../src/data/crawled_codes_188.json';
@@ -633,6 +633,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       { status: 500, headers: CORS_HEADERS }
     );
   }
+
+  // Tự động kích hoạt schema migrations ngầm (idempotent)
+  context.waitUntil(ensureSchemaUpgrades(env.DB));
 
   try {
     const url = new URL(request.url);

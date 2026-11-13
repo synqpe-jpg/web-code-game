@@ -7,6 +7,22 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-13]
 
+### 381. Sửa Tận Gốc Hàng D1 Ngày Ra Mắt KOF: Legend (Migration 0012)
+- **Hiện tượng & Bối cảnh**:
+  - Bản ghi catalog `kof-legend` đã được bảo vệ bằng lớp guard trong `functions/api/games.ts`, tuy nhiên hàng vật lý trong bảng D1 `games` cần được cập nhật dứt điểm tận gốc cột `release_date = '2026-11-04'` (ngày mở cửa chính thức SEA bởi NPH JOYMAKER GAMES PTE. LTD).
+  - Kho mã nguồn cần file migration SQL đánh số tuần tự chuẩn xác tiếp nối `migrations/0011_games_and_codes_optimized_schema.sql`.
+- **Nguyên nhân gốc rễ**:
+  - Dữ liệu crawl ban đầu lưu nhầm ngày đăng bài 11/11/2026 vào D1.
+  - Runtime migration cần đồng bộ trực tiếp với file migration vật lý để đảm bảo D1 schema runner và trigger API cùng thực thi đồng bộ.
+- **Giải pháp xử lý**:
+  - Tạo file migration chuẩn mực: [`migrations/0012_fix_kof_legend_release_date.sql`](file:///c:/4%20Antigravity%20all/13%20web%20code%20game/migrations/0012_fix_kof_legend_release_date.sql) thực thi `UPDATE games SET release_date = '2026-11-04', updated_at = datetime('now') WHERE slug = 'kof-legend';`.
+  - Cập nhật định danh migration `0012_fix_kof_legend_release_date` trong [`d1_service.ts`](file:///c:/4%20Antigravity%20all/13%20web%20code%20game/functions/services/d1_service.ts#L2193-L2202).
+  - Tích hợp `ensureSchemaUpgrades` vào [`functions/api/games.ts`](file:///c:/4%20Antigravity%20all/13%20web%20code%20game/functions/api/games.ts#L630-L636) qua `context.waitUntil` và bổ sung action `execute_migration_0012` trong [`functions/api/sync.ts`](file:///c:/4%20Antigravity%20all/13%20web%20code%20game/functions/api/sync.ts#L2466-L2495) để thực thi và đọc trực tiếp từ D1.
+  - Giữ nguyên các trường khác của `kof-legend` (NPH, mã code, hướng dẫn nhập, icon) và giữ nguyên lớp guard làm tuyến phòng thủ chiều sâu.
+- **Kiểm thử & Triển khai**:
+  - `npx vite build` thành công 100%, 0 lỗi.
+  - Tự động triển khai lên cả 3 host và kiểm chứng trực tiếp bằng query SELECT D1.
+
 ### 380. Hoàn Tất 3 Việc Tồn Đọng Sau Nghiệm Thu 13/11 (KOF: Legend, SePay Fallback Key, Game Icon Serving)
 - **Hiện tượng & Bối cảnh (Mục 1 - Mục 3)**:
   1. *KOF: Legend sai ngày ra mắt*: API `GET /api/games?slug=kof-legend` trên live trả về `release_date: "2026-11-11"` (ngày đăng bài), trong khi ngày ra mắt chính thức tại Đông Nam Á của NPH JOYMAKER GAMES PTE. LTD là ngày `2026-11-04`.

@@ -2463,6 +2463,36 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       }
     }
 
+    // Action: Thực thi migration 0012 và query trực tiếp D1 cho kof-legend
+    if (body.action === 'execute_migration_0012' && env.DB) {
+      try {
+        await ensureSchemaUpgrades(env.DB);
+
+        // 1. Thực thi UPDATE trực tiếp vào D1 games table
+        const updateRes = await env.DB.prepare(`
+          UPDATE games 
+          SET release_date = '2026-11-04',
+              updated_at = datetime('now')
+          WHERE slug = 'kof-legend'
+        `).run();
+
+        // 2. Ghi nhận schema_migrations
+        await env.DB.prepare("INSERT OR IGNORE INTO schema_migrations (id) VALUES ('0012_fix_kof_legend_release_date');").run().catch(() => {});
+
+        // 3. Query trực tiếp D1 để kiểm chứng kết quả vật lý
+        const d1Row = await env.DB.prepare("SELECT slug, release_date, name, publisher FROM games WHERE slug = 'kof-legend'").first<any>();
+
+        return new Response(JSON.stringify({
+          success: true,
+          migration: '0012_fix_kof_legend_release_date.sql',
+          updateResult: updateRes,
+          d1Row
+        }), { headers: CORS_HEADERS });
+      } catch (err: any) {
+        return new Response(JSON.stringify({ success: false, error: String(err?.message || err) }), { status: 500, headers: CORS_HEADERS });
+      }
+    }
+
     // Action: Sửa chữa trực tiếp dữ liệu live A1, A2 và đồng bộ custom codes sang D1 (B1)
     if (body.action === 'execute_repair_live_data_and_sync' && env.DB) {
       try {

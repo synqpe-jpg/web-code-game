@@ -2190,15 +2190,15 @@ export async function ensureSchemaUpgrades(db: D1Database): Promise<void> {
     console.warn('[Migration deleted_records_history_v1 error]', err?.message);
   }
 
-  // 14. Migration 0016: Sửa ngày ra mắt KOF: Legend thành 2026-11-04 (ngày ra mắt chính thức SEA)
+  // 14. Migration 0012: Sửa tận gốc hàng D1 ngày ra mắt KOF: Legend thành 2026-11-04 (0012_fix_kof_legend_release_date.sql)
   try {
-    const kofMig = await db.prepare("SELECT 1 FROM schema_migrations WHERE id = 'fix_kof_legend_release_date_v1' LIMIT 1;").first<any>().catch(() => null);
+    const kofMig = await db.prepare("SELECT 1 FROM schema_migrations WHERE id = '0012_fix_kof_legend_release_date' LIMIT 1;").first<any>().catch(() => null);
     if (!kofMig) {
-      await db.prepare("UPDATE games SET release_date = '2026-11-04' WHERE slug = 'kof-legend'").run().catch(() => {});
-      await db.prepare("INSERT OR IGNORE INTO schema_migrations (id) VALUES ('fix_kof_legend_release_date_v1');").run().catch(() => {});
+      await db.prepare("UPDATE games SET release_date = '2026-11-04', updated_at = datetime('now') WHERE slug = 'kof-legend'").run().catch(() => {});
+      await db.prepare("INSERT OR IGNORE INTO schema_migrations (id) VALUES ('0012_fix_kof_legend_release_date');").run().catch(() => {});
     }
   } catch (err: any) {
-    console.warn('[Migration fix_kof_legend_release_date_v1 error]', err?.message);
+    console.warn('[Migration 0012_fix_kof_legend_release_date error]', err?.message);
   }
 
   schemaUpgradesDone = true;
