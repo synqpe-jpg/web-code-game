@@ -75,10 +75,10 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       LEFT JOIN seller_orders so ON sd.order_id = so.id
       LEFT JOIN members m ON sd.buyer_member_id = m.id
       LEFT JOIN (
-        SELECT order_id, COUNT(*) as view_count
+        SELECT code_id, COUNT(*) as view_count
         FROM seller_code_views
-        GROUP BY order_id
-      ) scv ON sd.order_id = scv.order_id
+        GROUP BY code_id
+      ) scv ON so.code_id = scv.code_id
       WHERE 1=1
     `;
     const binds: any[] = [];

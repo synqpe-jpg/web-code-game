@@ -539,9 +539,16 @@ export const MyReceivedCodesModal: React.FC<MyReceivedCodesModalProps> = ({
                     {/* Trạng thái xử lý tranh chấp / khiếu nại (§B) */}
                     {mOrder.status === 'DISPUTED' && (
                       <div className="mt-2 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs space-y-1">
-                        <div className="text-amber-400 font-bold flex items-center gap-1.5">
-                          <ShieldAlert className="w-4 h-4 shrink-0" />
-                          <span>Đang trong diện khiếu nại (DISPUTED)</span>
+                        <div className="text-amber-400 font-bold flex items-center justify-between gap-1.5">
+                          <span className="flex items-center gap-1.5">
+                            <ShieldAlert className="w-4 h-4 shrink-0" />
+                            <span>Đang trong diện khiếu nại (DISPUTED)</span>
+                          </span>
+                          {mOrder.dispute_id && (
+                            <span className="text-[10px] font-mono text-amber-300/90 bg-amber-500/20 px-2 py-0.5 rounded-md">
+                              Mã KN: {mOrder.dispute_id}
+                            </span>
+                          )}
                         </div>
                         <div className="text-muted-foreground text-[11px]">
                           Lý do: <strong className="text-foreground">{
@@ -568,14 +575,21 @@ export const MyReceivedCodesModal: React.FC<MyReceivedCodesModalProps> = ({
                     {mOrder.status === 'REPORTED' && (
                       <div className="mt-2 text-[11px] text-destructive font-semibold flex items-center gap-1.5">
                         <AlertCircle className="w-3.5 h-3.5" />
-                        <span>Đã gửi báo lỗi ({mOrder.report_reason === 'expired' ? 'Hết hạn' : 'Không dùng được'}). Đang chờ shop đổi mã hoặc hoàn Core.</span>
+                        <span>Đã ghi nhận báo lỗi ({mOrder.report_reason === 'expired' ? 'Hết hạn' : 'Không dùng được'}). Bạn có thể bấm nút Khiếu Nại bên cạnh để mở khiếu nại chính thức.</span>
                       </div>
                     )}
 
                     {mOrder.status === 'REFUNDED' && (
-                      <div className="mt-2 p-2 rounded-xl bg-purple-500/10 border border-purple-500/20 text-[11px] text-purple-300 font-semibold flex items-center gap-1.5">
-                        <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-purple-400" />
-                        <span>Người bán / Sàn đã hoàn lại {mOrder.price_core} Core vào ví của bạn. {mOrder.resolution_note || mOrder.dispute_resolution_note || ''}</span>
+                      <div className="mt-2 p-2 rounded-xl bg-purple-500/10 border border-purple-500/20 text-[11px] text-purple-300 font-semibold flex items-center justify-between gap-1.5">
+                        <span className="flex items-center gap-1.5">
+                          <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-purple-400" />
+                          <span>Người bán / Sàn đã hoàn lại {mOrder.price_core} Core vào ví của bạn. {mOrder.resolution_note || mOrder.dispute_resolution_note || ''}</span>
+                        </span>
+                        {mOrder.dispute_id && (
+                          <span className="text-[10px] font-mono text-purple-300/80 shrink-0">
+                            Mã KN: {mOrder.dispute_id}
+                          </span>
+                        )}
                       </div>
                     )}
                   </div>
@@ -610,7 +624,7 @@ export const MyReceivedCodesModal: React.FC<MyReceivedCodesModalProps> = ({
                     )}
 
                     {/* Nút Khiếu Nại Tự Động Trong Thời Gian Giữ Tiền (§B) */}
-                    {mOrder.status === 'PAID' && !mOrder.dispute_id && (
+                    {(mOrder.status === 'PAID' || mOrder.status === 'DELIVERED' || mOrder.status === 'REPORTED') && !mOrder.dispute_id && (
                       <button
                         onClick={() => {
                           setDisputeOrder(mOrder);
@@ -622,22 +636,6 @@ export const MyReceivedCodesModal: React.FC<MyReceivedCodesModalProps> = ({
                       >
                         <ShieldAlert className="w-3.5 h-3.5" />
                         <span>Khiếu Nại</span>
-                      </button>
-                    )}
-
-                    {/* Nút Báo Lỗi Một Chạm Cũ (§6.3) */}
-                    {mOrder.status === 'DELIVERED' && (
-                      <button
-                        onClick={() => {
-                          setReportingOrder(mOrder);
-                          setReportReason('not_working');
-                          setReportNote('');
-                        }}
-                        className="px-2.5 py-1.5 rounded-xl bg-destructive/10 hover:bg-destructive/20 border border-destructive/20 text-destructive text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
-                        title="Báo mã lỗi 1 chạm để shop đổi mã mới hoặc hoàn tiền"
-                      >
-                        <ShieldAlert className="w-3.5 h-3.5" />
-                        <span>Báo Lỗi</span>
                       </button>
                     )}
                   </div>

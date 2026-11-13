@@ -101,9 +101,13 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       );
     }
 
-    if (order.status !== 'PAID') {
+    const ALLOWED_DISPUTE_STATUSES = ['PAID', 'DELIVERED', 'REPORTED'];
+    if (!ALLOWED_DISPUTE_STATUSES.includes(order.status)) {
       return new Response(
-        JSON.stringify({ success: false, error: `Chỉ có thể khiếu nại đơn hàng đang ở trạng thái PAID (trạng thái hiện tại: ${order.status}).` }),
+        JSON.stringify({
+          success: false,
+          error: `Chỉ có thể khiếu nại đơn hàng đang trong thời hạn giữ tiền (trạng thái hợp lệ: PAID, DELIVERED, REPORTED; trạng thái hiện tại: ${order.status}).`,
+        }),
         { status: 400, headers: CORS_HEADERS }
       );
     }

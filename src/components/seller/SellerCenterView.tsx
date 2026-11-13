@@ -1402,6 +1402,9 @@ export const SellerCenterView: React.FC<SellerCenterViewProps> = ({
                     <tr key={d.id} className="hover:bg-muted/20 transition-colors">
                       <td className="p-3">
                         <div className="font-mono font-bold text-foreground text-xs">{d.order_code}</div>
+                        <div className="text-[10px] font-mono text-primary/80 truncate mt-0.5" title={`Mã khiếu nại: ${d.id}`}>
+                          ID: {d.id}
+                        </div>
                         <div className="text-[11px] text-muted-foreground truncate" title={d.product_name}>
                           {d.product_name}
                         </div>
@@ -2074,6 +2077,7 @@ export const SellerCenterView: React.FC<SellerCenterViewProps> = ({
             </div>
 
             <div className="text-xs bg-muted/60 p-3 rounded-xl space-y-1">
+              <div>Mã khiếu nại: <strong className="font-mono text-primary-light">{respondingDispute.id}</strong></div>
               <div>Đơn hàng: <strong className="font-mono">{respondingDispute.order_code}</strong> ({Number(respondingDispute.price_core).toLocaleString()} Core)</div>
               <div>Gói: <strong>{respondingDispute.product_name}</strong></div>
               <div>Khách: <strong>{respondingDispute.buyer_username || 'Khách hàng'}</strong></div>

@@ -1,6 +1,6 @@
 import { verifyMemberAuth } from '../../services/mission_service';
 import { ensureMarketplaceSchema, logAdminAudit } from '../../services/d1_service';
-import { decryptCode } from '../../services/marketplace_service';
+import { decryptCode, getMarketplaceConfig } from '../../services/marketplace_service';
 
 interface Env {
   DB: D1Database;
@@ -47,7 +47,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     // 1. Kiểm tra sản phẩm và thông tin gian hàng
     const product = await env.DB
       .prepare(`
-        SELECT sp.*, s.name as seller_name, s.status as seller_status, s.is_vacation, s.owner_member_id
+        SELECT sp.*, s.name as seller_name, s.status as seller_status, s.is_vacation, s.owner_member_id,
+               s.pending_balance_core, s.available_balance_core, s.withdrawn_balance_core
         FROM seller_products sp
         JOIN sellers s ON sp.seller_id = s.id
         WHERE sp.id = ? AND sp.deleted_at IS NULL AND s.deleted_at IS NULL
@@ -140,15 +141,26 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     // 4. Giải mã code trước để giao ngay
     const plainDeliveredCode = await decryptCode(availableCode.code_encrypted, env.MARKETPLACE_CODE_KEY);
 
+    const mConfig = await getMarketplaceConfig(env.DB);
+    const holdHours = mConfig.hold_hours || 168;
+    const holdUntil = new Date(Date.now() + holdHours * 3600 * 1000).toISOString();
+
     const orderId = `sord_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const orderCode = `CGM-${Date.now().toString().slice(-6)}-${Math.random().toString(36).substring(2, 5).toUpperCase()}`;
+    const ledgerId = `ledg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const nowIso = new Date().toISOString();
 
-    // 5. Giao dịch nguyên tử qua D1 Batch:
+    const currentHeld = Number(product.pending_balance_core) || 0;
+    const currentAvailable = Number(product.available_balance_core) || 0;
+    const currentWithdrawn = Number(product.withdrawn_balance_core) || 0;
+    const newHeld = currentHeld + priceCore;
+
+    // 5. Giao dịch nguyên tử qua D1 Batch (§4.3 & §6.1):
     // - Trừ Core người mua (có điều kiện balance >= priceCore chống race-condition)
     // - Đổi mã kho sang SOLD gắn order_id
     // - Cộng pending_balance_core cho gian hàng
-    // - Thêm bản ghi đơn hàng seller_orders
+    // - Ghi dòng HOLD vào sổ cái seller_ledger
+    // - Thêm bản ghi đơn hàng seller_orders (trạng thái PAID trong 168h giữ tiền)
     const batchResults = await env.DB.batch([
       // Statement 0: Trừ Core người mua
       env.DB.prepare(`
@@ -171,13 +183,34 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         WHERE id = ?
       `).bind(priceCore, nowIso, product.seller_id),
 
-      // Statement 3: Thêm đơn hàng hoàn tất
+      // Statement 3: Ghi dòng HOLD vào sổ cái seller_ledger
+      env.DB.prepare(`
+        INSERT INTO seller_ledger (
+          id, seller_id, order_id, type, amount_core,
+          balance_held_after, balance_available_after, balance_withdrawn_after,
+          actor, reason, created_at
+        ) VALUES (?, ?, ?, 'HOLD', ?, ?, ?, ?, ?, ?, ?)
+      `).bind(
+        ledgerId,
+        product.seller_id,
+        orderId,
+        priceCore,
+        newHeld,
+        currentAvailable,
+        currentWithdrawn,
+        buyer.username || buyer.email || 'buyer_core_wallet',
+        `Mua lẻ bằng ví Core (Đơn hàng ${orderCode})`,
+        nowIso
+      ),
+
+      // Statement 4: Thêm đơn hàng trạng thái PAID trong 168h giữ tiền
       env.DB.prepare(`
         INSERT INTO seller_orders (
           id, order_code, buyer_member_id, buyer_name, buyer_email,
           seller_id, product_id, product_name, game_slug, code_id,
-          delivered_code, price_core, status, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'DELIVERED', ?, ?)
+          delivered_code, price_core, payment_method, hold_until,
+          status, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'CORE', ?, 'PAID', ?, ?)
       `).bind(
         orderId,
         orderCode,
@@ -191,6 +224,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         availableCode.id,
         plainDeliveredCode,
         priceCore,
+        holdUntil,
         nowIso,
         nowIso
       ),
@@ -216,6 +250,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         product_name: product.name,
         price_core: priceCore,
         seller_id: product.seller_id,
+        hold_until: holdUntil,
       },
     });
 
@@ -233,7 +268,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           game_slug: product.game_slug,
           price_core: priceCore,
           delivered_code: plainDeliveredCode,
-          status: 'DELIVERED',
+          status: 'PAID',
+          hold_until: holdUntil,
           created_at: nowIso,
         },
       }),

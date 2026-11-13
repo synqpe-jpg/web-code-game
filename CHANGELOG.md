@@ -7,7 +7,33 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-13]
 
-### 378. Triển Khai Hệ Thống Đánh Giá Gian Hàng & Khiếu Nại Tự Động Cho Sàn TMĐT Số
+### 379. Sửa 4 Lỗi Luồng Khiếu Nại Sàn & Sổ Cái Tài Chính (Nghiệm Thu Live 13/11/2026)
+- **Hiện tượng & Bối cảnh (Bug 1 - Bug 4)**:
+  - Trong quá trình nghiệm thu tính năng Khiếu nại tự động trên môi trường live (build `337d7f3`):
+    1. *Bug 1 (Chặn quản trị)*: `GET /api/admin/seller-disputes` trả lỗi HTTP 500 (`no such column: order_id at offset 596: SQLITE_ERROR`). Quản trị viên không thể tải danh sách khiếu nại và nhánh `REFUND` trong `resolve.ts` cũng bị lỗi tương tự do truy vấn sai cột `order_id`.
+    2. *Bug 2 (Chặn khách khiếu nại)*: Đơn mua bằng nút "Mua ngay" (single-buy) không hiển thị nút "Khiếu Nại" trong tủ mã mà chỉ hiện nút "Báo Lỗi" cũ; API khiếu nại từ chối nhận đơn.
+    3. *Bug 3 (Lệch đối soát)*: Chạy đối soát ngày 12/11 (`POST /api/admin/seller-finance/reconciliation/run`) sinh 2 ngoại lệ số dư do tổng tiền giữ trên bảng `sellers` lớn hơn tổng số tiền trong sổ cái `seller_ledger` đúng bằng giá trị các đơn "Mua ngay".
+    4. *Vấn đề 4 (Chồng chéo luồng)*: Hai nút "Báo Lỗi" cũ và "Khiếu Nại" mới cùng xuất hiện tùy theo trạng thái khiến khách hàng bấm nhầm; mã khiếu nại (`sdisp_...`) không được hiển thị tại bất kỳ giao diện nào để tra cứu.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Sai Schema `seller_code_views`*: Bảng `seller_code_views` chỉ có cột `code_id`, không có cột `order_id`. Query `seller-disputes/index.ts` và `seller-disputes/[id]/resolve.ts` lại GROUP BY và WHERE theo `order_id`.
+  2. *Lệch trạng thái đơn hàng*: `seller-orders/index.ts` tạo đơn con ở trạng thái `DELIVERED` và không tính `hold_until`, trong khi `pay-core.ts` tạo trạng thái `PAID` trong 168 giờ giữ tiền. Nút và API khiếu nại chỉ chấp nhận trạng thái `PAID`.
+  3. *Bỏ quên dòng sổ cái*: D1 batch trong `seller-orders/index.ts` cộng trực tiếp `pending_balance_core` cho gian hàng nhưng không ghi dòng giao dịch loại `HOLD` vào `seller_ledger`.
+  4. *Giao diện thiếu mã định danh & thừa nút cũ*: Nút "Báo Lỗi" cũ vẫn còn tồn tại song song, đơn mua bị bấm nhầm chuyển sang `REPORTED` không vào được luồng khiếu nại mới; cả 3 bên (khách, shop, admin) đều không nhìn thấy ID khiếu nại.
+- **Giải pháp xử lý (Solution)**:
+  1. *Khắc phục Bug 1*:
+     - Trong `functions/api/admin/seller-disputes/index.ts`: Đổi truy vấn con đếm lượt xem `seller_code_views` sang `GROUP BY code_id` và JOIN qua `so.code_id = scv.code_id`.
+     - Trong `functions/api/admin/seller-disputes/[id]/resolve.ts`: Nhánh `REFUND` kiểm tra xem mã bằng `WHERE code_id = ?` dùng `dispute.code_id`. Đồng thời chuẩn hóa câu lệnh `INSERT INTO reconciliation_exceptions` khớp chính xác 100% với schema bảng.
+  2. *Khắc phục Bug 2 (Chọn phương án a ưu tiên)*:
+     - Trong `functions/api/seller-orders/index.ts`: Tạo đơn hàng ở trạng thái `PAID`, gán `payment_method = 'CORE'`, tính `hold_until = now + hold_hours * 3600 * 1000` (168 giờ) đồng bộ với đơn giỏ hàng.
+     - Trong `functions/api/seller-orders/[id]/dispute.ts`: Mở rộng mảng trạng thái hợp lệ `['PAID', 'DELIVERED', 'REPORTED']` để các đơn mua trước đây vẫn gửi khiếu nại được bình thường.
+  3. *Khắc phục Bug 3*:
+     - Trong `functions/api/seller-orders/index.ts`: Bổ sung câu lệnh `INSERT INTO seller_ledger (..., 'HOLD', amount_core, balance_held_after, ...)` vào cùng một D1 Batch nguyên tử với lệnh trừ tiền người mua, trừ kho và cập nhật số dư gian hàng.
+  4. *Khắc phục Vấn đề 4*:
+     - Trong `src/components/MyReceivedCodesModal.tsx`: Gỡ bỏ hoàn toàn nút "Báo Lỗi" khỏi tab Sàn TMĐT. Đơn ở trạng thái `PAID`, `DELIVERED`, hoặc `REPORTED` hiển thị duy nhất nút "Khiếu Nại" chính thức.
+     - Hiển thị mã khiếu nại `ID: {d.id}` rõ ràng tại: Tủ mã người mua (`MyReceivedCodesModal`), Bảng & Modal Kênh Người Bán (`SellerCenterView`), và Bảng & Modal Quản Trị Viên (`SellerModerationModule`).
+- **Kiểm thử & Triển khai**:
+  - `npx vite build` thành công 100%, 0 lỗi.
+  - Tự động triển khai lên 3 host theo Rule 6.
 - **Hiện tượng & Bối cảnh**:
   - Sàn TMĐT số CodeGame.shop sau khi hoàn thành Giai đoạn 1 & 2 cần hoàn thiện cơ chế bảo vệ người tiêu dùng và xây dựng niềm tin cộng đồng:
     1. *Đánh giá gian hàng*: Khách mua chưa thể chấm điểm hoặc viết đánh giá trải nghiệm mua hàng cho gian hàng; trang gian hàng chưa có điểm sao uy tín.

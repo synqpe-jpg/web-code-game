@@ -103,10 +103,12 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     if (decision === 'REFUND') {
       // ===== NHÁNH 1: HOÀN TIỀN (REFUND) =====
       // Kiểm tra khách đã xem mã chưa
-      const codeViewRow = await env.DB
-        .prepare('SELECT id FROM seller_code_views WHERE order_id = ? LIMIT 1')
-        .bind(dispute.order_id)
-        .first<any>();
+      const codeViewRow = dispute.code_id
+        ? await env.DB
+            .prepare('SELECT id FROM seller_code_views WHERE code_id = ? LIMIT 1')
+            .bind(dispute.code_id)
+            .first<any>()
+        : null;
 
       const hasViewedCode = Boolean(codeViewRow);
       let finalResolutionNote = note;
@@ -126,14 +128,18 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         await env.DB
           .prepare(`
             INSERT INTO reconciliation_exceptions (
-              id, run_id, exception_type, severity, order_id, seller_id, details, status, created_at
-            ) VALUES (?, 'manual_dispute_refund', 'CODE_VIEWED_REFUND', 'MEDIUM', ?, ?, ?, 'RESOLVED', ?)
+              id, run_id, source, reference_id, expected_amount, actual_amount,
+              suggested_cause, status, resolved_by, resolved_note, created_at, updated_at
+            ) VALUES (?, 'manual_dispute_refund', 'DISPUTE_CODE_VIEWED', ?, ?, 0, ?, 'RESOLVED', ?, ?, ?, ?)
           `)
           .bind(
             exId,
-            dispute.order_id,
-            dispute.seller_id,
+            dispute.order_code || dispute.order_id,
+            Number(dispute.price_core) || 0,
             `Hoàn tiền khiếu nại ${dispute.id} cho đơn ${dispute.order_code} dù khách đã bấm xem mã code trước đó. Ghi chú: ${note}`,
+            adminActor,
+            note,
+            nowIso,
             nowIso
           )
           .run()

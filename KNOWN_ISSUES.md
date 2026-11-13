@@ -10,6 +10,23 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-267: Bẫy Tham Chiếu Nhầm Cột `order_id` Trên Bảng `seller_code_views` (Chỉ Có `code_id`) & Bẫy Đơn "Mua Ngay" Bỏ Quên Dòng Sổ Cái `HOLD` Làm Lệch Đối Soát Số Dư
+- **Triệu chứng & Rủi ro**:
+  1. API `GET /api/admin/seller-disputes` và phán quyết hoàn tiền `resolve.ts` báo lỗi HTTP 500 (`no such column: order_id: SQLITE_ERROR`). Quản trị viên không thể xem danh sách khiếu nại và không thể hoàn tiền cho khách.
+  2. Đơn mua bằng nút "Mua ngay" (single-buy) được tạo với trạng thái `DELIVERED` không có `hold_until`, khiến người mua không thấy nút "Khiếu Nại" và API khiếu nại báo lỗi từ chối.
+  3. Chạy đối soát hàng ngày phát hiện ngoại lệ số dư giữa bảng `sellers` và `seller_ledger` đúng bằng giá trị các đơn mua lẻ do đơn mua lẻ bị bỏ quên câu lệnh ghi dòng `HOLD` vào sổ cái.
+- **Nguyên nhân gốc rễ**:
+  1. Bảng `seller_code_views` chỉ lưu lịch sử người xem theo `code_id`, không có cột `order_id`. Khi viết query đã nhầm lẫn nối theo `order_id` thay vì `code_id` (qua `so.code_id`).
+  2. Luồng mua lẻ (single-buy) và luồng giỏ hàng (multi-buy pay-core) bị phân mảnh: giỏ hàng tạo đơn `PAID` và ghi dòng sổ cái `HOLD`, còn mua lẻ trước đây tạo đơn `DELIVERED` và chỉ tăng `pending_balance_core` trên bảng `sellers` mà không ghi `seller_ledger`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Luôn nối và kiểm tra `seller_code_views` thông qua `code_id`.
+  2. Thống nhất luồng mua lẻ vào chung kiến trúc: Tạo đơn ở trạng thái `PAID`, gán `payment_method = 'CORE'`, tính `hold_until` 168 giờ, và bắt buộc ghi nhận dòng `HOLD` vào `seller_ledger` trong cùng một D1 Batch nguyên tử.
+  3. Gỡ bỏ hoàn toàn nút "Báo Lỗi" cũ để dồn 100% khiếu nại vào luồng tự động chuẩn mực mới; đồng thời mở rộng API khiếu nại chấp nhận các đơn cũ ở trạng thái `DELIVERED`/`REPORTED`.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không truy vấn hoặc GROUP BY bảng `seller_code_views` theo cột `order_id`.*
+  - ❌ *Không cập nhật số dư gian hàng trong D1 batch mà bỏ quên câu lệnh `INSERT INTO seller_ledger` tương ứng.*
+  - ❌ *Không để hai nút báo lỗi và khiếu nại cùng tồn tại gây nhầm lẫn luồng cho người dùng.*
+
 ### ISSUE-266: Bẫy JSX Ký Tự So Sánh Trần (`>`, `>=`) Trong React Gây Lỗi Build Esbuild & Bẫy Đánh Giá/Khiếu Nại Không Gắn Liền Với Sổ Cái Ngăn Tiền Sàn
 - **Triệu chứng & Rủi ro**:
   1. Trong mã nguồn JSX (`SellerModerationModule.tsx`), viết ký tự so sánh trần như `(>= 3 khiếu nại)` khiến bộ biên dịch `esbuild` / `vite build` báo lỗi nghiêm trọng `The character ">" is not valid inside a JSX element` và làm gãy toàn bộ tiến trình build.

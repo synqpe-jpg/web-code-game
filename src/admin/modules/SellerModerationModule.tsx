@@ -1325,6 +1325,9 @@ export const SellerModerationModule: React.FC<SellerModerationModuleProps> = ({ 
                     <tr key={d.id} className={`hover:bg-muted/20 transition-colors ${d.is_flagged_abusive ? 'bg-destructive/5' : ''}`}>
                       <td className="p-3">
                         <div className="font-mono font-bold text-foreground text-xs">{d.order_code}</div>
+                        <div className="text-[10px] font-mono text-primary/80 truncate mt-0.5" title={`Mã khiếu nại: ${d.id}`}>
+                          ID: {d.id}
+                        </div>
                         <div className="text-[11px] text-primary-light font-semibold truncate" title={d.seller_name}>
                           {d.seller_name}
                         </div>
@@ -2411,8 +2414,12 @@ export const SellerModerationModule: React.FC<SellerModerationModuleProps> = ({ 
             {/* Thông tin đơn và khiếu nại */}
             <div className="text-xs bg-muted/60 p-3.5 rounded-xl space-y-1.5 border border-border/80">
               <div className="flex justify-between items-center">
-                <span>Đơn hàng: <strong className="font-mono text-foreground">{resolvingDispute.order_code}</strong></span>
+                <span>Mã khiếu nại: <strong className="font-mono text-primary-light">{resolvingDispute.id}</strong></span>
                 <span className="font-bold text-amber-500">{Number(resolvingDispute.price_core).toLocaleString()} Core</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span>Đơn hàng: <strong className="font-mono text-foreground">{resolvingDispute.order_code}</strong></span>
+                <span className="text-muted-foreground">Mã code: <strong className="font-mono">{resolvingDispute.delivered_code || '(Chưa cấp)'}</strong></span>
               </div>
               <div className="flex justify-between items-center text-muted-foreground">
                 <span>Shop: <strong className="text-primary-light">{resolvingDispute.seller_name}</strong></span>
