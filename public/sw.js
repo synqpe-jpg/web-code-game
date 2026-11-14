@@ -1,4 +1,4 @@
-const CACHE_NAME = 'codegame-pwa-v6';
+const CACHE_NAME = 'codegame-pwa-v7';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',

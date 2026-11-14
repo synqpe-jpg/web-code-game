@@ -556,6 +556,11 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
               <div className="lg:col-span-5 lg:row-span-2 order-2">
                 <div className="relative w-full aspect-video lg:aspect-[4/3] rounded-3xl overflow-hidden border border-border/80 shadow-xl bg-slate-900 group">
                   <img
+                    ref={(imgEl) => {
+                      if (imgEl) {
+                        imgEl.setAttribute('fetchpriority', 'high');
+                      }
+                    }}
                     src={optimizeImageUrl(coverSrc, 1000)}
                     alt={article.title}
                     className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-500"

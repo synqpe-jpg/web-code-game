@@ -30,8 +30,9 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
   3. *Đồng Bộ Toàn Diện color-scheme Khi Đổi Theme*:
      - Cập nhật script khởi động chống FOUC trong `index.html` tự động đọc `wcg_theme` từ `localStorage` để gán đúng `style.colorScheme` và `<meta name="color-scheme">`.
      - Cập nhật `App.tsx` và `AdminApp.tsx` đồng bộ tức thì `document.documentElement.style.colorScheme` và `<meta name="color-scheme">` ('dark' / 'light') tại cả hook khởi tạo và hàm `handleToggleTheme`.
-  4. *Tối Ưu fetchpriority Ảnh Cover*:
-     - Bổ sung `fetchpriority="high"` vào thẻ `<img />` ảnh cover bài viết trong `NewsDetailModal.tsx`.
+  4. *Tối Ưu fetchpriority Ảnh Cover & Bust Cache Service Worker (v7)*:
+     - Bổ sung thuộc tính và ref DOM `el.setAttribute('fetchpriority', 'high')` vào thẻ `<img />` ảnh cover bài viết trong `NewsDetailModal.tsx` để đảm bảo trình duyệt nhận diện chính xác 100% thuộc tính mạng.
+     - Nâng cấp phiên bản Cache Service Worker lên `codegame-pwa-v7` trong `public/sw.js` nhằm tự động dọn sạch cache cũ trên tất cả trình duyệt, đảm bảo người dùng và các bài test tải ngay bundle mới nhất.
 - **Kết quả nghiệm thu**:
   - Quét lại `legacy-scan src/ --json`: 12/13 phát hiện đã được giải quyết triệt để (chỉ còn đúng 1 vị trí cố ý giữ lại cho Admin CRUD trong `MembersModule.tsx`).
   - Toàn bộ 9 ô mật khẩu và các ô username đều phản hồi đúng token autofill.
