@@ -10,6 +10,21 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-272: Bẫy Cắt Dấu ** Ở Đầu/Cuối Chuỗi Làm Mất In Đậm Câu Mở Bài, & Bẫy Thiếu Tokenizer In Nghiêng (*...*) Trong Inline Markdown
+- **Triệu chứng & Rủi ro**:
+  1. *Câu mở bài mất sạch in đậm*: Câu văn bắt đầu bằng `**Nội dung in đậm** — text thường` bị biến thành chữ thường hoàn toàn, dấu `**` đóng ở giữa câu bị xóa mất.
+  2. *Dòng nguồn cuối bài lộ dấu sao đơn thô*: Dòng `*Nguồn: ...*` không hiển thị dạng chữ nghiêng `<em>` mà trơ nguyên cặp `*` do renderer thiếu nhánh in nghiêng.
+- **Nguyên nhân gốc rễ**:
+  1. Thêm bộ lọc `text.replace(/^\*\*+\s*/, '')` ở đầu hàm render để "dọn dẹp dấu thừa". Khi đoạn văn bắt đầu bằng một cụm in đậm hợp lệ (`**Clone Drone...**`), regex này cắt mất dấu mở `**`, khiến dấu đóng `**` ở giữa câu trở nên cô lập và bị chốt chặn cuối xóa sạch.
+  2. Hàm `renderInlineMarkdown` chỉ tokenize `**` (bold), `` ` `` (code), `[]()` (link), hoàn toàn bỏ sót `*` (italic).
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Tuyệt đối không dùng regex `^\*\*+` hoặc `\*\*+$` để cắt gọt chuỗi trước khi tokenize. Hãy để bộ bóc tách regex tìm các cặp hợp lệ trước, chỉ xóa dấu `**` đơn lẻ thực sự trơ trọi trong các mẩu text thông thường còn lại.
+  2. Tokenize regex ưu tiên: `(\*\*[^*]+?\*\*|\*(?!\s)[^*]+?(?<!\s)\*|`[^`]+?`|\[[^\]]+?\]\([^)]+?\))` để bóc tách in đậm trước, in nghiêng sau, bảo đảm không bị nhầm lẫn giữa `**` và `*`.
+  3. Bọc `part.startsWith('*') && part.endsWith('*')` thành `<em className="italic text-foreground/90">{inner}</em>`.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không xóa dấu `**` ở đầu hoặc cuối chuỗi bằng `replace(/^\*\*+/, '')` vì sẽ phá hủy cụm in đậm mở đầu câu.*
+  - ❌ *Không sửa dữ liệu trong CSDL D1 khi nguyên nhân thực sự nằm ở bộ parser/renderer của frontend.*
+
 ### ISSUE-271: Bẫy Service Worker Stale-While-Revalidate Trả Bundle JS Cũ, Bẫy dist/assets Tích Tụ File Rác (emptyOutDir: false), & Bẫy Return Sớm Khiến Migration D1 Bị Treo Vô Hạn
 - **Triệu chứng & Rủi ro**:
   1. *Code mới không chạy trên trình duyệt thực tế*: Dù commit mới đã build và deploy lên Cloudflare Pages, người dùng mở trang web vẫn thấy giao diện và logic cũ do Service Worker (`sw.js`) phục vụ file từ Cache Storage (`codegame-pwa-v5`) mà không reload.

@@ -1098,12 +1098,11 @@ interface RenderMarkdownContentProps {
 const renderInlineMarkdown = (text: string): React.ReactNode => {
   if (!text) return null;
 
-  // Dọn dẹp bất kỳ dấu ** trơ trọi nào ở đầu/cuối chuỗi do format lỗi (ví dụ "** nội dung" hoặc "nội dung **")
-  const sanitized = text.replace(/^\*\*+\s*/, '').replace(/\s*\*\*+$/, '');
-
-  const parts = sanitized.split(/(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\([^)]+\))/g);
+  // Tách token ưu tiên: in đậm **...**, in nghiêng *...*, mã `...`, liên kết [...]()
+  const parts = text.split(/(\*\*[^*]+?\*\*|\*(?!\s)[^*]+?(?<!\s)\*|`[^`]+?`|\[[^\]]+?\]\([^)]+?\))/g);
   return parts.map((part, i) => {
     if (!part) return null;
+    // 1. In đậm **...**
     if (part.startsWith('**') && part.endsWith('**') && part.length >= 4) {
       const inner = part.slice(2, -2).replace(/\*\*/g, '').trim();
       return (
@@ -1112,6 +1111,16 @@ const renderInlineMarkdown = (text: string): React.ReactNode => {
         </strong>
       );
     }
+    // 2. In nghiêng *...*
+    if (part.startsWith('*') && part.endsWith('*') && part.length >= 2) {
+      const inner = part.slice(1, -1).trim();
+      return (
+        <em key={i} className="italic text-foreground/90">
+          {inner}
+        </em>
+      );
+    }
+    // 3. Inline Code `...`
     if (part.startsWith('`') && part.endsWith('`') && part.length >= 2) {
       return (
         <code key={i} className="font-mono px-1 py-0.5 rounded bg-muted/70 text-amber-300 text-[0.9em]">
@@ -1119,6 +1128,7 @@ const renderInlineMarkdown = (text: string): React.ReactNode => {
         </code>
       );
     }
+    // 4. Markdown Link [...]()
     const linkMatch = part.match(/^\[(.*?)\]\((.*?)\)$/);
     if (linkMatch) {
       return (
@@ -1133,7 +1143,7 @@ const renderInlineMarkdown = (text: string): React.ReactNode => {
         </a>
       );
     }
-    // Chốt chặn phòng thủ tuyệt đối: Loại bỏ mọi dấu ** đơn lẻ hoặc không đóng cặp còn sót lại
+    // 5. Chốt chặn phòng thủ tuyệt đối: Loại bỏ mọi dấu ** đơn lẻ hoặc không đóng cặp còn sót lại trong text thường
     if (part.includes('**')) {
       return part.replace(/\*\*/g, '');
     }
@@ -1186,9 +1196,10 @@ const parseCardItem = (raw: string) => {
     }
   }
 
-  // Khử sạch 100% mọi dấu ** rò rỉ ở rìa tiêu đề và phần mô tả
+  // Khử sạch dấu ** ở rìa tiêu đề vì h4 đã có font-bold
   const cleanTitle = title.replace(/^\*\*+|\*\*+$/g, '').trim();
-  const cleanDesc = desc.replace(/^\*\*+\s*/, '').replace(/\s*\*\*+$/, '').trim();
+  // Với mô tả: chỉ trim khoảng trắng, để renderInlineMarkdown tự bóc tách in đậm/nghiêng an toàn mà không làm rách cặp **
+  const cleanDesc = desc.trim();
 
   return {
     title: cleanTitle,

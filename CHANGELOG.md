@@ -7,6 +7,27 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-14]
 
+### 385. Khắc Phục Dứt Điểm 2 Điểm Nhỏ Còn Lại Trên Bài Tin Clone Drone: Hỗ Trợ Cú Pháp In Nghiêng (*...*) Trong Inline Markdown, Khôi Phục In Đậm Câu Mở Bài (Intro), & Tinh Chỉnh Bộ Phân Giải Card Grid
+- **Bối cảnh & Hiện trạng**:
+  - Tại commit 3c3a6a1, bài Clone Drone (`id: news_1794535486811_29ep`, URL `/news/clone-drone-...`) đã triệt tiêu toàn bộ 18 dấu `**` thô, "19,99 USD" in đậm đúng cả 2 chỗ, giữ trang 90s không đổi.
+  - Tuy nhiên còn tồn đọng 2 điểm nhỏ:
+    1. *Điểm 1 (Dòng nguồn cuối bài)*: Dòng `*Nguồn: thông báo chính thức của Doborog Games trên Steam...*` hiện nguyên cặp dấu `*` thô, chưa render thành chữ nghiêng `<em>`.
+    2. *Điểm 2 (Câu mở bài bị mất in đậm)*: Câu mở bài `**Clone Drone in the Danger Zone chính thức lên mobile từ ngày 12/11/2026** — sau gần 10 năm...` vốn in đậm ở bản 623ba62, nhưng tại 3c3a6a1 bị biến thành chữ thường do bộ lọc regex xóa `**` ở đầu chuỗi.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Điểm 1*: Hàm `renderInlineMarkdown` trong [`src/components/NewsDetailModal.tsx`](file:///c:/4%20Antigravity%20all/13%20web%20code%20game/src/components/NewsDetailModal.tsx) trước đây chỉ bóc tách token `**` (in đậm), `` ` `` (code) và `[]()` (link), hoàn toàn thiếu branch tokenizer cho in nghiêng `*...*`.
+  2. *Điểm 2*: Commit 3c3a6a1 thêm dòng `const sanitized = text.replace(/^\*\*+\s*/, '').replace(/\s*\*\*+$/, '');` ở đầu `renderInlineMarkdown`. Khi chuỗi bắt đầu bằng `**Clone Drone...`, regex `^\*\*+\s*` đã xóa mất cặp `**` mở. Dấu `**` đóng sau "12/11/2026" trở nên trơ trọi và bị chốt chặn cuối `part.replace(/\*\*/g, '')` xóa nốt, làm mất toàn bộ thẻ `<strong>`.
+  3. *Tương tự trong parseCardItem*: Biến `cleanDesc` có hàm `replace(/^\*\*+\s*/, '').replace(/\s*\*\*+$/, '')` tiềm ẩn nguy cơ phá hỏng các cặp in đậm nằm ở đầu hoặc cuối phần mô tả.
+- **Giải pháp áp dụng (Solution)**:
+  1. *Khôi phục văn bản gốc*: Gỡ bỏ hoàn toàn logic `text.replace(/^\*\*+\s*/, '')` và `replace(/\s*\*\*+$/, '')` trong `renderInlineMarkdown` và `cleanDesc`.
+  2. *Nâng cấp Tokenizer Regex*: Bổ sung token in nghiêng `\*(?!\s)[^*]+?(?<!\s)\*` sau token in đậm `\*\*[^*]+?\*\*` trong `text.split(...)`.
+  3. *Render Thẻ Nghiêng*: Xử lý `part.startsWith('*') && part.endsWith('*')` thành `<em className="italic text-foreground/90">{inner}</em>`.
+  4. *Bảo toàn Chốt Chặn*: Chỉ loại bỏ các dấu `**` trơ trọi thực sự không có cặp đóng trong các đoạn text thường còn lại.
+  5. *Zero Database Changes*: Giữ nguyên 100% CSDL D1, không sửa hay chạm vào dữ liệu đã lưu.
+- **Kết quả nghiệm thu**:
+  - Quét 100% bài tin: Câu mở bài in đậm đúng `<strong>Clone Drone in the Danger Zone chính thức lên mobile từ ngày 12/11/2026</strong>`.
+  - Dòng nguồn cuối bài hiển thị in nghiêng chuẩn mực không còn dấu sao đơn `*...*`.
+  - "19,99 USD" in đậm đúng cả 2 chỗ, 0 dấu `**` hay `*` thô.
+
 ### 384. Khắc Phục Dứt Điểm Dấu ** Thô Trên Trang Bài Clone Drone: Nâng Cấp Bộ Phân Giải Card Grid Markdown Trong NewsDetailModal, Xóa Bỏ Bẫy Return Sớm Migration D1, Tự Động Xóa File Tĩnh Rác dist/assets, & Bust Service Worker Cache v6
 - **Bối cảnh & Hiện trạng**:
   - Tại bản 623ba62, việc 1 và 2 đã xong hoàn toàn nhưng trên trang bài Clone Drone (`/news/clone-drone-...`) trình duyệt thực tế vẫn ghi nhận 18 vị trí dấu `**` thô (ở đầu các ô thông tin mục 02, 03, 04 và cuối câu `19,99 USD.`, `12/11/2026`).
