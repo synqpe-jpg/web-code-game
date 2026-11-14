@@ -10,6 +10,16 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-271: Bẫy Service Worker Stale-While-Revalidate Trả Bundle JS Cũ, Bẫy dist/assets Tích Tụ File Rác (emptyOutDir: false), & Bẫy Return Sớm Khiến Migration D1 Bị Treo Vô Hạn
+- **Triệu chứng & Rủi ro**:
+  1. *Code mới không chạy trên trình duyệt thực tế*: Dù commit mới đã build và deploy lên Cloudflare Pages, người dùng mở trang web vẫn thấy giao diện và logic cũ do Service Worker (`sw.js`) phục vụ file từ Cache Storage (`codegame-pwa-v5`) mà không reload.
+  2. *Chunk JS cũ tồn tại vĩnh viễn trên production*: Do `emptyOutDir: false`, các chunk cũ từ các build trước không bị xóa khỏi `dist/assets`, Pages phục vụ cả chunk mới lẫn chunk cũ.
+  3. *Migration CSDL D1 không chạy*: Migration mới đặt ở cuối hàm `ensureSchemaUpgrades` nhưng phía trên có lệnh kiểm tra sớm `if (check !== null) return;` của một migration cũ đã hoàn thành từ lâu, dẫn tới migration mới không bao giờ được gọi.
+- **Cách khắc phục bắt buộc**:
+  1. Mỗi khi thay đổi code quan trọng liên quan đến cache/bundle, **bắt buộc tăng phiên bản CACHE_NAME** trong `public/sw.js` (ví dụ: `v5` -> `v6`) để Service Worker tự kích hoạt sự kiện `activate` và xóa sạch cache cũ.
+  2. Luôn làm sạch `dist/assets` trước khi build Vite trong `scripts/build.cjs`.
+  3. Mọi migration mới trong `functions/services/d1_service.ts` phải được đặt **TRƯỚC** bất kỳ checkpoint `return;` sớm nào, hoặc loại bỏ các lệnh return chặn ngang không an toàn.
+
 ### ISSUE-270: Bẫy D1 uploaded_game_icons Ưu Tiên Chặn Phục Vụ Static Asset Sau Tối Ưu Nén, Bẫy Lệch % Giảm Giá Do Khác Cơ Số Tính (Niêm Yết vs Ưu Đãi Lần Đầu), & Bẫy Cắt Dấu Hai Chấm Nằm Trong Cặp In Đậm Markdown Của Card Grid
 - **Triệu chứng & Rủi ro**:
   1. *Icon cũ vẫn phục vụ*: Sau khi nén file tĩnh `idle-cat-gunner.webp` từ 275 KiB xuống 24 KiB, request live vẫn nhận 281.978 byte kèm `X-Icon-Source: d1-uploaded` do D1 bảng `uploaded_game_icons` có bản ghi cũ được ưu tiên phục vụ trước static assets.

@@ -1098,16 +1098,17 @@ interface RenderMarkdownContentProps {
 const renderInlineMarkdown = (text: string): React.ReactNode => {
   if (!text) return null;
 
-  // Dọn dẹp bất kỳ dấu ** trơ trọi nào ở đầu chuỗi do format lỗi (ví dụ "** nội dung")
+  // Dọn dẹp bất kỳ dấu ** trơ trọi nào ở đầu/cuối chuỗi do format lỗi (ví dụ "** nội dung" hoặc "nội dung **")
   const sanitized = text.replace(/^\*\*+\s*/, '').replace(/\s*\*\*+$/, '');
 
   const parts = sanitized.split(/(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\([^)]+\))/g);
   return parts.map((part, i) => {
     if (!part) return null;
     if (part.startsWith('**') && part.endsWith('**') && part.length >= 4) {
+      const inner = part.slice(2, -2).replace(/\*\*/g, '').trim();
       return (
         <strong key={i} className="font-extrabold text-foreground">
-          {part.slice(2, -2)}
+          {inner}
         </strong>
       );
     }
@@ -1132,7 +1133,7 @@ const renderInlineMarkdown = (text: string): React.ReactNode => {
         </a>
       );
     }
-    // Chốt chặn phòng thủ: Nếu vẫn còn sót dấu ** đơn lẻ không đóng cặp, tự động loại bỏ để không hiện ** thô trên giao diện
+    // Chốt chặn phòng thủ tuyệt đối: Loại bỏ mọi dấu ** đơn lẻ hoặc không đóng cặp còn sót lại
     if (part.includes('**')) {
       return part.replace(/\*\*/g, '');
     }
@@ -1154,48 +1155,46 @@ const getCategoryTag = (title: string): string => {
 const parseCardItem = (raw: string) => {
   const clean = raw.trim().replace(/^[-*]\s+|\d+\.\s+/, '');
 
+  let title = '';
+  let desc = '';
+
   // 1. Trường hợp dấu hai chấm nằm TRONG cặp in đậm: **Tiêu đề:** Nội dung
   const colonInsideMatch = clean.match(/^\*\*([^*]+?)[\:—–]\*\*\s*(.+)$/s);
   if (colonInsideMatch) {
-    const title = colonInsideMatch[1].trim();
-    const desc = colonInsideMatch[2].replace(/^\*\*+|\*\*+$/g, '').trim();
-    if (title.length <= 80 && desc.length > 0) {
-      return { title, desc, tag: getCategoryTag(title) };
+    title = colonInsideMatch[1];
+    desc = colonInsideMatch[2];
+  } else {
+    // 2. Trường hợp dấu hai chấm nằm NGOÀI cặp in đậm: **Tiêu đề**: Nội dung
+    const colonOutsideMatch = clean.match(/^\*\*([^*]+?)\*\*\s*[\:—–]\s*(.+)$/s);
+    if (colonOutsideMatch) {
+      title = colonOutsideMatch[1];
+      desc = colonOutsideMatch[2];
+    } else {
+      // 3. Trường hợp thông thường: Tiêu đề: Nội dung hoặc **Tiêu đề** - Nội dung
+      const colonMatch = clean.match(/^(\*\*[^*]+\*\*|[^\:—–]+)[\:—–]\s*(.+)$/s);
+      if (colonMatch) {
+        title = colonMatch[1];
+        desc = colonMatch[2];
+      } else if (clean.includes(',')) {
+        const idx = clean.indexOf(',');
+        title = clean.slice(0, idx);
+        desc = clean.slice(idx + 1);
+      } else {
+        title = clean;
+        desc = '';
+      }
     }
   }
 
-  // 2. Trường hợp dấu hai chấm nằm NGOÀI cặp in đậm: **Tiêu đề**: Nội dung
-  const colonOutsideMatch = clean.match(/^\*\*([^*]+?)\*\*\s*[\:—–]\s*(.+)$/s);
-  if (colonOutsideMatch) {
-    const title = colonOutsideMatch[1].trim();
-    const desc = colonOutsideMatch[2].replace(/^\*\*+|\*\*+$/g, '').trim();
-    if (title.length <= 80 && desc.length > 0) {
-      return { title, desc, tag: getCategoryTag(title) };
-    }
-  }
+  // Khử sạch 100% mọi dấu ** rò rỉ ở rìa tiêu đề và phần mô tả
+  const cleanTitle = title.replace(/^\*\*+|\*\*+$/g, '').trim();
+  const cleanDesc = desc.replace(/^\*\*+\s*/, '').replace(/\s*\*\*+$/, '').trim();
 
-  // 3. Trường hợp thông thường: Tiêu đề: Nội dung hoặc **Tiêu đề** - Nội dung
-  const colonMatch = clean.match(/^(\*\*[^*]+\*\*|[^\:—–]+)[\:—–]\s*(.+)$/s);
-  if (colonMatch) {
-    const title = colonMatch[1].replace(/^\*\*+|\*\*+$/g, '').trim();
-    const desc = colonMatch[2].replace(/^\*\*+|\*\*+$/g, '').trim();
-    if (title.length <= 80 && desc.length > 0) {
-      return { title, desc, tag: getCategoryTag(title) };
-    }
-  }
-
-  // 4. Trường hợp dấu phẩy ngăn cách
-  if (clean.includes(',')) {
-    const idx = clean.indexOf(',');
-    const title = clean.slice(0, idx).replace(/^\*\*+|\*\*+$/g, '').trim();
-    const desc = clean.slice(idx + 1).replace(/^\*\*+|\*\*+$/g, '').trim();
-    if (title.length <= 80 && desc.length > 0) {
-      return { title, desc, tag: getCategoryTag(title) };
-    }
-  }
-
-  const cleanTitle = clean.replace(/^\*\*+|\*\*+$/g, '').trim();
-  return { title: cleanTitle, desc: '', tag: getCategoryTag(cleanTitle) };
+  return {
+    title: cleanTitle,
+    desc: cleanDesc,
+    tag: getCategoryTag(cleanTitle),
+  };
 };
 
 const RenderMarkdownContent: React.FC<RenderMarkdownContentProps> = ({ rawText, onCopyCode, copiedCode }) => {

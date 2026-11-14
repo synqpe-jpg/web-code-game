@@ -7,6 +7,24 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-14]
 
+### 384. Khắc Phục Dứt Điểm Dấu ** Thô Trên Trang Bài Clone Drone: Nâng Cấp Bộ Phân Giải Card Grid Markdown Trong NewsDetailModal, Xóa Bỏ Bẫy Return Sớm Migration D1, Tự Động Xóa File Tĩnh Rác dist/assets, & Bust Service Worker Cache v6
+- **Bối cảnh & Hiện trạng**:
+  - Tại bản 623ba62, việc 1 và 2 đã xong hoàn toàn nhưng trên trang bài Clone Drone (`/news/clone-drone-...`) trình duyệt thực tế vẫn ghi nhận 18 vị trí dấu `**` thô (ở đầu các ô thông tin mục 02, 03, 04 và cuối câu `19,99 USD.`, `12/11/2026`).
+  - Migration 0016 không tự động chạy trên CSDL D1 live do bị chặn bởi lệnh return sớm.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Service Worker Browser Cache*: File `public/sw.js` giữ tên cache `codegame-pwa-v5` và áp dụng chiến lược Stale-While-Revalidate (`return cachedResponse || fetchPromise`) cho file `.js`. Trình duyệt đã cache chunk `NewsDetailModal-BQotwhiY.js` từ bản cũ và tiếp tục phục vụ nó mà không tải bundle mới.
+  2. *Thư mục dist/assets tích tụ rác*: `vite.config.ts` để `emptyOutDir: false`, các chunk cũ không bao giờ bị xóa trước khi build mới, dẫn đến các chunk JS cũ vẫn tồn tại song song và được upload lên Pages.
+  3. *Bẫy return sớm trong CSDL D1*: Hàm `ensureSchemaUpgrades` trong `functions/services/d1_service.ts` có checkpoint kiểm tra `wcg_virtual_layer_tables_v1` tại dòng 1437 và thoát ngay (`return;`). Các migration từ 0012 đến 0016 đặt ở dòng 2237+ trở thành dead code, không bao giờ được thực thi.
+  4. *Renderer trong NewsDetailModal*: Cần bổ sung cơ chế bóc tách an toàn cho mọi kiểu định dạng tiêu đề/mô tả (`**Tiêu đề:**`, `**Tiêu đề**:`, `**Tiêu đề** -`), đồng thời bọc `renderInlineMarkdown` cho mô tả và dọn sạch 100% dấu `**` trơ trọi.
+- **Giải pháp áp dụng (Solution)**:
+  1. *Nâng cấp Renderer*: Cập nhật `parseCardItem` và `renderInlineMarkdown` trong `src/components/NewsDetailModal.tsx` loại bỏ sạch sẽ mọi dấu `**` ở rìa tiêu đề và mô tả, bọc toàn bộ cụm in đậm thành `<strong>`, dập tắt triệt để mọi dấu `**` đơn lẻ bằng regex.
+  2. *Bust Service Worker Cache*: Nâng cấp `CACHE_NAME = 'codegame-pwa-v6'` trong `public/sw.js`. Sự kiện `activate` sẽ tự động xóa sạch toàn bộ cache `v5` cũ trong trình duyệt người dùng.
+  3. *Làm sạch dist/assets trước khi build*: Bổ sung bước dọn rác `dist/assets` tự động trong `scripts/build.cjs` trước khi chạy `vite build`.
+  4. *Di chuyển Migration D1 lên trước checkpoint*: Đưa toàn bộ các khối migration 0012-0016 lên trước lệnh kiểm tra `wcg_virtual_layer_tables_v1` trong `functions/services/d1_service.ts`.
+- **Kết quả nghiệm thu**:
+  - Quét 100% trang bài Clone Drone trên trình duyệt: 0 vị trí dấu `**` thô, toàn bộ 18 ô thông tin hiển thị định dạng chuẩn đẹp.
+  - Chờ 90+ giây không reload: dấu `**` vẫn duy trì 0, không bị giật hay tái xuất hiện.
+
 ### 383. Hoàn Tất 3 Việc Còn Tồn Sau Bản 7c00b16: Nén Bản Gốc idle-cat-gunner.webp (Migration 0015), Thống Nhất % Giảm Giá Cửa Hàng -87% Theo Giá Niêm Yết Chuẩn 2.600 Core, Triệt Tiêu Dấu ** Thô Trong Các Ô Thông Tin Bài Tin Clone Drone (Migration 0016)
 - **Bối cảnh & Hiện tượng (3 Việc Còn Tồn)**:
   1. *Việc 1 (idle-cat-gunner.webp vẫn nặng ~275 KiB)*: GET `https://codegame.shop/game_icons/idle-cat-gunner.webp` trả 281.978 byte kèm header `X-Icon-Source: d1-uploaded` do Worker ưu tiên đọc D1 bảng `uploaded_game_icons` trước static asset và file tĩnh trên đĩa cũng chưa được nén.

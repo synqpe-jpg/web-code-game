@@ -1,10 +1,20 @@
 const { execSync } = require('child_process');
+const fs = require('fs');
 
 console.log('🖼️ 1. Ensuring OG JPG Icons for Zalo/Facebook compatibility...');
 execSync('node scripts/generate_og_jpg_icons.cjs', { stdio: 'inherit' });
 
 console.log('📐 1b. Ensuring 128px Lightweight Game Icon Thumbs for Fast Delivery...');
 execSync('node scripts/generate_game_icon_thumbs.cjs', { stdio: 'inherit' });
+
+console.log('🧹 1c. Cleaning old stale dist/assets chunks to avoid cache pollution...');
+try {
+  if (fs.existsSync('dist/assets')) {
+    fs.rmSync('dist/assets', { recursive: true, force: true });
+  }
+} catch (e) {
+  console.warn('   Could not clean dist/assets:', e.message);
+}
 
 console.log('📦 2. Building Vite Frontend...');
 execSync('npx vite build', { stdio: 'inherit' });
