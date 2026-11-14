@@ -329,7 +329,7 @@ export function formatGameItem(g: any, allCodes: GiftCode[]): GameItem {
     id: String(rawId),
     name: String(g.name || 'Game chưa đặt tên'),
     slug: String(slug),
-    publisher: g.publisher || '',
+    publisher: (slug === 'pirate-legends' || rawId === 'pirate-legends') ? 'Neotrix' : (g.publisher || ''),
     category: cat,
     rating: typeof g.rating === 'number' ? g.rating : 4.8,
     icon_url: iconUrl,
@@ -681,6 +681,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         if (gameRow.slug === 'kof-legend' || cleanSlug === 'kof-legend') {
           gameRow.release_date = '2026-11-04';
         }
+        if (gameRow.slug === 'pirate-legends' || cleanSlug === 'pirate-legends') {
+          gameRow.publisher = 'Neotrix';
+        }
         const isYenVan = gameRow.slug === 'yen-van-thap-luc-thanh' ||
                          gameRow.slug === 'where-winds-meet-mobile' ||
                          gameRow.slug === 'where-winds-meet' ||
@@ -778,7 +781,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             }
           }
         }
-        const finalPublisher = (gameRow.publisher && String(gameRow.publisher).trim()) ? gameRow.publisher : (fbGame?.publisher || '');
+        const finalPublisher = (gameRow.slug === 'pirate-legends' || cleanSlug === 'pirate-legends')
+          ? 'Neotrix'
+          : ((gameRow.publisher && String(gameRow.publisher).trim()) ? gameRow.publisher : (fbGame?.publisher || ''));
         const finalCategory = normalizeCategory((gameRow.category && String(gameRow.category).trim()) ? gameRow.category : (fbGame?.category || ''));
         const finalPlatform = (gameRow.platform && String(gameRow.platform).trim()) ? gameRow.platform : (fbGame?.platform || 'Android, iOS, PC');
         const finalIconUrl = iconUrl || fbGame?.icon_url || `/game_icons/${gameRow.slug}.webp`;

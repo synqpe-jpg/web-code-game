@@ -10,6 +10,17 @@ export interface ParsedExpiration {
 }
 
 /**
+ * Lấy chuỗi ngày YYYY-MM-DD theo múi giờ Việt Nam (Asia/Ho_Chi_Minh, UTC+7)
+ */
+export function getVnDateString(timestamp: number = Date.now()): string {
+  const d = new Date(timestamp + 7 * 60 * 60 * 1000);
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/**
  * Làm sạch và decode toàn bộ HTML entities trong chuỗi văn bản (phần thưởng, mô tả...)
  * Chuyển &nbsp; thành khoảng trắng thường, xóa trailing entities / spaces, gộp khoảng trắng thừa.
  */
@@ -68,6 +79,7 @@ export function decodeHtmlEntities(raw: any): string {
  */
 export function parseExpirationDate(rawInput: any, nowMs?: number): ParsedExpiration {
   const currentNow = typeof nowMs === 'number' ? nowMs : Date.now();
+  const todayVnStr = getVnDateString(currentNow);
 
   if (!rawInput && rawInput !== 0) {
     return { formatted: '', isExpired: false, dateObj: null };
@@ -79,9 +91,10 @@ export function parseExpirationDate(rawInput: any, nowMs?: number): ParsedExpira
       return { formatted: '', isExpired: false, dateObj: null };
     }
     const isPast = rawInput.getTime() < currentNow;
-    const y = rawInput.getFullYear();
-    const m = String(rawInput.getMonth() + 1).padStart(2, '0');
-    const d = String(rawInput.getDate()).padStart(2, '0');
+    const vnD = new Date(rawInput.getTime() + 7 * 60 * 60 * 1000);
+    const y = vnD.getUTCFullYear();
+    const m = String(vnD.getUTCMonth() + 1).padStart(2, '0');
+    const d = String(vnD.getUTCDate()).padStart(2, '0');
     return {
       formatted: `${y}-${m}-${d}`,
       isExpired: isPast,
@@ -96,9 +109,10 @@ export function parseExpirationDate(rawInput: any, nowMs?: number): ParsedExpira
     const d = new Date(ms);
     if (!isNaN(d.getTime())) {
       const isPast = d.getTime() < currentNow;
-      const y = d.getFullYear();
-      const m = String(d.getMonth() + 1).padStart(2, '0');
-      const day = String(d.getDate()).padStart(2, '0');
+      const vnD = new Date(ms + 7 * 60 * 60 * 1000);
+      const y = vnD.getUTCFullYear();
+      const m = String(vnD.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(vnD.getUTCDate()).padStart(2, '0');
       return {
         formatted: `${y}-${m}-${day}`,
         isExpired: isPast,
@@ -163,14 +177,17 @@ export function parseExpirationDate(rawInput: any, nowMs?: number): ParsedExpira
     const day = parseInt(vnMatch[1], 10);
     const month = parseInt(vnMatch[2], 10);
     const year = parseInt(vnMatch[3], 10);
-    const hours = vnMatch[4] !== undefined ? parseInt(vnMatch[4], 10) : 23;
+    const hasTime = vnMatch[4] !== undefined;
+    const hours = hasTime ? parseInt(vnMatch[4], 10) : 23;
     const minutes = vnMatch[5] !== undefined ? parseInt(vnMatch[5], 10) : 59;
     const seconds = vnMatch[6] !== undefined ? parseInt(vnMatch[6], 10) : 59;
 
-    const d = new Date(year, month - 1, day, hours, minutes, seconds, 999);
+    // Giờ Việt Nam là UTC+7
+    const utcTimestamp = Date.UTC(year, month - 1, day, hours - 7, minutes, seconds, 999);
+    const d = new Date(utcTimestamp);
     if (!isNaN(d.getTime())) {
-      const isPast = d.getTime() < currentNow;
       const formatted = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const isPast = hasTime ? (d.getTime() < currentNow) : (formatted < todayVnStr || d.getTime() < currentNow);
       return {
         formatted,
         isExpired: isPast,
@@ -185,14 +202,17 @@ export function parseExpirationDate(rawInput: any, nowMs?: number): ParsedExpira
     const year = parseInt(isoMatch[1], 10);
     const month = parseInt(isoMatch[2], 10);
     const day = parseInt(isoMatch[3], 10);
-    const hours = isoMatch[4] !== undefined ? parseInt(isoMatch[4], 10) : 23;
+    const hasTime = isoMatch[4] !== undefined;
+    const hours = hasTime ? parseInt(isoMatch[4], 10) : 23;
     const minutes = isoMatch[5] !== undefined ? parseInt(isoMatch[5], 10) : 59;
     const seconds = isoMatch[6] !== undefined ? parseInt(isoMatch[6], 10) : 59;
 
-    const d = new Date(year, month - 1, day, hours, minutes, seconds, 999);
+    // Giờ Việt Nam là UTC+7
+    const utcTimestamp = Date.UTC(year, month - 1, day, hours - 7, minutes, seconds, 999);
+    const d = new Date(utcTimestamp);
     if (!isNaN(d.getTime())) {
-      const isPast = d.getTime() < currentNow;
       const formatted = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const isPast = hasTime ? (d.getTime() < currentNow) : (formatted < todayVnStr || d.getTime() < currentNow);
       return {
         formatted,
         isExpired: isPast,
@@ -204,17 +224,27 @@ export function parseExpirationDate(rawInput: any, nowMs?: number): ParsedExpira
   // Fallback: Standard Date constructor
   const parsed = new Date(str);
   if (!isNaN(parsed.getTime())) {
-    if (!str.includes(':') && !str.includes('T')) {
-      parsed.setHours(23, 59, 59, 999);
+    const hasTime = str.includes(':') || str.includes('T');
+    let effectiveTime = parsed.getTime();
+    if (!hasTime) {
+      // Coi như kết thúc ngày theo múi giờ VN (UTC+7)
+      const vnD = new Date(parsed.getTime() + 7 * 60 * 60 * 1000);
+      const y = vnD.getUTCFullYear();
+      const m = vnD.getUTCMonth();
+      const d = vnD.getUTCDate();
+      effectiveTime = Date.UTC(y, m, d, 23 - 7, 59, 59, 999);
     }
-    const isPast = parsed.getTime() < currentNow;
-    const y = parsed.getFullYear();
-    const m = String(parsed.getMonth() + 1).padStart(2, '0');
-    const d = String(parsed.getDate()).padStart(2, '0');
+    const dObj = new Date(effectiveTime);
+    const vnD = new Date(effectiveTime + 7 * 60 * 60 * 1000);
+    const y = vnD.getUTCFullYear();
+    const m = String(vnD.getUTCMonth() + 1).padStart(2, '0');
+    const d = String(vnD.getUTCDate()).padStart(2, '0');
+    const formatted = `${y}-${m}-${d}`;
+    const isPast = hasTime ? (effectiveTime < currentNow) : (formatted < todayVnStr || effectiveTime < currentNow);
     return {
-      formatted: `${y}-${m}-${d}`,
+      formatted,
       isExpired: isPast,
-      dateObj: parsed,
+      dateObj: dObj,
     };
   }
 

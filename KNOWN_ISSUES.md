@@ -10,6 +10,22 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-269: Bẫy Lệch Múi Giờ UTC So Với UTC+7 Khi Tính Ngày Hết Hạn Mã Khiến Bot 04:00 Sáng Bị Trễ 1 Ngày & Bẫy Khóa Edge Cache Không Gắn `__BUILD_ID__`
+- **Triệu chứng & Rủi ro**:
+  1. *Lệch nhịp hết hạn mã*: Mã có hạn là ngày 13/11 nhưng bot rà soát chạy lúc 04:00 sáng ngày 14/11 (giờ VN) vẫn thấy mã ACTIVE. Đến 04:00 sáng ngày 15/11 mới thấy mã EXPIRED (trễ đúng 1 ngày).
+  2. *Cache edge cũ còn sót*: Sau khi tối ưu hoặc đổi icon, Cloudflare Edge Cache lưu với `max-age=31536000` (1 năm) mà không gắn `__BUILD_ID__` vào cache key khiến người dùng và công cụ đo PageSpeed vẫn tải phải ảnh cũ (200 KiB).
+- **Nguyên nhân gốc rễ**:
+  1. Trong `codeUtils.ts`: `new Date(year, month - 1, day, 23, 59, 59, 999)` trong môi trường Worker (giờ UTC) tính ra `23:59:59.999Z` (tương đương 07:00 sáng hôm sau ở VN). Lúc 04:00 sáng VN (= 21:00 UTC hôm trước), thời gian UTC chưa vượt quá 23:59:59 nên mã chưa hết hạn. Trong D1 SQLite: `date('now')` cũng trả về ngày UTC thay vì ngày Việt Nam.
+  2. `cacheKey` trong `functions/_worker.ts` chỉ dùng `request.url` thuần túy, không chứa phiên bản bản build khiến deploy mới không tự động cách ly cache cũ.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Luôn tính toán ngày hết hạn theo múi giờ `Asia/Ho_Chi_Minh` (`UTC+7`): `Date.UTC(year, month - 1, day, hours - 7, minutes, seconds, 999)` và so sánh chuỗi ngày `formatted < todayVnStr` (`todayVnStr = getVnDateString()`).
+  2. Trong mọi câu query SQL D1 kiểm tra ngày hiện tại của Việt Nam: luôn dùng `date('now', '+7 hours')` thay vì `date('now')`.
+  3. Gắn `__BUILD_ID__` vào khóa edge cache: `cacheUrl.searchParams.set('b', buildTag); const cacheKey = new Request(cacheUrl.toString(), { method: 'GET' });`.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không dùng `new Date(y, m, d)` trần trong môi trường serverless không rõ timezone.*
+  - ❌ *Không dùng `date('now')` thuần trong SQLite khi ứng dụng phục vụ người dùng Việt Nam (UTC+7).*
+  - ❌ *Không lưu Cache Storage với thời hạn dài mà không có tham số version/build trong cache key.*
+
 ### ISSUE-268: Bẫy Đảo Lộn Thứ Tự Router Phục Vụ Static Assets Trước D1 Làm Upload Icon Không Có Hiệu Lực & Bẫy Khóa Dự Phòng Hardcoded Trong Code
 - **Triệu chứng & Rủi ro**:
   1. Gọi API `POST /api/games/upload-icon` trả về HTTP 200 thành công và đã ghi nhận Base64 WebP vào bảng D1 `uploaded_game_icons`, nhưng khi truy cập trực tiếp file URL công khai `/game_icons/<slug>.webp` thì vẫn hiển thị ảnh tĩnh cũ từ lần deploy trước.

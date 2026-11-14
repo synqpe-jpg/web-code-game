@@ -132,11 +132,18 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     }
   }
 
+  let coverUrl = found.cover_url || found.coverUrl || '';
+  if (coverUrl.includes('clone-drone-in-the-danger-zone.png')) {
+    coverUrl = coverUrl.replace(/\.png$/i, '.webp');
+  }
+
   return new Response(
     JSON.stringify({
       success: true,
       article: {
         ...found,
+        cover_url: coverUrl,
+        coverUrl: coverUrl,
         status: effectiveStatus,
       },
     }),

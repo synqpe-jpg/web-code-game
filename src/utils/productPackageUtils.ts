@@ -181,6 +181,9 @@ export function groupStoreProductsByGame(products: StoreProduct[]): StoreProduct
         escalating_completed_count: item.escalating_completed_count,
         escalating_current_price: item.escalating_current_price,
         escalating_next_price: item.escalating_next_price,
+        first_purchase_enabled: item.first_purchase_enabled,
+        first_purchase_price: item.first_purchase_price,
+        first_purchase_max_price: item.first_purchase_max_price,
       }));
 
       const totalStock = packages.reduce((sum, p) => sum + (Number(p.stock_quantity) || 0), 0);

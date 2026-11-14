@@ -224,6 +224,7 @@ export const GameCard: React.FC<GameCardProps> = ({
           alt={game.name}
           width={48}
           height={48}
+          style={{ aspectRatio: '1 / 1' }}
           referrerPolicy="no-referrer"
           loading={isAboveFold ? 'eager' : 'lazy'}
           decoding="async"

@@ -5,6 +5,27 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ---
 
+## [2026-11-14]
+
+### 382. Hoàn Tất 8 Việc Tồn Đọng: Sửa Nhịp Trễ Hết Hạn Mã UTC+7, NPH Pirate Legends, PageSpeed 4 Điểm, Lỗi Cửa Hàng, Bài Tin Clone Drone
+- **Bối cảnh & Hiện tượng (8 Việc Tồn Đọng)**:
+  1. *Việc 1 (Nhịp trễ hết hạn mã)*: Các mã hết hạn ngày D (ví dụ 13/11) lúc 04:00 sáng ngày D+1 (14/11) vẫn bị hiển thị ACTIVE trên web do hàm parse ngày trong môi trường Cloudflare Worker chạy giờ UTC (`new Date(year, month - 1, day, 23, 59, 59)` bị coi là 23:59:59 UTC = 07:00 sáng hôm sau ở VN), và SQLite D1 query `date('now')` chạy theo UTC (21:00 UTC ngày D vẫn là ngày D).
+  2. *Việc 2 (NPH Pirate Legends)*: Game `pirate-legends` hiển thị sai NPH GOSU, cần đổi thành "Neotrix" (Neotrix Pte. Ltd) ở mọi tầng và bảo toàn nguyên vẹn 57 mã (52 active + 5 expired).
+  3. *Việc 3-6 (PageSpeed 4 điểm)*: 4 thẻ favicon `logo.png` nạp 32.8 KiB x 4; 2 cover Google Play ngoài; CLS mobile 0.139 do Upcoming Games Banner không có min-height cố định và thiếu aspect-ratio 1:1; cache edge cũ còn sót do thiếu `__BUILD_ID__` trong cache key; `og-image.jpg` 59 KiB bị nạp vào badge 14px và cần nén.
+  4. *Việc 7 (Lỗi nhỏ cửa hàng)*: Gói store thiếu mapping trường `first_purchase_enabled` trong `groupStoreProductsByGame` gây lệch % giảm (-87% vs -23%) và nhấp nháy giá 2.600 -> 2.000; tab filter danh mục bị rớt 2 hàng trên màn hình rộng.
+  5. *Việc 8 (Bài tin Clone Drone)*: `news_1794535486811_29ep` bị hiện dấu `**` thô do thiếu bộ render inline markdown trong `NewsDetailModal.tsx`; ảnh bìa trỏ `/game_icons/clone-drone-in-the-danger-zone.png` thiếu file WebP.
+- **Nguyên nhân gốc rễ & Giải pháp xử lý**:
+  1. *Việc 1*: Chuẩn hóa hàm `parseExpirationDate` và `getVnDateString` trong `src/utils/codeUtils.ts` và `scripts/prerender.js` theo múi giờ `Asia/Ho_Chi_Minh` (`UTC+7`). So sánh ngày theo `formatted < todayVnStr`. Thay thế toàn bộ D1 query `date('now')` thành `date('now', '+7 hours')` trong `sync.ts` và `ingest-codes.ts`.
+  2. *Việc 2*: Tạo migration `migrations/0013_fix_pirate_legends_publisher.sql` cập nhật `publisher = 'Neotrix'` cho `pirate-legends`. Bổ sung guard 3 tầng trong `functions/api/games.ts` (`mapGameRow`, `gameRow`, `authoritativeGame`) và cập nhật `games188.json`, `games_database.json`, tài liệu bảng 486 game.
+  3. *Việc 3-6*: Đổi 4 thẻ favicon trong `index.html` sang `logo.webp` (6.4 KiB) và `favicon.png` (9 KiB). Tự host 2 ảnh cover Google Play sang `/game_icons/`. Gắn khóa edge cache icon theo `__BUILD_ID__` trong `functions/_worker.ts` (`cacheUrl.searchParams.set('b', buildTag)`). Bổ sung `min-h-[145px] sm:min-h-[195px]` và placeholder skeleton cho `UpcomingGamesBanner` và `App.tsx` kèm `style={{ aspectRatio: '1 / 1' }}` trên toàn bộ `GameCard`, `UpcomingGamesBanner`, `PinnedGamesBar`. Nén `og-image.jpg` từ 60 KiB xuống 41 KiB và thay thế badge 14px bằng `/logo.webp`.
+  4. *Việc 7*: Bổ sung mapping `first_purchase_enabled`, `first_purchase_price`, `first_purchase_max_price` trong `src/utils/productPackageUtils.ts` và chuyển tab filter trong `CodeInventoryModule.tsx` sang `overflow-x-auto scrollbar-none`.
+  5. *Việc 8*: Tạo đầy đủ các phiên bản WebP (`clone-drone-in-the-danger-zone.webp`, `-thumb.webp`, `-thumb-256.webp`). Tạo migration `migrations/0014_fix_clone_drone_news_cover.sql` cập nhật D1 `system_settings`. Bổ sung chuẩn hóa `cover_url` trong `news/index.ts` và `news/[id].ts`. Viết hàm `renderInlineMarkdown` hỗ trợ bold `**`, code inline và link trong `NewsDetailModal.tsx`.
+- **Kiểm thử & Triển khai**:
+  - `npx vite build` 100% thành công, 0 lỗi, built in 32.32s.
+  - Tự động triển khai lên cả 3 host và đồng bộ GitHub main theo quy tắc chủ sở hữu.
+
+---
+
 ## [2026-11-13]
 
 ### 381. Sửa Tận Gốc Hàng D1 Ngày Ra Mắt KOF: Legend (Migration 0012)

@@ -2,7 +2,7 @@
 *Cập nhật thời gian: 20:21:40 11/10/2026 | Tổng số game: **486 tựa game** | Hệ thống cào & cập nhật giftcode tự động*\n
 | STT | Tên Tựa Game | Nhà Phát Hành (NPH) | Thể Loại | Giftcode | Số GP (ABEI) | Fanpage Chính Thức | Link Web |
 | :---: | :--- | :--- | :--- | :---: | :--- | :--- | :--- |
-| 1 | **Pirate Legends: Huyền Thoại Hải Tặc** | CÔNG TY CỔ PHẦN TRỰC TUYẾN GOSU | Nhập Vai Gacha / Anime | **38** | 1298/QĐ-BTTTT | [Fanpage](https://www.facebook.com/haitacdaichiengosu) | [Xem Game](https://codegame.shop/game/pirate-legends) |
+| 1 | **Pirate Legends: Huyền Thoại Hải Tặc** | Neotrix | Nhập Vai Gacha / Anime | **38** | 1298/QĐ-BTTTT | [Fanpage](https://www.facebook.com/haitacdaichiengosu) | [Xem Game](https://codegame.shop/game/pirate-legends) |
 | 2 | **Dị Giới Sinh Tồn OEG** | CÔNG TY CỔ PHẦN DỊCH VỤ PHÁT TRIỂN NGƯỜI DÙNG MKO | Thập Cẩm / Khác | **18** | 92/GXN-PTTH&TTĐT | [Fanpage](https://www.facebook.com/digioisinhtonoeg) | [Xem Game](https://codegame.shop/game/di-gioi-sinh-ton-oeg) |
 | 3 | **Yến Vân Thập Lục Thanh (Where Winds Meet)** | CÔNG TY CỔ PHẦN FUNTAP GAMES  | Hành Động Nhập Vai & Thế Giới Mở | **148** | 526/QĐ-PTTH&TTĐT | [Fanpage](https://www.facebook.com/yenvanthaplucthanh.funtapgames/) | [Xem Game](https://codegame.shop/game/yen-van-thap-luc-thanh) |
 | 4 | **3Q Đào Đào Đào** | CÔNG TY TNHH JOYGAMES | Thập Cẩm / Khác | **11** | 569/QĐ-PTTH&TTĐT | [Fanpage](https://www.facebook.com/3qdaodaodao/) | [Xem Game](https://codegame.shop/game/3q-dao-dao-dao) |

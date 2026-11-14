@@ -588,7 +588,7 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
                     <span>Điểm cần đọc trước</span>
                   </div>
                   <p className="text-xs sm:text-sm text-foreground/90 leading-relaxed font-normal">
-                    {keyTakeaways}
+                    {renderInlineMarkdown(keyTakeaways)}
                   </p>
                 </div>
               )}
@@ -1095,6 +1095,43 @@ interface RenderMarkdownContentProps {
   copiedCode: string | null;
 }
 
+const renderInlineMarkdown = (text: string): React.ReactNode => {
+  if (!text) return null;
+  const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\([^)]+\))/g);
+  return parts.map((part, i) => {
+    if (!part) return null;
+    if (part.startsWith('**') && part.endsWith('**') && part.length >= 4) {
+      return (
+        <strong key={i} className="font-extrabold text-foreground">
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+    if (part.startsWith('`') && part.endsWith('`') && part.length >= 2) {
+      return (
+        <code key={i} className="font-mono px-1 py-0.5 rounded bg-muted/70 text-amber-300 text-[0.9em]">
+          {part.slice(1, -1)}
+        </code>
+      );
+    }
+    const linkMatch = part.match(/^\[(.*?)\]\((.*?)\)$/);
+    if (linkMatch) {
+      return (
+        <a
+          key={i}
+          href={linkMatch[2]}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-primary hover:underline font-semibold"
+        >
+          {linkMatch[1]}
+        </a>
+      );
+    }
+    return part;
+  });
+};
+
 const getCategoryTag = (title: string): string => {
   const t = title.toLowerCase();
   if (t.includes('youtube') || t.includes('video')) return 'Video';
@@ -1346,7 +1383,7 @@ const RenderMarkdownContent: React.FC<RenderMarkdownContentProps> = ({ rawText, 
               <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400 shrink-0 mt-0.5" />
               <div className="flex-1 space-y-1">
                 <span className="font-bold text-amber-300 block">{block.data.prefix}</span>
-                <p className="text-foreground/90 whitespace-pre-line">{block.data.body}</p>
+                <p className="text-foreground/90 whitespace-pre-line">{renderInlineMarkdown(block.data.body)}</p>
               </div>
             </div>
           );
@@ -1376,11 +1413,11 @@ const RenderMarkdownContent: React.FC<RenderMarkdownContentProps> = ({ rawText, 
                         </span>
                       </div>
                       <h4 className="font-bold text-sm text-foreground group-hover:text-primary transition-colors leading-snug">
-                        {card.title}
+                        {renderInlineMarkdown(card.title)}
                       </h4>
                       {card.desc && (
                         <p className="text-xs text-muted-foreground leading-relaxed line-clamp-4">
-                          {card.desc}
+                          {renderInlineMarkdown(card.desc)}
                         </p>
                       )}
                     </div>
@@ -1395,7 +1432,7 @@ const RenderMarkdownContent: React.FC<RenderMarkdownContentProps> = ({ rawText, 
               <ol key={idx} className="list-decimal pl-5 space-y-2 my-3">
                 {items.map((item: string, i: number) => (
                   <li key={i} className="text-foreground/90 leading-relaxed pl-1">
-                    {item}
+                    {renderInlineMarkdown(item)}
                   </li>
                 ))}
               </ol>
@@ -1406,7 +1443,7 @@ const RenderMarkdownContent: React.FC<RenderMarkdownContentProps> = ({ rawText, 
             <ul key={idx} className="list-disc pl-5 space-y-2 my-3">
               {items.map((item: string, i: number) => (
                 <li key={i} className="text-foreground/90 leading-relaxed pl-1">
-                  {item}
+                  {renderInlineMarkdown(item)}
                 </li>
               ))}
             </ul>
@@ -1436,7 +1473,7 @@ const RenderMarkdownContent: React.FC<RenderMarkdownContentProps> = ({ rawText, 
         // Paragraph
         return (
           <p key={idx} className="whitespace-pre-line">
-            {block.data}
+            {renderInlineMarkdown(block.data)}
           </p>
         );
       })}

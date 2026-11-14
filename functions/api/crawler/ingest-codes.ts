@@ -1613,7 +1613,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
             android_package_name = CASE WHEN excluded.android_package_name IS NOT NULL AND excluded.android_package_name != '' THEN excluded.android_package_name ELSE games.android_package_name END,
             is_active = 1,
             status = 'ACTIVE',
-            active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.status = 'active' OR codes.status = 'verified') AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now'))),
+            active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.status = 'active' OR codes.status = 'verified') AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now', '+7 hours'))),
             total_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug),
             last_code_at = datetime('now'),
             updated_at = datetime('now');
@@ -2110,7 +2110,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         await env.DB.prepare(`
           UPDATE games SET
             total_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug),
-            active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.status = 'active' OR codes.status = 'verified') AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now'))),
+            active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.status = 'active' OR codes.status = 'verified') AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now', '+7 hours'))),
             updated_at = datetime('now')
           WHERE slug = ? OR slug = ? OR slug = ?
         `).bind(targetSlug, targetSlug.replace(/-mobile$/i, ''), `${targetSlug}-mobile`).run().catch(() => {});
@@ -2398,7 +2398,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
               for (const slug of affectedGameSlugs) {
                 await env.DB.prepare(`
                   UPDATE games
-                  SET active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.status = 'active' OR codes.status = 'verified') AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now'))),
+                  SET active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.status = 'active' OR codes.status = 'verified') AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now', '+7 hours'))),
                       total_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug),
                       last_code_at = datetime('now'),
                       updated_at = datetime('now')
@@ -2505,7 +2505,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
           await env.DB.prepare(`
             UPDATE games 
-            SET active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.expires_at IS NULL OR codes.expires_at > datetime('now'))),
+            SET active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.expires_at IS NULL OR codes.expires_at >= date('now', '+7 hours'))),
                 total_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug)
           `).run().catch(() => {});
         } catch (dbErr) {
@@ -2645,8 +2645,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           const countsRes: any = await env.DB.prepare(`
             SELECT 
               COUNT(*) as total,
-              SUM(CASE WHEN (status = 'active' OR status = 'verified') AND (expires_at IS NULL OR expires_at = '' OR expires_at >= date('now')) THEN 1 ELSE 0 END) as active,
-              SUM(CASE WHEN status = 'expired' OR (expires_at IS NOT NULL AND expires_at != '' AND expires_at < date('now')) THEN 1 ELSE 0 END) as expired
+              SUM(CASE WHEN (status = 'active' OR status = 'verified') AND (expires_at IS NULL OR expires_at = '' OR expires_at >= date('now', '+7 hours')) THEN 1 ELSE 0 END) as active,
+              SUM(CASE WHEN status = 'expired' OR (expires_at IS NOT NULL AND expires_at != '' AND expires_at < date('now', '+7 hours')) THEN 1 ELSE 0 END) as expired
             FROM codes WHERE LOWER(game_slug) = ? OR LOWER(game_slug) = ?
           `).bind(finalSlug, finalSlug.replace(/-mobile$/i, '')).first();
 
@@ -3216,7 +3216,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           await env.DB.prepare(`
             UPDATE games SET
               total_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug),
-              active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.status = 'active' OR codes.status = 'verified') AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now'))),
+              active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.status = 'active' OR codes.status = 'verified') AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now', '+7 hours'))),
               updated_at = datetime('now')
             WHERE LOWER(TRIM(slug)) = ?
           `).bind(matchedSlug).run();
@@ -4194,7 +4194,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           SELECT COUNT(*) FROM codes 
           WHERE codes.game_slug = games.slug 
             AND (codes.status = 'active' OR codes.status = 'verified') 
-            AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now'))
+            AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now', '+7 hours'))
         )
       `).run().catch(() => {});
 
@@ -5151,7 +5151,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           const updateRes: any = await env.DB.prepare(`
             UPDATE games SET
               total_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug),
-              active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.status = 'active' OR codes.status = 'verified') AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now'))),
+              active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.status = 'active' OR codes.status = 'verified') AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now', '+7 hours'))),
               instructions = CASE WHEN ? IS NOT NULL THEN ? ELSE instructions END,
               redeem_url = CASE WHEN ? IS NOT NULL THEN ? ELSE redeem_url END,
               last_code_at = datetime('now'),

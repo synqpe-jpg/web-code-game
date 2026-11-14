@@ -157,6 +157,7 @@ export const PinnedGamesBar: React.FC<PinnedGamesBarProps> = ({
                       alt={game.name}
                       width={40}
                       height={40}
+                      style={{ aspectRatio: '1 / 1' }}
                       className="w-full h-full object-cover"
                       loading="lazy"
                       onError={(e) => {
@@ -202,7 +203,14 @@ export const PinnedGamesBar: React.FC<PinnedGamesBarProps> = ({
 
         {/* 2. Subscribed Upcoming Games */}
         {subscribedUpcoming.map((ug) => {
-          const iconSrc = getUpcomingGameIconUrl(ug);
+          const rawIcon = getUpcomingGameIconUrl(ug);
+          const isLocalIcon = rawIcon.startsWith('/game_icons/');
+          const iconSrc = isLocalIcon
+            ? (rawIcon.includes('-thumb') ? rawIcon : rawIcon.replace(/\.webp$/i, '-thumb.webp'))
+            : rawIcon;
+          const iconSrcSet = isLocalIcon
+            ? (rawIcon.includes('-thumb') ? rawIcon.replace(/-thumb\.webp$/i, '-thumb-256.webp') : rawIcon.replace(/\.webp$/i, '-thumb-256.webp'))
+            : undefined;
           const expectedCount = ug.expectedCodes?.length || 4;
 
           return (
@@ -228,7 +236,11 @@ export const PinnedGamesBar: React.FC<PinnedGamesBarProps> = ({
                   <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl overflow-hidden bg-slate-800 border border-cyan-500/40 shrink-0 shadow-sm group-hover:scale-105 transition-transform">
                     <img
                       src={iconSrc}
+                      srcSet={iconSrcSet}
                       alt={ug.name}
+                      width={40}
+                      height={40}
+                      style={{ aspectRatio: '1 / 1' }}
                       className="w-full h-full object-cover"
                       loading="lazy"
                       referrerPolicy="no-referrer"

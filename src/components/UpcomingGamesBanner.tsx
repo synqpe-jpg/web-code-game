@@ -100,7 +100,22 @@ export const UpcomingGamesBanner: React.FC<UpcomingGamesBannerProps> = ({
     })
     .slice(0, 6);
 
-  if (activeUpcoming.length === 0) return null;
+  if (activeUpcoming.length === 0) {
+    if (upcomingGames.length === 0) {
+      return (
+        <section aria-hidden="true" className="mb-3 sm:mb-8 rounded-2xl bg-card/60 border border-cyan-500/20 p-2.5 sm:p-5 backdrop-blur-md shadow-sm min-h-[145px] sm:min-h-[195px] flex items-center justify-center">
+          <div className="w-full flex items-center justify-between gap-3 animate-pulse">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 sm:w-9 sm:h-9 rounded-xl bg-slate-800/80" />
+              <div className="h-4 w-28 sm:w-36 bg-slate-800/80 rounded" />
+            </div>
+            <div className="h-7 w-20 bg-slate-800/80 rounded-xl" />
+          </div>
+        </section>
+      );
+    }
+    return null;
+  }
 
   const handleNotifyClick = (game: UpcomingGame, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -121,7 +136,7 @@ export const UpcomingGamesBanner: React.FC<UpcomingGamesBannerProps> = ({
   };
 
   return (
-    <section className="mb-3 sm:mb-8 rounded-2xl bg-gradient-to-br from-card via-card/95 to-secondary/30 border border-cyan-500/25 p-2.5 sm:p-5 backdrop-blur-md shadow-lg shadow-cyan-500/5 transition-all relative overflow-hidden">
+    <section className="mb-3 sm:mb-8 rounded-2xl bg-gradient-to-br from-card via-card/95 to-secondary/30 border border-cyan-500/25 p-2.5 sm:p-5 backdrop-blur-md shadow-lg shadow-cyan-500/5 transition-all relative overflow-hidden min-h-[145px] sm:min-h-[195px]">
       {/* Background ambient lighting */}
       <div className="absolute top-0 left-1/4 w-96 h-32 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none -mt-16" />
       <div className="absolute bottom-0 right-1/4 w-80 h-32 bg-blue-600/10 rounded-full blur-3xl pointer-events-none -mb-16" />
@@ -202,6 +217,7 @@ export const UpcomingGamesBanner: React.FC<UpcomingGamesBannerProps> = ({
                         alt={game.name}
                         width={44}
                         height={44}
+                        style={{ aspectRatio: '1 / 1' }}
                         className="w-full h-full object-cover"
                         loading={index < 3 ? 'eager' : 'lazy'}
                         decoding="async"

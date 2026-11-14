@@ -36,21 +36,36 @@ function isCodeExpired(c) {
   if (!exp) return false;
   if (exp === '2026-12-31' || exp === '2026-12-31T23:59:59Z' || exp === '31/12/2026') return false;
 
+  const nowMs = Date.now();
+  const nowVn = new Date(nowMs + 7 * 60 * 60 * 1000);
+  const todayVnStr = `${nowVn.getUTCFullYear()}-${String(nowVn.getUTCMonth() + 1).padStart(2, '0')}-${String(nowVn.getUTCDate()).padStart(2, '0')}`;
+
   const isoMatch = String(exp).trim().match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})(?:[T\s](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
   if (isoMatch) {
     const year = parseInt(isoMatch[1], 10);
     const month = parseInt(isoMatch[2], 10);
     const day = parseInt(isoMatch[3], 10);
-    const hours = isoMatch[4] !== undefined ? parseInt(isoMatch[4], 10) : 23;
+    const hasTime = isoMatch[4] !== undefined;
+    const hours = hasTime ? parseInt(isoMatch[4], 10) : 23;
     const minutes = isoMatch[5] !== undefined ? parseInt(isoMatch[5], 10) : 59;
     const seconds = isoMatch[6] !== undefined ? parseInt(isoMatch[6], 10) : 59;
-    const d = new Date(year, month - 1, day, hours, minutes, seconds, 999);
-    return d.getTime() < Date.now();
+    const formatted = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const utcTimestamp = Date.UTC(year, month - 1, day, hours - 7, minutes, seconds, 999);
+    return hasTime ? (utcTimestamp < nowMs) : (formatted < todayVnStr || utcTimestamp < nowMs);
   }
 
   const d = new Date(exp);
   if (isNaN(d.getTime())) return false;
-  return d.getTime() < Date.now();
+  const hasTime = String(exp).includes(':') || String(exp).includes('T');
+  if (!hasTime) {
+    const vnD = new Date(d.getTime() + 7 * 60 * 60 * 1000);
+    const y = vnD.getUTCFullYear();
+    const m = String(vnD.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(vnD.getUTCDate()).padStart(2, '0');
+    const formatted = `${y}-${m}-${day}`;
+    return formatted < todayVnStr || d.getTime() < nowMs;
+  }
+  return d.getTime() < nowMs;
 }
 
 const TOPIC_CLUSTERS = [

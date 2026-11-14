@@ -1771,7 +1771,7 @@ export const App: React.FC = () => {
                 />
 
                 {/* 2. Khối Game Sắp Ra Mắt (Upcoming Games Banner) */}
-                <div id="upcoming-games-banner-section">
+                <div id="upcoming-games-banner-section" className="min-h-[145px] sm:min-h-[195px]">
                   <UpcomingGamesBanner
                     upcomingGames={upcomingGames}
                     bookmarkedSlugs={bookmarks}

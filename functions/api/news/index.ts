@@ -141,8 +141,14 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         effectiveStatus = 'PUBLISHED';
       }
     }
+    let coverUrl = a.cover_url || a.coverUrl || '';
+    if (coverUrl.includes('clone-drone-in-the-danger-zone.png')) {
+      coverUrl = coverUrl.replace(/\.png$/i, '.webp');
+    }
     return {
       ...a,
+      cover_url: coverUrl,
+      coverUrl: coverUrl,
       status: effectiveStatus,
       published_at: a.published_at || (effectiveStatus === 'PUBLISHED' && a.scheduled_publish_at ? a.scheduled_publish_at : null) || a.created_at || new Date().toISOString(),
       created_at: a.created_at || a.published_at || new Date().toISOString(),

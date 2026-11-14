@@ -2201,6 +2201,28 @@ export async function ensureSchemaUpgrades(db: D1Database): Promise<void> {
     console.warn('[Migration 0012_fix_kof_legend_release_date error]', err?.message);
   }
 
+  // 15. Migration 0013: Sửa NPH game Pirate Legends thành Neotrix (0013_fix_pirate_legends_publisher.sql)
+  try {
+    const plMig = await db.prepare("SELECT 1 FROM schema_migrations WHERE id = '0013_fix_pirate_legends_publisher' LIMIT 1;").first<any>().catch(() => null);
+    if (!plMig) {
+      await db.prepare("UPDATE games SET publisher = 'Neotrix', updated_at = datetime('now') WHERE slug = 'pirate-legends' OR id = 'pirate-legends'").run().catch(() => {});
+      await db.prepare("INSERT OR IGNORE INTO schema_migrations (id) VALUES ('0013_fix_pirate_legends_publisher');").run().catch(() => {});
+    }
+  } catch (err: any) {
+    console.warn('[Migration 0013_fix_pirate_legends_publisher error]', err?.message);
+  }
+
+  // 16. Migration 0014: Sửa ảnh bìa bài tin Clone Drone sang WebP (0014_fix_clone_drone_news_cover.sql)
+  try {
+    const cdMig = await db.prepare("SELECT 1 FROM schema_migrations WHERE id = '0014_fix_clone_drone_news_cover' LIMIT 1;").first<any>().catch(() => null);
+    if (!cdMig) {
+      await db.prepare("UPDATE system_settings SET value = REPLACE(value, '/game_icons/clone-drone-in-the-danger-zone.png', '/game_icons/clone-drone-in-the-danger-zone.webp'), updated_at = datetime('now') WHERE key = 'wcg_news_articles_v1' AND value LIKE '%clone-drone-in-the-danger-zone.png%'").run().catch(() => {});
+      await db.prepare("INSERT OR IGNORE INTO schema_migrations (id) VALUES ('0014_fix_clone_drone_news_cover');").run().catch(() => {});
+    }
+  } catch (err: any) {
+    console.warn('[Migration 0014_fix_clone_drone_news_cover error]', err?.message);
+  }
+
   schemaUpgradesDone = true;
   })();
 

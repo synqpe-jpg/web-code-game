@@ -473,7 +473,7 @@ export const NewsView: React.FC<NewsViewProps> = ({
 
                   {/* Logo phụ & Nguồn: CodeGame.Shop */}
                   <div className="absolute top-3 right-3 z-20 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-950/85 backdrop-blur-md border border-white/20 shadow-lg text-[10px] font-bold text-white select-none">
-                    <img src="/og-image.jpg" alt="CodeGame.Shop" className="w-3.5 h-3.5 rounded-full object-cover ring-1 ring-primary/60" />
+                    <img src="/logo.webp" alt="CodeGame.Shop" width={14} height={14} className="w-3.5 h-3.5 rounded-full object-cover ring-1 ring-primary/60" />
                     <span className="tracking-tight text-slate-200">CodeGame.Shop</span>
                   </div>
                 </div>
@@ -665,7 +665,7 @@ export const NewsView: React.FC<NewsViewProps> = ({
 
                         {/* Sub-logo Watermark Badge: CodeGame.Shop */}
                         <div className="absolute top-3 right-3 z-20 flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-950/80 backdrop-blur-md border border-white/20 shadow-md text-[9px] font-bold text-white select-none">
-                          <img src="/og-image.jpg" alt="CodeGame" className="w-3 h-3 rounded-full object-cover ring-1 ring-primary/60" />
+                          <img src="/logo.webp" alt="CodeGame" width={12} height={12} className="w-3 h-3 rounded-full object-cover ring-1 ring-primary/60" />
                           <span className="text-slate-200">CodeGame.Shop</span>
                         </div>
 

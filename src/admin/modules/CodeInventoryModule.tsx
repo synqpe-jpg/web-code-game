@@ -972,7 +972,7 @@ export const CodeInventoryModule: React.FC<CodeInventoryModuleProps> = ({ onShow
         </div>
 
         {/* Category Tabs Filter */}
-        <div className="mt-4 flex flex-wrap items-center gap-1.5 border-b border-slate-100 pb-4 dark:border-slate-800">
+        <div className="mt-4 flex items-center gap-1.5 overflow-x-auto scrollbar-none border-b border-slate-100 pb-3 dark:border-slate-800">
           <button
             onClick={() => setCategoryFilter('ALL')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
