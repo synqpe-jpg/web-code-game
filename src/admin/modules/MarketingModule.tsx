@@ -1095,6 +1095,7 @@ export const MarketingModule: React.FC<MarketingModuleProps> = ({ onShowToast })
                             }}
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') {
+                                if (e.isComposing || e.keyCode === 229) return;
                                 e.preventDefault();
                                 handleAddDepositPreset(customDepositInput);
                               }

@@ -310,27 +310,37 @@ export const App: React.FC = () => {
   // Initialize Theme
   useEffect(() => {
     const savedTheme = localStorage.getItem('wcg_theme');
+    const metaCs = document.querySelector('meta[name="color-scheme"]');
     if (savedTheme === 'light') {
       setIsDarkMode(false);
       document.documentElement.classList.remove('dark');
       document.documentElement.classList.add('light');
+      document.documentElement.style.colorScheme = 'light';
+      if (metaCs) metaCs.setAttribute('content', 'light');
     } else {
       setIsDarkMode(true);
       document.documentElement.classList.add('dark');
       document.documentElement.classList.remove('light');
+      document.documentElement.style.colorScheme = 'dark';
+      if (metaCs) metaCs.setAttribute('content', 'dark');
     }
   }, []);
 
   const handleToggleTheme = () => {
     setIsDarkMode((prev) => {
       const next = !prev;
+      const metaCs = document.querySelector('meta[name="color-scheme"]');
       if (next) {
         document.documentElement.classList.add('dark');
         document.documentElement.classList.remove('light');
+        document.documentElement.style.colorScheme = 'dark';
+        if (metaCs) metaCs.setAttribute('content', 'dark');
         localStorage.setItem('wcg_theme', 'dark');
       } else {
         document.documentElement.classList.remove('dark');
         document.documentElement.classList.add('light');
+        document.documentElement.style.colorScheme = 'light';
+        if (metaCs) metaCs.setAttribute('content', 'light');
         localStorage.setItem('wcg_theme', 'light');
       }
       return next;

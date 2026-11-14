@@ -25,11 +25,30 @@
             return;
           }
         }
-        document.documentElement.classList.add('dark');
-        document.documentElement.style.backgroundColor = '#0B0D19';
-        document.documentElement.style.colorScheme = 'dark';
-        if (document.body) {
-          document.body.style.backgroundColor = '#0B0D19';
+        var savedTheme = 'dark';
+        try {
+          var t = localStorage.getItem('wcg_theme');
+          if (t === 'light') savedTheme = 'light';
+        } catch(e) {}
+        var metaCs = document.querySelector('meta[name="color-scheme"]');
+        if (savedTheme === 'light') {
+          document.documentElement.classList.remove('dark');
+          document.documentElement.classList.add('light');
+          document.documentElement.style.backgroundColor = '#FFFFFF';
+          document.documentElement.style.colorScheme = 'light';
+          if (metaCs) metaCs.setAttribute('content', 'light');
+          if (document.body) {
+            document.body.style.backgroundColor = '#FFFFFF';
+          }
+        } else {
+          document.documentElement.classList.add('dark');
+          document.documentElement.classList.remove('light');
+          document.documentElement.style.backgroundColor = '#0B0D19';
+          document.documentElement.style.colorScheme = 'dark';
+          if (metaCs) metaCs.setAttribute('content', 'dark');
+          if (document.body) {
+            document.body.style.backgroundColor = '#0B0D19';
+          }
         }
       })();
     </script>

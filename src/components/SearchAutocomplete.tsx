@@ -502,6 +502,7 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
       e.preventDefault();
       setSelectedIndex((prev) => (prev > 0 ? prev - 1 : allNavItems.length - 1));
     } else if (e.key === 'Enter') {
+      if (e.isComposing || e.keyCode === 229) return;
       e.preventDefault();
       if (selectedIndex >= 0 && selectedIndex < allNavItems.length) {
         const item = allNavItems[selectedIndex];

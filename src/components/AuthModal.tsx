@@ -328,6 +328,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     onChange={(e) => setLoginIdentifier(e.target.value)}
                     placeholder="Nhập tên tài khoản hoặc email"
                     required
+                    autoComplete="username"
                     className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-white border border-gray-300 text-gray-900 text-xs sm:text-sm placeholder-gray-400 font-medium shadow-sm focus:ring-2 focus:ring-primary/30 focus:border-primary focus:outline-none transition-all"
                   />
                 </div>
@@ -348,6 +349,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     onChange={(e) => setLoginPassword(e.target.value)}
                     placeholder="Nhập mật khẩu"
                     required
+                    autoComplete="current-password"
                     className="w-full pl-10 pr-10 py-2.5 rounded-2xl bg-white border border-gray-300 text-gray-900 text-xs sm:text-sm placeholder-gray-400 font-medium shadow-sm focus:ring-2 focus:ring-primary/30 focus:border-primary focus:outline-none transition-all"
                   />
                   <button
@@ -408,6 +410,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       onChange={(e) => setRegUsername(e.target.value)}
                       placeholder="Tên đăng nhập"
                       required
+                      autoComplete="username"
                       className="w-full pl-10 pr-3 py-2.5 rounded-2xl bg-white border border-gray-300 text-gray-900 text-xs placeholder-gray-400 font-medium shadow-sm focus:ring-2 focus:ring-primary/30 focus:border-primary focus:outline-none transition-all"
                     />
                   </div>
@@ -459,6 +462,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     onChange={(e) => setRegPassword(e.target.value)}
                     placeholder="Tối thiểu 6 ký tự"
                     required
+                    autoComplete="new-password"
                     className="w-full pl-10 pr-10 py-2.5 rounded-2xl bg-white border border-gray-300 text-gray-900 text-xs sm:text-sm placeholder-gray-400 font-medium shadow-sm focus:ring-2 focus:ring-primary/30 focus:border-primary focus:outline-none transition-all"
                   />
                   <button
@@ -502,6 +506,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     onChange={(e) => setRegConfirmPassword(e.target.value)}
                     placeholder="Nhập lại mật khẩu"
                     required
+                    autoComplete="new-password"
                     className="w-full pl-10 pr-10 py-2.5 rounded-2xl bg-white border border-gray-300 text-gray-900 text-xs sm:text-sm placeholder-gray-400 font-medium shadow-sm focus:ring-2 focus:ring-primary/30 focus:border-primary focus:outline-none transition-all"
                   />
                   {regConfirmPassword && (
@@ -617,6 +622,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       onChange={(e) => setForgotNewPassword(e.target.value)}
                       placeholder="Mật khẩu mới"
                       required
+                      autoComplete="new-password"
                       className="w-full px-4 py-2.5 rounded-2xl bg-white border border-gray-300 text-gray-900 text-xs sm:text-sm placeholder-gray-400 font-medium shadow-sm focus:ring-2 focus:ring-primary/30 focus:border-primary focus:outline-none transition-all"
                     />
                   </div>

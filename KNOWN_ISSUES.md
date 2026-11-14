@@ -10,6 +10,24 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-274: Bẫy Thiếu Token Autocomplete Cho Trình Quản Lý Mật Khẩu, Bẫy Lắng Nghe Phím Enter Bỏ Qua Cờ isComposing Khi Gõ Tiếng Việt IME, & Bẫy Đổi Dark Mode Không Đồng Bộ meta color-scheme
+- **Triệu chứng & Rủi ro**:
+  1. *Trình duyệt và Password Manager không nhận diện biểu mẫu*: Người dùng đăng nhập, đổi mật khẩu hoặc đăng ký nhưng trình duyệt không tự động gợi ý tài khoản đã lưu, không hỗ trợ autofill, và không tự sinh mật khẩu mạnh an toàn do thiếu `autocomplete="current-password"`, `autocomplete="new-password"`, `autocomplete="username"`.
+  2. *Gõ tiếng Việt Telex/VNI bị submit nhầm khi bấm Enter*: Người dùng gõ tiếng Việt (UniKey, EVKey, OpenKey hoặc bàn phím ảo di động) khi kết thúc từ có dấu bấm phím Enter bị form gửi sớm hoặc chọn nhầm gợi ý.
+  3. *Lệch màu thành phần hệ thống khi đổi theme*: Chuyển đổi Dark/Light mode chỉ thay đổi class `.dark` nhưng không đồng bộ `<meta name="color-scheme">` và `document.documentElement.style.colorScheme`, khiến thanh cuộn (scrollbars), form inputs và context menu của trình duyệt vẫn giữ theme cũ.
+- **Nguyên nhân gốc rễ**:
+  1. Các thẻ input mật khẩu và tên đăng nhập thiếu các token chuẩn W3C/HTML. (Lưu ý: Không thêm autocomplete vào form CRUD admin như `MembersModule.tsx` quản lý thành viên khác).
+  2. Sự kiện `onKeyDown` kiểm tra `e.key === 'Enter'` mà không kiểm tra cờ `e.isComposing` hoặc `e.keyCode === 229` (IME composition confirmation).
+  3. Cơ chế theme chỉ toggle class CSS và lưu `localStorage`, bỏ qua API native `color-scheme` của web platform.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Thêm đầy đủ `autocomplete` đúng chuẩn cho tất cả các ô xác thực người dùng trong `AuthModal.tsx`, `UserProfileModal.tsx`, `ProfileModule.tsx`.
+  2. Thêm `if (e.isComposing || e.keyCode === 229) return;` ngay đầu nhánh xử lý `Enter` trước `e.preventDefault()`.
+  3. Đồng bộ cả `<meta name="color-scheme">` (content = 'dark'/'light') và `document.documentElement.style.colorScheme` khi khởi động và khi toggle theme.
+  4. Bổ sung `fetchpriority="high"` cho ảnh cover bài viết tin tức lớn (`NewsDetailModal.tsx`) để tối ưu chỉ số LCP.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không thêm autocomplete="new-password" vào các ô CRUD của admin (như đặt lại mật khẩu cho thành viên khác).*
+  - ❌ *Không đặt kiểm tra `isComposing` sau `preventDefault()` vì thao tác Enter của bộ gõ IME sẽ bị nuốt mất.*
+
 ### ISSUE-273: Bẫy Mức Chặn Số Lượng Dùng Snapshot Tồn Kho Cũ Khi Mở Hộp Thoại, & Bẫy TDZ Khai Báo Biến isNoCache Sau Khối Query Key Cụ Thể Trong sync.ts
 - **Triệu chứng & Rủi ro**:
   1. *Khách chọn vượt tồn kho thật*: Trong ProductDetailModal và ProductCheckoutModal, mức chặn số lượng tối đa (`maxStock`) lấy từ snapshot đồng bộ lưu trong `localStorage` hoặc từ prop `packages` chụp lúc tải trang. Nếu hàng trong kho D1 bị mua bớt hoặc cập nhật, khách vẫn có thể tăng số lượng vượt tồn kho thật và chỉ bị chặn ở bước máy chủ trừ kho.

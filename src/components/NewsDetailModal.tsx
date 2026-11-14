@@ -560,6 +560,7 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
                     alt={article.title}
                     className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-500"
                     loading="eager"
+                    {...({ fetchpriority: 'high' } as any)}
                     decoding="async"
                     onError={handleHeroCoverError}
                   />

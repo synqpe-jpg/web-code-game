@@ -584,6 +584,7 @@ export const FloatingNotificationModule: React.FC<FloatingNotificationModuleProp
                         className="w-full bg-zinc-900 border border-zinc-700/80 rounded-lg px-3 py-1.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-cyan-400"
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {
+                            if (e.isComposing || e.keyCode === 229) return;
                             e.preventDefault();
                             handleInsertLink();
                           }

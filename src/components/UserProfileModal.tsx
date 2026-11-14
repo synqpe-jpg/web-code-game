@@ -1653,6 +1653,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                     value={oldPassword}
                     onChange={(e) => setOldPassword(e.target.value)}
                     placeholder="Nhập mật khẩu hiện tại của bạn..."
+                    autoComplete="current-password"
                     className="w-full px-3.5 py-2.5 pr-10 rounded-xl bg-card border border-border text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary font-medium"
                   />
                   <button
@@ -1677,6 +1678,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     placeholder="Nhập mật khẩu mới..."
+                    autoComplete="new-password"
                     className="w-full px-3.5 py-2.5 pr-10 rounded-xl bg-card border border-border text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary font-medium"
                   />
                   <button
@@ -1700,6 +1702,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="Nhập lại mật khẩu mới..."
+                  autoComplete="new-password"
                   className="w-full px-3.5 py-2.5 rounded-xl bg-card border border-border text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary font-medium"
                 />
               </div>

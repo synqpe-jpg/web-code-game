@@ -7,6 +7,38 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-14]
 
+### 387. Đồng Bộ 3 Nhóm Vấn Đề Modern Web Guidance (Autofill Token, IME-Safe Enter Submit, Đồng Bộ color-scheme) & Tối Ưu fetchpriority Cho Ảnh Cover Tin Tức
+- **Bối cảnh & Hiện trạng**:
+  - Đánh giá mã nguồn theo bộ tiêu chuẩn Modern Web Guidance (Baseline Widely / Newly Available):
+    1. Phát hiện các ô mật khẩu và tên đăng nhập thiếu token `autocomplete` chuẩn, ngăn cản trình quản lý mật khẩu trình duyệt hỗ trợ autofill.
+    2. Các ô nhập liệu lắng nghe phím `Enter` thiếu bảo vệ `isComposing`, gây lỗi gửi nhầm khi gõ tiếng Việt Telex/VNI bằng IME.
+    3. Bộ chuyển đổi Dark/Light mode chưa đồng bộ thẻ `<meta name="color-scheme">` và `documentElement.style.colorScheme`.
+    4. Ảnh bìa đại diện bài viết tin tức (`NewsDetailModal`) cần thuộc tính `fetchpriority="high"` để tối ưu hóa chỉ số LCP.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Autofill*: `AuthModal.tsx`, `UserProfileModal.tsx`, `ProfileModule.tsx` khai báo `<input type="password">` thuần không kèm thuộc tính `autoComplete`.
+  2. *IME Enter*: Listener `onKeyDown` bắt `e.key === 'Enter'` trực tiếp gọi submit mà không kiểm tra trạng thái đang hoàn tất ký tự tiếng Việt (`e.isComposing || e.keyCode === 229`).
+  3. *Color Scheme*: `App.tsx` và `AdminApp.tsx` chỉ thêm/xóa class `.dark` và lưu `wcg_theme`, trong khi `index.html` ép cứng `<meta name="color-scheme" content="dark" />` và `colorScheme = 'dark'`.
+  4. *LCP Image*: Ảnh cover bài tin đã có `loading="eager"` nhưng thiếu gợi ý ưu tiên nạp mạng `fetchpriority="high"`.
+- **Giải pháp áp dụng (Solution)**:
+  1. *Bổ sung Autocomplete (9 ô mật khẩu + username)*:
+     - `src/components/AuthModal.tsx`: Mật khẩu đăng nhập (`current-password`), mật khẩu đăng ký (`new-password`), xác nhận mật khẩu đăng ký (`new-password`), mật khẩu mới quên mật khẩu (`new-password`), tên đăng nhập / email (`username`).
+     - `src/components/UserProfileModal.tsx`: Mật khẩu hiện tại (`current-password`), mật khẩu mới (`new-password`), xác nhận mật khẩu mới (`new-password`).
+     - `src/admin/modules/ProfileModule.tsx`: Mật khẩu hiện tại (`current-password`), mật khẩu mới (`new-password`), xác nhận mật khẩu mới (`new-password`).
+     - Giữ nguyên `MembersModule.tsx` (tránh autofill tài khoản admin vào thành viên).
+  2. *Bảo Vệ Gõ Tiếng Việt IME (7 vị trí)*:
+     - Bổ sung `if (e.isComposing || e.keyCode === 229) return;` ngay đầu nhánh `if (e.key === 'Enter')` trước mọi xử lý tại: `CrawlerModule.tsx` (tìm game), `FloatingNotificationModule.tsx` (nhập link), `MarketingModule.tsx` (nạp tiền tùy chỉnh), `NewsModule.tsx` (URL ảnh gallery & nhập giftcode), `SearchAutocomplete.tsx` (tìm kiếm), `SearchableGameSelect.tsx` (chọn game).
+  3. *Đồng Bộ Toàn Diện color-scheme Khi Đổi Theme*:
+     - Cập nhật script khởi động chống FOUC trong `index.html` tự động đọc `wcg_theme` từ `localStorage` để gán đúng `style.colorScheme` và `<meta name="color-scheme">`.
+     - Cập nhật `App.tsx` và `AdminApp.tsx` đồng bộ tức thì `document.documentElement.style.colorScheme` và `<meta name="color-scheme">` ('dark' / 'light') tại cả hook khởi tạo và hàm `handleToggleTheme`.
+  4. *Tối Ưu fetchpriority Ảnh Cover*:
+     - Bổ sung `fetchpriority="high"` vào thẻ `<img />` ảnh cover bài viết trong `NewsDetailModal.tsx`.
+- **Kết quả nghiệm thu**:
+  - Quét lại `legacy-scan src/ --json`: 12/13 phát hiện đã được giải quyết triệt để (chỉ còn đúng 1 vị trí cố ý giữ lại cho Admin CRUD trong `MembersModule.tsx`).
+  - Toàn bộ 9 ô mật khẩu và các ô username đều phản hồi đúng token autofill.
+  - Thao tác gõ tiếng Việt với IME khi bấm Enter hoàn toàn không bị gửi/chọn nhầm.
+  - Đổi Dark/Light mode đồng bộ 100% thuộc tính `color-scheme` cả trong thẻ `<meta>` và DOM style.
+  - Ảnh cover bài viết tin tức mang thuộc tính `fetchpriority="high"`.
+
 ### 386. Giới Hạn Số Lượng Mua Tối Đa Bằng Tồn Kho Thật (stock_quantity) Thời Gian Thực Từ Cloudflare D1 Trong ProductDetailModal & ProductCheckoutModal
 - **Bối cảnh & Hiện trạng**:
   - Tại các hộp thoại "Chi Tiết Gói" (`ProductDetailModal`) và "Thanh Toán Đơn Hàng" (`ProductCheckoutModal`), khách hàng có thể chọn số lượng mua.

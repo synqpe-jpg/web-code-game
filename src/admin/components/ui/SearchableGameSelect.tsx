@@ -125,6 +125,7 @@ export const SearchableGameSelect: React.FC<SearchableGameSelectProps> = ({
       e.preventDefault();
       setHighlightedIndex((prev) => Math.max(prev - 1, 0));
     } else if (e.key === 'Enter') {
+      if (e.isComposing || e.keyCode === 229) return;
       e.preventDefault();
       if (scoredGames[highlightedIndex]) {
         onSelectGame(scoredGames[highlightedIndex].game);

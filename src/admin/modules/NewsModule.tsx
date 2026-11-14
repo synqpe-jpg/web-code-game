@@ -2982,6 +2982,7 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
                         onChange={(e) => setGalleryInputValue(e.target.value)}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {
+                            if (e.isComposing || e.keyCode === 229) return;
                             e.preventDefault();
                             handleAddGalleryImage();
                           }
@@ -3158,6 +3159,7 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
                         onChange={(e) => setCodeInputValue(e.target.value)}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {
+                            if (e.isComposing || e.keyCode === 229) return;
                             e.preventDefault();
                             handleAddCodeToArticle();
                           }
