@@ -7,6 +7,21 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-14]
 
+### 383. Hoàn Tất 3 Việc Còn Tồn Sau Bản 7c00b16: Nén Bản Gốc idle-cat-gunner.webp (Migration 0015), Thống Nhất % Giảm Giá Cửa Hàng -87% Theo Giá Niêm Yết Chuẩn 2.600 Core, Triệt Tiêu Dấu ** Thô Trong Các Ô Thông Tin Bài Tin Clone Drone (Migration 0016)
+- **Bối cảnh & Hiện tượng (3 Việc Còn Tồn)**:
+  1. *Việc 1 (idle-cat-gunner.webp vẫn nặng ~275 KiB)*: GET `https://codegame.shop/game_icons/idle-cat-gunner.webp` trả 281.978 byte kèm header `X-Icon-Source: d1-uploaded` do Worker ưu tiên đọc D1 bảng `uploaded_game_icons` trước static asset và file tĩnh trên đĩa cũng chưa được nén.
+  2. *Việc 2 (% giảm cửa hàng lệch: ngoài thẻ -87%, trong bảng chọn gói -90%)*: Gói "CODE NHƯ LAI THẦN CHƯỞNG" của Hiệp Khách Hành lấy giá ưu đãi lần đầu 2.000 Core so với 20.000 Core ra -90%, trong khi ngoài thẻ lấy giá niêm yết 2.600 Core so với 20.000 Core ra -87%.
+  3. *Việc 3 (Dấu ** thô trong các ô thông tin bài Clone Drone)*: Truy vấn `**` trên bài `news_1794535486811_29ep` ra 19 chỗ khớp do cú pháp `- **Tiêu đề:** Nội dung` có dấu hai chấm nằm trong cặp `**` khiến hàm `parseCardItem` cắt sai và đẩy dấu `**` trơ trọi sang đầu chuỗi `desc`.
+- **Nguyên nhân gốc rễ & Giải pháp xử lý**:
+  1. *Việc 1*: Nén `public/game_icons/idle-cat-gunner.webp` bằng Sharp từ 281.978 byte xuống **24.368 byte** (~23.8 KiB) và sinh 2 thumb (`-thumb.webp`: 4.080 byte, `-thumb-256.webp`: 9.878 byte). Tạo migration `migrations/0015_clean_idle_cat_gunner_icon.sql` dọn sạch bản ghi cũ trong D1 `uploaded_game_icons` để Worker phục vụ trực tiếp file tĩnh siêu nhẹ từ Cloudflare Pages Edge Assets.
+  2. *Việc 2*: Thống nhất chọn MỘT giá gốc chuẩn duy nhất là giá niêm yết chuẩn `currentPrice` = **2.600 Core** so với giá gốc thị trường 20.000 Core để tính tỷ lệ giảm giá sản phẩm là **-87%** ($((20.000 - 2.600) / 20.000) = 87\%$) ở mọi vị trí (Thẻ ngoài: -87%, Bảng chọn gói: -87%, Hộp thoại thanh toán: đơn giá 2.600 Core - ưu đãi lần đầu 600 Core = tổng thanh toán 2.000 Core).
+  3. *Việc 3*: Nâng cấp bộ parser `parseCardItem` trong [`src/components/NewsDetailModal.tsx`](file:///c:/4%20Antigravity%20all/13%20web%20code%20game/src/components/NewsDetailModal.tsx) hỗ trợ đầy đủ cả trường hợp dấu hai chấm nằm trong `**` (`^\*\*([^*]+?)[\:—–]\*\*\s*(.+)$/s`) và nằm ngoài `**`; đồng thời bổ sung chốt chặn làm sạch mọi dấu `**` trơ trọi trong `renderInlineMarkdown`. Tạo migration `migrations/0016_clean_clone_drone_markdown.sql` chuẩn hóa markdown bài tin trong D1 `system_settings`.
+- **Kiểm thử & Triển khai**:
+  - `npx vite build` 100% thành công trong 32.56s.
+  - Tự động chạy `npm run deploy:all` lên cả 3 host và `git push origin main`.
+
+---
+
 ### 382. Hoàn Tất 8 Việc Tồn Đọng: Sửa Nhịp Trễ Hết Hạn Mã UTC+7, NPH Pirate Legends, PageSpeed 4 Điểm, Lỗi Cửa Hàng, Bài Tin Clone Drone
 - **Bối cảnh & Hiện tượng (8 Việc Tồn Đọng)**:
   1. *Việc 1 (Nhịp trễ hết hạn mã)*: Các mã hết hạn ngày D (ví dụ 13/11) lúc 04:00 sáng ngày D+1 (14/11) vẫn bị hiển thị ACTIVE trên web do hàm parse ngày trong môi trường Cloudflare Worker chạy giờ UTC (`new Date(year, month - 1, day, 23, 59, 59)` bị coi là 23:59:59 UTC = 07:00 sáng hôm sau ở VN), và SQLite D1 query `date('now')` chạy theo UTC (21:00 UTC ngày D vẫn là ngày D).

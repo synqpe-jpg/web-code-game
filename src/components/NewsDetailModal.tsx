@@ -1097,7 +1097,11 @@ interface RenderMarkdownContentProps {
 
 const renderInlineMarkdown = (text: string): React.ReactNode => {
   if (!text) return null;
-  const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\([^)]+\))/g);
+
+  // Dọn dẹp bất kỳ dấu ** trơ trọi nào ở đầu chuỗi do format lỗi (ví dụ "** nội dung")
+  const sanitized = text.replace(/^\*\*+\s*/, '').replace(/\s*\*\*+$/, '');
+
+  const parts = sanitized.split(/(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\([^)]+\))/g);
   return parts.map((part, i) => {
     if (!part) return null;
     if (part.startsWith('**') && part.endsWith('**') && part.length >= 4) {
@@ -1128,6 +1132,10 @@ const renderInlineMarkdown = (text: string): React.ReactNode => {
         </a>
       );
     }
+    // Chốt chặn phòng thủ: Nếu vẫn còn sót dấu ** đơn lẻ không đóng cặp, tự động loại bỏ để không hiện ** thô trên giao diện
+    if (part.includes('**')) {
+      return part.replace(/\*\*/g, '');
+    }
     return part;
   });
 };
@@ -1145,25 +1153,49 @@ const getCategoryTag = (title: string): string => {
 
 const parseCardItem = (raw: string) => {
   const clean = raw.trim().replace(/^[-*]\s+|\d+\.\s+/, '');
-  // 1. Try colon or dash separator
+
+  // 1. Trường hợp dấu hai chấm nằm TRONG cặp in đậm: **Tiêu đề:** Nội dung
+  const colonInsideMatch = clean.match(/^\*\*([^*]+?)[\:—–]\*\*\s*(.+)$/s);
+  if (colonInsideMatch) {
+    const title = colonInsideMatch[1].trim();
+    const desc = colonInsideMatch[2].replace(/^\*\*+|\*\*+$/g, '').trim();
+    if (title.length <= 80 && desc.length > 0) {
+      return { title, desc, tag: getCategoryTag(title) };
+    }
+  }
+
+  // 2. Trường hợp dấu hai chấm nằm NGOÀI cặp in đậm: **Tiêu đề**: Nội dung
+  const colonOutsideMatch = clean.match(/^\*\*([^*]+?)\*\*\s*[\:—–]\s*(.+)$/s);
+  if (colonOutsideMatch) {
+    const title = colonOutsideMatch[1].trim();
+    const desc = colonOutsideMatch[2].replace(/^\*\*+|\*\*+$/g, '').trim();
+    if (title.length <= 80 && desc.length > 0) {
+      return { title, desc, tag: getCategoryTag(title) };
+    }
+  }
+
+  // 3. Trường hợp thông thường: Tiêu đề: Nội dung hoặc **Tiêu đề** - Nội dung
   const colonMatch = clean.match(/^(\*\*[^*]+\*\*|[^\:—–]+)[\:—–]\s*(.+)$/s);
   if (colonMatch) {
-    const title = colonMatch[1].replace(/^\*\*|\*\*$/g, '').trim();
-    const desc = colonMatch[2].trim();
-    if (title.length <= 60 && desc.length > 0) {
+    const title = colonMatch[1].replace(/^\*\*+|\*\*+$/g, '').trim();
+    const desc = colonMatch[2].replace(/^\*\*+|\*\*+$/g, '').trim();
+    if (title.length <= 80 && desc.length > 0) {
       return { title, desc, tag: getCategoryTag(title) };
     }
   }
-  // 2. Try comma separator for well-known prefixes
+
+  // 4. Trường hợp dấu phẩy ngăn cách
   if (clean.includes(',')) {
     const idx = clean.indexOf(',');
-    const title = clean.slice(0, idx).trim();
-    const desc = clean.slice(idx + 1).trim();
-    if (title.length <= 60 && desc.length > 0) {
+    const title = clean.slice(0, idx).replace(/^\*\*+|\*\*+$/g, '').trim();
+    const desc = clean.slice(idx + 1).replace(/^\*\*+|\*\*+$/g, '').trim();
+    if (title.length <= 80 && desc.length > 0) {
       return { title, desc, tag: getCategoryTag(title) };
     }
   }
-  return { title: clean, desc: '', tag: getCategoryTag(clean) };
+
+  const cleanTitle = clean.replace(/^\*\*+|\*\*+$/g, '').trim();
+  return { title: cleanTitle, desc: '', tag: getCategoryTag(cleanTitle) };
 };
 
 const RenderMarkdownContent: React.FC<RenderMarkdownContentProps> = ({ rawText, onCopyCode, copiedCode }) => {

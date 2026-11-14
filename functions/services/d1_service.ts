@@ -2223,6 +2223,69 @@ export async function ensureSchemaUpgrades(db: D1Database): Promise<void> {
     console.warn('[Migration 0014_fix_clone_drone_news_cover error]', err?.message);
   }
 
+  // 17. Migration 0015: Dọn sạch icon cũ của idle-cat-gunner trong uploaded_game_icons (0015_clean_idle_cat_gunner_icon.sql)
+  try {
+    const icgMig = await db.prepare("SELECT 1 FROM schema_migrations WHERE id = '0015_clean_idle_cat_gunner_icon' LIMIT 1;").first<any>().catch(() => null);
+    if (!icgMig) {
+      await db.prepare("DELETE FROM uploaded_game_icons WHERE slug IN ('idle-cat-gunner', 'idle-cat-gunner.webp', 'idle-cat-gunner-thumb', 'idle-cat-gunner-thumb-256')").run().catch(() => {});
+      await db.prepare("INSERT OR IGNORE INTO schema_migrations (id) VALUES ('0015_clean_idle_cat_gunner_icon');").run().catch(() => {});
+    }
+  } catch (err: any) {
+    console.warn('[Migration 0015_clean_idle_cat_gunner_icon error]', err?.message);
+  }
+
+  // 18. Migration 0016: Chuẩn hóa markdown bài tin Clone Drone (0016_clean_clone_drone_markdown.sql)
+  try {
+    const m16Mig = await db.prepare("SELECT 1 FROM schema_migrations WHERE id = '0016_clean_clone_drone_markdown' LIMIT 1;").first<any>().catch(() => null);
+    if (!m16Mig) {
+      await db.prepare(`
+        UPDATE system_settings
+        SET value = REPLACE(
+          REPLACE(
+            REPLACE(
+              REPLACE(
+                REPLACE(
+                  REPLACE(
+                    REPLACE(
+                      REPLACE(
+                        REPLACE(
+                          REPLACE(
+                            REPLACE(
+                              REPLACE(
+                                value,
+                                '- **Nền tảng:**', '- **Nền tảng**:'
+                              ),
+                              '- **Hình thức phát hành:**', '- **Hình thức phát hành**:'
+                            ),
+                            '- **Nhiều người chơi:**', '- **Nhiều người chơi**:'
+                          ),
+                          '- **Giá bán:**', '- **Giá bán**:'
+                        ),
+                        '- **Thử thách Saw Dog:**', '- **Thử thách Saw Dog**:'
+                      ),
+                      '- **Thử thách Kỷ niệm (Anniversary Challenge):**', '- **Thử thách Kỷ niệm (Anniversary Challenge)**:'
+                    ),
+                    '- **Thử thách giàu cốt truyện:**', '- **Thử thách giàu cốt truyện**:'
+                  ),
+                  '- **Thời gian ra mắt mobile:**', '- **Thời gian ra mắt mobile**:'
+                ),
+                '- **Cách tải:**', '- **Cách tải**:'
+              ),
+              '- **Cập nhật kỷ niệm 10 năm:**', '- **Cập nhật kỷ niệm 10 năm**:'
+            ),
+            '- **Chế độ nhiều người chơi:**', '- **Chế độ nhiều người chơi**:'
+          ),
+          '- **Lưu ý cho người mới:**', '- **Lưu ý cho người mới**:'
+        ),
+        updated_at = datetime('now')
+        WHERE key = 'wcg_news_articles_v1' AND value LIKE '%clone-drone-in-the-danger-zone%'
+      `).run().catch(() => {});
+      await db.prepare("INSERT OR IGNORE INTO schema_migrations (id) VALUES ('0016_clean_clone_drone_markdown');").run().catch(() => {});
+    }
+  } catch (err: any) {
+    console.warn('[Migration 0016_clean_clone_drone_markdown error]', err?.message);
+  }
+
   schemaUpgradesDone = true;
   })();
 

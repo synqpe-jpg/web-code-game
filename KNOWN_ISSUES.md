@@ -10,6 +10,24 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-270: Bẫy D1 uploaded_game_icons Ưu Tiên Chặn Phục Vụ Static Asset Sau Tối Ưu Nén, Bẫy Lệch % Giảm Giá Do Khác Cơ Số Tính (Niêm Yết vs Ưu Đãi Lần Đầu), & Bẫy Cắt Dấu Hai Chấm Nằm Trong Cặp In Đậm Markdown Của Card Grid
+- **Triệu chứng & Rủi ro**:
+  1. *Icon cũ vẫn phục vụ*: Sau khi nén file tĩnh `idle-cat-gunner.webp` từ 275 KiB xuống 24 KiB, request live vẫn nhận 281.978 byte kèm `X-Icon-Source: d1-uploaded` do D1 bảng `uploaded_game_icons` có bản ghi cũ được ưu tiên phục vụ trước static assets.
+  2. *Lệch % giảm giá*: Ngoài thẻ ghi `-87%` (tính từ 2.600 Core so với 20.000 Core), trong bảng chọn gói lại ghi `-90%` (tính từ 2.000 Core mua lần đầu so với 20.000 Core), làm trải nghiệm mua hàng bị nhập nhằng.
+  3. *Dấu `**` thô trong Card Grid*: Các ô thông tin bài tin có cú pháp `- **Nền tảng:** iOS...` bị regex cắt tại dấu `:` trước `**`, khiến `desc` bị thừa `** ` ở đầu và không thể render thành `<strong />`.
+- **Nguyên nhân gốc rễ**:
+  1. Worker `_worker.ts` kiểm tra D1 `uploaded_game_icons` trước static assets. Khi D1 còn bản ghi cũ, static asset nén trong `dist` không bao giờ được chạm tới.
+  2. Hai component tính % giảm giá dựa trên hai cơ số giá khác nhau (`rawOfferPrice = 2000` vs `currentPrice = 2600`).
+  3. Regex `parseCardItem` chỉ tìm dấu hai chấm bên ngoài `**` (`^(\*\*[^*]+\*\*|[^\:—–]+)[\:—–]`), không xử lý trường hợp dấu hai chấm nằm bên trong cặp in đậm (`^\*\*([^*]+?)[\:—–]\*\*`).
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Nén file tĩnh đồng thời chạy migration dọn sạch bản ghi cũ trong D1 `uploaded_game_icons` để Worker chuyển tiếp phục vụ trực tiếp static asset từ Edge Assets.
+  2. Thống nhất chọn MỘT giá gốc chuẩn duy nhất là giá niêm yết bán ra (`currentPrice` = 2.600 Core) để tính tỷ lệ giảm giá chiết khấu (-87%) ở mọi vị trí; giá 2.000 Core thể hiện rõ dưới dạng "Ưu đãi mua lần đầu (chỉ 2.000 Core)" và khoản giảm trừ trong thanh toán.
+  3. Bổ sung regex bóc tách cả 2 trường hợp dấu hai chấm nằm trong và ngoài `**` trong `parseCardItem`; bổ sung chốt chặn làm sạch mọi dấu `**` trơ trọi trong `renderInlineMarkdown`.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không chỉ thay file tĩnh trong `public` mà bỏ quên bản ghi override trong D1 `uploaded_game_icons`.*
+  - ❌ *Không dùng giá khuyến mãi có điều kiện (mua lần đầu) làm cơ số tính % giảm giá niêm yết chung.*
+  - ❌ *Không dùng regex tách chuỗi markdown ngây thơ bỏ qua vị trí dấu hai chấm bên trong cặp formatting.*
+
 ### ISSUE-269: Bẫy Lệch Múi Giờ UTC So Với UTC+7 Khi Tính Ngày Hết Hạn Mã Khiến Bot 04:00 Sáng Bị Trễ 1 Ngày & Bẫy Khóa Edge Cache Không Gắn `__BUILD_ID__`
 - **Triệu chứng & Rủi ro**:
   1. *Lệch nhịp hết hạn mã*: Mã có hạn là ngày 13/11 nhưng bot rà soát chạy lúc 04:00 sáng ngày 14/11 (giờ VN) vẫn thấy mã ACTIVE. Đến 04:00 sáng ngày 15/11 mới thấy mã EXPIRED (trễ đúng 1 ngày).

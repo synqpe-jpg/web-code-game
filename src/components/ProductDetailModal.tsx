@@ -282,7 +282,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     ? selectedEscData.current_price
     : (isSelectedOfferEligible ? rawOfferPrice : currentPrice);
 
-  // Thống nhất cơ số tính % giảm dựa trên giá gốc thật originalPrice (tránh lệch 23% vs 87%)
+  // Thống nhất MỘT giá gốc chuẩn duy nhất (giá niêm yết currentPrice = 2.600 Core) so với giá gốc thị trường displayOriginalPrice (20.000 Core)
+  // để tính tỷ lệ giảm giá chiết khấu, đảm bảo Thẻ Ngoài (-87%), Bảng Chọn Gói (-87%) và Hộp Thoại Thanh Toán hoàn toàn khớp nhau 100%
   const displayOriginalPrice = isSelectedEscalating
     ? displayCurrentPrice
     : (originalPrice > 0 ? originalPrice : currentPrice);
@@ -290,8 +291,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const discountPercent =
     isSelectedEscalating
       ? 0
-      : (displayOriginalPrice > displayCurrentPrice
-          ? Math.round(((displayOriginalPrice - displayCurrentPrice) / displayOriginalPrice) * 100)
+      : (displayOriginalPrice > currentPrice
+          ? Math.round(((displayOriginalPrice - currentPrice) / displayOriginalPrice) * 100)
           : 0);
 
   // Tổng tiền: Gói Nâng Giá khóa ở 1 gói; gói ưu đãi tính theo quy tắc ưu đãi
