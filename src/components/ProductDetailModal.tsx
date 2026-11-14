@@ -183,7 +183,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
   // Tải lại tồn kho thật (stock_quantity) từ máy chủ khi mở modal hoặc đổi gói
   useEffect(() => {
-    if (!isOpen) return;
     const targetId = selectedPackage?.id || product?.id;
     if (!targetId) return;
 
@@ -197,7 +196,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     return () => {
       active = false;
     };
-  }, [isOpen, selectedPackage?.id, product?.id]);
+  }, [selectedPackage?.id, product?.id]);
 
   const realStock = liveStock !== null
     ? liveStock
