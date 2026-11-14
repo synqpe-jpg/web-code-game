@@ -2810,6 +2810,86 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
   }
 
   // --- STORE & PAID CODES SYSTEM ---
+  /**
+   * Tải lại tồn kho thật (stock_quantity) của sản phẩm từ máy chủ thời gian thực.
+   * D1 là nguồn chân lý (SSOT), trả về đúng số hàng thực tế còn trong kho.
+   */
+  async refreshRealStock(productId: string): Promise<number | null> {
+    if (!productId) return null;
+    const cleanId = String(productId).trim();
+
+    try {
+      // 1. Nếu là Tiện ích (ut_...)
+      if (cleanId.startsWith('ut_')) {
+        const res = await fetch(`/api/sync?key=wcg_admin_utilities_v4&fresh=1&_t=${Date.now()}`);
+        if (res.ok) {
+          const json = await res.json();
+          const list = json && (Array.isArray(json.data) ? json.data : (Array.isArray(json.utilities) ? json.utilities : null));
+          if (list) {
+            const found = list.find((u: any) => u && u.id === cleanId);
+            if (found && typeof found.stock_quantity === 'number') {
+              const liveStock = Math.max(0, Number(found.stock_quantity));
+              return liveStock;
+            }
+          }
+        }
+      } else {
+        // 2. Gói cửa hàng (sp_... hoặc gói nạp game)
+        const res = await fetch(`/api/sync-lite?fresh=1&_t=${Date.now()}`);
+        if (res.ok) {
+          const json = await res.json();
+          if (json && json.success && Array.isArray(json.storeProducts)) {
+            try {
+              let delList: string[] = [];
+              if (json.deletedStoreProducts && Array.isArray(json.deletedStoreProducts)) {
+                delList = json.deletedStoreProducts;
+              } else {
+                const delRaw = localStorage.getItem('wcg_deleted_store_products');
+                if (delRaw) delList = JSON.parse(delRaw);
+              }
+              const delSet = new Set(delList);
+              delSet.add('sp_idle-cat-gunner_mw5yrnka');
+              localStorage.setItem('wcg_deleted_store_products', JSON.stringify(Array.from(delSet)));
+              const filtered = json.storeProducts.filter((p: any) => p && p.id && !delSet.has(p.id));
+              const currentSp = localStorage.getItem('wcg_admin_store_products_v4');
+              const newSp = JSON.stringify(filtered);
+              if (currentSp !== newSp) {
+                localStorage.setItem('wcg_admin_store_products_v4', newSp);
+                localStorage.setItem(this.STORE_PRODUCTS_KEY, newSp);
+                window.dispatchEvent(new CustomEvent('wcg_store_products_updated', { detail: filtered }));
+                this.notifyListeners();
+              }
+            } catch {}
+
+            const found = json.storeProducts.find((p: any) => p && (p.id === cleanId || (p as any).sku === cleanId));
+            if (found && typeof found.stock_quantity === 'number') {
+              const liveStock = Math.max(0, Number(found.stock_quantity));
+              return liveStock;
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[dataService] refreshRealStock error:', err);
+    }
+
+    // Fallback: Tìm trong dữ liệu hiện có nếu fetch thất bại
+    try {
+      const allSp = this.getStoreProducts();
+      const localSp = allSp.find((p) => p.id === cleanId || (p as any).sku === cleanId);
+      if (localSp && typeof localSp.stock_quantity === 'number') {
+        return Math.max(0, Number(localSp.stock_quantity));
+      }
+      const allUt = this.getUtilityProducts();
+      const localUt = allUt.find((u) => u.id === cleanId);
+      if (localUt && typeof localUt.stock_quantity === 'number') {
+        return Math.max(0, Number(localUt.stock_quantity));
+      }
+    } catch {}
+
+    return null;
+  }
+
   getStoreProducts(): StoreProduct[] {
     let prods: StoreProduct[] | null = null;
     let deletedSet = new Set<string>(['sp_idle-cat-gunner_mw5yrnka']);

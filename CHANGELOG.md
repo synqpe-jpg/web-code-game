@@ -7,6 +7,30 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-14]
 
+### 386. Giới Hạn Số Lượng Mua Tối Đa Bằng Tồn Kho Thật (stock_quantity) Thời Gian Thực Từ Cloudflare D1 Trong ProductDetailModal & ProductCheckoutModal
+- **Bối cảnh & Hiện trạng**:
+  - Tại các hộp thoại "Chi Tiết Gói" (`ProductDetailModal`) và "Thanh Toán Đơn Hàng" (`ProductCheckoutModal`), khách hàng có thể chọn số lượng mua.
+  - Yêu cầu cốt lõi: Số lượng tối đa khách có thể chọn phải bằng đúng số hàng thực tế còn trong kho D1 (Single Source of Truth) — không hơn, không kém.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Dùng số liệu snapshot cũ*: `ProductDetailModal` và `ProductCheckoutModal` trước đây lấy `realStock` từ dữ liệu lưu trong `localStorage` hoặc từ prop `packages` chụp tại thời điểm nạp trang. Khi kho thay đổi trên máy chủ (khách khác mua trước), trình duyệt vẫn dùng số cũ làm mức chặn.
+  2. *Chưa kẹp số lượng khi tính tiền trong ProductDetailModal*: Biến `effectiveSafeQty` ở dòng 325 dùng trực tiếp `quantity` chưa kẹp qua `Math.min(quantity, realStock)`, dẫn tới nếu gõ số vượt thì tổng tiền tính theo số vượt.
+  3. *Lỗi Temporal Dead Zone (TDZ) trong functions/api/sync.ts*: Khối truy vấn key cụ thể (`if (specificKey)`) ở dòng 254-417 truy cập biến `isNoCache` tại dòng 415 trước khi biến này được khai báo ở dòng 420, gây lỗi `ReferenceError: Cannot access 'isNoCache' before initialization`.
+- **Giải pháp áp dụng (Solution)**:
+  1. *Bổ sung dataService.refreshRealStock*: Thêm hàm tải tồn kho thời gian thực từ máy chủ qua `/api/sync-lite?fresh=1` (cho gói Store) hoặc `/api/sync?key=wcg_admin_utilities_v4&fresh=1` (cho gói Utility), đồng thời cập nhật cache đồng bộ.
+  2. *Refetch khi mở modal*: Cả `ProductDetailModal` và `ProductCheckoutModal` đều kích hoạt tải lại `stock_quantity` thật ngay khi mở hộp thoại hoặc khi người dùng chuyển đổi gói sản phẩm, lưu vào state `liveStock`.
+  3. *Kẹp chặn 100% mọi đường chọn số lượng*:
+     - Nút `+`: Tự động vô hiệu hóa (`disabled`) khi `quantity >= realStock || realStock <= 0`.
+     - Nút `-`: Vô hiệu hóa khi `quantity <= 1 || realStock <= 0`.
+     - Ô nhập tay (gõ/dán): Tự động kẹp `Math.min(realStock, val)`.
+     - Số lượng tính tiền (`safeQty` / `effectiveSafeQty`): Luôn dùng số lượng đã kẹp chặt theo `realStock` để tính tổng tiền `totalPrice`, đơn giá niêm yết, và chiết khấu ưu đãi lần đầu.
+     - Số lượng gửi khi tạo đơn: Đảm bảo gửi `safeQty` / `finalSafeQty`.
+     - Nếu tồn thật về 0: Hiển thị trạng thái "Hết hàng", vô hiệu hóa nút mua.
+     - Nếu tồn thật thay đổi trong lúc mở hộp thoại: Tự động kẹp số lượng đang chọn về tồn kho mới.
+  4. *Sửa lỗi TDZ trong sync.ts*: Di chuyển khai báo `isNoCache` lên đầu hàm xử lý trong `functions/api/sync.ts`.
+- **Kết quả nghiệm thu**:
+  - Gói CODE BẢO ĐIỂN LỆNH X10 (tồn 5): Nút `+` dừng đúng ở 5, không lên 6; gõ 99 tự kẹp về 5; tổng tiền tính theo 5.
+  - Gói CODE NHƯ LAI THẦN CHƯỞNG (tồn 21): Nút `+` dừng đúng ở 21; gõ 99 tự kẹp về 21; tổng tiền tính theo 21.
+
 ### 385. Khắc Phục Dứt Điểm 2 Điểm Nhỏ Còn Lại Trên Bài Tin Clone Drone: Hỗ Trợ Cú Pháp In Nghiêng (*...*) Trong Inline Markdown, Khôi Phục In Đậm Câu Mở Bài (Intro), & Tinh Chỉnh Bộ Phân Giải Card Grid
 - **Bối cảnh & Hiện trạng**:
   - Tại commit 3c3a6a1, bài Clone Drone (`id: news_1794535486811_29ep`, URL `/news/clone-drone-...`) đã triệt tiêu toàn bộ 18 dấu `**` thô, "19,99 USD" in đậm đúng cả 2 chỗ, giữ trang 90s không đổi.

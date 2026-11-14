@@ -179,15 +179,41 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     return product?.description || '';
   }, [selectedPackage, product]);
 
-  const realStock = typeof selectedPackage?.stock_quantity === 'number'
-    ? selectedPackage.stock_quantity
-    : (product?.stock_quantity ?? 0);
+  const [liveStock, setLiveStock] = useState<number | null>(null);
+
+  // Tải lại tồn kho thật (stock_quantity) từ máy chủ khi mở modal hoặc đổi gói
+  useEffect(() => {
+    if (!isOpen) return;
+    const targetId = selectedPackage?.id || product?.id;
+    if (!targetId) return;
+
+    let active = true;
+    dataService.refreshRealStock(targetId).then((freshStock) => {
+      if (active && freshStock !== null) {
+        setLiveStock(freshStock);
+      }
+    }).catch(() => {});
+
+    return () => {
+      active = false;
+    };
+  }, [isOpen, selectedPackage?.id, product?.id]);
+
+  const realStock = liveStock !== null
+    ? liveStock
+    : (typeof selectedPackage?.stock_quantity === 'number'
+        ? selectedPackage.stock_quantity
+        : (product?.stock_quantity ?? 0));
 
   useEffect(() => {
-    if (realStock > 0 && quantity > realStock) {
+    if (realStock <= 0) {
+      setQuantity(0);
+    } else if (quantity > realStock) {
       setQuantity(realStock);
+    } else if (quantity < 1) {
+      setQuantity(1);
     }
-  }, [realStock, selectedPackage]);
+  }, [realStock, selectedPackage?.id]);
 
   if (!product || !selectedPackage) return null;
 
@@ -295,13 +321,15 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           ? Math.round(((displayOriginalPrice - currentPrice) / displayOriginalPrice) * 100)
           : 0);
 
-  // Tổng tiền: Gói Nâng Giá khóa ở 1 gói; gói ưu đãi tính theo quy tắc ưu đãi
-  const effectiveSafeQty = isSelectedEscalating ? 1 : quantity;
+  // Tổng tiền: Gói Nâng Giá khóa ở 1 gói; số lượng tính tiền được kẹp đúng bằng tồn kho thật
+  const effectiveSafeQty = isSelectedEscalating ? 1 : (realStock > 0 ? Math.min(Math.max(1, quantity), realStock) : 0);
   const totalPrice = isSelectedEscalating
     ? displayCurrentPrice
-    : (isSelectedOfferEligible
-        ? displayCurrentPrice + (currentPrice * (effectiveSafeQty - 1))
-        : currentPrice * effectiveSafeQty);
+    : (effectiveSafeQty > 0
+        ? (isSelectedOfferEligible
+            ? displayCurrentPrice + (currentPrice * (effectiveSafeQty - 1))
+            : currentPrice * effectiveSafeQty)
+        : 0);
 
   const handleShare = async () => {
     const origin =
@@ -335,12 +363,26 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   };
 
   const handleDecreaseQty = () => {
+    if (realStock <= 0) return;
     setQuantity((prev) => Math.max(1, prev - 1));
   };
 
   const handleIncreaseQty = () => {
-    if (realStock > 0 && quantity >= realStock) return;
-    setQuantity((prev) => prev + 1);
+    if (realStock <= 0 || quantity >= realStock) return;
+    setQuantity((prev) => Math.min(realStock, prev + 1));
+  };
+
+  const handleQtyInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (realStock <= 0) {
+      setQuantity(0);
+      return;
+    }
+    const val = parseInt(e.target.value, 10);
+    if (isNaN(val) || val < 1) {
+      setQuantity(1);
+    } else {
+      setQuantity(Math.min(realStock, val));
+    }
   };
 
   if (typeof document === 'undefined') return null;
@@ -775,11 +817,16 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                             if (onShowToast) onShowToast('Hết hàng', 'Gói này tạm thời hết hàng trong kho.', 'error');
                             return;
                           }
-                          const finalSafeQty = isSelectedEscalating ? 1 : (realStock > 0 ? Math.min(quantity, realStock) : quantity);
+                          const finalSafeQty = isSelectedEscalating ? 1 : (realStock > 0 ? Math.min(Math.max(1, quantity), realStock) : 0);
+                          if (finalSafeQty <= 0) {
+                            if (onShowToast) onShowToast('Hết hàng', 'Gói này tạm thời hết hàng trong kho.', 'error');
+                            return;
+                          }
                           onBuyNow(
                             product,
                             {
                               ...selectedPackage,
+                              stock_quantity: realStock,
                               price: displayCurrentPrice,
                               isFirstPurchaseOffer: isSelectedOfferEligible,
                               discountAmount: isSelectedEscalating ? 0 : (selectedOffer?.discount_amount || 0),
@@ -1057,19 +1104,25 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                         <button
                           type="button"
                           onClick={handleDecreaseQty}
-                          disabled={quantity <= 1}
+                          disabled={quantity <= 1 || realStock <= 0}
                           className="w-8 h-8 rounded-lg bg-muted hover:bg-muted/80 text-foreground flex items-center justify-center disabled:opacity-40 cursor-pointer active:scale-95 transition-all"
                           aria-label="Giảm"
                         >
                           <Minus className="w-3.5 h-3.5" />
                         </button>
-                        <span className="w-10 text-center font-mono font-bold text-sm text-foreground">
-                          {quantity}
-                        </span>
+                        <input
+                          type="number"
+                          min={realStock <= 0 ? 0 : 1}
+                          max={realStock}
+                          value={realStock <= 0 ? 0 : Math.min(Math.max(1, quantity), realStock)}
+                          disabled={realStock <= 0}
+                          onChange={handleQtyInputChange}
+                          className="w-14 h-8 text-center font-mono font-bold text-sm bg-muted/60 border border-border/80 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary text-foreground disabled:opacity-50"
+                        />
                         <button
                           type="button"
                           onClick={handleIncreaseQty}
-                          disabled={realStock > 0 && quantity >= realStock}
+                          disabled={realStock <= 0 || quantity >= realStock}
                           className="w-8 h-8 rounded-lg bg-muted hover:bg-muted/80 text-foreground flex items-center justify-center disabled:opacity-40 cursor-pointer active:scale-95 transition-all"
                           aria-label="Tăng"
                         >

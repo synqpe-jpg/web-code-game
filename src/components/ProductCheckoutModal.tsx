@@ -416,7 +416,7 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
 
   useEffect(() => {
     if (product) {
-      setQuantity(1);
+      setQuantity(initialQuantity || 1);
       setCompletedOrder(null);
       setCopiedCodeIdx(null);
       setCopiedAll(false);
@@ -429,14 +429,39 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
 
   useLockBodyScroll(Boolean(product));
 
-  const rawStock = typeof selectedPackage?.stock_quantity === 'number'
-    ? selectedPackage.stock_quantity
-    : liveProduct?.stock_quantity;
+  const [liveStock, setLiveStock] = useState<number | null>(null);
+
+  // Tải lại tồn kho thật (stock_quantity) từ máy chủ khi mở modal thanh toán
+  useEffect(() => {
+    const targetId = selectedPackage?.id || product?.id;
+    if (!targetId) return;
+
+    let active = true;
+    dataService.refreshRealStock(targetId).then((freshStock) => {
+      if (active && freshStock !== null) {
+        setLiveStock(freshStock);
+      }
+    }).catch(() => {});
+
+    return () => {
+      active = false;
+    };
+  }, [product?.id, selectedPackage?.id]);
+
+  const rawStock = liveStock !== null
+    ? liveStock
+    : (typeof selectedPackage?.stock_quantity === 'number'
+        ? selectedPackage.stock_quantity
+        : liveProduct?.stock_quantity);
   const realStock = Math.max(0, Number(rawStock ?? 0));
 
   useEffect(() => {
-    if (realStock > 0 && quantity > realStock) {
+    if (realStock <= 0) {
+      setQuantity(0);
+    } else if (quantity > realStock) {
       setQuantity(realStock);
+    } else if (quantity < 1) {
+      setQuantity(1);
     }
   }, [realStock, selectedPackage, product]);
 
@@ -712,7 +737,7 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
   };
 
   const handleIncreaseQty = () => {
-    if (isEscalating || maxStock <= 0) return;
+    if (isEscalating || maxStock <= 0 || quantity >= maxStock) return;
     setQuantity((prev) => Math.min(maxStock, prev + 1));
   };
 

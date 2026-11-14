@@ -10,6 +10,21 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-273: Bẫy Mức Chặn Số Lượng Dùng Snapshot Tồn Kho Cũ Khi Mở Hộp Thoại, & Bẫy TDZ Khai Báo Biến isNoCache Sau Khối Query Key Cụ Thể Trong sync.ts
+- **Triệu chứng & Rủi ro**:
+  1. *Khách chọn vượt tồn kho thật*: Trong ProductDetailModal và ProductCheckoutModal, mức chặn số lượng tối đa (`maxStock`) lấy từ snapshot đồng bộ lưu trong `localStorage` hoặc từ prop `packages` chụp lúc tải trang. Nếu hàng trong kho D1 bị mua bớt hoặc cập nhật, khách vẫn có thể tăng số lượng vượt tồn kho thật và chỉ bị chặn ở bước máy chủ trừ kho.
+  2. *Lỗi 500 khi query sync specific key*: Gọi `GET /api/sync?key=...&fresh=1` trả về 500 kèm lỗi `Cannot access 'isNoCache' before initialization` do biến `isNoCache` được khai báo sau khối `if (specificKey)`.
+- **Nguyên nhân gốc rễ**:
+  1. Trình duyệt không tải lại `stock_quantity` thật của đúng gói sản phẩm tại thời điểm mở modal hoặc chuyển đổi gói.
+  2. Biến `isNoCache` trong `functions/api/sync.ts` được tham chiếu ở header phản hồi dòng 415 trước khi khai báo `const isNoCache` ở dòng 420 (vi phạm Temporal Dead Zone).
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Gọi `dataService.refreshRealStock(productId)` ngay khi mở modal hoặc đổi gói, lưu vào state `liveStock` và dùng làm mức chặn tối đa cho mọi đường: nút `+`, `-`, ô input (gõ/dán), số lượng tính tiền, và số lượng gửi tạo đơn.
+  2. Kẹp chặt `safeQty` / `effectiveSafeQty` khi tính tổng tiền `totalPrice` và chiết khấu ưu đãi lần đầu.
+  3. Khai báo `isNoCache` ngay đầu hàm xử lý trong `functions/api/sync.ts` trước mọi khối lệnh điều kiện.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không dùng số tồn hiển thị (marketingService.getDisplayStock - số FOMO) làm mức chặn mua.*
+  - ❌ *Không chỉ chặn ở nút `+` mà quên kẹp ô input gõ tay và biến tính tổng tiền `totalPrice`.*
+
 ### ISSUE-272: Bẫy Cắt Dấu ** Ở Đầu/Cuối Chuỗi Làm Mất In Đậm Câu Mở Bài, & Bẫy Thiếu Tokenizer In Nghiêng (*...*) Trong Inline Markdown
 - **Triệu chứng & Rủi ro**:
   1. *Câu mở bài mất sạch in đậm*: Câu văn bắt đầu bằng `**Nội dung in đậm** — text thường` bị biến thành chữ thường hoàn toàn, dấu `**` đóng ở giữa câu bị xóa mất.

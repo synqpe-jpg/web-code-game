@@ -214,6 +214,11 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     const authResult = await isAuthorized(request, env);
     const authorized = authResult.authorized;
 
+    const isNoCache = request.headers.get('Cache-Control')?.includes('no-cache') ||
+                      request.headers.get('Pragma')?.includes('no-cache') ||
+                      url.searchParams.has('nocache') ||
+                      url.searchParams.has('fresh');
+
     // Public allowed keys for unauthenticated queries
     // NOTE: 'wcg_master_state_v4' and 'wcg_admin_giveaways_v4' are STRICTLY EXCLUDED
     // because they contain sensitive data (raw inventory codes, member password hashes, orders, codes_pool).
@@ -417,10 +422,6 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     }
 
     // 2. Fetch master state - Cloudflare D1 as authoritative Single Source of Truth (SSOT)
-    const isNoCache = request.headers.get('Cache-Control')?.includes('no-cache') ||
-                      request.headers.get('Pragma')?.includes('no-cache') ||
-                      url.searchParams.has('nocache') ||
-                      url.searchParams.has('fresh');
 
     const globalScope = globalThis as any;
     const nowMs = Date.now();
