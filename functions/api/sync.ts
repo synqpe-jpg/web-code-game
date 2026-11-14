@@ -2493,6 +2493,71 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       }
     }
 
+    // Action: Thực thi migration 0015 & 0016 trực tiếp vào D1
+    if (body.action === 'execute_migrations_0015_0016' && env.DB) {
+      try {
+        await ensureSchemaUpgrades(env.DB);
+
+        // 1. Dọn sạch icon cũ idle-cat-gunner trong D1
+        const delRes = await env.DB.prepare("DELETE FROM uploaded_game_icons WHERE slug IN ('idle-cat-gunner', 'idle-cat-gunner.webp', 'idle-cat-gunner-thumb', 'idle-cat-gunner-thumb-256')").run();
+
+        // 2. Chuẩn hóa markdown bài tin Clone Drone trong D1
+        const newsUpdateRes = await env.DB.prepare(`
+          UPDATE system_settings
+          SET value = REPLACE(
+            REPLACE(
+              REPLACE(
+                REPLACE(
+                  REPLACE(
+                    REPLACE(
+                      REPLACE(
+                        REPLACE(
+                          REPLACE(
+                            REPLACE(
+                              REPLACE(
+                                REPLACE(
+                                  value,
+                                  '- **Nền tảng:**', '- **Nền tảng**:'
+                                ),
+                                '- **Hình thức phát hành:**', '- **Hình thức phát hành**:'
+                              ),
+                              '- **Nhiều người chơi:**', '- **Nhiều người chơi**:'
+                            ),
+                            '- **Giá bán:**', '- **Giá bán**:'
+                          ),
+                          '- **Thử thách Saw Dog:**', '- **Thử thách Saw Dog**:'
+                        ),
+                        '- **Thử thách Kỷ niệm (Anniversary Challenge):**', '- **Thử thách Kỷ niệm (Anniversary Challenge)**:'
+                      ),
+                      '- **Thử thách giàu cốt truyện:**', '- **Thử thách giàu cốt truyện**:'
+                    ),
+                    '- **Thời gian ra mắt mobile:**', '- **Thời gian ra mắt mobile**:'
+                  ),
+                  '- **Cách tải:**', '- **Cách tải**:'
+                ),
+                '- **Cập nhật kỷ niệm 10 năm:**', '- **Cập nhật kỷ niệm 10 năm**:'
+              ),
+              '- **Chế độ nhiều người chơi:**', '- **Chế độ nhiều người chơi**:'
+            ),
+            '- **Lưu ý cho người mới:**', '- **Lưu ý cho người mới**:'
+          ),
+          updated_at = datetime('now')
+          WHERE key = 'wcg_news_articles_v1' AND value LIKE '%clone-drone-in-the-danger-zone%'
+        `).run();
+
+        await env.DB.prepare("INSERT OR IGNORE INTO schema_migrations (id) VALUES ('0015_clean_idle_cat_gunner_icon');").run().catch(() => {});
+        await env.DB.prepare("INSERT OR IGNORE INTO schema_migrations (id) VALUES ('0016_clean_clone_drone_markdown');").run().catch(() => {});
+
+        return new Response(JSON.stringify({
+          success: true,
+          deletedIcon: delRes,
+          updatedNews: newsUpdateRes
+        }), { headers: CORS_HEADERS });
+      } catch (err: any) {
+        return new Response(JSON.stringify({ success: false, error: String(err?.message || err) }), { status: 500, headers: CORS_HEADERS });
+      }
+    }
+
     // Action: Sửa chữa trực tiếp dữ liệu live A1, A2 và đồng bộ custom codes sang D1 (B1)
     if (body.action === 'execute_repair_live_data_and_sync' && env.DB) {
       try {

@@ -72,7 +72,8 @@ export const onRequestGet = async (context: {
   }
 
   // 2. Tra cứu D1 bảng uploaded_game_icons trước (Ưu tiên cập nhật mới nhất từ D1 override file tĩnh cũ)
-  if (env.DB) {
+  // Ngoại lệ phòng thủ: idle-cat-gunner đã có bản nén tĩnh tối ưu 24.4 KiB trong Edge Assets, bỏ qua bản D1 cũ nặng 275 KiB
+  if (env.DB && baseSlug !== 'idle-cat-gunner') {
     try {
       // Nếu là thumb, CHỈ tìm chính xác slug thumbnail trong D1, KHÔNG fallback sang file gốc baseSlug
       const row: any = isThumb
