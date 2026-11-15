@@ -10,6 +10,18 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-279: Bẫy Dùng Icon Lucide-React Trong JSX Nhưng Thiếu Import Khiến Error Boundary Bắt Lỗi Runtime
+- **Triệu chứng & Rủi ro**:
+  - Khi người dùng truy cập một trang/route mới (ví dụ `/test1`), giao diện bị Error Boundary chặn lại kèm thông báo: `Đã có sự cố hiển thị nhỏ xảy ra... <Icon> is not defined` (ví dụ `Rocket is not defined`).
+- **Nguyên nhân gốc rễ**:
+  - Thư viện `lucide-react` chứa hàng trăm icon. Khi viết JSX nhanh (như thêm nút CTA với `<Rocket className="w-4 h-4" />`), nếu không kiểm tra kỹ danh sách import ở đầu file, Vite trong quá trình dev/build có thể không bắt được biến toàn cục nếu không có static type check nghiêm ngặt, dẫn đến khi React render component trên trình duyệt khách sẽ quăng `ReferenceError: Rocket is not defined`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Luôn kiểm tra đối chiếu danh sách JSX icon tags (`<[A-Z][a-zA-Z0-9]+ ... />`) với mảng `import { ... } from 'lucide-react'` trước khi commit.
+  - Sử dụng script audit tự động quét JSX tags trong các component mới để đảm bảo `missing == 0`.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không viết thẻ icon dạng phán đoán mà không bổ sung import.*
+  - ❌ *Không deploy khi chưa kiểm toán danh sách import các component mới tạo.*
+
 ### ISSUE-278: Bẫy Không Lọc Rác Tại Cửa Ngõ Nạp Mã Khiến D1 Bị Tái Nhiễm & Bẫy Câu Lệnh SQL COUNT(*) Đếm Cả Dòng Rác
 - **Triệu chứng & Rủi ro**:
   1. *D1 bị tái nhiễm mã rác sau mỗi đợt cào*: Đường nạp mã (`ingest-codes.ts`) không lọc qua regex trước khi INSERT INTO codes, khiến các chuỗi ảnh WordPress responsive (`IN-...-WxH`, `REDEMPTION-WxH`) hoặc nhãn nút `REDEMPTION` cào nhầm lại lọt vào D1.
