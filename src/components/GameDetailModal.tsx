@@ -92,6 +92,7 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
   // --- Feature 1: Báo Mã Lỗi Một Chạm ---
   const [reportedCodes, setReportedCodes] = useState<Record<string, boolean>>({});
   const [isReportingCode, setIsReportingCode] = useState<Record<string, boolean>>({});
+  const [isLoadingCodes, setIsLoadingCodes] = useState<boolean>(() => !Boolean(game?.codes && game.codes.length > 0 && (game as any).codes_pool_complete));
 
   // --- Feature 2: Bình Luận & Đánh Giá Game ---
   interface GameCommentItem {
@@ -404,6 +405,7 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
       setModalImageLoaded(false);
       setModalFallbackStage(0);
       setSelectedCodeTab('all');
+      setIsLoadingCodes(!Boolean(game?.codes && game.codes.length > 0));
     } else {
       // Same game updated with fresh codes or details: seamlessly merge without resetting image state!
       setLiveGame((prev) => {
@@ -419,6 +421,9 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
           codes_count: Math.max(prev.codes_count || 0, game.codes_count || 0, bestCodes.length),
         };
       });
+      if (game.codes && game.codes.length > 0) {
+        setIsLoadingCodes(false);
+      }
     }
 
     if (game.slug) {
@@ -443,9 +448,17 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
   useEffect(() => {
     if (!game?.slug) return;
     let isCancelled = false;
+    const hasCodesAlready = Boolean(game?.codes && game.codes.length > 0);
+    if (!hasCodesAlready) {
+      setIsLoadingCodes(true);
+    }
     dataService.getGameBySlug(game.slug, false).then((fresh) => {
       if (!isCancelled && fresh && (fresh.slug === game.slug || fresh.id === game.id)) {
         setLiveGame(fresh);
+      }
+    }).finally(() => {
+      if (!isCancelled) {
+        setIsLoadingCodes(false);
       }
     });
     return () => {
@@ -742,14 +755,21 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
                       {currentGame.release_date}
                     </span>
                   )}
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 font-bold border border-emerald-500/20 text-[10px] sm:text-[11px] shrink-0">
-                    <Gift className="w-3 h-3 text-emerald-400" />
-                    {expiredCodes.length > 0 ? (
-                      <span><strong>{activeCodes.length}</strong> mã còn dùng được <span className="opacity-75 font-normal">({expiredCodes.length} hết hạn)</span></span>
-                    ) : (
-                      <span><strong>{activeCodes.length}</strong> mã khả dụng</span>
-                    )}
-                  </span>
+                  {isLoadingCodes ? (
+                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-400 font-bold border border-amber-500/20 text-[10px] sm:text-[11px] shrink-0 animate-pulse">
+                      <Clock className="w-3 h-3 text-amber-400 animate-spin" />
+                      <span>Đang nạp mã giftcode...</span>
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 font-bold border border-emerald-500/20 text-[10px] sm:text-[11px] shrink-0">
+                      <Gift className="w-3 h-3 text-emerald-400" />
+                      {expiredCodes.length > 0 ? (
+                        <span><strong>{activeCodes.length}</strong> mã còn dùng được <span className="opacity-75 font-normal">({expiredCodes.length} hết hạn)</span></span>
+                      ) : (
+                        <span><strong>{activeCodes.length}</strong> mã khả dụng</span>
+                      )}
+                    </span>
+                  )}
                 </p>
               </div>
             </div>
@@ -1031,9 +1051,14 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
                 </div>
               </div>
 
-              {activeCodes.length === 0 ? (
+              {isLoadingCodes ? (
+                <div className="p-8 rounded-2xl bg-muted/40 border border-border text-center space-y-2">
+                  <div className="w-6 h-6 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin mx-auto" />
+                  <div className="text-xs sm:text-sm text-slate-300 font-semibold">Đang nạp mã giftcode từ máy chủ...</div>
+                </div>
+              ) : activeCodes.length === 0 ? (
                 <div className="p-4 rounded-2xl bg-muted/40 border border-border text-center text-xs sm:text-sm text-muted-foreground">
-                  {t.filter.noGames}
+                  {codeSearchQuery ? 'Không tìm thấy giftcode phù hợp với từ khóa.' : 'Hiện chưa có mã giftcode khả dụng cho game này.'}
                 </div>
               ) : (
                 <div className="space-y-2.5">
@@ -1248,9 +1273,13 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
                 </div>
               </div>
 
-              {expiredCodes.length === 0 ? (
+              {isLoadingCodes ? (
+                <div className="p-6 rounded-2xl bg-muted/30 border border-border/60 text-center text-xs text-muted-foreground animate-pulse">
+                  Đang đồng bộ dữ liệu mã lưu trữ...
+                </div>
+              ) : expiredCodes.length === 0 ? (
                 <div className="p-3.5 rounded-2xl bg-muted/30 border border-border/60 text-center text-xs text-muted-foreground">
-                  {t.filter.noGames}
+                  {codeSearchQuery ? 'Không có mã hết hạn phù hợp với từ khóa.' : 'Không có mã giftcode hết hạn.'}
                 </div>
               ) : (
                 <div className="space-y-2">

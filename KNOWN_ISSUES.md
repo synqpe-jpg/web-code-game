@@ -10,6 +10,26 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-282: Bẫy Chênh Lệch Dữ Liệu Bộ Đếm Mã Game Giữa Bản Tĩnh Và D1 Runtime & Bẫy Callback Nhận String vs Object Gây URL /game/undefined
+- **Triệu chứng & Rủi ro**:
+  1. *Lệch số mã thẻ ngoài vs modal*: Thẻ game ngoài lưới ghi 5 code nhưng mở modal có 10 code (Idle Heroes); Sword x Staff ghi 19 nhưng modal có 20; Tiên Nghịch ghi 19 nhưng modal chỉ có 16 còn hạn / 21 tổng.
+  2. *Nút mở game ra URL /game/undefined*: Bấm nút "Xem toàn bộ mã của game" trong trang Mã Hôm Nay khiến URL nhảy thành `https://codegame.shop/game/undefined`, tiêu đề ghi `Giftcode undefined Mới Nhất 2026`.
+  3. *Lệch % giảm giá giữa các view*: Giá ưu đãi 2.000 Core trên giá gạch 20.000 Core bị tính nhầm thành -87% thay vì -90% do lấy giá niêm yết (2.600 Core) làm tử số.
+  4. *Modal thoáng hiện "Không tìm thấy tựa game nào phù hợp"*: Khi vừa mở modal chi tiết, giao diện chớp câu rỗng trước khi nạp dữ liệu xong.
+- **Nguyên nhân gốc rễ**:
+  1. *Snapshot tĩnh cũ*: `games188.json` lưu số liệu cũ từ đợt build trước, crawler D1 live liên tục cập nhật thêm mã mới khiến số trong D1 cao hơn hoặc phân tách rõ active vs expired.
+  2. *Bất đối xứng kiểu dữ liệu callback*: Component con (`TodayCodesView`) gọi `onSelectGame(grp.game_slug)` truyền string slug, nhưng component cha (`App.tsx`) kỳ vọng object `GameItem` và truy xuất `selectedGame.slug`, dẫn đến `slug === undefined`.
+  3. *Sai công thức giảm giá*: `ProductDetailModal` dùng `((displayOriginalPrice - currentPrice) / displayOriginalPrice) * 100`, bỏ qua giá ưu đãi thực tế người dùng phải trả `displayCurrentPrice`.
+  4. *Thiếu trạng thái loading trong Modal*: Không có cờ `isLoadingCodes`, khi mảng mã rỗng tạm thời thì component render ngay empty fallback.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Chạy script đồng bộ toàn bộ `games188.json` (src và public) trực tiếp từ D1 Live API trước khi đóng gói release; hiển thị minh bạch `{active} còn hạn / {total} tổng` khi có mã hết hạn.
+  2. Chuẩn hóa callback hỗ trợ cả string slug lẫn GameItem object, thêm guard kiểm tra `slug !== 'undefined'` và không replaceState khi ở `/test1`.
+  3. Đồng bộ công thức % chiết khấu theo `displayCurrentPrice` cho mọi gói khuyến mãi.
+  4. Thêm `isLoadingCodes` vào `GameDetailModal`, hiển thị spinner và dòng trạng thái thân thiện khi đang nạp mã.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không truyền string vào callback kỳ vọng object mà không bọc adapter chuyển đổi.*
+  - ❌ *Không tính % giảm giá trên giá niêm yết khi đang áp dụng chính sách giá ưu đãi.*
+
 ### ISSUE-281: Bẫy Thiếu Import React Hook (useMemo/useRef) Gây Crash 100% Error Boundary & Bẫy Chênh Lệch Dữ Liệu Tĩnh Build-Time vs D1 Live
 - **Triệu chứng & Rủi ro**:
   1. *Crash trang chi tiết game*: Mở trang chi tiết bất kỳ game nào trên cả web chính lẫn `/test1` đều bị Error Boundary chặn lại kèm thông báo: `Đã có sự cố hiển thị nhỏ xảy ra... useMemo is not defined`.

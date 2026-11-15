@@ -41,7 +41,7 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
 
   if (variant === 'footer' || variant === 'pill') {
     return (
-      <div className={`inline-flex items-center p-1 rounded-xl bg-muted/60 border border-border/80 ${className}`}>
+      <div className={`flex flex-wrap items-center gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 max-w-full ${className}`}>
         {availableLanguages.map((lang) => {
           const isSelected = language === lang.code;
           return (
@@ -49,10 +49,10 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
               key={lang.code}
               type="button"
               onClick={() => handleSelect(lang.code)}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+              className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
                 isSelected
-                  ? 'bg-primary text-white shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-card/50'
+                  ? 'bg-[#ee4d2d] text-white shadow-xs'
+                  : 'text-slate-700 dark:text-slate-300 hover:text-[#ee4d2d] hover:bg-white dark:hover:bg-slate-700'
               }`}
               title={lang.nativeName}
             >

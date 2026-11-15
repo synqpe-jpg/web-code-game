@@ -288,7 +288,10 @@ export const TodayCodesView: React.FC<TodayCodesViewProps> = ({
                   />
                   <div className="flex-1 min-w-0">
                     <h3
-                      onClick={() => onSelectGame(grp.game_slug)}
+                      onClick={() => {
+                        const targetSlug = (grp.game_slug || (grp as any).slug || (grp as any).gameId || '').trim();
+                        if (targetSlug && targetSlug !== 'undefined') onSelectGame(targetSlug);
+                      }}
                       className="font-heading font-bold text-sm sm:text-base text-foreground truncate cursor-pointer hover:text-amber-500 dark:hover:text-amber-400 transition-colors"
                       title={grp.game_name}
                     >
@@ -300,7 +303,10 @@ export const TodayCodesView: React.FC<TodayCodesViewProps> = ({
                   </div>
                   <button
                     type="button"
-                    onClick={() => onSelectGame(grp.game_slug)}
+                    onClick={() => {
+                      const targetSlug = (grp.game_slug || (grp as any).slug || (grp as any).gameId || '').trim();
+                      if (targetSlug && targetSlug !== 'undefined') onSelectGame(targetSlug);
+                    }}
                     className="p-2 rounded-xl bg-muted/60 hover:bg-amber-500/20 text-muted-foreground hover:text-amber-500 dark:hover:text-amber-400 border border-border/60 transition-all cursor-pointer active:scale-90"
                     title="Xem toàn bộ mã của game"
                   >

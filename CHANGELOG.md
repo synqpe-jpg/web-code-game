@@ -7,6 +7,36 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-16]
 
+### 399. Đồng Bộ Toàn Diện Số Lượng Mã, Giá Gói Hiệp Khách Hành, Danh Mục A-Z 593 Game & Trạng Thái Tải Modal (16/11/2026)
+- **Bối cảnh & Yêu cầu của Chủ sở hữu**:
+  - Sau hotfix `b3399c1`, kiểm tra thực tế bằng trình duyệt thật ghi nhận 6 điểm lệch số và bất cập hiển thị:
+    1. Số mã trên lưới khác số mã trong modal (Idle Heroes: lưới 5 vs modal 10; Sword x Staff: 19 vs 20; Tiên Nghịch: lưới 19 vs modal 16 còn hạn / 21 tổng).
+    2. Giá gói Như Lai: lưới 2.600đ gạch 20.000đ (-87%); modal giá ưu đãi 2.000 Core gạch 20.000 Core vẫn ghi -87% (thực tế 2.000/20.000 là -90%), lẫn lộn đơn vị đ và Core.
+    3. Nút "Xem toàn bộ mã của game" trong Mã Hôm Nay mở URL `https://codegame.shop/game/undefined`.
+    4. Mục lục A-Z: tổng các chữ cái là 585 game, thiếu 8 game so với tổng 593 game ở lưới.
+    5. Hàng chọn ngôn ngữ ở footer bị tràn/cắt mép phải (tiếng Trung, tiếng Thái).
+    6. Modal game lúc mới mở thoáng hiện "0 mã khả dụng / Không tìm thấy tựa game nào phù hợp" rồi mới tải đủ mã.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Lệch số mã*: `games188.json` lưu bản snapshot tĩnh cũ, trong khi D1 Live API có số liệu thời gian thực sau các lần crawler cập nhật. Khi mở modal, component gọi D1 nên nhảy số thật, gây lệch giữa thẻ game tĩnh trên lưới và modal.
+  2. *Lệch % giảm giá và đơn vị*: `ProductDetailModal.tsx` tính % dựa trên giá niêm yết `currentPrice` (2.600) thay vì giá ưu đãi `displayCurrentPrice` (2.000), trong khi `ShopeeTestView` dùng đơn vị `đ` thay vì đồng bộ `formatCore`.
+  3. *Lỗi URL game/undefined*: `TodayCodesView` truyền chuỗi `grp.game_slug` vào `onSelectGame(game)` (vốn kỳ vọng object `GameItem`), dẫn đến `selectedGame.slug` là `undefined` và `App.tsx` thay URL thành `/game/undefined`.
+  4. *A-Z thiếu 8 game (585 vs 593)*: Bảng `GAME_CANONICAL_ALIASES` lọc bỏ 8 game (`where-winds-meet-mobile`, `dau-truong-chan-ly-mobile`, `huyen-thoai-hai-tac`, `seven-deadly-sins-grand-cross`, `ta-la-hac-ngo-khong-vplay`, `tam-quoc-huyen-tuong`, `x-wukong-dai-chien-tam-gioi`, `where-winds-meet`) khiến tổng A-Z bị giảm xuống 585.
+  5. *Tràn ngôn ngữ footer*: Container footer dùng `inline-flex` cố định không wrap, khiến các ngôn ngữ cuối bị cắt mép phải trên màn hình nhỏ.
+  6. *Thoáng hiện câu lọc rỗng*: Khi modal mới mở, `activeCodes.length === 0` trong tích tắc trước khi nạp xong D1, kích hoạt fallback `{t.filter.noGames}` ("Không tìm thấy tựa game nào phù hợp") và badge header "0 mã khả dụng".
+- **Giải pháp áp dụng (Solution)**:
+  1. *Đồng bộ 593 game D1 Live*: Đồng bộ toàn bộ `codes_count`, `active_codes_count`, `total_codes_count` của 593 game trong `games188.json` khớp 100% với D1 Live API. Thẻ Flash Sale và Kệ hàng hiển thị tách biệt rõ ràng `{activeCount} còn hạn / {totalCount} tổng` (Tiên Nghịch: 16 còn hạn / 21 tổng; Idle Heroes: 10/10; Sword x Staff: 20/20).
+  2. *Sửa giá gói Hiệp Khách Hành*: Đồng bộ 100% đơn vị `formatCore` (bỏ đ). Sửa công thức tính % giảm giá theo `displayCurrentPrice` (`Math.round(((displayOriginalPrice - displayCurrentPrice) / displayOriginalPrice) * 100)`), gói Như Lai ưu đãi 2.000 Core gạch 20.000 Core hiển thị chính xác `-90%` trên cả lưới và modal.
+  3. *Sửa URL an toàn cho Mã Hôm Nay*: Chuẩn hóa callback nhận `slugOrGame`, kiểm tra fallback an toàn `targetSlug !== 'undefined'`, và trong `App.tsx` thêm guard kiểm tra `selectedGame.slug !== 'undefined'` và không replaceState khi đang ở `/test1`.
+  4. *Đồng bộ A-Z đủ 593 game*: Bỏ bộ lọc canonical alias trong A-Z, hiển thị đủ 593 game có giấy phép, tiêu đề khớp `Mục Lục Toàn Bộ Tựa Game A-Z (593 Game Có Giấy Phép)`.
+  5. *Chống tràn ngôn ngữ Footer*: Sử dụng `flex flex-wrap items-center gap-1 max-w-full`, đảm bảo tất cả ngôn ngữ (kể cả tiếng Trung, tiếng Thái) hiển thị trọn vẹn, không bao giờ bị cắt mép.
+  6. *Trạng thái nạp mã trong Modal*: Thêm state `isLoadingCodes`, khi đang nạp mã hiển thị spinner + "Đang nạp mã giftcode từ máy chủ..." ở header và danh sách, tuyệt đối không hiện câu "0 mã khả dụng / Không tìm thấy tựa game nào phù hợp".
+- **Kết quả nghiệm thu**:
+  - Zero test artifacts PASSED 100%.
+  - Build Vite & Cloudflare Edge Worker bundle thành công 100%.
+  - Prerender đầy đủ 593 trang chi tiết game và các trang danh mục.
+
+---
+
 ### 398. Hotfix Crash useMemo Trang Chi Tiết Game & Đồng Bộ Chuẩn Xác Các Chỉ Số /test1 (16/11/2026)
 - **Bối cảnh & Yêu cầu của Chủ sở hữu**:
   - Build `af17198` gây crash 100% trang chi tiết game (`useMemo is not defined`) tại `https://codegame.shop/game/<slug>` và từ `/test1`.
@@ -75,6 +105,36 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-16]
 
+### 399. Đồng Bộ Toàn Diện Số Lượng Mã, Giá Gói Hiệp Khách Hành, Danh Mục A-Z 593 Game & Trạng Thái Tải Modal (16/11/2026)
+- **Bối cảnh & Yêu cầu của Chủ sở hữu**:
+  - Sau hotfix `b3399c1`, kiểm tra thực tế bằng trình duyệt thật ghi nhận 6 điểm lệch số và bất cập hiển thị:
+    1. Số mã trên lưới khác số mã trong modal (Idle Heroes: lưới 5 vs modal 10; Sword x Staff: 19 vs 20; Tiên Nghịch: lưới 19 vs modal 16 còn hạn / 21 tổng).
+    2. Giá gói Như Lai: lưới 2.600đ gạch 20.000đ (-87%); modal giá ưu đãi 2.000 Core gạch 20.000 Core vẫn ghi -87% (thực tế 2.000/20.000 là -90%), lẫn lộn đơn vị đ và Core.
+    3. Nút "Xem toàn bộ mã của game" trong Mã Hôm Nay mở URL `https://codegame.shop/game/undefined`.
+    4. Mục lục A-Z: tổng các chữ cái là 585 game, thiếu 8 game so với tổng 593 game ở lưới.
+    5. Hàng chọn ngôn ngữ ở footer bị tràn/cắt mép phải (tiếng Trung, tiếng Thái).
+    6. Modal game lúc mới mở thoáng hiện "0 mã khả dụng / Không tìm thấy tựa game nào phù hợp" rồi mới tải đủ mã.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Lệch số mã*: `games188.json` lưu bản snapshot tĩnh cũ, trong khi D1 Live API có số liệu thời gian thực sau các lần crawler cập nhật. Khi mở modal, component gọi D1 nên nhảy số thật, gây lệch giữa thẻ game tĩnh trên lưới và modal.
+  2. *Lệch % giảm giá và đơn vị*: `ProductDetailModal.tsx` tính % dựa trên giá niêm yết `currentPrice` (2.600) thay vì giá ưu đãi `displayCurrentPrice` (2.000), trong khi `ShopeeTestView` dùng đơn vị `đ` thay vì đồng bộ `formatCore`.
+  3. *Lỗi URL game/undefined*: `TodayCodesView` truyền chuỗi `grp.game_slug` vào `onSelectGame(game)` (vốn kỳ vọng object `GameItem`), dẫn đến `selectedGame.slug` là `undefined` và `App.tsx` thay URL thành `/game/undefined`.
+  4. *A-Z thiếu 8 game (585 vs 593)*: Bảng `GAME_CANONICAL_ALIASES` lọc bỏ 8 game (`where-winds-meet-mobile`, `dau-truong-chan-ly-mobile`, `huyen-thoai-hai-tac`, `seven-deadly-sins-grand-cross`, `ta-la-hac-ngo-khong-vplay`, `tam-quoc-huyen-tuong`, `x-wukong-dai-chien-tam-gioi`, `where-winds-meet`) khiến tổng A-Z bị giảm xuống 585.
+  5. *Tràn ngôn ngữ footer*: Container footer dùng `inline-flex` cố định không wrap, khiến các ngôn ngữ cuối bị cắt mép phải trên màn hình nhỏ.
+  6. *Thoáng hiện câu lọc rỗng*: Khi modal mới mở, `activeCodes.length === 0` trong tích tắc trước khi nạp xong D1, kích hoạt fallback `{t.filter.noGames}` ("Không tìm thấy tựa game nào phù hợp") và badge header "0 mã khả dụng".
+- **Giải pháp áp dụng (Solution)**:
+  1. *Đồng bộ 593 game D1 Live*: Đồng bộ toàn bộ `codes_count`, `active_codes_count`, `total_codes_count` của 593 game trong `games188.json` khớp 100% với D1 Live API. Thẻ Flash Sale và Kệ hàng hiển thị tách biệt rõ ràng `{activeCount} còn hạn / {totalCount} tổng` (Tiên Nghịch: 16 còn hạn / 21 tổng; Idle Heroes: 10/10; Sword x Staff: 20/20).
+  2. *Sửa giá gói Hiệp Khách Hành*: Đồng bộ 100% đơn vị `formatCore` (bỏ đ). Sửa công thức tính % giảm giá theo `displayCurrentPrice` (`Math.round(((displayOriginalPrice - displayCurrentPrice) / displayOriginalPrice) * 100)`), gói Như Lai ưu đãi 2.000 Core gạch 20.000 Core hiển thị chính xác `-90%` trên cả lưới và modal.
+  3. *Sửa URL an toàn cho Mã Hôm Nay*: Chuẩn hóa callback nhận `slugOrGame`, kiểm tra fallback an toàn `targetSlug !== 'undefined'`, và trong `App.tsx` thêm guard kiểm tra `selectedGame.slug !== 'undefined'` và không replaceState khi đang ở `/test1`.
+  4. *Đồng bộ A-Z đủ 593 game*: Bỏ bộ lọc canonical alias trong A-Z, hiển thị đủ 593 game có giấy phép, tiêu đề khớp `Mục Lục Toàn Bộ Tựa Game A-Z (593 Game Có Giấy Phép)`.
+  5. *Chống tràn ngôn ngữ Footer*: Sử dụng `flex flex-wrap items-center gap-1 max-w-full`, đảm bảo tất cả ngôn ngữ (kể cả tiếng Trung, tiếng Thái) hiển thị trọn vẹn, không bao giờ bị cắt mép.
+  6. *Trạng thái nạp mã trong Modal*: Thêm state `isLoadingCodes`, khi đang nạp mã hiển thị spinner + "Đang nạp mã giftcode từ máy chủ..." ở header và danh sách, tuyệt đối không hiện câu "0 mã khả dụng / Không tìm thấy tựa game nào phù hợp".
+- **Kết quả nghiệm thu**:
+  - Zero test artifacts PASSED 100%.
+  - Build Vite & Cloudflare Edge Worker bundle thành công 100%.
+  - Prerender đầy đủ 593 trang chi tiết game và các trang danh mục.
+
+---
+
 ### 398. Hotfix Crash useMemo Trang Chi Tiết Game & Đồng Bộ Chuẩn Xác Các Chỉ Số /test1 (16/11/2026)
 - **Bối cảnh & Yêu cầu của Chủ sở hữu**:
   - Build `af17198` gây crash 100% trang chi tiết game (`useMemo is not defined`) tại `https://codegame.shop/game/<slug>` và từ `/test1`.
@@ -116,6 +176,36 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 ---
 
 ## [2026-11-16]
+
+### 399. Đồng Bộ Toàn Diện Số Lượng Mã, Giá Gói Hiệp Khách Hành, Danh Mục A-Z 593 Game & Trạng Thái Tải Modal (16/11/2026)
+- **Bối cảnh & Yêu cầu của Chủ sở hữu**:
+  - Sau hotfix `b3399c1`, kiểm tra thực tế bằng trình duyệt thật ghi nhận 6 điểm lệch số và bất cập hiển thị:
+    1. Số mã trên lưới khác số mã trong modal (Idle Heroes: lưới 5 vs modal 10; Sword x Staff: 19 vs 20; Tiên Nghịch: lưới 19 vs modal 16 còn hạn / 21 tổng).
+    2. Giá gói Như Lai: lưới 2.600đ gạch 20.000đ (-87%); modal giá ưu đãi 2.000 Core gạch 20.000 Core vẫn ghi -87% (thực tế 2.000/20.000 là -90%), lẫn lộn đơn vị đ và Core.
+    3. Nút "Xem toàn bộ mã của game" trong Mã Hôm Nay mở URL `https://codegame.shop/game/undefined`.
+    4. Mục lục A-Z: tổng các chữ cái là 585 game, thiếu 8 game so với tổng 593 game ở lưới.
+    5. Hàng chọn ngôn ngữ ở footer bị tràn/cắt mép phải (tiếng Trung, tiếng Thái).
+    6. Modal game lúc mới mở thoáng hiện "0 mã khả dụng / Không tìm thấy tựa game nào phù hợp" rồi mới tải đủ mã.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Lệch số mã*: `games188.json` lưu bản snapshot tĩnh cũ, trong khi D1 Live API có số liệu thời gian thực sau các lần crawler cập nhật. Khi mở modal, component gọi D1 nên nhảy số thật, gây lệch giữa thẻ game tĩnh trên lưới và modal.
+  2. *Lệch % giảm giá và đơn vị*: `ProductDetailModal.tsx` tính % dựa trên giá niêm yết `currentPrice` (2.600) thay vì giá ưu đãi `displayCurrentPrice` (2.000), trong khi `ShopeeTestView` dùng đơn vị `đ` thay vì đồng bộ `formatCore`.
+  3. *Lỗi URL game/undefined*: `TodayCodesView` truyền chuỗi `grp.game_slug` vào `onSelectGame(game)` (vốn kỳ vọng object `GameItem`), dẫn đến `selectedGame.slug` là `undefined` và `App.tsx` thay URL thành `/game/undefined`.
+  4. *A-Z thiếu 8 game (585 vs 593)*: Bảng `GAME_CANONICAL_ALIASES` lọc bỏ 8 game (`where-winds-meet-mobile`, `dau-truong-chan-ly-mobile`, `huyen-thoai-hai-tac`, `seven-deadly-sins-grand-cross`, `ta-la-hac-ngo-khong-vplay`, `tam-quoc-huyen-tuong`, `x-wukong-dai-chien-tam-gioi`, `where-winds-meet`) khiến tổng A-Z bị giảm xuống 585.
+  5. *Tràn ngôn ngữ footer*: Container footer dùng `inline-flex` cố định không wrap, khiến các ngôn ngữ cuối bị cắt mép phải trên màn hình nhỏ.
+  6. *Thoáng hiện câu lọc rỗng*: Khi modal mới mở, `activeCodes.length === 0` trong tích tắc trước khi nạp xong D1, kích hoạt fallback `{t.filter.noGames}` ("Không tìm thấy tựa game nào phù hợp") và badge header "0 mã khả dụng".
+- **Giải pháp áp dụng (Solution)**:
+  1. *Đồng bộ 593 game D1 Live*: Đồng bộ toàn bộ `codes_count`, `active_codes_count`, `total_codes_count` của 593 game trong `games188.json` khớp 100% với D1 Live API. Thẻ Flash Sale và Kệ hàng hiển thị tách biệt rõ ràng `{activeCount} còn hạn / {totalCount} tổng` (Tiên Nghịch: 16 còn hạn / 21 tổng; Idle Heroes: 10/10; Sword x Staff: 20/20).
+  2. *Sửa giá gói Hiệp Khách Hành*: Đồng bộ 100% đơn vị `formatCore` (bỏ đ). Sửa công thức tính % giảm giá theo `displayCurrentPrice` (`Math.round(((displayOriginalPrice - displayCurrentPrice) / displayOriginalPrice) * 100)`), gói Như Lai ưu đãi 2.000 Core gạch 20.000 Core hiển thị chính xác `-90%` trên cả lưới và modal.
+  3. *Sửa URL an toàn cho Mã Hôm Nay*: Chuẩn hóa callback nhận `slugOrGame`, kiểm tra fallback an toàn `targetSlug !== 'undefined'`, và trong `App.tsx` thêm guard kiểm tra `selectedGame.slug !== 'undefined'` và không replaceState khi đang ở `/test1`.
+  4. *Đồng bộ A-Z đủ 593 game*: Bỏ bộ lọc canonical alias trong A-Z, hiển thị đủ 593 game có giấy phép, tiêu đề khớp `Mục Lục Toàn Bộ Tựa Game A-Z (593 Game Có Giấy Phép)`.
+  5. *Chống tràn ngôn ngữ Footer*: Sử dụng `flex flex-wrap items-center gap-1 max-w-full`, đảm bảo tất cả ngôn ngữ (kể cả tiếng Trung, tiếng Thái) hiển thị trọn vẹn, không bao giờ bị cắt mép.
+  6. *Trạng thái nạp mã trong Modal*: Thêm state `isLoadingCodes`, khi đang nạp mã hiển thị spinner + "Đang nạp mã giftcode từ máy chủ..." ở header và danh sách, tuyệt đối không hiện câu "0 mã khả dụng / Không tìm thấy tựa game nào phù hợp".
+- **Kết quả nghiệm thu**:
+  - Zero test artifacts PASSED 100%.
+  - Build Vite & Cloudflare Edge Worker bundle thành công 100%.
+  - Prerender đầy đủ 593 trang chi tiết game và các trang danh mục.
+
+---
 
 ### 398. Hotfix Crash useMemo Trang Chi Tiết Game & Đồng Bộ Chuẩn Xác Các Chỉ Số /test1 (16/11/2026)
 - **Bối cảnh & Yêu cầu của Chủ sở hữu**:
@@ -181,6 +271,36 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-16]
 
+### 399. Đồng Bộ Toàn Diện Số Lượng Mã, Giá Gói Hiệp Khách Hành, Danh Mục A-Z 593 Game & Trạng Thái Tải Modal (16/11/2026)
+- **Bối cảnh & Yêu cầu của Chủ sở hữu**:
+  - Sau hotfix `b3399c1`, kiểm tra thực tế bằng trình duyệt thật ghi nhận 6 điểm lệch số và bất cập hiển thị:
+    1. Số mã trên lưới khác số mã trong modal (Idle Heroes: lưới 5 vs modal 10; Sword x Staff: 19 vs 20; Tiên Nghịch: lưới 19 vs modal 16 còn hạn / 21 tổng).
+    2. Giá gói Như Lai: lưới 2.600đ gạch 20.000đ (-87%); modal giá ưu đãi 2.000 Core gạch 20.000 Core vẫn ghi -87% (thực tế 2.000/20.000 là -90%), lẫn lộn đơn vị đ và Core.
+    3. Nút "Xem toàn bộ mã của game" trong Mã Hôm Nay mở URL `https://codegame.shop/game/undefined`.
+    4. Mục lục A-Z: tổng các chữ cái là 585 game, thiếu 8 game so với tổng 593 game ở lưới.
+    5. Hàng chọn ngôn ngữ ở footer bị tràn/cắt mép phải (tiếng Trung, tiếng Thái).
+    6. Modal game lúc mới mở thoáng hiện "0 mã khả dụng / Không tìm thấy tựa game nào phù hợp" rồi mới tải đủ mã.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Lệch số mã*: `games188.json` lưu bản snapshot tĩnh cũ, trong khi D1 Live API có số liệu thời gian thực sau các lần crawler cập nhật. Khi mở modal, component gọi D1 nên nhảy số thật, gây lệch giữa thẻ game tĩnh trên lưới và modal.
+  2. *Lệch % giảm giá và đơn vị*: `ProductDetailModal.tsx` tính % dựa trên giá niêm yết `currentPrice` (2.600) thay vì giá ưu đãi `displayCurrentPrice` (2.000), trong khi `ShopeeTestView` dùng đơn vị `đ` thay vì đồng bộ `formatCore`.
+  3. *Lỗi URL game/undefined*: `TodayCodesView` truyền chuỗi `grp.game_slug` vào `onSelectGame(game)` (vốn kỳ vọng object `GameItem`), dẫn đến `selectedGame.slug` là `undefined` và `App.tsx` thay URL thành `/game/undefined`.
+  4. *A-Z thiếu 8 game (585 vs 593)*: Bảng `GAME_CANONICAL_ALIASES` lọc bỏ 8 game (`where-winds-meet-mobile`, `dau-truong-chan-ly-mobile`, `huyen-thoai-hai-tac`, `seven-deadly-sins-grand-cross`, `ta-la-hac-ngo-khong-vplay`, `tam-quoc-huyen-tuong`, `x-wukong-dai-chien-tam-gioi`, `where-winds-meet`) khiến tổng A-Z bị giảm xuống 585.
+  5. *Tràn ngôn ngữ footer*: Container footer dùng `inline-flex` cố định không wrap, khiến các ngôn ngữ cuối bị cắt mép phải trên màn hình nhỏ.
+  6. *Thoáng hiện câu lọc rỗng*: Khi modal mới mở, `activeCodes.length === 0` trong tích tắc trước khi nạp xong D1, kích hoạt fallback `{t.filter.noGames}` ("Không tìm thấy tựa game nào phù hợp") và badge header "0 mã khả dụng".
+- **Giải pháp áp dụng (Solution)**:
+  1. *Đồng bộ 593 game D1 Live*: Đồng bộ toàn bộ `codes_count`, `active_codes_count`, `total_codes_count` của 593 game trong `games188.json` khớp 100% với D1 Live API. Thẻ Flash Sale và Kệ hàng hiển thị tách biệt rõ ràng `{activeCount} còn hạn / {totalCount} tổng` (Tiên Nghịch: 16 còn hạn / 21 tổng; Idle Heroes: 10/10; Sword x Staff: 20/20).
+  2. *Sửa giá gói Hiệp Khách Hành*: Đồng bộ 100% đơn vị `formatCore` (bỏ đ). Sửa công thức tính % giảm giá theo `displayCurrentPrice` (`Math.round(((displayOriginalPrice - displayCurrentPrice) / displayOriginalPrice) * 100)`), gói Như Lai ưu đãi 2.000 Core gạch 20.000 Core hiển thị chính xác `-90%` trên cả lưới và modal.
+  3. *Sửa URL an toàn cho Mã Hôm Nay*: Chuẩn hóa callback nhận `slugOrGame`, kiểm tra fallback an toàn `targetSlug !== 'undefined'`, và trong `App.tsx` thêm guard kiểm tra `selectedGame.slug !== 'undefined'` và không replaceState khi đang ở `/test1`.
+  4. *Đồng bộ A-Z đủ 593 game*: Bỏ bộ lọc canonical alias trong A-Z, hiển thị đủ 593 game có giấy phép, tiêu đề khớp `Mục Lục Toàn Bộ Tựa Game A-Z (593 Game Có Giấy Phép)`.
+  5. *Chống tràn ngôn ngữ Footer*: Sử dụng `flex flex-wrap items-center gap-1 max-w-full`, đảm bảo tất cả ngôn ngữ (kể cả tiếng Trung, tiếng Thái) hiển thị trọn vẹn, không bao giờ bị cắt mép.
+  6. *Trạng thái nạp mã trong Modal*: Thêm state `isLoadingCodes`, khi đang nạp mã hiển thị spinner + "Đang nạp mã giftcode từ máy chủ..." ở header và danh sách, tuyệt đối không hiện câu "0 mã khả dụng / Không tìm thấy tựa game nào phù hợp".
+- **Kết quả nghiệm thu**:
+  - Zero test artifacts PASSED 100%.
+  - Build Vite & Cloudflare Edge Worker bundle thành công 100%.
+  - Prerender đầy đủ 593 trang chi tiết game và các trang danh mục.
+
+---
+
 ### 398. Hotfix Crash useMemo Trang Chi Tiết Game & Đồng Bộ Chuẩn Xác Các Chỉ Số /test1 (16/11/2026)
 - **Bối cảnh & Yêu cầu của Chủ sở hữu**:
   - Build `af17198` gây crash 100% trang chi tiết game (`useMemo is not defined`) tại `https://codegame.shop/game/<slug>` và từ `/test1`.
@@ -234,6 +354,36 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-16]
 
+### 399. Đồng Bộ Toàn Diện Số Lượng Mã, Giá Gói Hiệp Khách Hành, Danh Mục A-Z 593 Game & Trạng Thái Tải Modal (16/11/2026)
+- **Bối cảnh & Yêu cầu của Chủ sở hữu**:
+  - Sau hotfix `b3399c1`, kiểm tra thực tế bằng trình duyệt thật ghi nhận 6 điểm lệch số và bất cập hiển thị:
+    1. Số mã trên lưới khác số mã trong modal (Idle Heroes: lưới 5 vs modal 10; Sword x Staff: 19 vs 20; Tiên Nghịch: lưới 19 vs modal 16 còn hạn / 21 tổng).
+    2. Giá gói Như Lai: lưới 2.600đ gạch 20.000đ (-87%); modal giá ưu đãi 2.000 Core gạch 20.000 Core vẫn ghi -87% (thực tế 2.000/20.000 là -90%), lẫn lộn đơn vị đ và Core.
+    3. Nút "Xem toàn bộ mã của game" trong Mã Hôm Nay mở URL `https://codegame.shop/game/undefined`.
+    4. Mục lục A-Z: tổng các chữ cái là 585 game, thiếu 8 game so với tổng 593 game ở lưới.
+    5. Hàng chọn ngôn ngữ ở footer bị tràn/cắt mép phải (tiếng Trung, tiếng Thái).
+    6. Modal game lúc mới mở thoáng hiện "0 mã khả dụng / Không tìm thấy tựa game nào phù hợp" rồi mới tải đủ mã.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Lệch số mã*: `games188.json` lưu bản snapshot tĩnh cũ, trong khi D1 Live API có số liệu thời gian thực sau các lần crawler cập nhật. Khi mở modal, component gọi D1 nên nhảy số thật, gây lệch giữa thẻ game tĩnh trên lưới và modal.
+  2. *Lệch % giảm giá và đơn vị*: `ProductDetailModal.tsx` tính % dựa trên giá niêm yết `currentPrice` (2.600) thay vì giá ưu đãi `displayCurrentPrice` (2.000), trong khi `ShopeeTestView` dùng đơn vị `đ` thay vì đồng bộ `formatCore`.
+  3. *Lỗi URL game/undefined*: `TodayCodesView` truyền chuỗi `grp.game_slug` vào `onSelectGame(game)` (vốn kỳ vọng object `GameItem`), dẫn đến `selectedGame.slug` là `undefined` và `App.tsx` thay URL thành `/game/undefined`.
+  4. *A-Z thiếu 8 game (585 vs 593)*: Bảng `GAME_CANONICAL_ALIASES` lọc bỏ 8 game (`where-winds-meet-mobile`, `dau-truong-chan-ly-mobile`, `huyen-thoai-hai-tac`, `seven-deadly-sins-grand-cross`, `ta-la-hac-ngo-khong-vplay`, `tam-quoc-huyen-tuong`, `x-wukong-dai-chien-tam-gioi`, `where-winds-meet`) khiến tổng A-Z bị giảm xuống 585.
+  5. *Tràn ngôn ngữ footer*: Container footer dùng `inline-flex` cố định không wrap, khiến các ngôn ngữ cuối bị cắt mép phải trên màn hình nhỏ.
+  6. *Thoáng hiện câu lọc rỗng*: Khi modal mới mở, `activeCodes.length === 0` trong tích tắc trước khi nạp xong D1, kích hoạt fallback `{t.filter.noGames}` ("Không tìm thấy tựa game nào phù hợp") và badge header "0 mã khả dụng".
+- **Giải pháp áp dụng (Solution)**:
+  1. *Đồng bộ 593 game D1 Live*: Đồng bộ toàn bộ `codes_count`, `active_codes_count`, `total_codes_count` của 593 game trong `games188.json` khớp 100% với D1 Live API. Thẻ Flash Sale và Kệ hàng hiển thị tách biệt rõ ràng `{activeCount} còn hạn / {totalCount} tổng` (Tiên Nghịch: 16 còn hạn / 21 tổng; Idle Heroes: 10/10; Sword x Staff: 20/20).
+  2. *Sửa giá gói Hiệp Khách Hành*: Đồng bộ 100% đơn vị `formatCore` (bỏ đ). Sửa công thức tính % giảm giá theo `displayCurrentPrice` (`Math.round(((displayOriginalPrice - displayCurrentPrice) / displayOriginalPrice) * 100)`), gói Như Lai ưu đãi 2.000 Core gạch 20.000 Core hiển thị chính xác `-90%` trên cả lưới và modal.
+  3. *Sửa URL an toàn cho Mã Hôm Nay*: Chuẩn hóa callback nhận `slugOrGame`, kiểm tra fallback an toàn `targetSlug !== 'undefined'`, và trong `App.tsx` thêm guard kiểm tra `selectedGame.slug !== 'undefined'` và không replaceState khi đang ở `/test1`.
+  4. *Đồng bộ A-Z đủ 593 game*: Bỏ bộ lọc canonical alias trong A-Z, hiển thị đủ 593 game có giấy phép, tiêu đề khớp `Mục Lục Toàn Bộ Tựa Game A-Z (593 Game Có Giấy Phép)`.
+  5. *Chống tràn ngôn ngữ Footer*: Sử dụng `flex flex-wrap items-center gap-1 max-w-full`, đảm bảo tất cả ngôn ngữ (kể cả tiếng Trung, tiếng Thái) hiển thị trọn vẹn, không bao giờ bị cắt mép.
+  6. *Trạng thái nạp mã trong Modal*: Thêm state `isLoadingCodes`, khi đang nạp mã hiển thị spinner + "Đang nạp mã giftcode từ máy chủ..." ở header và danh sách, tuyệt đối không hiện câu "0 mã khả dụng / Không tìm thấy tựa game nào phù hợp".
+- **Kết quả nghiệm thu**:
+  - Zero test artifacts PASSED 100%.
+  - Build Vite & Cloudflare Edge Worker bundle thành công 100%.
+  - Prerender đầy đủ 593 trang chi tiết game và các trang danh mục.
+
+---
+
 ### 398. Hotfix Crash useMemo Trang Chi Tiết Game & Đồng Bộ Chuẩn Xác Các Chỉ Số /test1 (16/11/2026)
 - **Bối cảnh & Yêu cầu của Chủ sở hữu**:
   - Build `af17198` gây crash 100% trang chi tiết game (`useMemo is not defined`) tại `https://codegame.shop/game/<slug>` và từ `/test1`.
@@ -286,6 +436,36 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 ---
 
 ## [2026-11-16]
+
+### 399. Đồng Bộ Toàn Diện Số Lượng Mã, Giá Gói Hiệp Khách Hành, Danh Mục A-Z 593 Game & Trạng Thái Tải Modal (16/11/2026)
+- **Bối cảnh & Yêu cầu của Chủ sở hữu**:
+  - Sau hotfix `b3399c1`, kiểm tra thực tế bằng trình duyệt thật ghi nhận 6 điểm lệch số và bất cập hiển thị:
+    1. Số mã trên lưới khác số mã trong modal (Idle Heroes: lưới 5 vs modal 10; Sword x Staff: 19 vs 20; Tiên Nghịch: lưới 19 vs modal 16 còn hạn / 21 tổng).
+    2. Giá gói Như Lai: lưới 2.600đ gạch 20.000đ (-87%); modal giá ưu đãi 2.000 Core gạch 20.000 Core vẫn ghi -87% (thực tế 2.000/20.000 là -90%), lẫn lộn đơn vị đ và Core.
+    3. Nút "Xem toàn bộ mã của game" trong Mã Hôm Nay mở URL `https://codegame.shop/game/undefined`.
+    4. Mục lục A-Z: tổng các chữ cái là 585 game, thiếu 8 game so với tổng 593 game ở lưới.
+    5. Hàng chọn ngôn ngữ ở footer bị tràn/cắt mép phải (tiếng Trung, tiếng Thái).
+    6. Modal game lúc mới mở thoáng hiện "0 mã khả dụng / Không tìm thấy tựa game nào phù hợp" rồi mới tải đủ mã.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Lệch số mã*: `games188.json` lưu bản snapshot tĩnh cũ, trong khi D1 Live API có số liệu thời gian thực sau các lần crawler cập nhật. Khi mở modal, component gọi D1 nên nhảy số thật, gây lệch giữa thẻ game tĩnh trên lưới và modal.
+  2. *Lệch % giảm giá và đơn vị*: `ProductDetailModal.tsx` tính % dựa trên giá niêm yết `currentPrice` (2.600) thay vì giá ưu đãi `displayCurrentPrice` (2.000), trong khi `ShopeeTestView` dùng đơn vị `đ` thay vì đồng bộ `formatCore`.
+  3. *Lỗi URL game/undefined*: `TodayCodesView` truyền chuỗi `grp.game_slug` vào `onSelectGame(game)` (vốn kỳ vọng object `GameItem`), dẫn đến `selectedGame.slug` là `undefined` và `App.tsx` thay URL thành `/game/undefined`.
+  4. *A-Z thiếu 8 game (585 vs 593)*: Bảng `GAME_CANONICAL_ALIASES` lọc bỏ 8 game (`where-winds-meet-mobile`, `dau-truong-chan-ly-mobile`, `huyen-thoai-hai-tac`, `seven-deadly-sins-grand-cross`, `ta-la-hac-ngo-khong-vplay`, `tam-quoc-huyen-tuong`, `x-wukong-dai-chien-tam-gioi`, `where-winds-meet`) khiến tổng A-Z bị giảm xuống 585.
+  5. *Tràn ngôn ngữ footer*: Container footer dùng `inline-flex` cố định không wrap, khiến các ngôn ngữ cuối bị cắt mép phải trên màn hình nhỏ.
+  6. *Thoáng hiện câu lọc rỗng*: Khi modal mới mở, `activeCodes.length === 0` trong tích tắc trước khi nạp xong D1, kích hoạt fallback `{t.filter.noGames}` ("Không tìm thấy tựa game nào phù hợp") và badge header "0 mã khả dụng".
+- **Giải pháp áp dụng (Solution)**:
+  1. *Đồng bộ 593 game D1 Live*: Đồng bộ toàn bộ `codes_count`, `active_codes_count`, `total_codes_count` của 593 game trong `games188.json` khớp 100% với D1 Live API. Thẻ Flash Sale và Kệ hàng hiển thị tách biệt rõ ràng `{activeCount} còn hạn / {totalCount} tổng` (Tiên Nghịch: 16 còn hạn / 21 tổng; Idle Heroes: 10/10; Sword x Staff: 20/20).
+  2. *Sửa giá gói Hiệp Khách Hành*: Đồng bộ 100% đơn vị `formatCore` (bỏ đ). Sửa công thức tính % giảm giá theo `displayCurrentPrice` (`Math.round(((displayOriginalPrice - displayCurrentPrice) / displayOriginalPrice) * 100)`), gói Như Lai ưu đãi 2.000 Core gạch 20.000 Core hiển thị chính xác `-90%` trên cả lưới và modal.
+  3. *Sửa URL an toàn cho Mã Hôm Nay*: Chuẩn hóa callback nhận `slugOrGame`, kiểm tra fallback an toàn `targetSlug !== 'undefined'`, và trong `App.tsx` thêm guard kiểm tra `selectedGame.slug !== 'undefined'` và không replaceState khi đang ở `/test1`.
+  4. *Đồng bộ A-Z đủ 593 game*: Bỏ bộ lọc canonical alias trong A-Z, hiển thị đủ 593 game có giấy phép, tiêu đề khớp `Mục Lục Toàn Bộ Tựa Game A-Z (593 Game Có Giấy Phép)`.
+  5. *Chống tràn ngôn ngữ Footer*: Sử dụng `flex flex-wrap items-center gap-1 max-w-full`, đảm bảo tất cả ngôn ngữ (kể cả tiếng Trung, tiếng Thái) hiển thị trọn vẹn, không bao giờ bị cắt mép.
+  6. *Trạng thái nạp mã trong Modal*: Thêm state `isLoadingCodes`, khi đang nạp mã hiển thị spinner + "Đang nạp mã giftcode từ máy chủ..." ở header và danh sách, tuyệt đối không hiện câu "0 mã khả dụng / Không tìm thấy tựa game nào phù hợp".
+- **Kết quả nghiệm thu**:
+  - Zero test artifacts PASSED 100%.
+  - Build Vite & Cloudflare Edge Worker bundle thành công 100%.
+  - Prerender đầy đủ 593 trang chi tiết game và các trang danh mục.
+
+---
 
 ### 398. Hotfix Crash useMemo Trang Chi Tiết Game & Đồng Bộ Chuẩn Xác Các Chỉ Số /test1 (16/11/2026)
 - **Bối cảnh & Yêu cầu của Chủ sở hữu**:
@@ -343,6 +523,36 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 ---
 
 ## [2026-11-16]
+
+### 399. Đồng Bộ Toàn Diện Số Lượng Mã, Giá Gói Hiệp Khách Hành, Danh Mục A-Z 593 Game & Trạng Thái Tải Modal (16/11/2026)
+- **Bối cảnh & Yêu cầu của Chủ sở hữu**:
+  - Sau hotfix `b3399c1`, kiểm tra thực tế bằng trình duyệt thật ghi nhận 6 điểm lệch số và bất cập hiển thị:
+    1. Số mã trên lưới khác số mã trong modal (Idle Heroes: lưới 5 vs modal 10; Sword x Staff: 19 vs 20; Tiên Nghịch: lưới 19 vs modal 16 còn hạn / 21 tổng).
+    2. Giá gói Như Lai: lưới 2.600đ gạch 20.000đ (-87%); modal giá ưu đãi 2.000 Core gạch 20.000 Core vẫn ghi -87% (thực tế 2.000/20.000 là -90%), lẫn lộn đơn vị đ và Core.
+    3. Nút "Xem toàn bộ mã của game" trong Mã Hôm Nay mở URL `https://codegame.shop/game/undefined`.
+    4. Mục lục A-Z: tổng các chữ cái là 585 game, thiếu 8 game so với tổng 593 game ở lưới.
+    5. Hàng chọn ngôn ngữ ở footer bị tràn/cắt mép phải (tiếng Trung, tiếng Thái).
+    6. Modal game lúc mới mở thoáng hiện "0 mã khả dụng / Không tìm thấy tựa game nào phù hợp" rồi mới tải đủ mã.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Lệch số mã*: `games188.json` lưu bản snapshot tĩnh cũ, trong khi D1 Live API có số liệu thời gian thực sau các lần crawler cập nhật. Khi mở modal, component gọi D1 nên nhảy số thật, gây lệch giữa thẻ game tĩnh trên lưới và modal.
+  2. *Lệch % giảm giá và đơn vị*: `ProductDetailModal.tsx` tính % dựa trên giá niêm yết `currentPrice` (2.600) thay vì giá ưu đãi `displayCurrentPrice` (2.000), trong khi `ShopeeTestView` dùng đơn vị `đ` thay vì đồng bộ `formatCore`.
+  3. *Lỗi URL game/undefined*: `TodayCodesView` truyền chuỗi `grp.game_slug` vào `onSelectGame(game)` (vốn kỳ vọng object `GameItem`), dẫn đến `selectedGame.slug` là `undefined` và `App.tsx` thay URL thành `/game/undefined`.
+  4. *A-Z thiếu 8 game (585 vs 593)*: Bảng `GAME_CANONICAL_ALIASES` lọc bỏ 8 game (`where-winds-meet-mobile`, `dau-truong-chan-ly-mobile`, `huyen-thoai-hai-tac`, `seven-deadly-sins-grand-cross`, `ta-la-hac-ngo-khong-vplay`, `tam-quoc-huyen-tuong`, `x-wukong-dai-chien-tam-gioi`, `where-winds-meet`) khiến tổng A-Z bị giảm xuống 585.
+  5. *Tràn ngôn ngữ footer*: Container footer dùng `inline-flex` cố định không wrap, khiến các ngôn ngữ cuối bị cắt mép phải trên màn hình nhỏ.
+  6. *Thoáng hiện câu lọc rỗng*: Khi modal mới mở, `activeCodes.length === 0` trong tích tắc trước khi nạp xong D1, kích hoạt fallback `{t.filter.noGames}` ("Không tìm thấy tựa game nào phù hợp") và badge header "0 mã khả dụng".
+- **Giải pháp áp dụng (Solution)**:
+  1. *Đồng bộ 593 game D1 Live*: Đồng bộ toàn bộ `codes_count`, `active_codes_count`, `total_codes_count` của 593 game trong `games188.json` khớp 100% với D1 Live API. Thẻ Flash Sale và Kệ hàng hiển thị tách biệt rõ ràng `{activeCount} còn hạn / {totalCount} tổng` (Tiên Nghịch: 16 còn hạn / 21 tổng; Idle Heroes: 10/10; Sword x Staff: 20/20).
+  2. *Sửa giá gói Hiệp Khách Hành*: Đồng bộ 100% đơn vị `formatCore` (bỏ đ). Sửa công thức tính % giảm giá theo `displayCurrentPrice` (`Math.round(((displayOriginalPrice - displayCurrentPrice) / displayOriginalPrice) * 100)`), gói Như Lai ưu đãi 2.000 Core gạch 20.000 Core hiển thị chính xác `-90%` trên cả lưới và modal.
+  3. *Sửa URL an toàn cho Mã Hôm Nay*: Chuẩn hóa callback nhận `slugOrGame`, kiểm tra fallback an toàn `targetSlug !== 'undefined'`, và trong `App.tsx` thêm guard kiểm tra `selectedGame.slug !== 'undefined'` và không replaceState khi đang ở `/test1`.
+  4. *Đồng bộ A-Z đủ 593 game*: Bỏ bộ lọc canonical alias trong A-Z, hiển thị đủ 593 game có giấy phép, tiêu đề khớp `Mục Lục Toàn Bộ Tựa Game A-Z (593 Game Có Giấy Phép)`.
+  5. *Chống tràn ngôn ngữ Footer*: Sử dụng `flex flex-wrap items-center gap-1 max-w-full`, đảm bảo tất cả ngôn ngữ (kể cả tiếng Trung, tiếng Thái) hiển thị trọn vẹn, không bao giờ bị cắt mép.
+  6. *Trạng thái nạp mã trong Modal*: Thêm state `isLoadingCodes`, khi đang nạp mã hiển thị spinner + "Đang nạp mã giftcode từ máy chủ..." ở header và danh sách, tuyệt đối không hiện câu "0 mã khả dụng / Không tìm thấy tựa game nào phù hợp".
+- **Kết quả nghiệm thu**:
+  - Zero test artifacts PASSED 100%.
+  - Build Vite & Cloudflare Edge Worker bundle thành công 100%.
+  - Prerender đầy đủ 593 trang chi tiết game và các trang danh mục.
+
+---
 
 ### 398. Hotfix Crash useMemo Trang Chi Tiết Game & Đồng Bộ Chuẩn Xác Các Chỉ Số /test1 (16/11/2026)
 - **Bối cảnh & Yêu cầu của Chủ sở hữu**:

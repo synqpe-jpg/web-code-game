@@ -805,19 +805,21 @@ export const App: React.FC = () => {
   useEffect(() => {
     if (currentTab === 'admin') return;
 
-    if (selectedGame) {
+    if (selectedGame && typeof selectedGame === 'object' && selectedGame.slug && selectedGame.slug !== 'undefined') {
       const isWwm = selectedGame.slug === 'where-winds-meet' || selectedGame.slug === 'where-winds-meet-mobile' || selectedGame.slug === 'yen-van-thap-luc-thanh';
       const codeCount = isWwm ? 584 : (selectedGame.codes_count || selectedGame.active_codes_count || selectedGame.codes?.length || 0);
       const countSuffix = codeCount > 0 ? `Nhận ${codeCount} Mã Code ` : '';
-      document.title = `Giftcode ${selectedGame.name} Mới Nhất 2026 - ${countSuffix}| CodeGame.shop`;
-      if (window.location.pathname !== `/game/${selectedGame.slug}`) {
+      document.title = `Giftcode ${selectedGame.name || selectedGame.slug} Mới Nhất 2026 - ${countSuffix}| CodeGame.shop`;
+      const inTest1 = typeof window !== 'undefined' && window.location.pathname.startsWith('/test1');
+      if (!inTest1 && window.location.pathname !== `/game/${selectedGame.slug}`) {
         window.history.replaceState(null, '', `/game/${selectedGame.slug}`);
       }
     } else {
       // Do not wipe pathname if initial deep-link routing is still parsing
       if (!isInitialLoadDone) return;
 
-      if (window.location.pathname.startsWith('/game/') || window.location.pathname.startsWith('/g/')) {
+      const inTest1 = typeof window !== 'undefined' && window.location.pathname.startsWith('/test1');
+      if (!inTest1 && (window.location.pathname.startsWith('/game/') || window.location.pathname.startsWith('/g/'))) {
         window.history.replaceState(null, '', '/');
       }
 
@@ -2063,7 +2065,8 @@ export const App: React.FC = () => {
             game={selectedGame}
             onClose={() => {
               setSelectedGame(null);
-              if (typeof window !== 'undefined' && window.location.pathname.startsWith('/game/')) {
+              const inTest1 = typeof window !== 'undefined' && window.location.pathname.startsWith('/test1');
+              if (!inTest1 && typeof window !== 'undefined' && window.location.pathname.startsWith('/game/')) {
                 window.history.replaceState(null, '', '/');
               }
             }}

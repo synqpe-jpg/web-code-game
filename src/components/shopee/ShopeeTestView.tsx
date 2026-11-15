@@ -407,7 +407,7 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
     return list;
   }, [liveUpcomingList, upcomingStatusFilter, searchKeyword]);
 
-  // A-Z alphabetical directory with canonical deduplication (xóa trùng lặp WWM, 7DS, Hắc Ngộ Không, X-Wukong)
+  // A-Z alphabetical directory with full 593 games matching grid
   const azGroupedGames = useMemo(() => {
     const map: Record<string, GameItem[]> = {};
     const ALL_LETTERS = ['#', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')];
@@ -415,19 +415,9 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
       map[l] = [];
     }
 
-    const seenSlugs = new Set<string>();
-    const canonicalGames = (allGames || []).filter((g) => {
-      const rawSlug = (g.slug || g.id || '').toLowerCase();
-      if (!rawSlug) return false;
-      if (GAME_CANONICAL_ALIASES[rawSlug]) return false;
-      const normName = (g.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-      if (seenSlugs.has(rawSlug) || (normName && seenSlugs.has(normName))) return false;
-      seenSlugs.add(rawSlug);
-      if (normName) seenSlugs.add(normName);
-      return true;
-    }).sort((a, b) => (a.name || '').localeCompare(b.name || '', 'vi'));
+    const sortedGames = [...(allGames || [])].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'vi'));
 
-    for (const g of canonicalGames) {
+    for (const g of sortedGames) {
       const firstChar = (g.name || '').trim().charAt(0).toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
       const letter = /^[A-Z]$/.test(firstChar) ? firstChar : '#';
       if (!map[letter]) map[letter] = [];
@@ -918,7 +908,18 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
               </div>
             </div>
             <TodayCodesView
-              onSelectGame={onSelectGame}
+              onSelectGame={(slugOrGame: any) => {
+                const slug = typeof slugOrGame === 'string' ? slugOrGame : (slugOrGame?.slug || slugOrGame?.id);
+                if (slug) {
+                  if (onSelectGameSlug) {
+                    onSelectGameSlug(slug);
+                  } else {
+                    const found = allGames.find((g) => (g.slug || g.id) === slug);
+                    if (found) onSelectGame(found);
+                    else onSelectGame({ id: slug, slug, name: slug } as any);
+                  }
+                }
+              }}
               onShowToast={(t, m, type) => onShowToast(m ? `${t}: ${m}` : t, type as any)}
             />
           </div>
@@ -1285,10 +1286,10 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
               <div>
                 <h3 className="font-bold text-lg text-slate-900 dark:text-white flex items-center gap-2">
                   <List className="w-5 h-5 text-[#ee4d2d]" />
-                  <span>Mục Lục Toàn Bộ Tựa Game A-Z ({azCanonicalTotal} Game Đã Chuẩn Hóa)</span>
+                  <span>Mục Lục Toàn Bộ Tựa Game A-Z ({azCanonicalTotal} Game Có Giấy Phép)</span>
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Tra cứu nhanh chóng theo bảng chữ cái từ A đến Z toàn bộ kho game mobile và PC (khử trùng lặp canonical alias).
+                  Tra cứu nhanh chóng theo bảng chữ cái từ A đến Z toàn bộ {azCanonicalTotal} tựa game mobile và PC.
                 </p>
               </div>
             </div>
@@ -1645,7 +1646,8 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
               {/* Flash Sale Product Cards */}
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5">
                 {flashSaleGames.map((game) => {
-                  const codeCount = game.codes_count || game.active_codes_count || game.codes?.length || 0;
+                  const activeCount = game.active_codes_count ?? game.codes_count ?? (game.codes?.filter(c => !isCodeExpired(c)).length || 0);
+                  const totalCount = game.total_codes_count ?? (game.codes?.length || activeCount);
                   const firstCode = game.codes && game.codes.length > 0 ? game.codes[0].code : null;
 
                   return (
@@ -1674,9 +1676,9 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
                       <div className="mt-2 pt-1 border-t border-slate-100 dark:border-slate-700/60">
                         <div className="text-[#ee4d2d] font-bold text-xs">0đ (Miễn Phí)</div>
                         <div className="w-full bg-orange-100 dark:bg-orange-950/60 rounded-full h-3 mt-1 relative overflow-hidden flex items-center">
-                          <div className="bg-[#ee4d2d] h-full rounded-full" style={{ width: `${Math.min(100, Math.max(30, codeCount * 5))}%` }}></div>
+                          <div className="bg-[#ee4d2d] h-full rounded-full" style={{ width: `${Math.min(100, Math.max(30, activeCount * 5))}%` }}></div>
                           <span className="absolute inset-0 text-[8px] text-center font-bold text-white flex items-center justify-center leading-none">
-                            {codeCount} Mã Khả Dụng
+                            {totalCount > activeCount ? `${activeCount} còn hạn / ${totalCount} tổng` : `${activeCount} Mã Khả Dụng`}
                           </span>
                         </div>
                       </div>
@@ -1792,6 +1794,14 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
                 {/* 2. RENDER CỬA HÀNG GÓI CODE (10 GÓI HIỆP KHÁCH HÀNH CỦA WEB CHÍNH) */}
                 {(selectedProductType === 'all' || selectedProductType === 'account') && filteredStoreProducts.slice(0, selectedProductType === 'account' ? 36 : 6).map((prod) => {
                   const isOutOfStock = (prod.stock_quantity ?? 0) <= 0;
+                  const hasFirstOffer = prod.first_purchase_price ? true : ((prod.original_price || prod.current_price || 0) <= 30000 && prod.current_price > 2000);
+                  const firstPrice = prod.first_purchase_price ? Number(prod.first_purchase_price) : 2000;
+                  const displayCurrentPrice = hasFirstOffer ? firstPrice : prod.current_price;
+                  const displayOriginalPrice = (prod.original_price && prod.original_price > 0) ? prod.original_price : prod.current_price;
+                  const discountPercent = displayOriginalPrice > displayCurrentPrice
+                    ? Math.round(((displayOriginalPrice - displayCurrentPrice) / displayOriginalPrice) * 100)
+                    : (prod.discount_percent || 0);
+
                   return (
                     <div
                       key={prod.id}
@@ -1808,9 +1818,9 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
                           <span className="absolute top-0 left-0 bg-emerald-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-br">
                             Gói Code
                           </span>
-                          {prod.discount_percent > 0 && (
+                          {discountPercent > 0 && (
                             <span className="absolute top-0 right-0 bg-yellow-400 text-red-600 text-[10px] font-bold px-1 py-0.2">
-                              -{prod.discount_percent}%
+                              -{discountPercent}%
                             </span>
                           )}
                         </div>
@@ -1827,10 +1837,17 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
                       </div>
 
                       <div className="p-2 pt-0 space-y-1.5">
-                        <div className="flex items-baseline justify-between">
-                          <div className="text-[#ee4d2d] font-bold text-xs">{(prod.current_price || 0).toLocaleString('vi-VN')} đ</div>
-                          {prod.original_price > prod.current_price && (
-                            <div className="text-[10px] text-slate-400 line-through">{(prod.original_price || 0).toLocaleString('vi-VN')}đ</div>
+                        <div className="flex items-baseline justify-between gap-1 flex-wrap">
+                          {hasFirstOffer ? (
+                            <div className="flex items-center gap-1">
+                              <span className="text-[#ee4d2d] font-bold text-xs">{formatCore(firstPrice)}</span>
+                              <span className="text-[9px] font-bold px-1 py-0.2 bg-rose-500/10 text-rose-500 rounded">Ưu đãi</span>
+                            </div>
+                          ) : (
+                            <div className="text-[#ee4d2d] font-bold text-xs">{formatCore(prod.current_price)}</div>
+                          )}
+                          {displayOriginalPrice > displayCurrentPrice && (
+                            <div className="text-[10px] text-slate-400 line-through font-mono">{formatCore(displayOriginalPrice)}</div>
                           )}
                         </div>
 
@@ -1904,7 +1921,8 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
 
                 {/* 4. RENDER DANH MỤC GAME GIFTCODE (PHÂN TRANG 24 GAME / TRANG) */}
                 {(selectedProductType === 'all' || selectedProductType === 'giftcode') && paginatedGames.map((game) => {
-                  const codeCount = game.codes_count || game.active_codes_count || game.codes?.length || 0;
+                  const activeCount = game.active_codes_count ?? game.codes_count ?? (game.codes?.filter(c => !isCodeExpired(c)).length || 0);
+                  const totalCount = game.total_codes_count ?? (game.codes?.length || activeCount);
                   const firstCode = game.codes && game.codes.length > 0 ? game.codes[0].code : null;
 
                   return (
@@ -1925,7 +1943,7 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
                             Yêu Thích+
                           </span>
                           <span className="absolute top-0 right-0 bg-yellow-400 text-red-600 text-[10px] font-bold px-1 py-0.2">
-                            {codeCount > 0 ? `${codeCount} Code` : 'Mới'}
+                            {activeCount > 0 ? `${activeCount} Code` : 'Mới'}
                           </span>
 
                           {/* Nút bookmark / theo dõi trực tiếp trên thẻ game */}
@@ -1963,7 +1981,9 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
                       <div className="p-2 pt-0 space-y-1.5">
                         <div className="flex items-baseline justify-between">
                           <div className="text-[#ee4d2d] font-bold text-xs">0 đ (Miễn Phí)</div>
-                          <div className="text-[10px] text-slate-400">{codeCount} mã sẵn</div>
+                          <div className="text-[10px] text-slate-400 font-medium">
+                            {totalCount > activeCount ? `${activeCount} còn hạn / ${totalCount} tổng` : `${activeCount} mã sẵn`}
+                          </div>
                         </div>
 
                         {firstCode ? (
