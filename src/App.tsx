@@ -45,6 +45,7 @@ const TodayCodesView = lazyWithRetry(() => import('./components/TodayCodesView')
 const SellerCenterView = lazyWithRetry(() => import('./components/seller/SellerCenterView').then((m) => ({ default: m.SellerCenterView })));
 const PublicStoreView = lazyWithRetry(() => import('./components/seller/PublicStoreView').then((m) => ({ default: m.PublicStoreView })));
 const CartDrawerModal = lazyWithRetry(() => import('./components/cart/CartDrawerModal').then((m) => ({ default: m.CartDrawerModal })));
+const ShopeeTestView = lazyWithRetry(() => import('./components/shopee/ShopeeTestView').then((m) => ({ default: m.ShopeeTestView })));
 import { dataService } from './services/dataService';
 import { marketingService } from './services/marketingService';
 import { authService } from './services/authService';
@@ -90,7 +91,7 @@ export const App: React.FC = () => {
   const [, startTransition] = useTransition();
 
   // Navigation Tab State (Decoupled Frontends Domain Detection & Hash Routing)
-  const [currentTab, setCurrentTab] = useState<'catalog' | 'news' | 'giveaways' | 'store' | 'utilities' | 'missions' | 'telegram' | 'today-codes' | 'seller-center' | 'store-detail' | 'admin'>(() => {
+  const [currentTab, setCurrentTab] = useState<'catalog' | 'news' | 'giveaways' | 'store' | 'utilities' | 'missions' | 'telegram' | 'today-codes' | 'seller-center' | 'store-detail' | 'admin' | 'shopee-test'>(() => {
     if (typeof window !== 'undefined') {
       const host = window.location.hostname.toLowerCase();
       const hash = window.location.hash.toLowerCase();
@@ -102,6 +103,8 @@ export const App: React.FC = () => {
       if (isAdminDomain || path.startsWith('/admin') || isAdminHash) {
         return 'admin';
       }
+
+      if (hash.includes('test1') || path === '/test1' || path.startsWith('/test1/')) return 'shopee-test';
 
       if (hash.includes('ban-hang') || path === '/ban-hang' || path.startsWith('/ban-hang/')) return 'seller-center';
       if (hash.includes('gian-hang') || path.startsWith('/gian-hang/')) return 'store-detail';
@@ -758,7 +761,7 @@ export const App: React.FC = () => {
   }, []);
 
   // Unified Single-Click Tab Switcher (History pushState routing without hash conflicts)
-  const handleSelectTab = useCallback((tab: 'catalog' | 'news' | 'giveaways' | 'store' | 'utilities' | 'missions' | 'telegram' | 'today-codes' | 'seller-center' | 'store-detail') => {
+  const handleSelectTab = useCallback((tab: 'catalog' | 'news' | 'giveaways' | 'store' | 'utilities' | 'missions' | 'telegram' | 'today-codes' | 'seller-center' | 'store-detail' | 'shopee-test') => {
     setSelectedGame(null);
     setSelectedProduct(null);
     setSelectedUtilityId(null);
@@ -774,6 +777,8 @@ export const App: React.FC = () => {
       ? '/ban-hang'
       : tab === 'store-detail'
       ? `/gian-hang/${currentStoreSlug}`
+      : tab === 'shopee-test'
+      ? '/test1'
       : `/${tab}`;
     if (window.location.pathname !== targetPath || window.location.hash) {
       window.history.pushState(null, '', targetPath);
@@ -862,6 +867,11 @@ export const App: React.FC = () => {
         document.title = 'Gian Hàng Số | CodeGame.shop';
         if (currentStoreSlug && (window.location.pathname !== `/gian-hang/${currentStoreSlug}` || window.location.hash)) {
           window.history.replaceState(null, '', `/gian-hang/${currentStoreSlug}`);
+        }
+      } else if (currentTab === 'shopee-test') {
+        document.title = 'Giao Diện Thử Nghiệm Phong Cách Shopee Game (Test 1) | CodeGame.shop';
+        if (window.location.pathname !== '/test1' || window.location.hash) {
+          window.history.replaceState(null, '', '/test1');
         }
       } else {
         document.title = 'CodeGame.shop - Cổng Tra Cứu Giftcode & Game Bản Quyền Hàng Đầu';
@@ -1028,6 +1038,9 @@ export const App: React.FC = () => {
         const sSlug = window.location.pathname.replace(/^\/gian-hang\//i, '').replace(/\/$/, '').trim();
         setCurrentStoreSlug(sSlug);
         setCurrentTab('store-detail');
+      } else if (path === '/test1' || path.startsWith('/test1/') || hash.includes('test1')) {
+        setSelectedGame(null);
+        setCurrentTab('shopee-test');
       } else if (path === '/' || path === '') {
         setSelectedGame(null);
         setCurrentTab('catalog');
@@ -1673,40 +1686,42 @@ export const App: React.FC = () => {
       {/* Main App Content (relative z-10) */}
       <div className="relative z-10 flex-1 flex flex-col w-full max-w-full">
         {/* Dynamic Announcement Banner from Admin CMS */}
-        <AnnouncementBar />
+        {currentTab !== 'shopee-test' && <AnnouncementBar />}
 
         {/* Top Sticky Event Countdown Banner */}
-        <TopEventBanner onNavigate={handleBannerNavigate} />
+        {currentTab !== 'shopee-test' && <TopEventBanner onNavigate={handleBannerNavigate} />}
 
         {/* Top Navigation Bar */}
-        <Header
-          currentTab={currentTab}
-          onSelectTab={handleSelectTab}
-          searchQuery={searchQuery}
-          onSearchChange={handleSearchChange}
-          allGames={allGamesList}
-          onSelectGame={handleSelectGame}
-          branding={branding}
-          bookmarkCount={bookmarks.length}
-          onOpenBookmarks={() => setIsBookmarkDrawerOpen(true)}
-          onOpenSubmitCode={() => setIsSubmitModalOpen(true)}
-          onOpenPlayground={() => {
-            if (!isGrowthEnabled) return;
-            setGrowthInitialTab('wheel');
-            setIsGrowthCenterOpen(true);
-          }}
-          onOpenDownloadApp={() => setIsDownloadModalOpen(true)}
-          onOpenNotificationModal={() => setIsEmailModalOpen(true)}
-          onOpenCart={() => setIsCartOpen(true)}
-          onOpenAuth={() => setIsAuthModalOpen(true)}
-          onOpenWallet={() => setIsWalletModalOpen(true)}
-          onOpenReceivedCodes={handleOpenReceivedCodes}
-          onOpenProfile={handleOpenProfile}
-          currentUser={currentUser}
-          onLogout={handleLogout}
-          isDarkMode={isDarkMode}
-          onToggleTheme={handleToggleTheme}
-        />
+        {currentTab !== 'shopee-test' && (
+          <Header
+            currentTab={currentTab}
+            onSelectTab={handleSelectTab}
+            searchQuery={searchQuery}
+            onSearchChange={handleSearchChange}
+            allGames={allGamesList}
+            onSelectGame={handleSelectGame}
+            branding={branding}
+            bookmarkCount={bookmarks.length}
+            onOpenBookmarks={() => setIsBookmarkDrawerOpen(true)}
+            onOpenSubmitCode={() => setIsSubmitModalOpen(true)}
+            onOpenPlayground={() => {
+              if (!isGrowthEnabled) return;
+              setGrowthInitialTab('wheel');
+              setIsGrowthCenterOpen(true);
+            }}
+            onOpenDownloadApp={() => setIsDownloadModalOpen(true)}
+            onOpenNotificationModal={() => setIsEmailModalOpen(true)}
+            onOpenCart={() => setIsCartOpen(true)}
+            onOpenAuth={() => setIsAuthModalOpen(true)}
+            onOpenWallet={() => setIsWalletModalOpen(true)}
+            onOpenReceivedCodes={handleOpenReceivedCodes}
+            onOpenProfile={handleOpenProfile}
+            currentUser={currentUser}
+            onLogout={handleLogout}
+            isDarkMode={isDarkMode}
+            onToggleTheme={handleToggleTheme}
+          />
+        )}
 
         {/* Sticky Floating Search Bar for Catalog on Scroll */}
         {currentTab === 'catalog' && (
@@ -1939,32 +1954,54 @@ export const App: React.FC = () => {
                 onOpenCart={() => setIsCartOpen(true)}
               />
             )}
+
+            {currentTab === 'shopee-test' && (
+              <ShopeeTestView
+                allGames={allGamesList.length > 0 ? allGamesList : games}
+                onSelectGame={setSelectedGame}
+                onSelectGameSlug={handleSelectGameSlug}
+                onOpenAuth={() => setIsAuthModalOpen(true)}
+                onOpenWallet={() => setIsWalletModalOpen(true)}
+                onOpenCart={() => setIsCartOpen(true)}
+                onOpenGrowth={() => {
+                  setGrowthInitialTab('wheel');
+                  setIsGrowthCenterOpen(true);
+                }}
+                onBackToHome={() => handleSelectTab('catalog')}
+                currentUser={currentUser}
+                onShowToast={showToast}
+              />
+            )}
           </Suspense>
         </main>
 
         {/* Footer */}
-        <Footer
-          categories={categories}
-          totalGames={totalResults || allGamesList.length || games.length || 591}
-          onSelectCategory={(cat) => {
-            handleSelectTab('catalog');
-            handleFilterChange({ category: cat });
-            const gridElem = document.getElementById('game-catalog-section');
-            gridElem?.scrollIntoView({ behavior: 'smooth' });
-          }}
-          onOpenDownloadApp={() => setIsDownloadModalOpen(true)}
-        />
+        {currentTab !== 'shopee-test' && (
+          <Footer
+            categories={categories}
+            totalGames={totalResults || allGamesList.length || games.length || 591}
+            onSelectCategory={(cat) => {
+              handleSelectTab('catalog');
+              handleFilterChange({ category: cat });
+              const gridElem = document.getElementById('game-catalog-section');
+              gridElem?.scrollIntoView({ behavior: 'smooth' });
+            }}
+            onOpenDownloadApp={() => setIsDownloadModalOpen(true)}
+          />
+        )}
 
         {/* Mobile Sticky Bottom Navigation Dock */}
-        <MobileBottomNav
-          currentTab={currentTab}
-          onSelectTab={handleSelectTab}
-          onOpenReceivedCodes={handleOpenReceivedCodes}
-          onOpenAuth={() => setIsAuthModalOpen(true)}
-          onOpenWallet={() => setIsWalletModalOpen(true)}
-          onOpenProfile={() => setIsProfileModalOpen(true)}
-          currentUser={currentUser}
-        />
+        {currentTab !== 'shopee-test' && (
+          <MobileBottomNav
+            currentTab={currentTab}
+            onSelectTab={handleSelectTab}
+            onOpenReceivedCodes={handleOpenReceivedCodes}
+            onOpenAuth={() => setIsAuthModalOpen(true)}
+            onOpenWallet={() => setIsWalletModalOpen(true)}
+            onOpenProfile={() => setIsProfileModalOpen(true)}
+            currentUser={currentUser}
+          />
+        )}
       </div>
 
       {/* Modals & Drawers (P4: Lazy loaded via Suspense to keep main bundle tiny) */}
