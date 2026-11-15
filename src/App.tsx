@@ -700,6 +700,10 @@ export const App: React.FC = () => {
           setCurrentStoreSlug(sSlug);
           setCurrentTab('store-detail');
           return;
+        } else if (pathname === '/test1' || pathname.startsWith('/test1/') || hashLower.includes('test1')) {
+          setSelectedGame(null);
+          setCurrentTab('shopee-test');
+          return;
         } else if (!hash || hash === '#' || hash === '#catalog') {
           setCurrentTab('catalog');
         }
@@ -2001,6 +2005,22 @@ export const App: React.FC = () => {
             onOpenProfile={() => setIsProfileModalOpen(true)}
             currentUser={currentUser}
           />
+        )}
+
+        {/* Nút bấm 1-chạm thử nghiệm Giao Diện Shopee (Chỉ hiển thị khi đang ở web gốc) */}
+        {currentTab !== 'shopee-test' && currentTab !== 'admin' && (
+          <div className="fixed bottom-20 md:bottom-6 left-4 z-40">
+            <button
+              onClick={() => handleSelectTab('shopee-test')}
+              className="group flex items-center gap-2 bg-gradient-to-r from-[#ee4d2d] to-orange-500 hover:from-orange-600 hover:to-red-600 text-white font-bold text-xs px-3.5 py-2.5 rounded-full shadow-2xl border border-white/20 transition-all hover:scale-105 active:scale-95 cursor-pointer animate-pulse"
+              title="Bấm để xem thử nghiệm giao diện phong cách Shopee tại /test1"
+            >
+              <span className="text-base">🛒</span>
+              <span className="hidden sm:inline">Thử Giao Diện Shopee (Test 1)</span>
+              <span className="sm:hidden">Giao Diện Shopee</span>
+              <span className="bg-black/30 text-amber-200 text-[10px] px-1.5 py-0.5 rounded font-mono">/test1</span>
+            </button>
+          </div>
         )}
       </div>
 
