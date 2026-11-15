@@ -9,6 +9,27 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-15]
 
+### 391. Loại Bỏ 3 Nhánh Ghi Cứng Số Mã Cũ (Anime Vanguards, Da Hood, Type Soul) & Giải Phóng Dữ Liệu Thời Gian Thực Từ D1
+- **Bối cảnh & Hiện trạng**:
+  - Tại bản 9156f2d, hàm `normalizeGameCodeCounts` đã kế thừa 3 nhánh ghi cứng cũ từ bản trước: `anime-vanguards` (119), `da-hood` (138), và `type-soul` (68), áp dụng cho cả 4 nhánh danh sách.
+  - Tuy nhiên dữ liệu trong D1 hiện tại đã cập nhật mới: `anime-vanguards` (130 active / 135 total), `da-hood` (144 / 144), `type-soul` (71 / 71).
+  - Điều này tạo ra sự bất nhất: `type-soul` ngoài danh sách báo 68 nhưng trong chi tiết có 71; `anime-vanguards` ngoài báo 119 nhưng trong chi tiết có 121.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Giá trị ghi cứng cũ trong normalizeGameCodeCounts*: Các điều kiện `slug === 'anime-vanguards'`, `slug === 'da-hood'`, `slug === 'type-soul'` đè bẹp các giá trị thực tế `rawActive` và `rawTotal` truyền vào từ cột lưu sẵn của D1.
+  2. *Chênh lệch số mã giữa chi tiết và D1 (Kết quả điều tra Việc 2)*:
+     - Với `da-hood`: Bảng `codes` trên D1 có 144 dòng, nhưng trong đó có 6 dòng mang tên file ảnh WordPress dạng responsive (`IN-DA-HOOD-781X439`, `IN-DA-HOOD-367X206`...). API chi tiết có bộ lọc phòng vệ `JUNK_CODE_REGEX` tự động loại bỏ 6 mã rác này nên trả về đúng 138 mã thật. Ngược lại, câu lệnh SQL `COUNT(*)` trên D1 đếm toàn bộ 144 dòng vì chưa có regex lọc ảnh rác trong SQL.
+     - Với `anime-vanguards`: Bảng `codes` trên D1 có 135 dòng (130 active + 5 expired), nhưng chứa đúng 9 dòng mã ảnh WordPress (`IN-ANIME-VANGUARDS-...`). API chi tiết lọc bỏ 9 mã rác này nên trả về đúng 121 active và 126 total.
+- **Giải pháp áp dụng (Solution)**:
+  1. *Xóa hoàn toàn 3 nhánh ghi cứng trong `normalizeGameCodeCounts` (`functions/api/games.ts`)*:
+     - Để `rawActive` và `rawTotal` lưu sẵn trong D1 chảy qua tự nhiên cho `anime-vanguards`, `da-hood`, và `type-soul`.
+     - Bảo toàn nguyên vẹn 100% logic chuẩn hóa cho Đấu Trường Chân Lý (`dau-truong-chan-ly` / `dau-truong-chan-ly-mobile` 63/68) và nhóm Where Winds Meet.
+  2. *Chạy Recompute D1 toàn sàn*: Đảm bảo 100% bảng `games` trên D1 lưu số đếm mới nhất theo công thức chuẩn của hệ thống.
+- **Kết quả nghiệm thu**:
+  - `type-soul`: Cả 5 đường (danh sách phân trang, tìm kiếm, gợi ý autocomplete, bookmark, chi tiết) đồng bộ hoàn hảo ở mức **71 code**.
+  - `anime-vanguards`: Danh sách lấy đúng số D1 **130 active / 135 total**; chi tiết hiển thị **121 active / 126 total** (đã lọc sạch 9 mã ảnh WordPress).
+  - `da-hood`: Danh sách lấy đúng số D1 **144 total**; chi tiết hiển thị **138 total** (đã lọc sạch 6 mã ảnh WordPress).
+  - Đấu Trường Chân Lý bảo toàn đúng **63 code**, Where Winds Meet và Tru Tiên 3D giữ nguyên 100%.
+
 ### 390. Đồng Bộ Chuẩn Xác Số Lượng Mã Giữa Danh Sách & Chi Tiết Cho Đấu Trường Chân Lý Mobile & Tự Động Recompute Cột Đếm Bảng Games Khi Nạp Mã
 - **Bối cảnh & Hiện trạng**:
   - Tại bản 169b0cb, thẻ "Đấu Trường Chân Lý Mobile" ngoài trang chủ báo 0 code, nhưng khi bấm xem chi tiết modal lại hiển thị 63 mã khả dụng (5 mã hết hạn) — tổng 68 mã. Cả 2 URL chi tiết `/game/dau-truong-chan-ly` và `/game/dau-truong-chan-ly-mobile` đều trả về 63 active / 68 total.

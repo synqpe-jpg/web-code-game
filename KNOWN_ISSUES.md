@@ -10,6 +10,20 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-277: Bẫy Gom Các Giá Trị Ghi Cứng Lịch Sử Vào Hàm Chuẩn Hóa Khiến Dữ Liệu Thời Gian Thực Bị Đè Bẹp & Bẫy Chênh Lệch Số Đếm Do Regex Lọc Mã Rác Ảnh WordPress
+- **Triệu chứng & Rủi ro**:
+  1. *Thẻ ngoài danh sách báo số lượng cũ dù D1 đã cập nhật*: `type-soul` trong D1 có 71 mã nhưng ngoài danh sách bị ép về 68; `anime-vanguards` có 130 mã nhưng ngoài danh sách bị ép về 119.
+  2. *Lệch số lượng giữa D1 và chi tiết*: Chi tiết game `da-hood` báo 138 trong khi D1 đếm 144; `anime-vanguards` chi tiết báo 121/126 trong khi D1 đếm 130/135.
+- **Nguyên nhân gốc rễ**:
+  1. *Ghi cứng slug trong hàm format/normalize*: Khi tạo hàm chuẩn hóa `normalizeGameCodeCounts`, việc giữ lại các khối `if (slug === '...')` cũ đã vô tình đè lên dữ liệu tươi (`rawActive`, `rawTotal`) từ D1.
+  2. *Mã rác ảnh WordPress tồn tại trong bảng codes*: Crawler cũ cào nhầm các chuỗi kích thước ảnh responsive WordPress (`IN-DA-HOOD-781X439`, `IN-ANIME-VANGUARDS-...`). SQL `COUNT(*)` đếm toàn bộ dòng này, trong khi API chi tiết có `JUNK_CODE_REGEX` lọc bỏ các dòng rác này, dẫn đến độ lệch 6 mã ở Da Hood và 9 mã ở Anime Vanguards.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Xóa bỏ hoàn toàn 3 nhánh ghi cứng trong `normalizeGameCodeCounts`, cho phép số đếm lưu sẵn trong D1 chảy qua tự nhiên.
+  2. Giữ nguyên bộ lọc phòng vệ `JUNK_CODE_REGEX` ở API chi tiết để bảo vệ người dùng không bị nhìn thấy mã rác ảnh.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không ghi cứng các số lượng mã vào code cho các game có số lượng biến động theo thời gian.*
+  - ❌ *Không xóa bộ lọc `JUNK_CODE_REGEX` trong API chi tiết vì sẽ làm lọt mã rác ảnh responsive WordPress ra màn hình người dùng.*
+
 ### ISSUE-276: Bẫy Lệch Số Lượng Mã Giữa Danh Sách Và Chi Tiết Ở Game Song Sinh -mobile & Bẫy Nạp Mã Không Recompute active_codes_count Trên Bảng Games D1
 - **Triệu chứng & Rủi ro**:
   1. *Thẻ ngoài danh sách báo 0 code nhưng vào trong lại có code*: Thẻ game ngoài danh sách ("Đấu Trường Chân Lý Mobile") hiển thị 0 code, nhưng khi click mở modal chi tiết lại có 63 mã khả dụng (5 mã hết hạn) — tổng 68 mã.

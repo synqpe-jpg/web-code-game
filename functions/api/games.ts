@@ -164,16 +164,7 @@ export function normalizeGameCodeCounts(
   // Nhóm Where Winds Meet giữ nguyên logic đặc thù riêng (không ghi đè)
   const isWwm = slug === 'yen-van-thap-luc-thanh' || slug === 'where-winds-meet-mobile' || slug === 'where-winds-meet';
   if (!isWwm) {
-    if (slug === 'anime-vanguards') {
-      active = 119;
-      total = 119;
-    } else if (slug === 'da-hood') {
-      active = 138;
-      total = 138;
-    } else if (slug === 'type-soul') {
-      active = 68;
-      total = 68;
-    } else if (slug === 'dau-truong-chan-ly-mobile' || slug === 'dau-truong-chan-ly') {
+    if (slug === 'dau-truong-chan-ly-mobile' || slug === 'dau-truong-chan-ly') {
       // Đấu Trường Chân Lý: Bảng codes trên D1 có 63 mã active + 5 mã expired = 68 tổng mã.
       // Đồng bộ chuẩn xác cả bản song sinh -mobile và bản gốc về đúng 63 active / 68 total, khớp 100% với modal chi tiết.
       active = 63;
