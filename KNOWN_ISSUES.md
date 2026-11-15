@@ -10,6 +10,23 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-276: Bẫy Lệch Số Lượng Mã Giữa Danh Sách Và Chi Tiết Ở Game Song Sinh -mobile & Bẫy Nạp Mã Không Recompute active_codes_count Trên Bảng Games D1
+- **Triệu chứng & Rủi ro**:
+  1. *Thẻ ngoài danh sách báo 0 code nhưng vào trong lại có code*: Thẻ game ngoài danh sách ("Đấu Trường Chân Lý Mobile") hiển thị 0 code, nhưng khi click mở modal chi tiết lại có 63 mã khả dụng (5 mã hết hạn) — tổng 68 mã.
+  2. *Lệch số mã khả dụng do đếm cả mã hết hạn*: Bản ghi game trong D1 lưu `active_codes_count = 68`, đếm cả các mã đã expired trong bảng `codes` khiến danh sách hiển thị số lượng cao hơn thực tế.
+  3. *Mã mới nạp không cập nhật số đếm trên thẻ*: Các luồng nạp mã thủ công của Admin hoặc crawler chỉ `INSERT INTO codes` mà không cập nhật `active_codes_count` trên bảng `games`, khiến game bị giữ số 0 ngoài danh sách.
+- **Nguyên nhân gốc rễ**:
+  1. *Lệch cơ chế tra cứu giữa 2 đầu API*: API chi tiết chuẩn hóa `cleanWithoutMobile = cleanSlug.replace(/-mobile$/i, '')` và query `WHERE slug = ? OR slug = ?`, kéo được mã của bản gốc. API danh sách query SQL trực tiếp theo từng dòng riêng rẽ, bản ghi `-mobile` có `active_codes_count = 0` nên trả về 0.
+  2. *Thiếu recompute khi nạp mã*: Bảng `games` lưu precomputed column `active_codes_count`, nếu các API nạp mã không chạy lệnh `UPDATE games SET active_codes_count = ...` thì số đếm bị đóng băng.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Triển khai hàm chuẩn hóa `normalizeGameCodeCounts` trong `functions/api/games.ts` cho toàn bộ 4 nhánh danh sách (No-search SQL, Search SQL, Autocomplete, Bookmarks).
+  2. Đồng bộ chuẩn xác `dau-truong-chan-ly-mobile` và `dau-truong-chan-ly` về đúng 63 mã active / 68 tổng mã, khớp 100% với chi tiết modal.
+  3. Bổ sung câu lệnh SQL recompute `active_codes_count` và `total_codes_count` ngay sau khi nạp, duyệt, hoặc xóa mã trong `free-codes/index.ts`, `submissions/[id]/approve.ts`, và `ingest-codes.ts` (`queue_game`).
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không xóa hoặc gộp 2 bản ghi trong D1 khi chưa có chỉ thị từ chủ sở hữu.*
+  - ❌ *Không sửa tay số đếm trong D1 vì đợt nạp mã kế tiếp sẽ ghi đè và làm lệch lại.*
+  - ❌ *Không can thiệp vào logic riêng của nhóm Where Winds Meet (`where-winds-meet-mobile` 620, `where-winds-meet` 22).*
+
 ### ISSUE-275: Bẫy Chỉ Toggle Class Theme Nhưng Thiếu Bảng Biến CSS (.light) & Bẫy Critical Inline CSS Ghi Cứng !important Khiến Giao Diện Sáng Bị Đóng Băng Màu Tối
 - **Triệu chứng & Rủi ro**:
   1. *Giao diện không đổi sang màu sáng*: Người dùng bấm chuyển sang "Chế độ Sáng", nhãn nút đổi thành "Chế độ Tối" và thuộc tính `<meta name="color-scheme">` đổi thành `light`, nhưng toàn bộ trang web (nền trang, thẻ game, header, sidebar) vẫn giữ nguyên màu tối `#0B0D19` và `#13182C`.

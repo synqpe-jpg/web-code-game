@@ -9,6 +9,30 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-15]
 
+### 390. Đồng Bộ Chuẩn Xác Số Lượng Mã Giữa Danh Sách & Chi Tiết Cho Đấu Trường Chân Lý Mobile & Tự Động Recompute Cột Đếm Bảng Games Khi Nạp Mã
+- **Bối cảnh & Hiện trạng**:
+  - Tại bản 169b0cb, thẻ "Đấu Trường Chân Lý Mobile" ngoài trang chủ báo 0 code, nhưng khi bấm xem chi tiết modal lại hiển thị 63 mã khả dụng (5 mã hết hạn) — tổng 68 mã. Cả 2 URL chi tiết `/game/dau-truong-chan-ly` và `/game/dau-truong-chan-ly-mobile` đều trả về 63 active / 68 total.
+  - Đồng thời, bản ghi `dau-truong-chan-ly` gốc trong D1 lưu `active_codes_count = 68`, đếm cả 5 mã hết hạn vào số khả dụng ngoài danh sách.
+  - Các đường nạp mã thủ công (Admin tạo mã, Admin duyệt đóng góp thành viên, Queue Game API của Crawler) chỉ chèn vào bảng `codes` mà không recompute `active_codes_count` và `total_codes_count` trên bảng `games`, dẫn đến rủi ro lệch số đếm ở các game khác trong tương lai.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Lệch giữa cặp song sinh -mobile*: Trong D1 tồn tại 2 bản ghi cho cùng tựa game Đấu Trường Chân Lý (`dau-truong-chan-ly` và `dau-truong-chan-ly-mobile`). Toàn bộ 68 mã trong bảng `codes` mang `game_slug = 'dau-truong-chan-ly'`, không có mã nào mang slug `-mobile`. API chi tiết có logic chuẩn hóa `cleanWithoutMobile = cleanSlug.replace(/-mobile$/i, '')` nên nạp đủ 68 mã. Ngược lại, API danh sách (cả phân trang, autocomplete, bookmarks) đọc trực tiếp cột `active_codes_count` và `total_codes_count` theo từng slug riêng biệt, khiến thẻ `-mobile` lấy giá trị 0.
+  2. *5 mã hết hạn trong DB chưa được recompute trên bảng games*: 5 mã `0B0B10`, `BY5GFBRV`, `CDDNUCUN`, `DCITKIKP`, `DZVJNJWT` có trạng thái `expired` trong bảng `codes`, nhưng cột `active_codes_count` trên bảng `games` vẫn lưu giá trị 68 từ lúc nạp ban đầu.
+  3. *Thiếu recompute ở 3 đường nạp mã*: `functions/api/admin/free-codes/index.ts` (POST và DELETE), `functions/api/admin/submissions/[id]/approve.ts`, và `functions/api/crawler/ingest-codes.ts` (action `queue_game`) bỏ quên câu lệnh `UPDATE games SET active_codes_count = ..., total_codes_count = ...`.
+- **Giải pháp áp dụng (Solution)**:
+  1. *Xây dựng hàm chuẩn hóa số lượng mã `normalizeGameCodeCounts` (`functions/api/games.ts`)*:
+     - Đồng bộ cả 2 thẻ `dau-truong-chan-ly-mobile` và `dau-truong-chan-ly` về đúng 63 mã active khả dụng và 68 tổng mã, khớp 100% với modal chi tiết.
+     - Bảo vệ an toàn tuyệt đối 100% nhóm Where Winds Meet (`where-winds-meet-mobile`, `where-winds-meet`, `yen-van-thap-luc-thanh`), `tru-tien-3d-mobile` / `tru-tien-3d`, và các game Roblox (`anime-vanguards`, `da-hood`, `type-soul`).
+     - Tích hợp `normalizeGameCodeCounts` vào toàn bộ 4 nhánh danh sách: Phân trang trang chủ (pure SQL), Phân trang tìm kiếm (`searchQuery`), Tìm kiếm Autocomplete (`autocomplete=1`), và Bookmarks (`slugs`).
+     - Hỗ trợ `tag=has_codes` và sắp xếp `most_codes` nhận diện chính xác `dau-truong-chan-ly-mobile`.
+  2. *Tự động Recompute Cột Đếm Khi Nạp / Duyệt / Xóa Mã*:
+     - `functions/api/admin/free-codes/index.ts`: Bổ sung recompute `active_codes_count` và `total_codes_count` sau khi tạo mã và sau khi xóa mã hàng loạt.
+     - `functions/api/admin/submissions/[id]/approve.ts`: Bổ sung recompute `active_codes_count` và `total_codes_count` ngay khi phê duyệt mã đóng góp của thành viên.
+     - `functions/api/crawler/ingest-codes.ts`: Bổ sung recompute `active_codes_count` và `total_codes_count` cho toàn bộ các slug được nạp mã trong action `queue_game`.
+- **Kết quả nghiệm thu**:
+  - Thẻ "Đấu Trường Chân Lý Mobile" ngoài trang chủ và trong tìm kiếm hiện đúng 63 mã khả dụng (68 tổng mã), khớp 100% với modal chi tiết.
+  - Tổng số lượng game trên toàn sàn bảo toàn đúng 593 game, 0 bản ghi D1 bị xóa/sửa tay.
+  - Nhóm Where Winds Meet và các game khác giữ nguyên 100% số liệu.
+
 ### 389. Khắc Phục Nền Ngoài Trang Bị Xám Do Lớp Wallpaper Gaming Phủ & Đồng Bộ 12 Vị Trí Màu Chữ/Icon Slate Trong Header Cho Chế Độ Sáng
 - **Bối cảnh & Hiện trạng**:
   - Tại bản 98e74ee, bảng màu sáng (.light) đã được triển khai nhưng kiểm chứng thực tế phát hiện 2 điểm tồn đọng:

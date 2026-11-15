@@ -90,6 +90,16 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         INSERT INTO codes (id, game_slug, code, rewards, status, expires_at, source, created_at)
         VALUES (?, ?, ?, ?, 'active', NULL, 'submission', datetime('now'))
       `).bind(codeId, gameSlug, codeValue, rewards).run().catch(() => {});
+
+      // Tự động recompute active_codes_count, total_codes_count, last_code_at trên bảng games D1
+      await env.DB.prepare(`
+        UPDATE games
+        SET active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.status = 'active' OR codes.status = 'verified') AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now', '+7 hours'))),
+            total_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug),
+            last_code_at = datetime('now'),
+            updated_at = datetime('now')
+        WHERE slug = ?
+      `).bind(gameSlug).run().catch(() => {});
     }
 
     await logAdminAudit(env.DB, {

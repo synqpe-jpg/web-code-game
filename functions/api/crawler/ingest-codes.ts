@@ -2034,6 +2034,19 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
             for (let i = 0; i < batchStmts.length; i += 50) {
               await env.DB.batch(batchStmts.slice(i, i + 50));
             }
+
+            // Tự động recompute active_codes_count, total_codes_count trên bảng games D1
+            const queuedSlugs = Array.from(new Set(codesToInsertInD1.map((nc) => String(nc.gameSlug || '').trim().toLowerCase()).filter(Boolean)));
+            for (const qs of queuedSlugs) {
+              await env.DB.prepare(`
+                UPDATE games
+                SET active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.status = 'active' OR codes.status = 'verified') AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now', '+7 hours'))),
+                    total_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug),
+                    last_code_at = datetime('now'),
+                    updated_at = datetime('now')
+                WHERE slug = ?
+              `).bind(qs).run().catch(() => {});
+            }
           } catch (sqlErr) {
             console.warn('[QueueGame Codes SQL Insert Warning]', sqlErr);
           }

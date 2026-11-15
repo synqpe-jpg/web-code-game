@@ -174,6 +174,16 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       VALUES (?, ?, ?, ?, ?, ?, 'admin', datetime('now'))
     `).bind(newId, gameSlug, code, rewards, status, expiresAt).run();
 
+    // Tự động recompute active_codes_count, total_codes_count, last_code_at trên bảng games D1
+    await env.DB.prepare(`
+      UPDATE games
+      SET active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.status = 'active' OR codes.status = 'verified') AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now', '+7 hours'))),
+          total_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug),
+          last_code_at = datetime('now'),
+          updated_at = datetime('now')
+      WHERE slug = ?
+    `).bind(gameSlug).run().catch(() => {});
+
     await logAdminAudit(env.DB, {
       actorName: auth.adminName || 'Admin',
       action: 'CREATE_FREE_CODE',
@@ -249,7 +259,22 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
     }
 
     const placeholders = ids.map(() => '?').join(',');
+    // Tra cứu danh sách game_slug bị ảnh hưởng trước khi xóa
+    const affectedSlugsRes = await env.DB.prepare(`SELECT DISTINCT game_slug FROM codes WHERE id IN (${placeholders})`).bind(...ids).all<any>().catch(() => ({ results: [] as any[] }));
+    const affectedSlugs = (affectedSlugsRes?.results || []).map((r: any) => r.game_slug).filter(Boolean);
+
     await env.DB.prepare(`DELETE FROM codes WHERE id IN (${placeholders})`).bind(...ids).run();
+
+    // Tự động recompute active_codes_count, total_codes_count trên bảng games D1 cho các game bị ảnh hưởng
+    for (const s of affectedSlugs) {
+      await env.DB.prepare(`
+        UPDATE games
+        SET active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.status = 'active' OR codes.status = 'verified') AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now', '+7 hours'))),
+            total_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug),
+            updated_at = datetime('now')
+        WHERE slug = ?
+      `).bind(s).run().catch(() => {});
+    }
 
     await logAdminAudit(env.DB, {
       actorName: auth.adminName || 'Admin',
