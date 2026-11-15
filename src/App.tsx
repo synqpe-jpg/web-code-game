@@ -1828,7 +1828,7 @@ export const App: React.FC = () => {
                 {/* 2. Khối Game Sắp Ra Mắt (Upcoming Games Banner) */}
                 <div id="upcoming-games-banner-section" className="min-h-[145px] sm:min-h-[195px]">
                   <UpcomingGamesBanner
-                    upcomingGames={upcomingGames}
+                    upcomingGames={dataService.getAllUpcomingGamesRawSync ? dataService.getAllUpcomingGamesRawSync() : upcomingGames}
                     bookmarkedSlugs={bookmarks}
                     onToggleBookmark={handleToggleBookmark}
                     onOpenAllUpcomingModal={() => {
@@ -1987,7 +1987,7 @@ export const App: React.FC = () => {
                 storeProducts={dataService.getStoreProducts()}
                 utilities={dataService.getUtilityProducts()}
                 giveaways={dataService.getGiveaways()}
-                upcomingGames={upcomingGames}
+                upcomingGames={dataService.getAllUpcomingGamesRawSync ? dataService.getAllUpcomingGamesRawSync() : upcomingGames}
                 onSelectGame={setSelectedGame}
                 onSelectGameSlug={handleSelectGameSlug}
                 onSelectProduct={(prod) => {

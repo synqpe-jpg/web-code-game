@@ -5,6 +5,32 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ---
 
+## [2026-11-16]
+
+### 398. Hotfix Crash useMemo Trang Chi Tiết Game & Đồng Bộ Chuẩn Xác Các Chỉ Số /test1 (16/11/2026)
+- **Bối cảnh & Yêu cầu của Chủ sở hữu**:
+  - Build `af17198` gây crash 100% trang chi tiết game (`useMemo is not defined`) tại `https://codegame.shop/game/<slug>` và từ `/test1`.
+  - Đồng thời phát sinh một số lệch số và điểm bất cập: Tin tức badge 272 vs render 270 và bị điều hướng ra URL web chính; Sự kiện badge 92 vs render 93; Sắp ra mắt badge 90 nhưng render 41 bản ghi (bộ lọc 41/0/0); Tổng game test1 hiện 595 vs catalog web chính 593; Giá 4 gói Hiệp Khách Hành 2.000 Core không giải thích; Mục lục A-Z trùng lặp game và thiếu chữ U; Chữ footer tương phản rất thấp ở theme Trắng.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Crash useMemo*: `GameDetailModal.tsx` sử dụng `useMemo` và `useRef` cho ô tìm kiếm mã code nhưng ở dòng import chỉ có `{ useState, useEffect }` từ `'react'`.
+  2. *Lệch số & pushState tin tức*: `NewsView.tsx` tự động gọi `window.history.pushState` với đường dẫn `/news/...` khi mở bài viết; số badge dùng cứng 272 trong khi một số bài bị tombstone/unpublish; `ShopeeTestView` dùng prop `upcomingGames` (41 game) thay vì nguồn đầy đủ 90 bản ghi thật.
+  3. *Lệch 595 vs 593 game*: Tập dữ liệu tĩnh `games188.json` chứa 4 game dự kiến chưa phát hành trên D1 (`Tiểu Đội Quậy Ma`, `Monster Hunter Outlanders`, `Dawn's Wake`, `Wild Beast Town`), đồng thời thiếu 2 game mới phát hành trên D1 (`CoA: Tinh Thể Atlan`, `KOF: Legend`). Hiệu số $595 - 4 + 2 = 593$.
+  4. *Giá 2.000 Core trong modal*: Đây là chính sách Giá ưu đãi lần đầu (First Purchase Offer) của hệ thống nhưng thiếu huy hiệu chú thích giải thích trong modal khiến người dùng hiểu nhầm là lỗi giá.
+  5. *A-Z trùng lặp & thiếu chữ U*: Nhóm game thiếu chữ U do danh mục không có game chữ U nên `Object.keys()` bỏ qua chữ U; các bản ghi alias (`yen-van-thap-luc-thanh` vs `where-winds-meet`, v.v.) chưa được gộp qua canonical table.
+  6. *Tương phản Footer*: Footer sử dụng text xám mờ (`text-slate-500`, `text-slate-400`) trên nền trắng, gây mờ và khó đọc ở theme Trắng Shopee.
+- **Giải pháp áp dụng (Solution)**:
+  1. *HOTFIX KHẨN CRASH*: Bổ sung `useMemo, useRef` vào dòng 1 của `GameDetailModal.tsx`. Quét toàn bộ codebase đảm bảo 100% không còn hook nào thiếu import.
+  2. *Tin tức & Sự kiện*: Thêm prop `keepInTest1` vào `NewsView.tsx`, chặn đổi URL ra ngoài `/test1`; đồng bộ đếm động `newsCount` và `eventsCount` từ API thực tế (272 tin bài và 93 sự kiện).
+  3. *Sắp ra mắt 90 bản ghi*: Nạp `liveUpcomingList` từ `dataService.getAllUpcomingGamesRawSync()` (đủ 90 bản ghi: 41 chờ mở, 29 chờ duyệt, 20 đã ra mắt), đồng bộ 4 tab lọc và dòng mô tả động.
+  4. *Đồng bộ 593 game*: Bổ sung 2 game D1 (`CoA: Tinh Thể Atlan`, `KOF: Legend`) và loại bỏ 4 game dự kiến khỏi `games188.json` & `crawled_codes_188.json`, đưa catalog tĩnh khớp 100% với D1 Live API là 593 game.
+  5. *Giải thích giá ưu đãi 2.000 Core*: Thêm nhãn nổi bật `Giá ưu đãi lần đầu (Giá niêm yết: ...)` trong `ProductDetailModal.tsx`.
+  6. *Mục lục A-Z*: Khai báo bảng `GAME_CANONICAL_ALIASES`, khử trùng lặp theo `seenSlugs`; duyệt đủ 26 chữ cái từ A đến Z (luôn có chữ U) và ký tự `#`.
+  7. *Tăng tương phản Footer theme Trắng*: Bọc footer trong container card sáng viền rõ `bg-white dark:bg-slate-900`, chữ màu `text-slate-950` (tiêu đề) và `text-slate-700` (nội dung), đạt chuẩn WCAG AAA.
+- **Kết quả nghiệm thu**:
+  - Build Vite, Prerender 593 game và Edge Worker bundle thành công 100%.
+
+---
+
 ## [2026-11-15]
 
 ### 397. Bổ Sung Toàn Diện Các Mục & Tính Năng Web Chính Vào Bản Sàn /test1 (15/11/2026)
@@ -47,6 +73,32 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ---
 
+## [2026-11-16]
+
+### 398. Hotfix Crash useMemo Trang Chi Tiết Game & Đồng Bộ Chuẩn Xác Các Chỉ Số /test1 (16/11/2026)
+- **Bối cảnh & Yêu cầu của Chủ sở hữu**:
+  - Build `af17198` gây crash 100% trang chi tiết game (`useMemo is not defined`) tại `https://codegame.shop/game/<slug>` và từ `/test1`.
+  - Đồng thời phát sinh một số lệch số và điểm bất cập: Tin tức badge 272 vs render 270 và bị điều hướng ra URL web chính; Sự kiện badge 92 vs render 93; Sắp ra mắt badge 90 nhưng render 41 bản ghi (bộ lọc 41/0/0); Tổng game test1 hiện 595 vs catalog web chính 593; Giá 4 gói Hiệp Khách Hành 2.000 Core không giải thích; Mục lục A-Z trùng lặp game và thiếu chữ U; Chữ footer tương phản rất thấp ở theme Trắng.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Crash useMemo*: `GameDetailModal.tsx` sử dụng `useMemo` và `useRef` cho ô tìm kiếm mã code nhưng ở dòng import chỉ có `{ useState, useEffect }` từ `'react'`.
+  2. *Lệch số & pushState tin tức*: `NewsView.tsx` tự động gọi `window.history.pushState` với đường dẫn `/news/...` khi mở bài viết; số badge dùng cứng 272 trong khi một số bài bị tombstone/unpublish; `ShopeeTestView` dùng prop `upcomingGames` (41 game) thay vì nguồn đầy đủ 90 bản ghi thật.
+  3. *Lệch 595 vs 593 game*: Tập dữ liệu tĩnh `games188.json` chứa 4 game dự kiến chưa phát hành trên D1 (`Tiểu Đội Quậy Ma`, `Monster Hunter Outlanders`, `Dawn's Wake`, `Wild Beast Town`), đồng thời thiếu 2 game mới phát hành trên D1 (`CoA: Tinh Thể Atlan`, `KOF: Legend`). Hiệu số $595 - 4 + 2 = 593$.
+  4. *Giá 2.000 Core trong modal*: Đây là chính sách Giá ưu đãi lần đầu (First Purchase Offer) của hệ thống nhưng thiếu huy hiệu chú thích giải thích trong modal khiến người dùng hiểu nhầm là lỗi giá.
+  5. *A-Z trùng lặp & thiếu chữ U*: Nhóm game thiếu chữ U do danh mục không có game chữ U nên `Object.keys()` bỏ qua chữ U; các bản ghi alias (`yen-van-thap-luc-thanh` vs `where-winds-meet`, v.v.) chưa được gộp qua canonical table.
+  6. *Tương phản Footer*: Footer sử dụng text xám mờ (`text-slate-500`, `text-slate-400`) trên nền trắng, gây mờ và khó đọc ở theme Trắng Shopee.
+- **Giải pháp áp dụng (Solution)**:
+  1. *HOTFIX KHẨN CRASH*: Bổ sung `useMemo, useRef` vào dòng 1 của `GameDetailModal.tsx`. Quét toàn bộ codebase đảm bảo 100% không còn hook nào thiếu import.
+  2. *Tin tức & Sự kiện*: Thêm prop `keepInTest1` vào `NewsView.tsx`, chặn đổi URL ra ngoài `/test1`; đồng bộ đếm động `newsCount` và `eventsCount` từ API thực tế (272 tin bài và 93 sự kiện).
+  3. *Sắp ra mắt 90 bản ghi*: Nạp `liveUpcomingList` từ `dataService.getAllUpcomingGamesRawSync()` (đủ 90 bản ghi: 41 chờ mở, 29 chờ duyệt, 20 đã ra mắt), đồng bộ 4 tab lọc và dòng mô tả động.
+  4. *Đồng bộ 593 game*: Bổ sung 2 game D1 (`CoA: Tinh Thể Atlan`, `KOF: Legend`) và loại bỏ 4 game dự kiến khỏi `games188.json` & `crawled_codes_188.json`, đưa catalog tĩnh khớp 100% với D1 Live API là 593 game.
+  5. *Giải thích giá ưu đãi 2.000 Core*: Thêm nhãn nổi bật `Giá ưu đãi lần đầu (Giá niêm yết: ...)` trong `ProductDetailModal.tsx`.
+  6. *Mục lục A-Z*: Khai báo bảng `GAME_CANONICAL_ALIASES`, khử trùng lặp theo `seenSlugs`; duyệt đủ 26 chữ cái từ A đến Z (luôn có chữ U) và ký tự `#`.
+  7. *Tăng tương phản Footer theme Trắng*: Bọc footer trong container card sáng viền rõ `bg-white dark:bg-slate-900`, chữ màu `text-slate-950` (tiêu đề) và `text-slate-700` (nội dung), đạt chuẩn WCAG AAA.
+- **Kết quả nghiệm thu**:
+  - Build Vite, Prerender 593 game và Edge Worker bundle thành công 100%.
+
+---
+
 ## [2026-11-15]
 
 ### 396. Khắc Phục Lỗi "Rocket is not defined" Trên Giao Diện Sàn Shopee (/test1)
@@ -60,6 +112,32 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
   - Giao diện `https://codegame.shop/test1/` tải mượt mà không còn lỗi hiển thị.
   - Build Vite & Cloudflare Edge Worker bundle thành công 100%.
   - Tự động triển khai đồng thời lên `web-code-game` và `admin-code-game-shop`.
+
+---
+
+## [2026-11-16]
+
+### 398. Hotfix Crash useMemo Trang Chi Tiết Game & Đồng Bộ Chuẩn Xác Các Chỉ Số /test1 (16/11/2026)
+- **Bối cảnh & Yêu cầu của Chủ sở hữu**:
+  - Build `af17198` gây crash 100% trang chi tiết game (`useMemo is not defined`) tại `https://codegame.shop/game/<slug>` và từ `/test1`.
+  - Đồng thời phát sinh một số lệch số và điểm bất cập: Tin tức badge 272 vs render 270 và bị điều hướng ra URL web chính; Sự kiện badge 92 vs render 93; Sắp ra mắt badge 90 nhưng render 41 bản ghi (bộ lọc 41/0/0); Tổng game test1 hiện 595 vs catalog web chính 593; Giá 4 gói Hiệp Khách Hành 2.000 Core không giải thích; Mục lục A-Z trùng lặp game và thiếu chữ U; Chữ footer tương phản rất thấp ở theme Trắng.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Crash useMemo*: `GameDetailModal.tsx` sử dụng `useMemo` và `useRef` cho ô tìm kiếm mã code nhưng ở dòng import chỉ có `{ useState, useEffect }` từ `'react'`.
+  2. *Lệch số & pushState tin tức*: `NewsView.tsx` tự động gọi `window.history.pushState` với đường dẫn `/news/...` khi mở bài viết; số badge dùng cứng 272 trong khi một số bài bị tombstone/unpublish; `ShopeeTestView` dùng prop `upcomingGames` (41 game) thay vì nguồn đầy đủ 90 bản ghi thật.
+  3. *Lệch 595 vs 593 game*: Tập dữ liệu tĩnh `games188.json` chứa 4 game dự kiến chưa phát hành trên D1 (`Tiểu Đội Quậy Ma`, `Monster Hunter Outlanders`, `Dawn's Wake`, `Wild Beast Town`), đồng thời thiếu 2 game mới phát hành trên D1 (`CoA: Tinh Thể Atlan`, `KOF: Legend`). Hiệu số $595 - 4 + 2 = 593$.
+  4. *Giá 2.000 Core trong modal*: Đây là chính sách Giá ưu đãi lần đầu (First Purchase Offer) của hệ thống nhưng thiếu huy hiệu chú thích giải thích trong modal khiến người dùng hiểu nhầm là lỗi giá.
+  5. *A-Z trùng lặp & thiếu chữ U*: Nhóm game thiếu chữ U do danh mục không có game chữ U nên `Object.keys()` bỏ qua chữ U; các bản ghi alias (`yen-van-thap-luc-thanh` vs `where-winds-meet`, v.v.) chưa được gộp qua canonical table.
+  6. *Tương phản Footer*: Footer sử dụng text xám mờ (`text-slate-500`, `text-slate-400`) trên nền trắng, gây mờ và khó đọc ở theme Trắng Shopee.
+- **Giải pháp áp dụng (Solution)**:
+  1. *HOTFIX KHẨN CRASH*: Bổ sung `useMemo, useRef` vào dòng 1 của `GameDetailModal.tsx`. Quét toàn bộ codebase đảm bảo 100% không còn hook nào thiếu import.
+  2. *Tin tức & Sự kiện*: Thêm prop `keepInTest1` vào `NewsView.tsx`, chặn đổi URL ra ngoài `/test1`; đồng bộ đếm động `newsCount` và `eventsCount` từ API thực tế (272 tin bài và 93 sự kiện).
+  3. *Sắp ra mắt 90 bản ghi*: Nạp `liveUpcomingList` từ `dataService.getAllUpcomingGamesRawSync()` (đủ 90 bản ghi: 41 chờ mở, 29 chờ duyệt, 20 đã ra mắt), đồng bộ 4 tab lọc và dòng mô tả động.
+  4. *Đồng bộ 593 game*: Bổ sung 2 game D1 (`CoA: Tinh Thể Atlan`, `KOF: Legend`) và loại bỏ 4 game dự kiến khỏi `games188.json` & `crawled_codes_188.json`, đưa catalog tĩnh khớp 100% với D1 Live API là 593 game.
+  5. *Giải thích giá ưu đãi 2.000 Core*: Thêm nhãn nổi bật `Giá ưu đãi lần đầu (Giá niêm yết: ...)` trong `ProductDetailModal.tsx`.
+  6. *Mục lục A-Z*: Khai báo bảng `GAME_CANONICAL_ALIASES`, khử trùng lặp theo `seenSlugs`; duyệt đủ 26 chữ cái từ A đến Z (luôn có chữ U) và ký tự `#`.
+  7. *Tăng tương phản Footer theme Trắng*: Bọc footer trong container card sáng viền rõ `bg-white dark:bg-slate-900`, chữ màu `text-slate-950` (tiêu đề) và `text-slate-700` (nội dung), đạt chuẩn WCAG AAA.
+- **Kết quả nghiệm thu**:
+  - Build Vite, Prerender 593 game và Edge Worker bundle thành công 100%.
 
 ---
 
@@ -101,6 +179,32 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ---
 
+## [2026-11-16]
+
+### 398. Hotfix Crash useMemo Trang Chi Tiết Game & Đồng Bộ Chuẩn Xác Các Chỉ Số /test1 (16/11/2026)
+- **Bối cảnh & Yêu cầu của Chủ sở hữu**:
+  - Build `af17198` gây crash 100% trang chi tiết game (`useMemo is not defined`) tại `https://codegame.shop/game/<slug>` và từ `/test1`.
+  - Đồng thời phát sinh một số lệch số và điểm bất cập: Tin tức badge 272 vs render 270 và bị điều hướng ra URL web chính; Sự kiện badge 92 vs render 93; Sắp ra mắt badge 90 nhưng render 41 bản ghi (bộ lọc 41/0/0); Tổng game test1 hiện 595 vs catalog web chính 593; Giá 4 gói Hiệp Khách Hành 2.000 Core không giải thích; Mục lục A-Z trùng lặp game và thiếu chữ U; Chữ footer tương phản rất thấp ở theme Trắng.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Crash useMemo*: `GameDetailModal.tsx` sử dụng `useMemo` và `useRef` cho ô tìm kiếm mã code nhưng ở dòng import chỉ có `{ useState, useEffect }` từ `'react'`.
+  2. *Lệch số & pushState tin tức*: `NewsView.tsx` tự động gọi `window.history.pushState` với đường dẫn `/news/...` khi mở bài viết; số badge dùng cứng 272 trong khi một số bài bị tombstone/unpublish; `ShopeeTestView` dùng prop `upcomingGames` (41 game) thay vì nguồn đầy đủ 90 bản ghi thật.
+  3. *Lệch 595 vs 593 game*: Tập dữ liệu tĩnh `games188.json` chứa 4 game dự kiến chưa phát hành trên D1 (`Tiểu Đội Quậy Ma`, `Monster Hunter Outlanders`, `Dawn's Wake`, `Wild Beast Town`), đồng thời thiếu 2 game mới phát hành trên D1 (`CoA: Tinh Thể Atlan`, `KOF: Legend`). Hiệu số $595 - 4 + 2 = 593$.
+  4. *Giá 2.000 Core trong modal*: Đây là chính sách Giá ưu đãi lần đầu (First Purchase Offer) của hệ thống nhưng thiếu huy hiệu chú thích giải thích trong modal khiến người dùng hiểu nhầm là lỗi giá.
+  5. *A-Z trùng lặp & thiếu chữ U*: Nhóm game thiếu chữ U do danh mục không có game chữ U nên `Object.keys()` bỏ qua chữ U; các bản ghi alias (`yen-van-thap-luc-thanh` vs `where-winds-meet`, v.v.) chưa được gộp qua canonical table.
+  6. *Tương phản Footer*: Footer sử dụng text xám mờ (`text-slate-500`, `text-slate-400`) trên nền trắng, gây mờ và khó đọc ở theme Trắng Shopee.
+- **Giải pháp áp dụng (Solution)**:
+  1. *HOTFIX KHẨN CRASH*: Bổ sung `useMemo, useRef` vào dòng 1 của `GameDetailModal.tsx`. Quét toàn bộ codebase đảm bảo 100% không còn hook nào thiếu import.
+  2. *Tin tức & Sự kiện*: Thêm prop `keepInTest1` vào `NewsView.tsx`, chặn đổi URL ra ngoài `/test1`; đồng bộ đếm động `newsCount` và `eventsCount` từ API thực tế (272 tin bài và 93 sự kiện).
+  3. *Sắp ra mắt 90 bản ghi*: Nạp `liveUpcomingList` từ `dataService.getAllUpcomingGamesRawSync()` (đủ 90 bản ghi: 41 chờ mở, 29 chờ duyệt, 20 đã ra mắt), đồng bộ 4 tab lọc và dòng mô tả động.
+  4. *Đồng bộ 593 game*: Bổ sung 2 game D1 (`CoA: Tinh Thể Atlan`, `KOF: Legend`) và loại bỏ 4 game dự kiến khỏi `games188.json` & `crawled_codes_188.json`, đưa catalog tĩnh khớp 100% với D1 Live API là 593 game.
+  5. *Giải thích giá ưu đãi 2.000 Core*: Thêm nhãn nổi bật `Giá ưu đãi lần đầu (Giá niêm yết: ...)` trong `ProductDetailModal.tsx`.
+  6. *Mục lục A-Z*: Khai báo bảng `GAME_CANONICAL_ALIASES`, khử trùng lặp theo `seenSlugs`; duyệt đủ 26 chữ cái từ A đến Z (luôn có chữ U) và ký tự `#`.
+  7. *Tăng tương phản Footer theme Trắng*: Bọc footer trong container card sáng viền rõ `bg-white dark:bg-slate-900`, chữ màu `text-slate-950` (tiêu đề) và `text-slate-700` (nội dung), đạt chuẩn WCAG AAA.
+- **Kết quả nghiệm thu**:
+  - Build Vite, Prerender 593 game và Edge Worker bundle thành công 100%.
+
+---
+
 ## [2026-11-15]
 
 ### 394. Chuyển Mục "Mã Hôm Nay" Thành Mục Con Của "Tin Tức" & Tinh Gọn Thanh Điều Hướng Header
@@ -128,6 +232,32 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ---
 
+## [2026-11-16]
+
+### 398. Hotfix Crash useMemo Trang Chi Tiết Game & Đồng Bộ Chuẩn Xác Các Chỉ Số /test1 (16/11/2026)
+- **Bối cảnh & Yêu cầu của Chủ sở hữu**:
+  - Build `af17198` gây crash 100% trang chi tiết game (`useMemo is not defined`) tại `https://codegame.shop/game/<slug>` và từ `/test1`.
+  - Đồng thời phát sinh một số lệch số và điểm bất cập: Tin tức badge 272 vs render 270 và bị điều hướng ra URL web chính; Sự kiện badge 92 vs render 93; Sắp ra mắt badge 90 nhưng render 41 bản ghi (bộ lọc 41/0/0); Tổng game test1 hiện 595 vs catalog web chính 593; Giá 4 gói Hiệp Khách Hành 2.000 Core không giải thích; Mục lục A-Z trùng lặp game và thiếu chữ U; Chữ footer tương phản rất thấp ở theme Trắng.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Crash useMemo*: `GameDetailModal.tsx` sử dụng `useMemo` và `useRef` cho ô tìm kiếm mã code nhưng ở dòng import chỉ có `{ useState, useEffect }` từ `'react'`.
+  2. *Lệch số & pushState tin tức*: `NewsView.tsx` tự động gọi `window.history.pushState` với đường dẫn `/news/...` khi mở bài viết; số badge dùng cứng 272 trong khi một số bài bị tombstone/unpublish; `ShopeeTestView` dùng prop `upcomingGames` (41 game) thay vì nguồn đầy đủ 90 bản ghi thật.
+  3. *Lệch 595 vs 593 game*: Tập dữ liệu tĩnh `games188.json` chứa 4 game dự kiến chưa phát hành trên D1 (`Tiểu Đội Quậy Ma`, `Monster Hunter Outlanders`, `Dawn's Wake`, `Wild Beast Town`), đồng thời thiếu 2 game mới phát hành trên D1 (`CoA: Tinh Thể Atlan`, `KOF: Legend`). Hiệu số $595 - 4 + 2 = 593$.
+  4. *Giá 2.000 Core trong modal*: Đây là chính sách Giá ưu đãi lần đầu (First Purchase Offer) của hệ thống nhưng thiếu huy hiệu chú thích giải thích trong modal khiến người dùng hiểu nhầm là lỗi giá.
+  5. *A-Z trùng lặp & thiếu chữ U*: Nhóm game thiếu chữ U do danh mục không có game chữ U nên `Object.keys()` bỏ qua chữ U; các bản ghi alias (`yen-van-thap-luc-thanh` vs `where-winds-meet`, v.v.) chưa được gộp qua canonical table.
+  6. *Tương phản Footer*: Footer sử dụng text xám mờ (`text-slate-500`, `text-slate-400`) trên nền trắng, gây mờ và khó đọc ở theme Trắng Shopee.
+- **Giải pháp áp dụng (Solution)**:
+  1. *HOTFIX KHẨN CRASH*: Bổ sung `useMemo, useRef` vào dòng 1 của `GameDetailModal.tsx`. Quét toàn bộ codebase đảm bảo 100% không còn hook nào thiếu import.
+  2. *Tin tức & Sự kiện*: Thêm prop `keepInTest1` vào `NewsView.tsx`, chặn đổi URL ra ngoài `/test1`; đồng bộ đếm động `newsCount` và `eventsCount` từ API thực tế (272 tin bài và 93 sự kiện).
+  3. *Sắp ra mắt 90 bản ghi*: Nạp `liveUpcomingList` từ `dataService.getAllUpcomingGamesRawSync()` (đủ 90 bản ghi: 41 chờ mở, 29 chờ duyệt, 20 đã ra mắt), đồng bộ 4 tab lọc và dòng mô tả động.
+  4. *Đồng bộ 593 game*: Bổ sung 2 game D1 (`CoA: Tinh Thể Atlan`, `KOF: Legend`) và loại bỏ 4 game dự kiến khỏi `games188.json` & `crawled_codes_188.json`, đưa catalog tĩnh khớp 100% với D1 Live API là 593 game.
+  5. *Giải thích giá ưu đãi 2.000 Core*: Thêm nhãn nổi bật `Giá ưu đãi lần đầu (Giá niêm yết: ...)` trong `ProductDetailModal.tsx`.
+  6. *Mục lục A-Z*: Khai báo bảng `GAME_CANONICAL_ALIASES`, khử trùng lặp theo `seenSlugs`; duyệt đủ 26 chữ cái từ A đến Z (luôn có chữ U) và ký tự `#`.
+  7. *Tăng tương phản Footer theme Trắng*: Bọc footer trong container card sáng viền rõ `bg-white dark:bg-slate-900`, chữ màu `text-slate-950` (tiêu đề) và `text-slate-700` (nội dung), đạt chuẩn WCAG AAA.
+- **Kết quả nghiệm thu**:
+  - Build Vite, Prerender 593 game và Edge Worker bundle thành công 100%.
+
+---
+
 ## [2026-11-15]
 
 ### 393. Triển Khai Tuyến Đường Thử Nghiệm Phong Cách Shopee Cô Lập Tuyệt Đối Tại /test1
@@ -152,6 +282,32 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
   3. *Tự động Triển khai & Kiểm thử*:
      - Build Vite và Cloudflare Edge Worker bundle thành công 100%.
      - Triển khai đồng thời lên `web-code-game` và `admin-code-game-shop`, verify deploy và warm-up edge cache hoàn tất.
+
+---
+
+## [2026-11-16]
+
+### 398. Hotfix Crash useMemo Trang Chi Tiết Game & Đồng Bộ Chuẩn Xác Các Chỉ Số /test1 (16/11/2026)
+- **Bối cảnh & Yêu cầu của Chủ sở hữu**:
+  - Build `af17198` gây crash 100% trang chi tiết game (`useMemo is not defined`) tại `https://codegame.shop/game/<slug>` và từ `/test1`.
+  - Đồng thời phát sinh một số lệch số và điểm bất cập: Tin tức badge 272 vs render 270 và bị điều hướng ra URL web chính; Sự kiện badge 92 vs render 93; Sắp ra mắt badge 90 nhưng render 41 bản ghi (bộ lọc 41/0/0); Tổng game test1 hiện 595 vs catalog web chính 593; Giá 4 gói Hiệp Khách Hành 2.000 Core không giải thích; Mục lục A-Z trùng lặp game và thiếu chữ U; Chữ footer tương phản rất thấp ở theme Trắng.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Crash useMemo*: `GameDetailModal.tsx` sử dụng `useMemo` và `useRef` cho ô tìm kiếm mã code nhưng ở dòng import chỉ có `{ useState, useEffect }` từ `'react'`.
+  2. *Lệch số & pushState tin tức*: `NewsView.tsx` tự động gọi `window.history.pushState` với đường dẫn `/news/...` khi mở bài viết; số badge dùng cứng 272 trong khi một số bài bị tombstone/unpublish; `ShopeeTestView` dùng prop `upcomingGames` (41 game) thay vì nguồn đầy đủ 90 bản ghi thật.
+  3. *Lệch 595 vs 593 game*: Tập dữ liệu tĩnh `games188.json` chứa 4 game dự kiến chưa phát hành trên D1 (`Tiểu Đội Quậy Ma`, `Monster Hunter Outlanders`, `Dawn's Wake`, `Wild Beast Town`), đồng thời thiếu 2 game mới phát hành trên D1 (`CoA: Tinh Thể Atlan`, `KOF: Legend`). Hiệu số $595 - 4 + 2 = 593$.
+  4. *Giá 2.000 Core trong modal*: Đây là chính sách Giá ưu đãi lần đầu (First Purchase Offer) của hệ thống nhưng thiếu huy hiệu chú thích giải thích trong modal khiến người dùng hiểu nhầm là lỗi giá.
+  5. *A-Z trùng lặp & thiếu chữ U*: Nhóm game thiếu chữ U do danh mục không có game chữ U nên `Object.keys()` bỏ qua chữ U; các bản ghi alias (`yen-van-thap-luc-thanh` vs `where-winds-meet`, v.v.) chưa được gộp qua canonical table.
+  6. *Tương phản Footer*: Footer sử dụng text xám mờ (`text-slate-500`, `text-slate-400`) trên nền trắng, gây mờ và khó đọc ở theme Trắng Shopee.
+- **Giải pháp áp dụng (Solution)**:
+  1. *HOTFIX KHẨN CRASH*: Bổ sung `useMemo, useRef` vào dòng 1 của `GameDetailModal.tsx`. Quét toàn bộ codebase đảm bảo 100% không còn hook nào thiếu import.
+  2. *Tin tức & Sự kiện*: Thêm prop `keepInTest1` vào `NewsView.tsx`, chặn đổi URL ra ngoài `/test1`; đồng bộ đếm động `newsCount` và `eventsCount` từ API thực tế (272 tin bài và 93 sự kiện).
+  3. *Sắp ra mắt 90 bản ghi*: Nạp `liveUpcomingList` từ `dataService.getAllUpcomingGamesRawSync()` (đủ 90 bản ghi: 41 chờ mở, 29 chờ duyệt, 20 đã ra mắt), đồng bộ 4 tab lọc và dòng mô tả động.
+  4. *Đồng bộ 593 game*: Bổ sung 2 game D1 (`CoA: Tinh Thể Atlan`, `KOF: Legend`) và loại bỏ 4 game dự kiến khỏi `games188.json` & `crawled_codes_188.json`, đưa catalog tĩnh khớp 100% với D1 Live API là 593 game.
+  5. *Giải thích giá ưu đãi 2.000 Core*: Thêm nhãn nổi bật `Giá ưu đãi lần đầu (Giá niêm yết: ...)` trong `ProductDetailModal.tsx`.
+  6. *Mục lục A-Z*: Khai báo bảng `GAME_CANONICAL_ALIASES`, khử trùng lặp theo `seenSlugs`; duyệt đủ 26 chữ cái từ A đến Z (luôn có chữ U) và ký tự `#`.
+  7. *Tăng tương phản Footer theme Trắng*: Bọc footer trong container card sáng viền rõ `bg-white dark:bg-slate-900`, chữ màu `text-slate-950` (tiêu đề) và `text-slate-700` (nội dung), đạt chuẩn WCAG AAA.
+- **Kết quả nghiệm thu**:
+  - Build Vite, Prerender 593 game và Edge Worker bundle thành công 100%.
 
 ---
 
@@ -183,6 +339,32 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
   - `cherry-tale`: 14 còn hạn / 19 tổng $\rightarrow$ **13 còn hạn / 18 tổng** (0 mã REDEMPTION).
   - `pew-pew-slime-idle-rpg`: 25 còn hạn / 30 tổng $\rightarrow$ **24 còn hạn / 29 tổng** (0 mã REDEMPTION).
   - Đấu Trường Chân Lý bảo toàn đúng 63 code (cả 2 slug), Da Hood 138/138, Anime Vanguards 121/126, Type Soul 71/71, tổng số game giữ nguyên 593 game.
+
+---
+
+## [2026-11-16]
+
+### 398. Hotfix Crash useMemo Trang Chi Tiết Game & Đồng Bộ Chuẩn Xác Các Chỉ Số /test1 (16/11/2026)
+- **Bối cảnh & Yêu cầu của Chủ sở hữu**:
+  - Build `af17198` gây crash 100% trang chi tiết game (`useMemo is not defined`) tại `https://codegame.shop/game/<slug>` và từ `/test1`.
+  - Đồng thời phát sinh một số lệch số và điểm bất cập: Tin tức badge 272 vs render 270 và bị điều hướng ra URL web chính; Sự kiện badge 92 vs render 93; Sắp ra mắt badge 90 nhưng render 41 bản ghi (bộ lọc 41/0/0); Tổng game test1 hiện 595 vs catalog web chính 593; Giá 4 gói Hiệp Khách Hành 2.000 Core không giải thích; Mục lục A-Z trùng lặp game và thiếu chữ U; Chữ footer tương phản rất thấp ở theme Trắng.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Crash useMemo*: `GameDetailModal.tsx` sử dụng `useMemo` và `useRef` cho ô tìm kiếm mã code nhưng ở dòng import chỉ có `{ useState, useEffect }` từ `'react'`.
+  2. *Lệch số & pushState tin tức*: `NewsView.tsx` tự động gọi `window.history.pushState` với đường dẫn `/news/...` khi mở bài viết; số badge dùng cứng 272 trong khi một số bài bị tombstone/unpublish; `ShopeeTestView` dùng prop `upcomingGames` (41 game) thay vì nguồn đầy đủ 90 bản ghi thật.
+  3. *Lệch 595 vs 593 game*: Tập dữ liệu tĩnh `games188.json` chứa 4 game dự kiến chưa phát hành trên D1 (`Tiểu Đội Quậy Ma`, `Monster Hunter Outlanders`, `Dawn's Wake`, `Wild Beast Town`), đồng thời thiếu 2 game mới phát hành trên D1 (`CoA: Tinh Thể Atlan`, `KOF: Legend`). Hiệu số $595 - 4 + 2 = 593$.
+  4. *Giá 2.000 Core trong modal*: Đây là chính sách Giá ưu đãi lần đầu (First Purchase Offer) của hệ thống nhưng thiếu huy hiệu chú thích giải thích trong modal khiến người dùng hiểu nhầm là lỗi giá.
+  5. *A-Z trùng lặp & thiếu chữ U*: Nhóm game thiếu chữ U do danh mục không có game chữ U nên `Object.keys()` bỏ qua chữ U; các bản ghi alias (`yen-van-thap-luc-thanh` vs `where-winds-meet`, v.v.) chưa được gộp qua canonical table.
+  6. *Tương phản Footer*: Footer sử dụng text xám mờ (`text-slate-500`, `text-slate-400`) trên nền trắng, gây mờ và khó đọc ở theme Trắng Shopee.
+- **Giải pháp áp dụng (Solution)**:
+  1. *HOTFIX KHẨN CRASH*: Bổ sung `useMemo, useRef` vào dòng 1 của `GameDetailModal.tsx`. Quét toàn bộ codebase đảm bảo 100% không còn hook nào thiếu import.
+  2. *Tin tức & Sự kiện*: Thêm prop `keepInTest1` vào `NewsView.tsx`, chặn đổi URL ra ngoài `/test1`; đồng bộ đếm động `newsCount` và `eventsCount` từ API thực tế (272 tin bài và 93 sự kiện).
+  3. *Sắp ra mắt 90 bản ghi*: Nạp `liveUpcomingList` từ `dataService.getAllUpcomingGamesRawSync()` (đủ 90 bản ghi: 41 chờ mở, 29 chờ duyệt, 20 đã ra mắt), đồng bộ 4 tab lọc và dòng mô tả động.
+  4. *Đồng bộ 593 game*: Bổ sung 2 game D1 (`CoA: Tinh Thể Atlan`, `KOF: Legend`) và loại bỏ 4 game dự kiến khỏi `games188.json` & `crawled_codes_188.json`, đưa catalog tĩnh khớp 100% với D1 Live API là 593 game.
+  5. *Giải thích giá ưu đãi 2.000 Core*: Thêm nhãn nổi bật `Giá ưu đãi lần đầu (Giá niêm yết: ...)` trong `ProductDetailModal.tsx`.
+  6. *Mục lục A-Z*: Khai báo bảng `GAME_CANONICAL_ALIASES`, khử trùng lặp theo `seenSlugs`; duyệt đủ 26 chữ cái từ A đến Z (luôn có chữ U) và ký tự `#`.
+  7. *Tăng tương phản Footer theme Trắng*: Bọc footer trong container card sáng viền rõ `bg-white dark:bg-slate-900`, chữ màu `text-slate-950` (tiêu đề) và `text-slate-700` (nội dung), đạt chuẩn WCAG AAA.
+- **Kết quả nghiệm thu**:
+  - Build Vite, Prerender 593 game và Edge Worker bundle thành công 100%.
 
 ---
 

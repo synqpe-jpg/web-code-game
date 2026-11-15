@@ -10,6 +10,23 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-281: Bẫy Thiếu Import React Hook (useMemo/useRef) Gây Crash 100% Error Boundary & Bẫy Chênh Lệch Dữ Liệu Tĩnh Build-Time vs D1 Live
+- **Triệu chứng & Rủi ro**:
+  1. *Crash trang chi tiết game*: Mở trang chi tiết bất kỳ game nào trên cả web chính lẫn `/test1` đều bị Error Boundary chặn lại kèm thông báo: `Đã có sự cố hiển thị nhỏ xảy ra... useMemo is not defined`.
+  2. *Lệch số lượng tựa game (595 vs 593)*: Catalog bản tĩnh lúc build (`games188.json`) hiển thị 595 game, trong khi API máy chủ D1 trả về 593 game.
+  3. *Lệch danh mục A-Z & thiếu chữ cái*: Danh mục A-Z bị khuyết chữ cái (nhảy cóc từ T sang V vì thiếu chữ U) do lặp qua `Object.keys()` của dữ liệu thực tế mà không duyệt danh sách bảng chữ cái đầy đủ 26 chữ cái.
+- **Nguyên nhân gốc rễ**:
+  1. *Thiếu import React hooks*: Trong quá trình refactor tối ưu hóa thanh tìm kiếm mã code trong `GameDetailModal.tsx`, developer sử dụng `useMemo` và `useRef` nhưng quên bổ sung vào khai báo import đầu file `{ useState, useEffect }`.
+  2. *Lệch catalog tĩnh build-time*: `games188.json` chứa 4 game dự kiến chưa phát hành trên D1 (`Tiểu Đội Quậy Ma`, `Monster Hunter Outlanders`, `Dawn's Wake`, `Wild Beast Town`), trong khi thiếu 2 game mới phát hành trên D1 (`CoA: Tinh Thể Atlan`, `KOF: Legend`). Hiệu số $595 - 4 + 2 = 593$.
+  3. *Không khởi tạo mảng chữ cái cố định*: Thuật toán nhóm chỉ tạo key cho các chữ cái có game, dẫn đến chữ U bị mất khỏi thanh điều hướng A-Z.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Luôn import đầy đủ các hook React `{ useState, useEffect, useMemo, useRef }` và chạy audit static analysis trước khi build.
+  2. Đồng bộ 2 game D1 vào `games188.json` & `crawled_codes_188.json` và loại bỏ 4 game dự kiến, giữ vững SSOT đúng 593 game cho cả build tĩnh và runtime.
+  3. Khởi tạo mảng chữ cái đầy đủ `['#', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')]` để luôn có đủ 26 chữ cái kể cả khi chưa có game tương ứng.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không bọc thêm Error Boundary mới để che giấu lỗi `ReferenceError: useMemo is not defined`.*
+  - ❌ *Không dùng `Object.keys()` động để sinh thanh điều hướng bảng chữ cái A-Z.*
+
 ### ISSUE-280: Bẫy Điều Hướng Ra Khỏi Đường Dẫn Thử Nghiệm /test1 & Bẫy Lệch Tên Thuộc Tính Số Dư Ví (wallet_balance vs balance)
 - **Triệu chứng & Rủi ro**:
   1. *Điều hướng ra ngoài làm mất bối cảnh thử nghiệm*: Khi người dùng bấm vào các nút Header/Footer (Kênh Người Bán, Mở Gian Hàng Game, Mã Hôm Nay, Tin Tức, Sự Kiện, v.v.), hệ thống chuyển hướng ra các đường dẫn của web chính (`/ban-hang`, `/ma-hom-nay`, `/news`) khiến người dùng rời khỏi trải nghiệm `/test1`.

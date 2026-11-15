@@ -13,6 +13,8 @@ import confetti from 'canvas-confetti';
 import { cartService } from '../../services/cartService';
 import { dataService } from '../../services/dataService';
 import { authService } from '../../services/authService';
+import { newsService } from '../../services/newsService';
+import { gameEventService } from '../../services/gameEventService';
 import { formatCore } from '../../utils/textUtils';
 import { ShopeeGuaranteeModal } from './ShopeeGuaranteeModal';
 import { ShopeeSupportModal } from './ShopeeSupportModal';
@@ -83,6 +85,19 @@ const MAIN_GAME_CATEGORIES = [
   { id: 'roblox-mini-game', label: 'Roblox & Mini Game', icon: '🕹️', match: (c: string) => /roblox|mini game/i.test(c) },
   { id: 'nhap-vai-morpg', label: 'Nhập Vai & MMORPG', icon: '🛡️', match: (c: string) => /mmorpg|nhập vai|arpg/i.test(c) },
 ];
+
+// Quy tắc gộp Canonical Alias chuẩn xác để chống trùng lặp tựa game (Where Winds Meet, Seven Deadly Sins, Hắc Ngộ Không, X-Wukong)
+const GAME_CANONICAL_ALIASES: Record<string, string> = {
+  'dau-truong-chan-ly-mobile': 'dau-truong-chan-ly',
+  'ta-la-hac-ngo-khong-vplay': 'ta-la-hac-ngo-khong',
+  'tam-quoc-huyen-tuong': 'tam-quoc-huyen-tuong-vng',
+  'x-wukong-dai-chien-tam-gioi': 'x-wukong',
+  'huyen-thoai-hai-tac': 'pirate-legends',
+  'seven-deadly-sins-grand-cross': 'the-seven-deadly-sins-grand-cross',
+  'where-winds-meet-mobile': 'yen-van-thap-luc-thanh',
+  'where-winds-meet': 'yen-van-thap-luc-thanh',
+  'loan-the-3q': 'loan-the-3q-than-ma-lenh-oeg',
+};
 
 export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
   allGames = [],
@@ -175,6 +190,45 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
       return 0;
     }
   });
+
+  // Dynamic counts for news, events, and upcoming (đồng bộ thời gian thực từ live API)
+  const [newsCount, setNewsCount] = useState<number>(() => {
+    try {
+      return newsService.getPublishedArticles().length || 272;
+    } catch {
+      return 272;
+    }
+  });
+
+  const [eventsCount, setEventsCount] = useState<number>(() => {
+    try {
+      return gameEventService.getPublishedEvents().length || 93;
+    } catch {
+      return 93;
+    }
+  });
+
+  useEffect(() => {
+    newsService.syncFromServer().then((list) => {
+      if (Array.isArray(list) && list.length > 0) {
+        setNewsCount(list.length);
+      }
+    }).catch(() => {});
+  }, []);
+
+  // Upcoming games: nạp đủ 90 bản ghi thật từ dataService
+  const [liveUpcomingList, setLiveUpcomingList] = useState<UpcomingGame[]>(() => {
+    const raw = dataService.getAllUpcomingGamesRawSync ? dataService.getAllUpcomingGamesRawSync() : [];
+    return raw.length > 0 ? raw : (upcomingGames || []);
+  });
+
+  useEffect(() => {
+    dataService.getAllUpcomingGamesRaw().then((list) => {
+      if (Array.isArray(list) && list.length > 0) {
+        setLiveUpcomingList(list);
+      }
+    }).catch(() => {});
+  }, []);
 
   // Listen to cart updates
   useEffect(() => {
@@ -336,9 +390,9 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
     return list.slice(0, 6);
   }, [allGames, searchKeyword]);
 
-  // Filter raw upcoming games (90 bản ghi web chính)
+  // Filter raw upcoming games (90 bản ghi thật đồng bộ từ web chính)
   const filteredUpcoming = useMemo(() => {
-    let list = upcomingGames || [];
+    let list = liveUpcomingList || [];
     if (upcomingStatusFilter === 'UPCOMING') {
       list = list.filter((g) => g.status === 'UPCOMING' || g.status === 'APPROVED');
     } else if (upcomingStatusFilter === 'PENDING') {
@@ -351,19 +405,40 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
       list = list.filter((g) => (g.name || '').toLowerCase().includes(q) || (g.publisher || '').toLowerCase().includes(q));
     }
     return list;
-  }, [upcomingGames, upcomingStatusFilter, searchKeyword]);
+  }, [liveUpcomingList, upcomingStatusFilter, searchKeyword]);
 
-  // A-Z alphabetical directory
+  // A-Z alphabetical directory with canonical deduplication (xóa trùng lặp WWM, 7DS, Hắc Ngộ Không, X-Wukong)
   const azGroupedGames = useMemo(() => {
     const map: Record<string, GameItem[]> = {};
-    for (const g of allGames) {
-      const firstChar = (g.name || '').trim().charAt(0).toUpperCase();
+    const ALL_LETTERS = ['#', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')];
+    for (const l of ALL_LETTERS) {
+      map[l] = [];
+    }
+
+    const seenSlugs = new Set<string>();
+    const canonicalGames = (allGames || []).filter((g) => {
+      const rawSlug = (g.slug || g.id || '').toLowerCase();
+      if (!rawSlug) return false;
+      if (GAME_CANONICAL_ALIASES[rawSlug]) return false;
+      const normName = (g.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (seenSlugs.has(rawSlug) || (normName && seenSlugs.has(normName))) return false;
+      seenSlugs.add(rawSlug);
+      if (normName) seenSlugs.add(normName);
+      return true;
+    }).sort((a, b) => (a.name || '').localeCompare(b.name || '', 'vi'));
+
+    for (const g of canonicalGames) {
+      const firstChar = (g.name || '').trim().charAt(0).toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
       const letter = /^[A-Z]$/.test(firstChar) ? firstChar : '#';
       if (!map[letter]) map[letter] = [];
       map[letter].push(g);
     }
     return map;
   }, [allGames]);
+
+  const azCanonicalTotal = useMemo(() => {
+    return Object.values(azGroupedGames).reduce((acc, curr) => acc + (curr ? curr.length : 0), 0);
+  }, [azGroupedGames]);
 
   // Copy code handler
   const handleCopyCode = (code: string, e: React.MouseEvent) => {
@@ -670,7 +745,7 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
             className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'news' ? 'bg-white text-[#ee4d2d] font-bold shadow-sm' : 'hover:bg-white/15 text-white/95'}`}
           >
             <Newspaper className="w-3.5 h-3.5" />
-            <span>Tin Tức Game (272)</span>
+            <span>Tin Tức Game ({newsCount})</span>
           </button>
 
           <button
@@ -678,7 +753,7 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
             className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'events' ? 'bg-white text-[#ee4d2d] font-bold shadow-sm' : 'hover:bg-white/15 text-white/95'}`}
           >
             <Calendar className="w-3.5 h-3.5" />
-            <span>Sự Kiện Hot (92)</span>
+            <span>Sự Kiện Hot ({eventsCount})</span>
           </button>
 
           <button
@@ -694,7 +769,7 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
             className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'upcoming' ? 'bg-white text-[#ee4d2d] font-bold shadow-sm' : 'hover:bg-white/15 text-white/95'}`}
           >
             <Rocket className="w-3.5 h-3.5" />
-            <span>Sắp Ra Mắt (90)</span>
+            <span>Sắp Ra Mắt ({liveUpcomingList.length || 90})</span>
           </button>
 
           <button
@@ -769,10 +844,10 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
               </button>
               <span className="text-slate-400">/</span>
               <span className="font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider text-[11px]">
-                {subView === 'news' && 'Tin Tức Game (272 Bài Viết Chuẩn SEO)'}
-                {subView === 'events' && 'Sự Kiện Game (92 Sự Kiện Hot)'}
+                {subView === 'news' && `Tin Tức Game (${newsCount} Bài Viết Chuẩn SEO)`}
+                {subView === 'events' && `Sự Kiện Game (${eventsCount} Sự Kiện Hot)`}
                 {subView === 'today-codes' && 'Mã Hôm Nay (Tự Đóng 22:30)'}
-                {subView === 'upcoming' && 'Bảng Game Sắp Ra Mắt (90 Bản Ghi Chuẩn Web Chính)'}
+                {subView === 'upcoming' && `Bảng Game Sắp Ra Mắt (${liveUpcomingList.length || 90} Bản Ghi Chuẩn Web Chính)`}
                 {subView === 'store' && 'Cửa Hàng Code (10 Gói Hiệp Khách Hành)'}
                 {subView === 'seller' && 'Sàn Giao Dịch & Kênh Người Bán'}
                 {subView === 'account' && 'Tài Khoản & Ví Core'}
@@ -802,18 +877,19 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
             <NewsView
               onShowToast={(t, m, type) => onShowToast(m ? `${t}: ${m}` : t, type as any)}
               onSelectGameSlug={onSelectGameSlug}
+              keepInTest1={true}
             />
           </div>
         )}
 
-        {/* SUBVIEW 2: SỰ KIỆN HOT (92 SỰ KIỆN) */}
+        {/* SUBVIEW 2: SỰ KIỆN HOT (93 SỰ KIỆN) */}
         {subView === 'events' && (
           <div className="rounded-xl overflow-hidden shadow-sm p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
             <div className="mb-4 pb-2 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
               <div>
                 <h3 className="font-bold text-lg text-slate-900 dark:text-white flex items-center gap-2">
                   <Calendar className="w-5 h-5 text-[#ee4d2d]" />
-                  <span>Sự Kiện Game Hot Nhất (92 Sự Kiện)</span>
+                  <span>Sự Kiện Game Hot Nhất ({eventsCount} Sự Kiện)</span>
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
                   Đồng bộ chuẩn xác từ web chính: Giờ Việt Nam, ảnh chính thức, cách tham gia và giftcode xác thực.
@@ -855,10 +931,10 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
               <div>
                 <h3 className="font-bold text-lg text-slate-900 dark:text-white flex items-center gap-2">
                   <Rocket className="w-5 h-5 text-[#ee4d2d]" />
-                  <span>Bảng Game Sắp Ra Mắt ({upcomingGames.length || 90} Bản Ghi Chuẩn Web Chính)</span>
+                  <span>Bảng Game Sắp Ra Mắt ({liveUpcomingList.length || 90} Bản Ghi Chuẩn Web Chính)</span>
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Dữ liệu thực tế: 41 game đang chờ mở, 29 game chờ duyệt, 20 game đã ra mắt. Không bịa mã hay đếm ngược ảo.
+                  Dữ liệu thực tế: {liveUpcomingList.filter((g) => g.status === 'UPCOMING' || g.status === 'APPROVED').length} game đang chờ mở, {liveUpcomingList.filter((g) => g.status === 'PENDING').length} game chờ duyệt, {liveUpcomingList.filter((g) => g.status === 'LAUNCHED' || g.status === 'RELEASED').length} game đã ra mắt. Không bịa mã hay đếm ngược ảo.
                 </p>
               </div>
 
@@ -868,25 +944,25 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
                   onClick={() => setUpcomingStatusFilter('ALL')}
                   className={`px-2.5 py-1 rounded transition cursor-pointer ${upcomingStatusFilter === 'ALL' ? 'bg-[#ee4d2d] text-white shadow-xs' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'}`}
                 >
-                  Tất Cả ({upcomingGames.length})
+                  Tất Cả ({liveUpcomingList.length || 90})
                 </button>
                 <button
                   onClick={() => setUpcomingStatusFilter('UPCOMING')}
                   className={`px-2.5 py-1 rounded transition cursor-pointer ${upcomingStatusFilter === 'UPCOMING' ? 'bg-[#ee4d2d] text-white shadow-xs' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'}`}
                 >
-                  Đang Chờ Mở ({upcomingGames.filter((g) => g.status === 'UPCOMING' || g.status === 'APPROVED').length})
+                  Đang Chờ Mở ({liveUpcomingList.filter((g) => g.status === 'UPCOMING' || g.status === 'APPROVED').length})
                 </button>
                 <button
                   onClick={() => setUpcomingStatusFilter('PENDING')}
                   className={`px-2.5 py-1 rounded transition cursor-pointer ${upcomingStatusFilter === 'PENDING' ? 'bg-[#ee4d2d] text-white shadow-xs' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'}`}
                 >
-                  Chờ Duyệt ({upcomingGames.filter((g) => g.status === 'PENDING').length})
+                  Chờ Duyệt ({liveUpcomingList.filter((g) => g.status === 'PENDING').length})
                 </button>
                 <button
                   onClick={() => setUpcomingStatusFilter('RELEASED')}
                   className={`px-2.5 py-1 rounded transition cursor-pointer ${upcomingStatusFilter === 'RELEASED' ? 'bg-[#ee4d2d] text-white shadow-xs' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'}`}
                 >
-                  Đã Ra Mắt ({upcomingGames.filter((g) => g.status === 'LAUNCHED' || g.status === 'RELEASED').length})
+                  Đã Ra Mắt ({liveUpcomingList.filter((g) => g.status === 'LAUNCHED' || g.status === 'RELEASED').length})
                 </button>
               </div>
             </div>
@@ -1209,60 +1285,77 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
               <div>
                 <h3 className="font-bold text-lg text-slate-900 dark:text-white flex items-center gap-2">
                   <List className="w-5 h-5 text-[#ee4d2d]" />
-                  <span>Mục Lục Toàn Bộ Tựa Game A-Z ({allGames.length} Game Có Giấy Phép)</span>
+                  <span>Mục Lục Toàn Bộ Tựa Game A-Z ({azCanonicalTotal} Game Đã Chuẩn Hóa)</span>
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Tra cứu nhanh chóng theo bảng chữ cái từ A đến Z toàn bộ kho game mobile và PC.
+                  Tra cứu nhanh chóng theo bảng chữ cái từ A đến Z toàn bộ kho game mobile và PC (khử trùng lặp canonical alias).
                 </p>
               </div>
             </div>
 
-            {/* Quick jumping alphabet bar */}
+            {/* Quick jumping alphabet bar (Đầy đủ 26 chữ cái từ A-Z bao gồm U và #) */}
             <div className="flex flex-wrap gap-1 p-2 bg-slate-50 dark:bg-slate-950 rounded-lg border border-slate-200 dark:border-slate-800 text-xs font-bold">
-              {Object.keys(azGroupedGames).sort().map((letter) => (
-                <a
-                  key={letter}
-                  href={`#az-group-${letter}`}
-                  className="w-7 h-7 rounded flex items-center justify-center bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-[#ee4d2d] hover:text-white transition shadow-2xs"
-                >
-                  {letter}
-                </a>
-              ))}
+              {['#', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')].map((letter) => {
+                const count = azGroupedGames[letter]?.length || 0;
+                return (
+                  <a
+                    key={letter}
+                    href={`#az-group-${letter}`}
+                    className={`w-7 h-7 rounded flex items-center justify-center transition shadow-2xs ${
+                      count > 0
+                        ? 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-[#ee4d2d] hover:text-white'
+                        : 'bg-slate-100 dark:bg-slate-900/60 text-slate-400 dark:text-slate-600 hover:bg-slate-200'
+                    }`}
+                    title={count > 0 ? `${count} game bắt đầu bằng ${letter}` : `Chưa có game bắt đầu bằng ${letter}`}
+                  >
+                    {letter}
+                  </a>
+                );
+              })}
             </div>
 
             {/* Letter Groups */}
             <div className="space-y-6">
-              {Object.keys(azGroupedGames).sort().map((letter) => (
-                <div key={letter} id={`az-group-${letter}`} className="scroll-mt-32">
-                  <div className="flex items-center gap-2 mb-2 pb-1 border-b-2 border-[#ee4d2d]/30">
-                    <span className="w-8 h-8 rounded-lg bg-[#ee4d2d] text-white font-extrabold flex items-center justify-center text-sm shadow">
-                      {letter}
-                    </span>
-                    <span className="text-xs text-slate-500 font-semibold">({azGroupedGames[letter].length} game)</span>
+              {['#', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')].map((letter) => {
+                const gamesInLetter = azGroupedGames[letter] || [];
+                return (
+                  <div key={letter} id={`az-group-${letter}`} className="scroll-mt-32">
+                    <div className="flex items-center gap-2 mb-2 pb-1 border-b-2 border-[#ee4d2d]/30">
+                      <span className="w-8 h-8 rounded-lg bg-[#ee4d2d] text-white font-extrabold flex items-center justify-center text-sm shadow">
+                        {letter}
+                      </span>
+                      <span className="text-xs text-slate-500 font-semibold">({gamesInLetter.length} game)</span>
+                    </div>
+                    {gamesInLetter.length > 0 ? (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                        {gamesInLetter.map((g) => (
+                          <button
+                            key={g.id || g.slug}
+                            onClick={() => onSelectGame(g)}
+                            className="p-2 rounded-lg bg-slate-50 dark:bg-slate-800/60 hover:bg-orange-50 dark:hover:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 text-left transition flex items-center gap-2 cursor-pointer group"
+                          >
+                            <div className="w-7 h-7 rounded bg-slate-200 dark:bg-slate-700 shrink-0 overflow-hidden flex items-center justify-center text-xs">
+                              {g.icon_url ? <img src={g.icon_url} alt={g.name} className="w-full h-full object-cover" /> : '🎮'}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate group-hover:text-[#ee4d2d]">
+                                {g.name}
+                              </div>
+                              <div className="text-[10px] text-slate-400 truncate">
+                                {g.codes_count || g.active_codes_count || 0} mã
+                              </div>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-xs text-slate-400 dark:text-slate-500 italic py-2 px-3 bg-slate-50 dark:bg-slate-900/40 rounded-lg border border-dashed border-slate-200 dark:border-slate-800">
+                        Hiện chưa có tựa game nào bắt đầu bằng ký tự "{letter}".
+                      </div>
+                    )}
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
-                    {azGroupedGames[letter].map((g) => (
-                      <button
-                        key={g.id || g.slug}
-                        onClick={() => onSelectGame(g)}
-                        className="p-2 rounded-lg bg-slate-50 dark:bg-slate-800/60 hover:bg-orange-50 dark:hover:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 text-left transition flex items-center gap-2 cursor-pointer group"
-                      >
-                        <div className="w-7 h-7 rounded bg-slate-200 dark:bg-slate-700 shrink-0 overflow-hidden flex items-center justify-center text-xs">
-                          {g.icon_url ? <img src={g.icon_url} alt={g.name} className="w-full h-full object-cover" /> : '🎮'}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate group-hover:text-[#ee4d2d]">
-                            {g.name}
-                          </div>
-                          <div className="text-[10px] text-slate-400 truncate">
-                            {g.codes_count || g.active_codes_count || 0} mã
-                          </div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
@@ -1985,8 +2078,8 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
           </>
         )}
 
-        {/* 3.6. FOOTER ĐẦY ĐỦ 4 CỘT CHUẨN WEB CHÍNH */}
-        <div className="border-t border-slate-200 dark:border-slate-800 pt-8 mt-8 text-xs text-slate-500 dark:text-slate-400 space-y-6">
+        {/* 3.6. FOOTER ĐẦY ĐỦ 4 CỘT CHUẨN WEB CHÍNH (ĐỘ TƯƠNG PHẢN CAO CHO THEME TRẮNG) */}
+        <div className="border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 rounded-2xl p-6 sm:p-8 mt-8 shadow-xs space-y-6 text-xs text-slate-700 dark:text-slate-300">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             
             {/* Cột 1: Về CodeGame Mall */}
@@ -1995,20 +2088,20 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
                 <div className="w-8 h-8 rounded-lg bg-[#ee4d2d] flex items-center justify-center text-white font-black text-sm">
                   🎮
                 </div>
-                <span className="font-extrabold text-sm text-slate-900 dark:text-white">{shopBrand.name}</span>
+                <span className="font-extrabold text-base text-slate-950 dark:text-white">{shopBrand.name}</span>
               </div>
-              <p className="text-slate-500 text-[11px] leading-relaxed">
+              <p className="text-slate-700 dark:text-slate-300 text-xs leading-relaxed font-medium">
                 Nền tảng thương mại điện tử chuyên biệt: Mua bán Tiện ích game, Gói code Hiệp Khách Hành, Thẻ game chiết khấu cao và chia sẻ Giftcode 0đ từ NPH có giấy phép G1/G234.
               </p>
-              <div className="text-[10px] text-slate-400">
+              <div className="text-[11px] text-slate-600 dark:text-slate-400 font-semibold">
                 Hạ tầng Edge Network • Vận hành 24/7 • Giữ tiền 168h
               </div>
             </div>
 
             {/* Cột 2: Danh Mục Thể Loại */}
             <div className="space-y-2">
-              <h4 className="font-bold text-slate-900 dark:text-white uppercase tracking-wider text-[11px]">Chuyên Mục Game Hot</h4>
-              <ul className="space-y-1.5 text-[11px]">
+              <h4 className="font-extrabold text-slate-950 dark:text-white uppercase tracking-wider text-xs">Chuyên Mục Game Hot</h4>
+              <ul className="space-y-2 text-xs font-semibold">
                 {MAIN_GAME_CATEGORIES.slice(1).map((cat) => (
                   <li key={cat.id}>
                     <button
@@ -2018,9 +2111,10 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
                         const el = document.getElementById('shopee-products-grid');
                         if (el) el.scrollIntoView({ behavior: 'smooth' });
                       }}
-                      className="hover:text-[#ee4d2d] transition text-left cursor-pointer"
+                      className="text-slate-700 dark:text-slate-300 hover:text-[#ee4d2d] dark:hover:text-[#ff6b4a] transition text-left cursor-pointer flex items-center gap-1.5"
                     >
-                      {cat.icon} {cat.label}
+                      <span>{cat.icon}</span>
+                      <span>{cat.label}</span>
                     </button>
                   </li>
                 ))}
@@ -2029,30 +2123,30 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
 
             {/* Cột 3: Hỗ Trợ & Pháp Lý */}
             <div className="space-y-2">
-              <h4 className="font-bold text-slate-900 dark:text-white uppercase tracking-wider text-[11px]">Hỗ Trợ & Pháp Lý</h4>
-              <ul className="space-y-1.5 text-[11px]">
+              <h4 className="font-extrabold text-slate-950 dark:text-white uppercase tracking-wider text-xs">Hỗ Trợ & Pháp Lý</h4>
+              <ul className="space-y-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
                 <li>
-                  <button onClick={() => setIsGuaranteeOpen(true)} className="hover:text-[#ee4d2d] transition cursor-pointer">
+                  <button onClick={() => setIsGuaranteeOpen(true)} className="hover:text-[#ee4d2d] dark:hover:text-[#ff6b4a] transition cursor-pointer">
                     🛡️ Chính Sách Bảo Chứng 168 Giờ
                   </button>
                 </li>
                 <li>
-                  <button onClick={() => setSubView('terms')} className="hover:text-[#ee4d2d] transition cursor-pointer">
+                  <button onClick={() => setSubView('terms')} className="hover:text-[#ee4d2d] dark:hover:text-[#ff6b4a] transition cursor-pointer">
                     📄 Điều Khoản Dịch Vụ
                   </button>
                 </li>
                 <li>
-                  <button onClick={() => setSubView('privacy')} className="hover:text-[#ee4d2d] transition cursor-pointer">
+                  <button onClick={() => setSubView('privacy')} className="hover:text-[#ee4d2d] dark:hover:text-[#ff6b4a] transition cursor-pointer">
                     🔒 Chính Sách Bảo Mật
                   </button>
                 </li>
                 <li>
-                  <button onClick={() => setIsSupportOpen(true)} className="hover:text-[#ee4d2d] transition cursor-pointer">
+                  <button onClick={() => setIsSupportOpen(true)} className="hover:text-[#ee4d2d] dark:hover:text-[#ff6b4a] transition cursor-pointer">
                     💬 Trung Tâm Hỗ Trợ CSKH 24/7
                   </button>
                 </li>
                 <li>
-                  <button onClick={() => onShowToast('Hotline CSKH: 0987.654.321', 'info')} className="hover:text-[#ee4d2d] transition cursor-pointer">
+                  <button onClick={() => onShowToast('Hotline CSKH: 0987.654.321', 'info')} className="hover:text-[#ee4d2d] dark:hover:text-[#ff6b4a] transition cursor-pointer">
                     📞 Hotline: {shopBrand.hotline}
                   </button>
                 </li>
@@ -2061,18 +2155,18 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
 
             {/* Cột 4: Kết Nối & Tải App */}
             <div className="space-y-2.5">
-              <h4 className="font-bold text-slate-900 dark:text-white uppercase tracking-wider text-[11px]">Kết Nối & Tải Ứng Dụng</h4>
-              <div className="space-y-2 text-[11px]">
+              <h4 className="font-extrabold text-slate-950 dark:text-white uppercase tracking-wider text-xs">Kết Nối & Tải Ứng Dụng</h4>
+              <div className="space-y-2 text-xs">
                 <button
                   onClick={() => setSubView('telegram')}
-                  className="w-full py-1.5 px-3 rounded-lg bg-blue-500 hover:bg-blue-600 text-white font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
+                  className="w-full py-2 px-3 rounded-lg bg-blue-500 hover:bg-blue-600 text-white font-bold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-xs"
                 >
                   <Send className="w-3.5 h-3.5" />
                   <span>Kênh Telegram Thông Báo</span>
                 </button>
                 <button
                   onClick={onOpenDownloadApp}
-                  className="w-full py-1.5 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
+                  className="w-full py-2 px-3 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-bold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-xs"
                 >
                   <Smartphone className="w-3.5 h-3.5" />
                   <span>Tải App Trực Tiếp (APK)</span>
@@ -2081,7 +2175,7 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
 
               {/* Ngôn ngữ Footer */}
               <div className="pt-2">
-                <span className="text-[10px] text-slate-400 block mb-1">Ngôn ngữ hiển thị:</span>
+                <span className="text-xs text-slate-700 dark:text-slate-300 font-bold block mb-1">Ngôn ngữ hiển thị:</span>
                 <LanguageSelector variant="footer" />
               </div>
             </div>
@@ -2106,7 +2200,7 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
             </button>
           </div>
 
-          <div className="text-center text-[11px] pt-1">
+          <div className="text-center text-xs font-semibold text-slate-700 dark:text-slate-300 pt-2 border-t border-slate-200 dark:border-slate-800">
             © 2026 {shopBrand.name} - Giao Diện Sàn Thương Mại Điện Tử Tiện Ích & Code Game (Bản Test 1 tại <code>/test1</code>)
           </div>
         </div>

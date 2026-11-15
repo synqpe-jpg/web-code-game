@@ -2,7 +2,7 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://codegame.shop/</loc>
-    <lastmod>2026-11-09</lastmod>
+    <lastmod>2026-11-13</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
@@ -74,7 +74,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/the-loai/nhap-vai-mmorpg</loc>
-    <lastmod>2026-11-09</lastmod>
+    <lastmod>2026-11-13</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.85</priority>
   </url>
@@ -3547,12 +3547,6 @@
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://codegame.shop/game/tieu-doi-quay-ma</loc>
-    <lastmod>2026-11-07</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
     <loc>https://codegame.shop/game/idle-heroes-ky-nguyen-anh-hung</loc>
     <lastmod>2026-11-07</lastmod>
     <changefreq>weekly</changefreq>
@@ -3583,26 +3577,20 @@
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://codegame.shop/game/monster-hunter-outlanders</loc>
-    <lastmod>2026-10-31</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://codegame.shop/game/dawns-wake</loc>
-    <lastmod>2026-10-31</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
     <loc>https://codegame.shop/game/age-of-stickman-evolution</loc>
     <lastmod>2026-10-31</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://codegame.shop/game/wild-beast-town</loc>
-    <lastmod>2026-10-31</lastmod>
+    <loc>https://codegame.shop/game/coa-tinh-the-atlan</loc>
+    <lastmod>2026-11-13</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://codegame.shop/game/kof-legend</loc>
+    <lastmod>2026-11-10</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
