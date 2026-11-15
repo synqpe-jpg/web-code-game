@@ -1810,7 +1810,7 @@ export const App: React.FC = () => {
                 <PinnedGamesBar
                   bookmarks={bookmarks}
                   bookmarkedGames={bookmarkedGamesList}
-                  upcomingGames={upcomingGames}
+                  upcomingGames={dataService.getAllUpcomingGamesRawSync ? dataService.getAllUpcomingGamesRawSync() : upcomingGames}
                   onToggleBookmark={handleToggleBookmark}
                   onSelectGame={handleSelectGame}
                   onSelectUpcomingGame={(game) => {
@@ -1983,7 +1983,7 @@ export const App: React.FC = () => {
 
             {currentTab === 'shopee-test' && (
               <ShopeeTestView
-                allGames={allGamesList.length > 0 ? allGamesList : games}
+                allGames={dataService.getGames().length > 0 ? dataService.getGames() : (allGamesList.length > 0 ? allGamesList : games)}
                 storeProducts={dataService.getStoreProducts()}
                 utilities={dataService.getUtilityProducts()}
                 giveaways={dataService.getGiveaways()}

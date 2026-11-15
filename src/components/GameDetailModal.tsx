@@ -34,6 +34,7 @@ import {
   MessageSquare,
   SendHorizontal,
   Trash2,
+  Search,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import type { GameItem, GiftCode, UserProfile } from '../types/game';
@@ -78,6 +79,7 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
   const [copiedType, setCopiedType] = useState<string | null>(null);
   const [votes, setVotes] = useState<Record<string, { up: number; down: number }>>({});
   const [selectedCodeTab, setSelectedCodeTab] = useState<'all' | 'active' | 'expired'>('active');
+  const [codeSearchQuery, setCodeSearchQuery] = useState('');
   const [modalImageLoaded, setModalImageLoaded] = useState(false);
   const [modalFallbackStage, setModalFallbackStage] = useState(0); // 0: webp, 1: jpg, 2: edge proxy, 3: initials
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
@@ -206,7 +208,10 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
   // Load comments
   const loadComments = async () => {
     const slug = (liveGame?.slug || liveGame?.id || game?.slug || game?.id || '').toLowerCase();
-    if (!slug) return;
+    if (!slug) {
+      setIsLoadingComments(false);
+      return;
+    }
     setIsLoadingComments(true);
     const token = typeof window !== 'undefined' ? localStorage.getItem('wcg_auth_token') || '' : '';
     try {
@@ -225,7 +230,9 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
           setMyPendingComment(null);
         }
       }
-    } catch {} finally {
+    } catch (err) {
+      console.warn('Error loading comments:', err);
+    } finally {
       setIsLoadingComments(false);
     }
   };
@@ -489,8 +496,20 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
   if (!game || !currentGame) return null;
 
   const allCodes = currentGame.codes || [];
-  const activeCodes = allCodes.filter((c) => !isExpired(c));
-  const expiredCodes = allCodes.filter((c) => isExpired(c));
+  const rawActiveCodes = allCodes.filter((c) => !isExpired(c));
+  const rawExpiredCodes = allCodes.filter((c) => isExpired(c));
+
+  const activeCodes = useMemo(() => {
+    if (!codeSearchQuery.trim()) return rawActiveCodes;
+    const q = codeSearchQuery.toLowerCase().trim();
+    return rawActiveCodes.filter((c) => c.code.toLowerCase().includes(q) || (c.rewards || '').toLowerCase().includes(q));
+  }, [rawActiveCodes, codeSearchQuery]);
+
+  const expiredCodes = useMemo(() => {
+    if (!codeSearchQuery.trim()) return rawExpiredCodes;
+    const q = codeSearchQuery.toLowerCase().trim();
+    return rawExpiredCodes.filter((c) => c.code.toLowerCase().includes(q) || (c.rewards || '').toLowerCase().includes(q));
+  }, [rawExpiredCodes, codeSearchQuery]);
 
   const formatMaskedCode = (code: string): string => {
     if (!code) return '';
@@ -900,6 +919,27 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
                 <span className="font-mono text-[10px] opacity-80">({expiredCodes.length})</span>
               </button>
             </div>
+
+            {/* Ô tìm kiếm lọc mã code trong modal */}
+            <div className="relative min-w-[140px] sm:min-w-[170px]">
+              <Search className="w-3 h-3 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="text"
+                value={codeSearchQuery}
+                onChange={(e) => setCodeSearchQuery(e.target.value)}
+                placeholder="Lọc mã code..."
+                className="w-full pl-7 pr-6 py-1 rounded-lg bg-secondary/80 border border-border/80 text-[11px] text-foreground placeholder:text-muted-foreground outline-none focus:border-primary-light"
+              />
+              {codeSearchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setCodeSearchQuery('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs"
+                >
+                  ×
+                </button>
+              )}
+            </div>
             {currentGame.redeem_url && (
               <a
                 href={currentGame.redeem_url}
@@ -1280,17 +1320,17 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
             );
           })()}
 
-          {/* Giấy Phép Phát Hành (Chỉ hiển thị khi có license_number) */}
-          {Boolean(currentGame.license_number && currentGame.license_number.trim() !== '') && (
+          {/* Giấy Phép Phát Hành (Hiển thị khi có license_number hoặc so_giay_phep) */}
+          {Boolean((currentGame.license_number || currentGame.so_giay_phep) && String(currentGame.license_number || currentGame.so_giay_phep).trim() !== '') && (
             <div className="p-4 sm:p-5 rounded-2xl bg-card border border-border/80 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-foreground font-heading font-bold text-sm sm:text-base">
                   <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                  <h4>Giấy Phép Phát Hành</h4>
+                  <h4>Giấy Phép Phát Hành G1 (ABEI)</h4>
                 </div>
                 {/* Badge trạng thái hiệu lực */}
                 {(() => {
-                  const st = (currentGame.license_status || 'Đang hoạt động').trim();
+                  const st = (currentGame.license_status || currentGame.trang_thai_gp || 'Đang hoạt động').trim();
                   const isRevoked = st === 'Ngừng hoạt động' || st === 'Bị thay thế';
                   return (
                     <span
@@ -1313,33 +1353,29 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs bg-slate-950/50 p-3.5 rounded-xl border border-border/50">
                 <div>
-                  <span className="text-muted-foreground block text-[11px]">Số Giấy Phép G1:</span>
-                  <span className="font-mono font-bold text-foreground text-xs sm:text-sm">
-                    {currentGame.license_number}
+                  <span className="text-muted-foreground block text-[11px]">Số Quyết Định / Giấy Phép G1:</span>
+                  <span className="font-mono font-bold text-foreground text-xs sm:text-sm text-emerald-400">
+                    {currentGame.license_number || currentGame.so_giay_phep}
                   </span>
                 </div>
-                {currentGame.license_issued_date && (
-                  <div>
-                    <span className="text-muted-foreground block text-[11px]">Ngày cấp phép:</span>
-                    <span className="font-mono text-foreground text-xs sm:text-sm">
-                      {currentGame.license_issued_date}
-                    </span>
-                  </div>
-                )}
-                {currentGame.license_source_url && (
-                  <div className="sm:col-span-2 pt-1 border-t border-border/40 flex items-center justify-between">
-                    <span className="text-muted-foreground text-[11px]">Cơ quan cấp phép: Cục PTTH&TTĐT</span>
-                    <a
-                      href={currentGame.license_source_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-primary-light hover:underline font-semibold text-[11px]"
-                    >
-                      <span>Tra cứu quyết định</span>
-                      <ExternalLink className="w-3 h-3" />
-                    </a>
-                  </div>
-                )}
+                <div>
+                  <span className="text-muted-foreground block text-[11px]">Ngày cấp phép:</span>
+                  <span className="font-mono text-foreground text-xs sm:text-sm">
+                    {currentGame.license_issued_date || currentGame.ngay_cap || 'Theo QĐ Cục PTTH&TTĐT'}
+                  </span>
+                </div>
+                <div className="sm:col-span-2 pt-1 border-t border-border/40 flex items-center justify-between">
+                  <span className="text-muted-foreground text-[11px]">Cơ quan cấp phép: Cục PTTH&TTĐT (ABEI)</span>
+                  <a
+                    href={currentGame.license_source_url || 'https://abei.gov.vn/'}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-primary-light hover:underline font-semibold text-[11px]"
+                  >
+                    <span>Tra cứu quyết định</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
               </div>
             </div>
           )}

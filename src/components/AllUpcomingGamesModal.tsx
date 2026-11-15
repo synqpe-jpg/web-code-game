@@ -86,6 +86,7 @@ export const AllUpcomingGamesModal: React.FC<AllUpcomingGamesModalProps> = ({
   initialSelectedSlug,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusTab, setStatusTab] = useState<'ALL' | 'UPCOMING' | 'PENDING' | 'RELEASED'>('ALL');
   const [activeFilter, setActiveFilter] = useState<'ALL' | 'WEEK' | 'MONTH' | 'BOOKMARKED'>('ALL');
   const [, setTick] = useState(0);
 
@@ -112,20 +113,19 @@ export const AllUpcomingGamesModal: React.FC<AllUpcomingGamesModalProps> = ({
   const now = Date.now();
 
   const filteredGames = upcomingGames.filter((game) => {
-    // 0. Bỏ qua các game đã phát hành, hủy hoặc đang chờ duyệt
-    if (game.status === 'CANCELLED' || game.status === 'PENDING' || game.status === 'LAUNCHED') return false;
-    // Rollover check: các game đã mở server > 24h tự động chuyển xuống catalog
-    if (game.releaseDate) {
-      const target = new Date(game.releaseDate).getTime();
-      if (!isNaN(target) && (now - target) > ONE_DAY_MS) {
-        return false;
-      }
+    // Lọc theo trạng thái kiểm duyệt / phát hành thực tế
+    if (statusTab === 'UPCOMING' && game.status !== 'UPCOMING' && game.status !== 'APPROVED') return false;
+    if (statusTab === 'PENDING' && game.status !== 'PENDING') return false;
+    if (statusTab === 'RELEASED') {
+      const isLaunched = game.status === 'LAUNCHED' || game.status === 'RELEASED';
+      const isOver24h = game.releaseDate && !isNaN(new Date(game.releaseDate).getTime()) && (now - new Date(game.releaseDate).getTime() > ONE_DAY_MS);
+      if (!isLaunched && !isOver24h) return false;
     }
 
     // 1. Search term match
     if (searchTerm.trim()) {
       const q = searchTerm.toLowerCase();
-      const matchName = game.name.toLowerCase().includes(q);
+      const matchName = (game.name || '').toLowerCase().includes(q);
       const matchPublisher = (game.publisher || '').toLowerCase().includes(q);
       const matchCategory = (game.category || '').toLowerCase().includes(q);
       if (!matchName && !matchPublisher && !matchCategory) return false;
@@ -238,56 +238,101 @@ export const AllUpcomingGamesModal: React.FC<AllUpcomingGamesModalProps> = ({
         </div>
 
         {/* Search & Filter Controls: Siêu gọn */}
-        <div className="px-3 py-2 sm:px-4 sm:py-2.5 border-b border-border/50 bg-background/50 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
-          {/* Search bar */}
-          <div className="relative flex-1">
-            <Search className="w-3.5 h-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Tìm theo tên game, nhà phát hành..."
-              className="w-full pl-8 pr-3 py-1.5 rounded-lg sm:rounded-xl bg-secondary/80 border border-border/80 focus:border-cyan-400 text-xs text-foreground placeholder:text-muted-foreground outline-none transition-all"
-            />
+        <div className="px-3 py-2 sm:px-4 sm:py-2.5 border-b border-border/50 bg-background/50 flex flex-col gap-2">
+          {/* Status Tabs: Đang chờ, Chờ duyệt, Đã ra mắt */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none text-xs">
+            <button
+              onClick={() => setStatusTab('ALL')}
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                statusTab === 'ALL'
+                  ? 'bg-cyan-500 text-slate-950 shadow-sm shadow-cyan-500/20'
+                  : 'bg-secondary hover:bg-secondary/80 text-muted-foreground'
+              }`}
+            >
+              Tất Cả ({upcomingGames.length})
+            </button>
+            <button
+              onClick={() => setStatusTab('UPCOMING')}
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                statusTab === 'UPCOMING'
+                  ? 'bg-cyan-500 text-slate-950 shadow-sm shadow-cyan-500/20'
+                  : 'bg-secondary hover:bg-secondary/80 text-muted-foreground'
+              }`}
+            >
+              Đang Chờ Mở ({upcomingGames.filter((g) => g.status === 'UPCOMING' || g.status === 'APPROVED').length})
+            </button>
+            <button
+              onClick={() => setStatusTab('PENDING')}
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                statusTab === 'PENDING'
+                  ? 'bg-cyan-500 text-slate-950 shadow-sm shadow-cyan-500/20'
+                  : 'bg-secondary hover:bg-secondary/80 text-muted-foreground'
+              }`}
+            >
+              Chờ Duyệt ({upcomingGames.filter((g) => g.status === 'PENDING').length})
+            </button>
+            <button
+              onClick={() => setStatusTab('RELEASED')}
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                statusTab === 'RELEASED'
+                  ? 'bg-cyan-500 text-slate-950 shadow-sm shadow-cyan-500/20'
+                  : 'bg-secondary hover:bg-secondary/80 text-muted-foreground'
+              }`}
+            >
+              Đã Ra Mắt ({upcomingGames.filter((g) => g.status === 'LAUNCHED' || g.status === 'RELEASED').length})
+            </button>
           </div>
 
-          {/* Filter Pills */}
-          <div className="flex items-center gap-1 overflow-x-auto pb-0.5 sm:pb-0 scrollbar-none">
-            <button
-              onClick={() => setActiveFilter('ALL')}
-              className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold whitespace-nowrap transition-all cursor-pointer ${
-                activeFilter === 'ALL'
-                  ? 'bg-cyan-500 text-slate-950 shadow-sm shadow-cyan-500/20'
-                  : 'bg-secondary hover:bg-secondary/80 text-muted-foreground'
-              }`}
-            >
-              Tất cả ({upcomingGames.length})
-            </button>
-            <button
-              onClick={() => setActiveFilter('WEEK')}
-              className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold whitespace-nowrap transition-all cursor-pointer ${
-                activeFilter === 'WEEK'
-                  ? 'bg-cyan-500 text-slate-950 shadow-sm shadow-cyan-500/20'
-                  : 'bg-secondary hover:bg-secondary/80 text-muted-foreground'
-              }`}
-            >
-              7 ngày tới
-            </button>
-            <button
-              onClick={() => setActiveFilter('MONTH')}
-              className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold whitespace-nowrap transition-all cursor-pointer ${
-                activeFilter === 'MONTH'
-                  ? 'bg-cyan-500 text-slate-950 shadow-sm shadow-cyan-500/20'
-                  : 'bg-secondary hover:bg-secondary/80 text-muted-foreground'
-              }`}
-            >
-              Tháng này
-            </button>
-            <button
-              onClick={() => setActiveFilter('BOOKMARKED')}
-              className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1 ${
-                activeFilter === 'BOOKMARKED'
-                  ? 'bg-cyan-500 text-slate-950 shadow-sm shadow-cyan-500/20'
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
+            {/* Search bar */}
+            <div className="relative flex-1">
+              <Search className="w-3.5 h-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Tìm theo tên game, nhà phát hành..."
+                className="w-full pl-8 pr-3 py-1.5 rounded-lg sm:rounded-xl bg-secondary/80 border border-border/80 focus:border-cyan-400 text-xs text-foreground placeholder:text-muted-foreground outline-none transition-all"
+              />
+            </div>
+
+            {/* Time Filter Pills */}
+            <div className="flex items-center gap-1 overflow-x-auto pb-0.5 sm:pb-0 scrollbar-none">
+              <button
+                onClick={() => setActiveFilter('ALL')}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                  activeFilter === 'ALL'
+                    ? 'bg-primary/20 text-primary-light border border-primary/30'
+                    : 'bg-secondary hover:bg-secondary/80 text-muted-foreground'
+                }`}
+              >
+                Mọi thời gian
+              </button>
+              <button
+                onClick={() => setActiveFilter('WEEK')}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                  activeFilter === 'WEEK'
+                    ? 'bg-primary/20 text-primary-light border border-primary/30'
+                    : 'bg-secondary hover:bg-secondary/80 text-muted-foreground'
+                }`}
+              >
+                7 ngày tới
+              </button>
+              <button
+                onClick={() => setActiveFilter('MONTH')}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                  activeFilter === 'MONTH'
+                    ? 'bg-primary/20 text-primary-light border border-primary/30'
+                    : 'bg-secondary hover:bg-secondary/80 text-muted-foreground'
+                }`}
+              >
+                Tháng này
+              </button>
+              <button
+                onClick={() => setActiveFilter('BOOKMARKED')}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1 ${
+                  activeFilter === 'BOOKMARKED'
+                    ? 'bg-primary/20 text-primary-light border border-primary/30'
                   : 'bg-secondary hover:bg-secondary/80 text-muted-foreground'
               }`}
             >
@@ -296,6 +341,7 @@ export const AllUpcomingGamesModal: React.FC<AllUpcomingGamesModalProps> = ({
             </button>
           </div>
         </div>
+      </div>
 
         {/* Modal Body: Games Grid khoa học, gọn gàng */}
         <div className="p-2.5 sm:p-4 overflow-y-auto flex-1 space-y-2.5">
@@ -317,7 +363,7 @@ export const AllUpcomingGamesModal: React.FC<AllUpcomingGamesModalProps> = ({
                 const iconSrc = getUpcomingGameIconUrl(game);
                 const expectedCodes = (game.expectedCodes && game.expectedCodes.length > 0)
                   ? game.expectedCodes
-                  : ['TANTHU2026', 'VIP999', 'OPENBETA', 'TRIAN2026'];
+                  : [];
 
                 return (
                   <div
@@ -407,32 +453,38 @@ export const AllUpcomingGamesModal: React.FC<AllUpcomingGamesModalProps> = ({
                         )}
                       </div>
 
-                      {/* Quà tân thủ dự kiến: chip nhỏ gọn */}
+                      {/* Quà tân thủ dự kiến: chip nhỏ gọn hoặc thông báo chưa có */}
                       <div className="mb-2">
                         <div className="flex items-center justify-between text-[10px] mb-1">
                           <span className="font-semibold text-amber-400 flex items-center gap-1">
                             <Gift className="w-2.5 h-2.5 text-amber-400" />
-                            <span>Quà dự kiến ({expectedCodes.length}):</span>
+                            <span>Quà dự kiến {expectedCodes.length > 0 ? `(${expectedCodes.length})` : ''}:</span>
                           </span>
                           <span className="text-[9px] text-muted-foreground">
                             {calculateEffectiveSubscribers(game, now).toLocaleString('vi-VN')} người canh
                           </span>
                         </div>
-                        <div className="flex flex-wrap gap-1">
-                          {expectedCodes.slice(0, 4).map((c, idx) => (
-                            <span
-                              key={idx}
-                              className="px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-amber-500/10 text-amber-300 border border-amber-500/20"
-                            >
-                              {c}
-                            </span>
-                          ))}
-                          {expectedCodes.length > 4 && (
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold text-muted-foreground bg-secondary/80">
-                              +{expectedCodes.length - 4}
-                            </span>
-                          )}
-                        </div>
+                        {expectedCodes.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {expectedCodes.slice(0, 4).map((c, idx) => (
+                              <span
+                                key={idx}
+                                className="px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-amber-500/10 text-amber-300 border border-amber-500/20"
+                              >
+                                {c}
+                              </span>
+                            ))}
+                            {expectedCodes.length > 4 && (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold text-muted-foreground bg-secondary/80">
+                                +{expectedCodes.length - 4}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="text-[10px] text-muted-foreground italic bg-secondary/40 px-2 py-0.5 rounded border border-border/50">
+                            Chưa có quà dự kiến (Đang cập nhật từ NPH)
+                          </div>
+                        )}
                       </div>
                     </div>
 

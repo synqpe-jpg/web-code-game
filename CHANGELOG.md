@@ -7,6 +7,48 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-15]
 
+### 397. Bổ Sung Toàn Diện Các Mục & Tính Năng Web Chính Vào Bản Sàn /test1 (15/11/2026)
+- **Bối cảnh & Yêu cầu của Chủ sở hữu**:
+  - Đưa `codegame.shop/test1` lên ngang bằng web chính `codegame.shop` về nội dung và tính năng: bổ sung mục còn thiếu, giữ nguyên bố cục Shopee hiện có, không đụng vào web chính, không đổi số liệu hay slogan.
+  - Cốt lõi: Mọi thao tác và nút trên Header, Footer, Topbar, Sub-navigation (Kênh Người Bán, Mở Gian Hàng Game, Mã Hôm Nay, Tin Tức, Sự Kiện, Sắp Ra Mắt, Cửa Hàng, Sàn Giao Dịch, Nhiệm Vụ, Telegram, v.v.) phải hoạt động **VÀO TRONG test1**, giữ người dùng 100% ở lại `codegame.shop/test1`.
+- **Hiện trạng trước khi sửa**:
+  - Test1 chỉ có 24 game (render 18/24), 0 bài tin, 0 sự kiện, 0 cửa hàng riêng, 0 sàn riêng, 0 tài khoản, nhiệm vụ trống, footer chỉ có 2 nút CTA + 1 dòng copyright, các nút Header đẩy người dùng ra ngoài test1 sang web chính (`/ban-hang`, `/ma-hom-nay`). Modal sắp ra mắt dùng mã fake `['TANTHU2026', 'VIP999', ...]`, game detail kẹt ở "Đang tải bình luận...", header báo "Ví: 0 Xu".
+- **Giải pháp áp dụng (Solution)**:
+  1. *Nhóm 1 — Nội dung*:
+     - Tin tức riêng trong test1: Tích hợp `NewsView` với đúng 272 bài tin chuẩn SEO từ live API / local SSOT, hiển thị đủ tiêu đề, ảnh bìa chính thức trên ổ đĩa, ngày đăng, số mã kèm theo; mở xem chi tiết bài tin chuẩn SEO.
+     - Sự kiện riêng trong test1: Tích hợp `GameEventsList` lấy đúng 92 sự kiện của web chính với 3 tab lọc Đang diễn ra / Sắp tới / Đã kết thúc, ảnh chính thức, giờ VN, mã chỉ khi xác thực.
+     - Sắp ra mắt trong test1: Nạp 90 bản ghi thật từ `/api/crawler/ingest-upcoming-games?status=ALL` (41 chờ mở, 29 chờ duyệt, 20 đã ra mắt), loại bỏ 100% mã fake bịa đặt; game nào chưa có quà ghi rõ "Chưa có quà dự kiến (Đang cập nhật từ NPH)".
+     - Mã hôm nay trong test1: Tích hợp `TodayCodesView` mã hết hạn trong ngày, cơ chế tự đóng lúc 22:30.
+  2. *Nhóm 2 — Thương mại*:
+     - Cửa hàng riêng trong test1: Nạp đúng 10 gói Hiệp Khách Hành từ web chính, hiển thị chuẩn nhãn "Gói Code" (không gắn nhãn Acc), khóa nút mua (disabled) và đổi nhãn "Hết Hàng" khi tồn kho bằng 0 (Cloud Phone và các gói hết hàng).
+     - Sàn giao dịch riêng trong test1: Tích hợp `SellerCenterView` ngay trong subview test1; Kênh Người Bán và Mở Gian Hàng trên header mở trang sàn trong test1.
+     - Trang Tài khoản trong test1: Tạo trang tài khoản & ví Core nội bộ (`subView === 'account'`) gồm hồ sơ người dùng, ví Core, đơn hàng marketplace, tủ game theo dõi, cài đặt bảo mật và mở modal chi tiết `UserProfileModal`.
+     - Giỏ hàng & Số dư ví: Khớp số dư thực `wallet_balance` (Ví: 200 Core) thay vì ghi cứng 0 xu; giỏ hàng gom đơn đa gian hàng, thanh toán 1 chạm.
+  3. *Nhóm 3 — Cộng đồng & tài khoản người chơi*:
+     - Sửa dứt điểm lỗi kẹt "Đang tải bình luận..." trong `GameDetailModal` bằng khối `finally` và guard `!slug`.
+     - Tủ game theo dõi & bookmark: Tích hợp `BookmarkDrawer` đồng bộ từ `dataService.getBookmarks()`, chống trùng lặp theo ID/Slug với `Set`, cảnh báo rõ ràng khi tủ game đang trống; thêm nút bookmark trực tiếp trên mỗi thẻ game Shopee.
+     - Nhiệm vụ: Tích hợp `MissionsView` ở trạng thái sẵn sàng (total 0, không bịa nhiệm vụ).
+     - Telegram: Tích hợp `TelegramView` trực tiếp trong subview test1 và link trên Topbar, Subnav, Footer.
+     - Gửi mã: Tích hợp `SubmitCodeModal` trong test1 để người chơi gửi mã mới.
+     - Báo lỗi: Tích hợp nút báo lỗi 1-chạm `handleReportCode` ngay trên modal chi tiết game.
+  4. *Nhóm 4 — Danh mục, tìm kiếm, trang game*:
+     - Phân trang 24 game/trang duyệt đủ 593 game công khai, số lượng hiển thị trên badge lọc khớp chính xác số thẻ DOM render thực tế.
+     - 6 chuyên mục chuẩn web chính đối sánh regex chuẩn ABEI (`kiem-hiep-tien-hiep`, `nhap-vai-gacha-anime`, `ban-sung-sinh-ton`, `tam-quoc-chien-thuat`, `roblox-mini-game`, `nhap-vai-morpg`) kèm bộ sắp xếp Mới nhất, Nhiều mã nhất, Ngày cấp phép.
+     - Mục lục toàn bộ tựa game A-Z trong subview test1.
+     - Thông tin giấy phép G1: Hiển thị đầy đủ Số QĐ, Ngày cấp, Cơ quan cấp phép Cục PTTH&TTĐT trên modal game.
+     - Tìm kiếm đồng bộ: Lọc cả Flash Sale, hàng hóa, và ô tìm kiếm lọc mã giftcode ngay trong modal game.
+  5. *Nhóm 5 — Trang tĩnh & hạ tầng trang*:
+     - Footer đầy đủ 4 cột thông tin như web chính: Giới thiệu sàn, Chuyên mục game, Hỗ trợ & Pháp lý (Điều khoản, Chính sách bảo mật, Hotline), Kết nối & Tải app APK, Bộ chuyển đổi ngôn ngữ VI/EN.
+     - Trang Điều khoản dịch vụ & Chính sách bảo mật hiển thị trực tiếp trong subview test1 (`subView === 'terms'`, `subView === 'privacy'`).
+     - Bộ chuyển đổi ngôn ngữ VI/EN trên Header và Footer hoạt động trơn tru.
+- **Kết quả nghiệm thu**:
+  - Giao diện `codegame.shop/test1/` vận hành trơn tru, không lỗi console, không điều hướng ra ngoài.
+  - Build Vite & Cloudflare Edge Worker bundle thành công 100%.
+
+---
+
+## [2026-11-15]
+
 ### 396. Khắc Phục Lỗi "Rocket is not defined" Trên Giao Diện Sàn Shopee (/test1)
 - **Triệu chứng & Nguyên nhân gốc rễ (Root Cause)**:
   - Khi người dùng truy cập `https://codegame.shop/test1`, Error Boundary bắt được lỗi hiển thị `Rocket is not defined`.

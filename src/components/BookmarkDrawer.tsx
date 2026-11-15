@@ -20,6 +20,16 @@ export const BookmarkDrawer: React.FC<BookmarkDrawerProps> = ({
   onSelectGame,
   onClearAll,
 }) => {
+  const uniqueBookmarkedGames = React.useMemo(() => {
+    const seen = new Set<string>();
+    return (bookmarkedGames || []).filter((g) => {
+      const key = (g.id || g.slug || '').toLowerCase();
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [bookmarkedGames]);
+
   if (!isOpen || typeof document === 'undefined') return null;
 
   return createPortal(
@@ -36,7 +46,7 @@ export const BookmarkDrawer: React.FC<BookmarkDrawerProps> = ({
             </div>
             <div>
               <h3 className="font-heading font-bold text-base sm:text-lg text-foreground">
-                Tủ Game Đã Lưu ({bookmarkedGames.length})
+                Tủ Game Đã Lưu ({uniqueBookmarkedGames.length})
               </h3>
               <p className="text-xs text-muted-foreground">
                 Danh sách các game bạn đang theo dõi giftcode
@@ -55,7 +65,7 @@ export const BookmarkDrawer: React.FC<BookmarkDrawerProps> = ({
 
         {/* List of saved games */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          {bookmarkedGames.length === 0 ? (
+          {uniqueBookmarkedGames.length === 0 ? (
             <div className="py-16 text-center text-muted-foreground">
               <Bookmark className="w-12 h-12 mx-auto mb-3 opacity-30" />
               <p className="text-sm font-medium text-foreground">Tủ game đang trống</p>
@@ -64,7 +74,7 @@ export const BookmarkDrawer: React.FC<BookmarkDrawerProps> = ({
               </p>
             </div>
           ) : (
-            bookmarkedGames.map((game) => (
+            uniqueBookmarkedGames.map((game) => (
               <div
                 key={game.id}
                 className="p-3 rounded-2xl bg-muted/40 hover:bg-muted/70 border border-border/80 flex items-center justify-between gap-3 group transition-colors"

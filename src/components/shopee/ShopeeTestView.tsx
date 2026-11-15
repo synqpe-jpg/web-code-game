@@ -3,15 +3,49 @@ import type { GameItem, UserProfile, StoreProduct, UtilityProduct, GiveawayCampa
 import { 
   Search, ShoppingCart, Bell, HelpCircle, ArrowLeft, 
   Zap, Gift, ShieldCheck, CreditCard, Flame, Sparkles, 
-  ChevronRight, Smartphone, Compass, Trophy, Copy, Check,
-  ShoppingBag, Package, User, Tag, Plus, CheckCircle, ExternalLink,
-  Layers, Clock, PhoneCall, Send, ShieldAlert, Sparkle, Rocket
+  ChevronRight, ChevronLeft, Smartphone, Compass, Trophy, Copy, Check,
+  ShoppingBag, Package, User, Tag, Plus, CheckCircle, CheckCircle2, ExternalLink,
+  Layers, Clock, PhoneCall, Send, ShieldAlert, Sparkle, Rocket,
+  Calendar, Newspaper, Store, List, FileText, Globe, Award, ArrowUpDown, SlidersHorizontal,
+  Filter, X, Bookmark, ChevronDown, Wallet, Settings, LogOut, Lock
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { cartService } from '../../services/cartService';
+import { dataService } from '../../services/dataService';
+import { authService } from '../../services/authService';
+import { formatCore } from '../../utils/textUtils';
 import { ShopeeGuaranteeModal } from './ShopeeGuaranteeModal';
 import { ShopeeSupportModal } from './ShopeeSupportModal';
 import { ShopeeWhiteLabelModal } from './ShopeeWhiteLabelModal';
+
+// Subview components from codebase
+import { NewsView } from '../NewsView';
+import { TodayCodesView } from '../TodayCodesView';
+import { GameEventsList } from '../GameEventsList';
+import { StoreView } from '../StoreView';
+import { SellerCenterView } from '../seller/SellerCenterView';
+import { MissionsView } from '../MissionsView';
+import { TelegramView } from '../TelegramView';
+import { UserProfileModal } from '../UserProfileModal';
+import { SubmitCodeModal } from '../SubmitCodeModal';
+import { BookmarkDrawer } from '../BookmarkDrawer';
+import { LanguageSelector } from '../LanguageSelector';
+import { useLanguage } from '../../context/LanguageContext';
+
+export type ShopeeSubView = 
+  | 'home' 
+  | 'news' 
+  | 'events' 
+  | 'today-codes' 
+  | 'upcoming' 
+  | 'store' 
+  | 'seller' 
+  | 'account' 
+  | 'missions' 
+  | 'telegram' 
+  | 'a-z' 
+  | 'terms' 
+  | 'privacy';
 
 interface ShopeeTestViewProps {
   allGames: GameItem[];
@@ -39,6 +73,17 @@ interface ShopeeTestViewProps {
   onShowToast: (message: string, type?: 'success' | 'error' | 'info' | 'warning') => void;
 }
 
+// 6 Danh mục Game Chuẩn Web Chính (Dùng regex đối sánh chính xác)
+const MAIN_GAME_CATEGORIES = [
+  { id: 'all', label: 'Tất Cả Game', icon: '🎮', match: () => true },
+  { id: 'kiem-hiep-tien-hiep', label: 'Kiếm Hiệp & Tiên Hiệp', icon: '⚔️', match: (c: string) => /kiếm hiệp|tiên hiệp|võ hiệp|tu tiên/i.test(c) },
+  { id: 'nhap-vai-gacha-anime', label: 'Nhập Vai Gacha & Anime', icon: '✨', match: (c: string) => /anime|gacha|waifu/i.test(c) },
+  { id: 'ban-sung-sinh-ton', label: 'Bắn Súng & Sinh Tồn', icon: '🎯', match: (c: string) => /bắn súng|sinh tồn|battle royale|fps/i.test(c) },
+  { id: 'tam-quoc-chien-thuat', label: 'Tam Quốc & Chiến Thuật', icon: '🏰', match: (c: string) => /tam quốc|chiến thuật|chiến lược|slg|đế chế|thẻ tướng/i.test(c) },
+  { id: 'roblox-mini-game', label: 'Roblox & Mini Game', icon: '🕹️', match: (c: string) => /roblox|mini game/i.test(c) },
+  { id: 'nhap-vai-morpg', label: 'Nhập Vai & MMORPG', icon: '🛡️', match: (c: string) => /mmorpg|nhập vai|arpg/i.test(c) },
+];
+
 export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
   allGames = [],
   storeProducts = [],
@@ -64,17 +109,56 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
   currentUser,
   onShowToast,
 }) => {
+  const { t } = useLanguage();
+
+  // Internal SubView state (All navigation stays inside test1)
+  const [subView, setSubView] = useState<ShopeeSubView>('home');
+
   // Theme state within Shopee view (Supports Classic Orange/White or Dark Gamer)
   const [isShopeeDark, setIsShopeeDark] = useState(false);
   const [searchKeyword, setSearchKeyword] = useState('');
   const [selectedProductType, setSelectedProductType] = useState<'all' | 'giftcode' | 'utility' | 'account' | 'giveaway'>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [sortOrder, setSortOrder] = useState<'latest' | 'codes' | 'licensed'>('latest');
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+
+  // Pagination state for games (24 games / page)
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const pageSize = 24;
+
+  // Upcoming games internal status filter
+  const [upcomingStatusFilter, setUpcomingStatusFilter] = useState<'ALL' | 'UPCOMING' | 'PENDING' | 'RELEASED'>('ALL');
 
   // Modals state
   const [isGuaranteeOpen, setIsGuaranteeOpen] = useState(false);
   const [isSupportOpen, setIsSupportOpen] = useState(false);
   const [isWhiteLabelOpen, setIsWhiteLabelOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isSubmitCodeOpen, setIsSubmitCodeOpen] = useState(false);
+  const [isBookmarkDrawerOpen, setIsBookmarkDrawerOpen] = useState(false);
+
+  // Bookmarked games sync from dataService (chống trùng lặp theo ID/Slug)
+  const [bookmarkedGamesList, setBookmarkedGamesList] = useState<GameItem[]>([]);
+  const syncBookmarks = () => {
+    const bmarks = dataService.getBookmarks();
+    if (bmarks && bmarks.length > 0) {
+      const set = new Set(bmarks.map((b) => b.toLowerCase()));
+      setBookmarkedGamesList(allGames.filter((g) => set.has(g.id?.toLowerCase()) || set.has(g.slug?.toLowerCase())));
+    } else {
+      setBookmarkedGamesList([]);
+    }
+  };
+
+  useEffect(() => {
+    syncBookmarks();
+  }, [allGames, isBookmarkDrawerOpen, subView]);
+
+  const handleToggleBookmark = (gameId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const res = dataService.toggleBookmark(gameId);
+    syncBookmarks();
+    onShowToast(res.isBookmarked ? 'Đã lưu vào tủ game theo dõi!' : 'Đã bỏ theo dõi game khỏi tủ!', res.isBookmarked ? 'success' : 'info');
+  };
 
   // White-Label Customizable Shop Brand
   const [shopBrand, setShopBrand] = useState({
@@ -131,10 +215,11 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
       { text: 'Khách hàng 097*** vừa mua Thẻ Garena 100K', icon: '💳' },
       { text: 'Khách hàng tuan*** vừa nhận mã Blox Fruits', icon: '🎁' },
       { text: 'Khách hàng minh*** vừa mua Acc Liên Quân Trắng TT', icon: '🎮' },
-      { text: 'Khách hàng le*** vừa nạp 200.000 Xu qua VietQR', icon: '⚡' },
+      { text: 'Khách hàng le*** vừa nạp 200 Core qua VietQR', icon: '⚡' },
       { text: 'Khách hàng phuong*** vừa săn thành công Giftcode FC Online', icon: '🎁' },
       { text: 'Khách hàng hung*** vừa mua Gói Nạp Kim Cương Free Fire', icon: '💎' },
       { text: 'Khách hàng tran*** vừa nhận Code Genshin Impact 0đ', icon: '✨' },
+      { text: 'Khách hàng bao*** vừa mua Gói Code Hiệp Khách Hành 0s', icon: '📦' },
     ];
 
     let idx = 0;
@@ -149,26 +234,60 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
     return () => clearInterval(interval);
   }, []);
 
-  // Filter games based on search & category
+  // Reset page when category or search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedCategory, searchKeyword, sortOrder]);
+
+  // 1. Filter games based on 6 Main Categories, search & sort
   const filteredGames = useMemo(() => {
     let list = allGames || [];
+
+    // Filter by category matcher
     if (selectedCategory !== 'all') {
-      list = list.filter((g) => {
-        const cat = (g.category || '').toLowerCase();
-        return cat.includes(selectedCategory.toLowerCase());
-      });
+      const activeCat = MAIN_GAME_CATEGORIES.find((c) => c.id === selectedCategory);
+      if (activeCat && activeCat.match) {
+        list = list.filter((g) => activeCat.match(g.category || ''));
+      }
     }
+
+    // Filter by search keyword
     if (searchKeyword.trim()) {
       const q = searchKeyword.toLowerCase();
       list = list.filter((g) => 
         (g.name || '').toLowerCase().includes(q) || 
-        (g.publisher || '').toLowerCase().includes(q)
+        (g.publisher || '').toLowerCase().includes(q) ||
+        (g.category || '').toLowerCase().includes(q)
       );
     }
-    return list;
-  }, [allGames, selectedCategory, searchKeyword]);
 
-  // Filter store products
+    // Sort order
+    return [...list].sort((a, b) => {
+      if (sortOrder === 'codes') {
+        const countA = a.codes_count || a.active_codes_count || a.codes?.length || 0;
+        const countB = b.codes_count || b.active_codes_count || b.codes?.length || 0;
+        return countB - countA;
+      }
+      if (sortOrder === 'licensed') {
+        const hasA = Boolean(a.license_number || a.so_giay_phep);
+        const hasB = Boolean(b.license_number || b.so_giay_phep);
+        if (hasA && !hasB) return -1;
+        if (!hasA && hasB) return 1;
+        return (b.license_issued_date || b.ngay_cap || '').localeCompare(a.license_issued_date || a.ngay_cap || '');
+      }
+      // default: latest release_date
+      return (b.release_date || '').localeCompare(a.release_date || '');
+    });
+  }, [allGames, selectedCategory, searchKeyword, sortOrder]);
+
+  // Paginated games slice (24 items / page)
+  const totalPages = Math.max(1, Math.ceil(filteredGames.length / pageSize));
+  const paginatedGames = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredGames.slice(start, start + pageSize);
+  }, [filteredGames, currentPage, pageSize]);
+
+  // 2. Filter store products (10 Gói Hiệp Khách Hành của web chính)
   const filteredStoreProducts = useMemo(() => {
     let list = storeProducts || [];
     if (searchKeyword.trim()) {
@@ -181,7 +300,7 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
     return list;
   }, [storeProducts, searchKeyword]);
 
-  // Filter utility products
+  // 3. Filter utility products (Cloud Phone, Gói nạp)
   const filteredUtilities = useMemo(() => {
     let list = utilities || [];
     if (searchKeyword.trim()) {
@@ -194,7 +313,7 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
     return list;
   }, [utilities, searchKeyword]);
 
-  // Filter giveaways
+  // 4. Filter giveaways
   const filteredGiveaways = useMemo(() => {
     let list = giveaways || [];
     if (searchKeyword.trim()) {
@@ -207,11 +326,43 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
     return list;
   }, [giveaways, searchKeyword]);
 
-  // Top flash sale items (mix of games & products)
+  // Top flash sale items (đồng bộ từ khóa tìm kiếm)
   const flashSaleGames = useMemo(() => {
-    return (allGames || [])
-      .filter((g) => (g.codes_count || g.active_codes_count || g.codes?.length || 0) > 0)
-      .slice(0, 6);
+    let list = (allGames || []).filter((g) => (g.codes_count || g.active_codes_count || g.codes?.length || 0) > 0);
+    if (searchKeyword.trim()) {
+      const q = searchKeyword.toLowerCase();
+      list = list.filter((g) => (g.name || '').toLowerCase().includes(q) || (g.publisher || '').toLowerCase().includes(q));
+    }
+    return list.slice(0, 6);
+  }, [allGames, searchKeyword]);
+
+  // Filter raw upcoming games (90 bản ghi web chính)
+  const filteredUpcoming = useMemo(() => {
+    let list = upcomingGames || [];
+    if (upcomingStatusFilter === 'UPCOMING') {
+      list = list.filter((g) => g.status === 'UPCOMING' || g.status === 'APPROVED');
+    } else if (upcomingStatusFilter === 'PENDING') {
+      list = list.filter((g) => g.status === 'PENDING');
+    } else if (upcomingStatusFilter === 'RELEASED') {
+      list = list.filter((g) => g.status === 'LAUNCHED' || g.status === 'RELEASED');
+    }
+    if (searchKeyword.trim()) {
+      const q = searchKeyword.toLowerCase();
+      list = list.filter((g) => (g.name || '').toLowerCase().includes(q) || (g.publisher || '').toLowerCase().includes(q));
+    }
+    return list;
+  }, [upcomingGames, upcomingStatusFilter, searchKeyword]);
+
+  // A-Z alphabetical directory
+  const azGroupedGames = useMemo(() => {
+    const map: Record<string, GameItem[]> = {};
+    for (const g of allGames) {
+      const firstChar = (g.name || '').trim().charAt(0).toUpperCase();
+      const letter = /^[A-Z]$/.test(firstChar) ? firstChar : '#';
+      if (!map[letter]) map[letter] = [];
+      map[letter].push(g);
+    }
+    return map;
   }, [allGames]);
 
   // Copy code handler
@@ -236,6 +387,11 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
   // Add store product to cart
   const handleAddProductToCart = (prod: StoreProduct, e: React.MouseEvent) => {
     e.stopPropagation();
+    if ((prod.stock_quantity ?? 0) <= 0) {
+      onShowToast(`Sản phẩm "${prod.title}" hiện đã hết hàng trong kho.`, 'warning');
+      return;
+    }
+
     const result = cartService.addToCart({
       productId: prod.id,
       productName: prod.title,
@@ -265,6 +421,11 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
   // Add utility product to cart
   const handleAddUtilityToCart = (ut: UtilityProduct, e: React.MouseEvent) => {
     e.stopPropagation();
+    if ((ut.stock_quantity ?? 0) <= 0) {
+      onShowToast(`Tiện ích "${ut.title}" hiện đã hết hàng (Còn 0).`, 'warning');
+      return;
+    }
+
     const result = cartService.addToCart({
       productId: ut.id,
       productName: ut.title,
@@ -291,98 +452,132 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
     }
   };
 
+  // Wallet display balance (real balance from currentUser or fallback 200 Core)
+  const walletBalanceDisplay = useMemo(() => {
+    const bal = currentUser?.wallet_balance ?? (currentUser as any)?.balance ?? 200;
+    return formatCore(bal);
+  }, [currentUser]);
+
   return (
     <div className={`min-h-screen transition-colors duration-200 font-sans pb-16 ${isShopeeDark ? 'bg-[#0a0f1d] text-slate-100' : 'bg-[#f5f5f5] text-slate-800'}`}>
       
-      {/* 0. Top Bar Báo Hiệu Web Test 1 */}
+      {/* 0. TOP BAR BÁO HIỆU WEB TEST 1 */}
       <div className="bg-amber-500 text-slate-950 px-4 py-2 text-xs font-bold flex items-center justify-between shadow-sm sticky top-0 z-50">
         <div className="flex items-center gap-2">
           <span className="bg-black text-amber-400 px-2 py-0.5 rounded uppercase text-[10px] tracking-wider font-mono">Bản Sàn Toàn Diện</span>
-          <span>Đang chạy phiên bản sàn Shopee Game tại đường dẫn <code className="bg-amber-600/30 px-1.5 py-0.5 rounded font-mono">codegame.shop/test1</code> (Web chính không bị ảnh hưởng)</span>
+          <span className="truncate">Đang chạy phiên bản sàn Shopee Game tại đường dẫn <code className="bg-amber-600/30 px-1.5 py-0.5 rounded font-mono">codegame.shop/test1</code> (Web chính không bị ảnh hưởng)</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <button 
             onClick={() => setIsWhiteLabelOpen(true)}
             className="flex items-center gap-1.5 bg-red-700 hover:bg-red-800 text-white px-3 py-1 rounded text-xs transition active:scale-95 cursor-pointer font-bold shadow-sm"
           >
             <Sparkles className="w-3.5 h-3.5" />
-            <span>Xem Báo Giá Bàn Giao Web</span>
+            <span className="hidden sm:inline">Xem Báo Giá Bàn Giao Web</span>
+            <span className="sm:hidden">Báo Giá</span>
           </button>
           <button 
             onClick={onBackToHome}
             className="flex items-center gap-1.5 bg-black hover:bg-slate-900 text-white px-3 py-1 rounded text-xs transition active:scale-95 cursor-pointer"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Về Web Gốc codegame.shop</span>
+            <span className="hidden sm:inline">Về Web Gốc codegame.shop</span>
+            <span className="sm:hidden">Web Gốc</span>
           </button>
         </div>
       </div>
 
-      {/* 1. SHOPEE TOPBAR */}
+      {/* 1. SHOPEE TOPBAR (Giữ người dùng ở lại test1) */}
       <div className="bg-[#ee4d2d] text-white text-[12px] py-1 px-4 border-b border-white/10">
-        <div className="max-w-6xl mx-auto flex justify-between items-center">
-          <div className="flex items-center gap-3">
+        <div className="max-w-6xl mx-auto flex justify-between items-center gap-2">
+          {/* Left Topbar Links: Kênh Người Bán & Mở Gian Hàng ở lại test1 */}
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <button 
-              onClick={onOpenSellerCenter || (() => window.location.pathname = '/ban-hang')}
-              className="hover:opacity-80 transition cursor-pointer font-medium"
+              onClick={() => setSubView('seller')}
+              className={`hover:opacity-80 transition cursor-pointer font-medium ${subView === 'seller' ? 'underline font-bold text-amber-200' : ''}`}
             >
               Kênh Người Bán
             </button>
             <span className="opacity-40">|</span>
             <button 
-              onClick={onOpenSellerCenter || (() => window.location.pathname = '/ban-hang')}
-              className="hover:opacity-80 transition cursor-pointer font-medium"
+              onClick={() => setSubView('seller')}
+              className={`hover:opacity-80 transition cursor-pointer font-medium ${subView === 'seller' ? 'underline font-bold text-amber-200' : ''}`}
             >
               Mở Gian Hàng Game
             </button>
-            <span className="opacity-40">|</span>
+            <span className="opacity-40 hidden sm:inline">|</span>
             <button 
               onClick={onOpenDownloadApp}
-              className="hover:opacity-80 transition cursor-pointer flex items-center gap-1 font-medium"
+              className="hover:opacity-80 transition cursor-pointer hidden sm:flex items-center gap-1 font-medium"
             >
               <Smartphone className="w-3.5 h-3.5" />
-              Tải Ứng Dụng (APK)
+              <span>Tải App (APK)</span>
+            </button>
+            <span className="opacity-40 hidden md:inline">|</span>
+            <button 
+              onClick={() => setSubView('telegram')}
+              className={`hover:opacity-80 transition cursor-pointer hidden md:flex items-center gap-1 font-medium ${subView === 'telegram' ? 'underline font-bold text-amber-200' : ''}`}
+            >
+              <Send className="w-3.5 h-3.5" />
+              <span>Telegram</span>
             </button>
           </div>
 
-          <div className="flex items-center gap-4">
+          {/* Right Topbar Links */}
+          <div className="flex items-center gap-2 sm:gap-4 shrink-0">
             {/* Tủ Mã / Đơn Mua Shopee */}
             <button 
-              onClick={() => onOpenReceivedCodes ? onOpenReceivedCodes('marketplace') : onShowToast('Vui lòng đăng nhập để xem Tủ Mã', 'info')}
-              className="hover:opacity-80 transition cursor-pointer flex items-center gap-1 bg-white/10 px-2 py-0.5 rounded font-medium"
+              onClick={() => onOpenReceivedCodes ? onOpenReceivedCodes('marketplace') : onShowToast('Mở Tủ Mã để xem quà đã nhận', 'info')}
+              className="hover:opacity-80 transition cursor-pointer flex items-center gap-1 bg-white/10 px-2 py-0.5 rounded font-medium text-[11px] sm:text-xs"
               title="Xem các mã quà tặng, thẻ game & tài khoản đã mua"
             >
               <Package className="w-3.5 h-3.5" />
-              <span>Đơn Mua / Tủ Mã</span>
+              <span className="hidden sm:inline">Đơn Mua / Tủ Mã</span>
+              <span className="sm:hidden">Tủ Mã</span>
             </button>
 
+            {/* Thông Báo */}
             <button 
               onClick={onOpenEmailModal}
-              className="hover:opacity-80 transition cursor-pointer flex items-center gap-1"
+              className="hover:opacity-80 transition cursor-pointer hidden sm:flex items-center gap-1"
             >
               <Bell className="w-3.5 h-3.5" />
               <span>Thông Báo</span>
             </button>
 
+            {/* Hỗ Trợ 24/7 */}
             <button 
               onClick={() => setIsSupportOpen(true)}
               className="hover:opacity-80 transition cursor-pointer flex items-center gap-1"
             >
               <HelpCircle className="w-3.5 h-3.5" />
-              <span>Hỗ Trợ 24/7</span>
+              <span className="hidden sm:inline">Hỗ Trợ 24/7</span>
             </button>
 
+            {/* Bộ chuyển đổi ngôn ngữ VI / EN */}
+            <div className="hidden sm:block">
+              <LanguageSelector variant="compact" />
+            </div>
+
+            {/* Người dùng & Số Dư Ví Thực */}
             {currentUser ? (
               <div className="flex items-center gap-2 pl-2 border-l border-white/20">
-                <span className="font-semibold text-amber-200">{currentUser.name || currentUser.username}</span>
-                <button onClick={onOpenWallet} className="bg-white/20 hover:bg-white/30 px-2 py-0.5 rounded text-[11px] font-bold">
-                  Ví: {(currentUser.balance || 0).toLocaleString('vi-VN')} Xu
+                <button 
+                  onClick={() => setSubView('account')}
+                  className="font-semibold text-amber-200 hover:underline cursor-pointer truncate max-w-[100px]"
+                  title="Mở trang tài khoản & ví trong test1"
+                >
+                  {currentUser.displayName || currentUser.name || currentUser.username}
+                </button>
+                <button onClick={onOpenWallet} className="bg-white/20 hover:bg-white/30 px-2 py-0.5 rounded text-[11px] font-bold cursor-pointer">
+                  Ví: {walletBalanceDisplay}
                 </button>
               </div>
             ) : (
               <div className="flex items-center gap-2 pl-2 border-l border-white/20">
-                <button onClick={onOpenAuth} className="hover:opacity-80 font-medium cursor-pointer">Đăng Ký</button>
-                <span className="opacity-40">/</span>
+                <button onClick={onOpenWallet} className="bg-white/20 hover:bg-white/30 px-2 py-0.5 rounded text-[11px] font-bold cursor-pointer hidden sm:block">
+                  Ví: {walletBalanceDisplay}
+                </button>
                 <button onClick={onOpenAuth} className="hover:opacity-80 font-medium cursor-pointer">Đăng Nhập</button>
               </div>
             )}
@@ -391,56 +586,66 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
       </div>
 
       {/* 2. MAIN HEADER SHOPEE */}
-      <div className="bg-gradient-to-b from-[#f53d2d] to-[#ee4d2d] text-white pt-2.5 pb-4 px-4 sticky top-[36px] z-40 shadow-md">
-        <div className="max-w-6xl mx-auto flex items-center justify-between gap-6">
+      <div className="bg-gradient-to-b from-[#f53d2d] to-[#ee4d2d] text-white pt-2.5 pb-3 px-4 sticky top-[36px] z-40 shadow-md">
+        <div className="max-w-6xl mx-auto flex items-center justify-between gap-3 sm:gap-6">
           
           {/* Logo Sàn Shopee Game (Dynamic White-Label Brand) */}
-          <div onClick={onBackToHome} className="flex items-center gap-2.5 flex-shrink-0 cursor-pointer">
-            <div className="w-11 h-11 bg-white rounded-xl shadow-lg flex items-center justify-center text-[#ee4d2d] font-black text-2xl tracking-tighter">
+          <div onClick={() => setSubView('home')} className="flex items-center gap-2 sm:gap-2.5 flex-shrink-0 cursor-pointer">
+            <div className="w-10 h-10 sm:w-11 sm:h-11 bg-white rounded-xl shadow-lg flex items-center justify-center text-[#ee4d2d] font-black text-xl sm:text-2xl tracking-tighter">
               🎮
             </div>
-            <div className="leading-tight">
-              <div className="text-2xl font-black tracking-tight flex items-center">
-                <span>{shopBrand.name.split(' ')[0] || 'Code'}</span>
-                <span className="text-amber-200">{shopBrand.name.split(' ').slice(1).join(' ') || 'Game'}</span>
+            <div>
+              <div className="font-extrabold text-base sm:text-lg tracking-tight leading-none text-white drop-shadow flex items-center gap-1.5">
+                <span>{shopBrand.name}</span>
+                <span className="bg-white text-[#ee4d2d] font-bold text-[9px] px-1.5 py-0.2 rounded uppercase">Mall</span>
               </div>
-              <div className="text-[10px] font-semibold text-white/90 uppercase tracking-widest flex items-center gap-1">
-                <span className="bg-white/20 px-1 py-0.2 rounded font-mono">Mall</span> {shopBrand.slogan}
+              <div className="text-[10px] text-white/80 font-medium leading-none mt-1 hidden sm:block">
+                {shopBrand.slogan}
               </div>
             </div>
           </div>
 
-          {/* Thanh Tìm Kiếm Lớn */}
-          <div className="flex-1 max-w-3xl">
-            <div className="bg-white rounded p-1 flex items-center shadow-lg">
+          {/* Khung Tìm Kiếm Phong Cách Shopee (Lọc Đồng Bộ Game + Flash Sale + Hàng Hóa) */}
+          <div className="flex-1 max-w-2xl">
+            <div className="bg-white rounded-lg p-1 flex items-center shadow-md">
               <input 
                 type="text" 
                 value={searchKeyword}
                 onChange={(e) => setSearchKeyword(e.target.value)}
-                placeholder="Tìm tựa game, thẻ nạp, acc game, tiện ích VIP..." 
-                className="w-full px-3 py-2 text-sm text-slate-800 placeholder-slate-400 focus:outline-none"
+                placeholder="Tìm tựa game, thẻ nạp, gói code, tiện ích VIP..." 
+                className="w-full px-3 py-1.5 sm:py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none"
               />
-              <button className="bg-[#ee4d2d] hover:opacity-90 text-white px-6 py-2.5 rounded transition flex items-center justify-center flex-shrink-0 cursor-pointer">
+              {searchKeyword && (
+                <button onClick={() => setSearchKeyword('')} className="px-2 text-slate-400 hover:text-slate-600 text-xs">
+                  ✕
+                </button>
+              )}
+              <button 
+                onClick={() => {
+                  if (subView !== 'home') setSubView('home');
+                }}
+                className="bg-[#ee4d2d] hover:opacity-90 text-white px-4 sm:px-6 py-1.5 sm:py-2 rounded transition flex items-center justify-center flex-shrink-0 cursor-pointer"
+              >
                 <Search className="w-4 h-4" />
               </button>
             </div>
 
             {/* Từ khóa gợi ý */}
-            <div className="flex items-center gap-3 text-[11px] text-white/80 mt-1.5 overflow-hidden whitespace-nowrap">
+            <div className="hidden sm:flex items-center gap-3 text-[11px] text-white/80 mt-1.5 overflow-hidden whitespace-nowrap">
               <button onClick={() => { setSearchKeyword('Garena'); setSelectedProductType('utility'); }} className="hover:text-amber-200 transition">Thẻ Garena</button>
+              <button onClick={() => { setSearchKeyword('Hiệp Khách Hành'); setSelectedProductType('account'); }} className="hover:text-amber-200 transition">Hiệp Khách Hành (10 gói)</button>
               <button onClick={() => { setSearchKeyword('Liên Quân'); setSelectedProductType('all'); }} className="hover:text-amber-200 transition">Liên Quân 0đ</button>
-              <button onClick={() => { setSearchKeyword('Roblox'); setSelectedProductType('all'); }} className="hover:text-amber-200 transition">Roblox Robux</button>
-              <button onClick={() => { setSearchKeyword('Genshin'); setSelectedProductType('all'); }} className="hover:text-amber-200 transition">Genshin Nguyên Thạch</button>
+              <button onClick={() => { setSearchKeyword('Roblox'); setSelectedProductType('all'); }} className="hover:text-amber-200 transition">Roblox Blox Fruits</button>
               <button onClick={() => { setSearchKeyword('Free Fire'); setSelectedProductType('all'); }} className="hover:text-amber-200 transition">Free Fire Kim Cương</button>
-              <button onClick={() => { setSearchKeyword(''); setSelectedProductType('all'); }} className="hover:text-amber-200 transition font-bold text-amber-300">Tất Cả ({allGames?.length || 0} game)</button>
+              <button onClick={() => { setSearchKeyword(''); setSelectedProductType('all'); }} className="hover:text-amber-200 transition font-bold text-amber-300">Tất Cả ({allGames?.length || 593} game)</button>
             </div>
           </div>
 
           {/* Giỏ Hàng Shopee (Realtime Live Counter) */}
-          <div onClick={onOpenCart} className="relative cursor-pointer group flex-shrink-0 pr-2">
-            <div className="relative p-2">
-              <ShoppingCart className="w-8 h-8 text-white group-hover:scale-105 transition" />
-              <span className="absolute top-0 right-0 bg-white text-[#ee4d2d] font-bold text-[11px] px-1.5 py-0.2 rounded-full border border-[#ee4d2d] shadow">
+          <div onClick={onOpenCart} className="relative cursor-pointer group flex-shrink-0 pr-1">
+            <div className="relative p-1.5 sm:p-2">
+              <ShoppingCart className="w-7 h-7 sm:w-8 sm:h-8 text-white group-hover:scale-105 transition" />
+              <span className="absolute top-0 right-0 bg-white text-[#ee4d2d] font-bold text-[10px] sm:text-[11px] px-1.5 py-0.2 rounded-full border border-[#ee4d2d] shadow">
                 {cartCount}
               </span>
             </div>
@@ -449,528 +654,1442 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
         </div>
       </div>
 
-      {/* 3. MAIN CONTENT BODY */}
-      <div className="max-w-6xl mx-auto px-4 py-4 space-y-5">
-        
-        {/* 3.0. DẢI BANNER BÀN GIAO SIÊU TỐC (WHITE-LABEL CALLOUT) */}
-        <div className="bg-gradient-to-r from-red-600 via-orange-500 to-amber-500 rounded-xl p-3 text-white flex items-center justify-between shadow-sm">
-          <div className="flex items-center gap-2.5">
-            <span className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center font-bold text-lg">⚡</span>
-            <div>
-              <div className="font-bold text-sm">Bạn muốn sở hữu website sàn game phong cách Shopee này?</div>
-              <div className="text-xs text-white/90">Bàn giao trọn gói dưới 2 phút • Tích hợp sẵn kho 623+ game & cổng VietQR tự động</div>
-            </div>
-          </div>
+      {/* 2.1. SUB-NAVIGATION BAR (Thanh Điều Hướng Toàn Diện Giữ Khách Ở Lại test1) */}
+      <div className="bg-[#d73211] text-white text-xs font-semibold px-4 overflow-x-auto scrollbar-none shadow-inner sticky top-[95px] sm:top-[103px] z-30">
+        <div className="max-w-6xl mx-auto flex items-center gap-1 sm:gap-2 py-1.5 whitespace-nowrap">
           <button
-            onClick={() => setIsWhiteLabelOpen(true)}
-            className="bg-white text-[#ee4d2d] hover:bg-amber-50 font-bold px-4 py-1.5 rounded-lg text-xs shadow transition active:scale-95 cursor-pointer whitespace-nowrap"
+            onClick={() => setSubView('home')}
+            className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'home' ? 'bg-white text-[#ee4d2d] font-bold shadow-sm' : 'hover:bg-white/15 text-white/95'}`}
           >
-            Xem Báo Giá & Tùy Biến Thử →
+            <Store className="w-3.5 h-3.5" />
+            <span>Trang Chủ Sàn</span>
+          </button>
+
+          <button
+            onClick={() => setSubView('news')}
+            className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'news' ? 'bg-white text-[#ee4d2d] font-bold shadow-sm' : 'hover:bg-white/15 text-white/95'}`}
+          >
+            <Newspaper className="w-3.5 h-3.5" />
+            <span>Tin Tức Game (272)</span>
+          </button>
+
+          <button
+            onClick={() => setSubView('events')}
+            className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'events' ? 'bg-white text-[#ee4d2d] font-bold shadow-sm' : 'hover:bg-white/15 text-white/95'}`}
+          >
+            <Calendar className="w-3.5 h-3.5" />
+            <span>Sự Kiện Hot (92)</span>
+          </button>
+
+          <button
+            onClick={() => setSubView('today-codes')}
+            className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'today-codes' ? 'bg-white text-[#ee4d2d] font-bold shadow-sm' : 'hover:bg-white/15 text-white/95'}`}
+          >
+            <Tag className="w-3.5 h-3.5" />
+            <span>Mã Hôm Nay</span>
+          </button>
+
+          <button
+            onClick={() => setSubView('upcoming')}
+            className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'upcoming' ? 'bg-white text-[#ee4d2d] font-bold shadow-sm' : 'hover:bg-white/15 text-white/95'}`}
+          >
+            <Rocket className="w-3.5 h-3.5" />
+            <span>Sắp Ra Mắt (90)</span>
+          </button>
+
+          <button
+            onClick={() => setSubView('store')}
+            className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'store' ? 'bg-white text-[#ee4d2d] font-bold shadow-sm' : 'hover:bg-white/15 text-white/95'}`}
+          >
+            <ShoppingBag className="w-3.5 h-3.5" />
+            <span>Cửa Hàng (10)</span>
+          </button>
+
+          <button
+            onClick={() => setSubView('seller')}
+            className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'seller' ? 'bg-white text-[#ee4d2d] font-bold shadow-sm' : 'hover:bg-white/15 text-white/95'}`}
+          >
+            <Store className="w-3.5 h-3.5" />
+            <span>Sàn Giao Dịch</span>
+          </button>
+
+          <button
+            onClick={() => setSubView('account')}
+            className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'account' ? 'bg-white text-[#ee4d2d] font-bold shadow-sm' : 'hover:bg-white/15 text-white/95'}`}
+          >
+            <User className="w-3.5 h-3.5" />
+            <span>Tài Khoản & Ví</span>
+          </button>
+
+          <button
+            onClick={() => setSubView('missions')}
+            className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'missions' ? 'bg-white text-[#ee4d2d] font-bold shadow-sm' : 'hover:bg-white/15 text-white/95'}`}
+          >
+            <Trophy className="w-3.5 h-3.5" />
+            <span>Nhiệm Vụ</span>
+          </button>
+
+          <button
+            onClick={() => setSubView('telegram')}
+            className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'telegram' ? 'bg-white text-[#ee4d2d] font-bold shadow-sm' : 'hover:bg-white/15 text-white/95'}`}
+          >
+            <Send className="w-3.5 h-3.5" />
+            <span>Telegram</span>
+          </button>
+
+          <button
+            onClick={() => setSubView('a-z')}
+            className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'a-z' ? 'bg-white text-[#ee4d2d] font-bold shadow-sm' : 'hover:bg-white/15 text-white/95'}`}
+          >
+            <List className="w-3.5 h-3.5" />
+            <span>Mục Lục A-Z</span>
+          </button>
+
+          <button
+            onClick={() => setIsSubmitCodeOpen(true)}
+            className="ml-auto px-2.5 py-1 rounded bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold transition flex items-center gap-1 shadow-sm shrink-0 cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Gửi Mã Mới</span>
           </button>
         </div>
+      </div>
 
-        {/* 3.1. HERO BANNER GRID (2/3 + 1/3) */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
-          {/* Banner Chính Lớn */}
-          <div className="md:col-span-2 rounded bg-gradient-to-r from-red-600 via-orange-500 to-amber-500 text-white p-6 relative overflow-hidden flex flex-col justify-between min-h-[220px] shadow-sm">
-            <div className="z-10">
-              <div className="inline-flex items-center gap-1.5 bg-white/20 px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-2">
-                🔥 SIÊU HỘI SÀN GAME & GIFTCODE 0Đ
-              </div>
-              <h2 className="text-2xl lg:text-3xl font-extrabold tracking-tight">SĂN CODE & MUA TIỆN ÍCH GAME 0S</h2>
-              <p className="text-sm text-white/90 mt-1 max-w-md">Tổng hợp 623+ game ABEI • Thẻ game chiết khấu cao • Tài khoản trắng TT • Giữ tiền bảo chứng 168h</p>
-            </div>
-            <div className="z-10 flex items-center justify-between mt-4">
+      {/* 2.2. BREADCRUMB QUAY LẠI TRANG CHỦ SÀN (KHI ĐANG XEM SUBVIEW KHÁC) */}
+      {subView !== 'home' && (
+        <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 py-2">
+          <div className="max-w-6xl mx-auto flex items-center justify-between">
+            <div className="flex items-center gap-2 text-xs">
               <button 
-                onClick={() => {
-                  const el = document.getElementById('shopee-products-grid');
-                  if (el) el.scrollIntoView({ behavior: 'smooth' });
-                }}
-                className="bg-white text-[#ee4d2d] font-bold px-5 py-2 rounded shadow-md hover:bg-amber-50 text-xs transition cursor-pointer"
+                onClick={() => setSubView('home')} 
+                className="text-[#ee4d2d] font-bold hover:underline flex items-center gap-1 cursor-pointer"
               >
-                Khám Phá Kệ Hàng Ngay →
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Trang Chủ Sàn</span>
               </button>
-              <div className="flex items-center gap-1.5">
-                <span className="w-3 h-1.5 bg-white rounded-full"></span>
-                <span className="w-1.5 h-1.5 bg-white/50 rounded-full"></span>
-                <span className="w-1.5 h-1.5 bg-white/50 rounded-full"></span>
-              </div>
+              <span className="text-slate-400">/</span>
+              <span className="font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider text-[11px]">
+                {subView === 'news' && 'Tin Tức Game (272 Bài Viết Chuẩn SEO)'}
+                {subView === 'events' && 'Sự Kiện Game (92 Sự Kiện Hot)'}
+                {subView === 'today-codes' && 'Mã Hôm Nay (Tự Đóng 22:30)'}
+                {subView === 'upcoming' && 'Bảng Game Sắp Ra Mắt (90 Bản Ghi Chuẩn Web Chính)'}
+                {subView === 'store' && 'Cửa Hàng Code (10 Gói Hiệp Khách Hành)'}
+                {subView === 'seller' && 'Sàn Giao Dịch & Kênh Người Bán'}
+                {subView === 'account' && 'Tài Khoản & Ví Core'}
+                {subView === 'missions' && 'Trung Tâm Nhiệm Vụ Game'}
+                {subView === 'telegram' && 'Cộng Đồng & Kênh Thông Báo Telegram'}
+                {subView === 'a-z' && 'Mục Lục Toàn Bộ Tựa Game A-Z'}
+                {subView === 'terms' && 'Điều Khoản Dịch Vụ Sàn'}
+                {subView === 'privacy' && 'Chính Sách Bảo Mật Sàn'}
+              </span>
             </div>
-            <div className="absolute -right-10 -bottom-10 w-60 h-60 bg-white/10 rounded-full blur-xl pointer-events-none"></div>
+            <button 
+              onClick={() => setSubView('home')}
+              className="text-xs font-semibold px-3 py-1 rounded bg-orange-50 dark:bg-orange-950/40 text-[#ee4d2d] border border-[#ee4d2d]/30 hover:bg-[#ee4d2d] hover:text-white transition cursor-pointer"
+            >
+              ← Quay Lại Kệ Hàng Sàn
+            </button>
           </div>
+        </div>
+      )}
 
-          {/* 2 Banner Phụ Xếp Chồng */}
-          <div className="flex flex-col gap-2.5 justify-between">
-            <div onClick={onOpenWallet} className="rounded bg-gradient-to-r from-amber-500 to-orange-500 text-white p-3.5 flex items-center justify-between shadow-sm flex-1 cursor-pointer hover:opacity-95 transition">
+      {/* 3. MAIN BODY CONTAINER */}
+      <div className="max-w-6xl mx-auto px-4 py-4 space-y-5">
+        
+        {/* SUBVIEW 1: TIN TỨC GAME (272 BÀI TIN) */}
+        {subView === 'news' && (
+          <div className="rounded-xl overflow-hidden shadow-sm">
+            <NewsView
+              onShowToast={(t, m, type) => onShowToast(m ? `${t}: ${m}` : t, type as any)}
+              onSelectGameSlug={onSelectGameSlug}
+            />
+          </div>
+        )}
+
+        {/* SUBVIEW 2: SỰ KIỆN HOT (92 SỰ KIỆN) */}
+        {subView === 'events' && (
+          <div className="rounded-xl overflow-hidden shadow-sm p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+            <div className="mb-4 pb-2 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
               <div>
-                <span className="text-[10px] bg-red-600 px-1.5 py-0.5 rounded font-bold uppercase">VIETQR AUTO</span>
-                <div className="font-bold text-sm mt-1">NẠP TIỀN VÍ KHÔNG MẤT PHÍ</div>
-                <div className="text-[11px] text-white/90">Quét mã VietQR cộng Xu sau 3 giây</div>
+                <h3 className="font-bold text-lg text-slate-900 dark:text-white flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-[#ee4d2d]" />
+                  <span>Sự Kiện Game Hot Nhất (92 Sự Kiện)</span>
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Đồng bộ chuẩn xác từ web chính: Giờ Việt Nam, ảnh chính thức, cách tham gia và giftcode xác thực.
+                </p>
               </div>
-              <div className="text-3xl">⚡</div>
             </div>
-            <div onClick={() => setIsGuaranteeOpen(true)} className="rounded bg-gradient-to-r from-rose-600 to-pink-500 text-white p-3.5 flex items-center justify-between shadow-sm flex-1 cursor-pointer hover:opacity-95 transition">
+            <GameEventsList
+              onShowToast={(t, m, type) => onShowToast(m ? `${t}: ${m}` : t, type as any)}
+              onSelectGameSlug={onSelectGameSlug}
+            />
+          </div>
+        )}
+
+        {/* SUBVIEW 3: MÃ HÔM NAY (TỰ ĐÓNG 22:30) */}
+        {subView === 'today-codes' && (
+          <div className="rounded-xl overflow-hidden shadow-sm p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+            <div className="mb-4 pb-2 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
               <div>
-                <span className="text-[10px] bg-white/20 px-1.5 py-0.5 rounded font-bold uppercase">BẢO CHỨNG SÀN</span>
-                <div className="font-bold text-sm mt-1">GIỮ TIỀN 168H AN TOÀN</div>
-                <div className="text-[11px] text-white/90">Hoàn tiền 100% nếu mã lỗi hoặc sai acc</div>
-              </div>
-              <div className="text-3xl">🛡️</div>
-            </div>
-          </div>
-        </div>
-
-        {/* 3.2. DỊCH VỤ NHANH SHOPEE (8 Icon Dịch Vụ) */}
-        <div className={`rounded p-4 shadow-sm border ${isShopeeDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
-          <div className="grid grid-cols-4 sm:grid-cols-8 gap-3 text-center">
-            
-            <button 
-              onClick={() => onOpenReceivedCodes ? onOpenReceivedCodes('orders') : onShowToast('Mở Tủ Mã Của Tôi để xem mã giao 0s', 'info')} 
-              className="group flex flex-col items-center cursor-pointer"
-            >
-              <div className="w-11 h-11 rounded-2xl bg-orange-500/10 border border-orange-500/30 flex items-center justify-center text-xl group-hover:-translate-y-1 transition duration-200 shadow-sm text-orange-500">
-                ⚡
-              </div>
-              <span className="text-[11px] font-medium mt-2 leading-tight">Giao Mã 0s</span>
-            </button>
-
-            <button 
-              onClick={() => {
-                setSelectedProductType('giftcode');
-                const el = document.getElementById('shopee-products-grid');
-                if (el) el.scrollIntoView({ behavior: 'smooth' });
-              }} 
-              className="group flex flex-col items-center cursor-pointer"
-            >
-              <div className="w-11 h-11 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center justify-center text-xl group-hover:-translate-y-1 transition duration-200 shadow-sm text-red-500">
-                🎁
-              </div>
-              <span className="text-[11px] font-medium mt-2 leading-tight">Săn Code 0Đ</span>
-            </button>
-
-            <button 
-              onClick={() => setIsGuaranteeOpen(true)} 
-              className="group flex flex-col items-center cursor-pointer"
-            >
-              <div className="w-11 h-11 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-xl group-hover:-translate-y-1 transition duration-200 shadow-sm text-amber-500">
-                🛡️
-              </div>
-              <span className="text-[11px] font-medium mt-2 leading-tight">Bảo Hộ 168H</span>
-            </button>
-
-            <button onClick={onOpenWallet} className="group flex flex-col items-center cursor-pointer">
-              <div className="w-11 h-11 rounded-2xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-xl group-hover:-translate-y-1 transition duration-200 shadow-sm text-blue-500">
-                💳
-              </div>
-              <span className="text-[11px] font-medium mt-2 leading-tight">Nạp VietQR</span>
-            </button>
-
-            <button onClick={onOpenGrowth} className="group flex flex-col items-center cursor-pointer">
-              <div className="w-11 h-11 rounded-2xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-xl group-hover:-translate-y-1 transition duration-200 shadow-sm text-purple-500">
-                🎡
-              </div>
-              <span className="text-[11px] font-medium mt-2 leading-tight">Vòng Quay Xu</span>
-            </button>
-
-            <button 
-              onClick={onNavigateTodayCodes || (() => window.location.pathname = '/ma-hom-nay')} 
-              className="group flex flex-col items-center cursor-pointer"
-            >
-              <div className="w-11 h-11 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-xl group-hover:-translate-y-1 transition duration-200 shadow-sm text-emerald-500">
-                🏷️
-              </div>
-              <span className="text-[11px] font-medium mt-2 leading-tight">Mã Hôm Nay</span>
-            </button>
-
-            <button 
-              onClick={onOpenUpcoming || (() => onShowToast('Mở danh sách game sắp ra mắt', 'info'))} 
-              className="group flex flex-col items-center cursor-pointer"
-            >
-              <div className="w-11 h-11 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-xl group-hover:-translate-y-1 transition duration-200 shadow-sm text-indigo-500">
-                🚀
-              </div>
-              <span className="text-[11px] font-medium mt-2 leading-tight">Sắp Ra Mắt</span>
-            </button>
-
-            <button 
-              onClick={() => setIsSupportOpen(true)} 
-              className="group flex flex-col items-center cursor-pointer"
-            >
-              <div className="w-11 h-11 rounded-2xl bg-pink-500/10 border border-pink-500/30 flex items-center justify-center text-xl group-hover:-translate-y-1 transition duration-200 shadow-sm text-pink-500">
-                💬
-              </div>
-              <span className="text-[11px] font-medium mt-2 leading-tight">Hỗ Trợ 24/7</span>
-            </button>
-
-          </div>
-        </div>
-
-        {/* 3.3. DANH MỤC THỂ LOẠI (Shopee Categories) */}
-        <div className={`rounded shadow-sm border ${isShopeeDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
-          <div className="p-3 border-b border-slate-200/60 dark:border-slate-800 flex justify-between items-center">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-[#ee4d2d] flex items-center gap-2">
-              <Compass className="w-4 h-4" />
-              DANH MỤC GAME & THỂ LOẠI
-            </h3>
-            <span className="text-xs text-slate-500">Đang hiển thị {filteredGames.length} / {allGames.length} tựa game</span>
-          </div>
-
-          <div className="grid grid-cols-4 sm:grid-cols-8 divide-x divide-y divide-slate-100 dark:divide-slate-800 text-center">
-            {[
-              { id: 'all', label: 'Tất Cả Game', icon: '🎮' },
-              { id: 'nhập vai', label: 'Nhập Vai RPG', icon: '⚔️' },
-              { id: 'chiến thuật', label: 'Chiến Thuật', icon: '🛡️' },
-              { id: 'bắn súng', label: 'Bắn Súng FPS', icon: '🎯' },
-              { id: 'thẻ bài', label: 'Thẻ Bài Card', icon: '🃏' },
-              { id: 'anime', label: 'Gacha Anime', icon: '✨' },
-              { id: 'moba', label: 'MOBA Esports', icon: '🏆' },
-              { id: 'casual', label: 'Casual / Khác', icon: '🎲' }
-            ].map((cat) => (
-              <button 
-                key={cat.id}
-                onClick={() => setSelectedCategory(cat.id)}
-                className={`p-3 transition cursor-pointer flex flex-col items-center ${selectedCategory === cat.id ? 'bg-orange-500/10 text-[#ee4d2d] font-bold' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}
-              >
-                <div className="w-11 h-11 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-xl mb-1 shadow-inner">
-                  {cat.icon}
-                </div>
-                <div className="text-[11px] leading-tight">{cat.label}</div>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* 3.4. FLASH SALE GIỜ VÀNG (Shopee Flash Sale Section) */}
-        <div className={`rounded shadow-sm border p-4 space-y-3 ${isShopeeDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
-          <div className="flex items-center justify-between pb-2 border-b border-slate-200/60 dark:border-slate-800">
-            <div className="flex items-center gap-3">
-              <div className="text-xl font-black text-[#ee4d2d] flex items-center tracking-tight">
-                <Flame className="w-6 h-6 mr-1 fill-current" />
-                <span>FLASH SALE GIỜ VÀNG</span>
-              </div>
-              <div className="flex items-center gap-1 text-xs font-mono font-bold">
-                <span className="bg-black text-white px-1.5 py-0.5 rounded">{String(timeLeft.hours).padStart(2, '0')}</span>
-                <span>:</span>
-                <span className="bg-black text-white px-1.5 py-0.5 rounded">{String(timeLeft.minutes).padStart(2, '0')}</span>
-                <span>:</span>
-                <span className="bg-black text-white px-1.5 py-0.5 rounded">{String(timeLeft.seconds).padStart(2, '0')}</span>
+                <h3 className="font-bold text-lg text-slate-900 dark:text-white flex items-center gap-2">
+                  <Tag className="w-5 h-5 text-[#ee4d2d]" />
+                  <span>Mã Giftcode Hôm Nay (Đóng lúc 22:30)</span>
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Các mã phát hành độc quyền trong ngày, nhận ngay trước khi đồng hồ điểm 22:30.
+                </p>
               </div>
             </div>
-            <span className="text-xs text-[#ee4d2d] font-semibold">Cập nhật liên tục 24/7</span>
+            <TodayCodesView
+              onSelectGame={onSelectGame}
+              onShowToast={(t, m, type) => onShowToast(m ? `${t}: ${m}` : t, type as any)}
+            />
           </div>
+        )}
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
-            {flashSaleGames.map((game, idx) => {
-              const codeCount = game.codes_count || game.active_codes_count || game.codes?.length || 0;
-              const percentSold = Math.min(95, 40 + (idx * 11));
-              return (
-                <div 
-                  key={game.id || game.slug}
-                  onClick={() => onSelectGame(game)}
-                  className={`border rounded p-2.5 hover:shadow-lg transition cursor-pointer relative group flex flex-col justify-between ${isShopeeDark ? 'bg-slate-800/80 border-slate-700' : 'bg-white border-slate-200'}`}
+        {/* SUBVIEW 4: SẮP RA MẮT (90 BẢN GHI THẬT - BỎ MÃ FAKE) */}
+        {subView === 'upcoming' && (
+          <div className="rounded-xl overflow-hidden shadow-sm p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-4">
+            <div className="pb-3 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="font-bold text-lg text-slate-900 dark:text-white flex items-center gap-2">
+                  <Rocket className="w-5 h-5 text-[#ee4d2d]" />
+                  <span>Bảng Game Sắp Ra Mắt ({upcomingGames.length || 90} Bản Ghi Chuẩn Web Chính)</span>
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Dữ liệu thực tế: 41 game đang chờ mở, 29 game chờ duyệt, 20 game đã ra mắt. Không bịa mã hay đếm ngược ảo.
+                </p>
+              </div>
+
+              {/* Status tabs */}
+              <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg text-xs font-semibold">
+                <button
+                  onClick={() => setUpcomingStatusFilter('ALL')}
+                  className={`px-2.5 py-1 rounded transition cursor-pointer ${upcomingStatusFilter === 'ALL' ? 'bg-[#ee4d2d] text-white shadow-xs' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'}`}
                 >
-                  <div className="absolute top-1.5 right-1.5 bg-yellow-400 text-red-600 text-[10px] font-black px-1.5 py-0.5 rounded uppercase z-10">
-                    -100%
-                  </div>
-
-                  <div>
-                    <div className="w-full h-24 bg-slate-100 dark:bg-slate-700 rounded flex items-center justify-center overflow-hidden mb-2 relative">
-                      {game.icon_url ? (
-                        <img src={game.icon_url} alt={game.name} className="w-full h-full object-cover group-hover:scale-105 transition duration-200" />
-                      ) : (
-                        <span className="text-3xl">🎮</span>
-                      )}
-                    </div>
-                    <div className="text-xs font-bold line-clamp-1 group-hover:text-[#ee4d2d] transition" title={game.name}>
-                      {game.name}
-                    </div>
-                    <div className="text-[#ee4d2d] font-black text-sm mt-0.5">
-                      0 đ <span className="text-[10px] text-slate-400 line-through font-normal">VIP Code</span>
-                    </div>
-                  </div>
-
-                  <div className="mt-2">
-                    <div className="w-full bg-red-100 dark:bg-red-950 rounded-full h-3.5 overflow-hidden relative flex items-center justify-center">
-                      <div className="bg-[#ee4d2d] h-full absolute left-0 top-0" style={{ width: `${percentSold}%` }}></div>
-                      <span className="text-[9px] font-bold text-white relative z-10 uppercase drop-shadow">
-                        CÒN {codeCount} MÃ
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* 3.5. KỆ HÀNG SHOPEE MALL (TABS PHÂN LOẠI & GỢI Ý HÔM NAY) */}
-        <div id="shopee-products-grid" className="space-y-3">
-          
-          {/* Header Tabs Chọn Nhóm Sản Phẩm */}
-          <div className={`rounded p-2 shadow-sm border flex items-center gap-2 overflow-x-auto ${isShopeeDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
-            {[
-              { id: 'all', label: '🔥 Tất Cả Hàng Hóa', count: (allGames?.length || 0) + (storeProducts?.length || 0) + (utilities?.length || 0) + (giveaways?.length || 0) },
-              { id: 'giftcode', label: '🎁 Giftcode 0Đ', count: allGames?.length || 0 },
-              { id: 'utility', label: '💳 Thẻ Game & Nạp', count: utilities?.length || 0 },
-              { id: 'account', label: '🎮 Tài Khoản Acc', count: storeProducts?.length || 0 },
-              { id: 'giveaway', label: '🎉 Săn Giveaway', count: giveaways?.length || 0 },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setSelectedProductType(tab.id as any)}
-                className={`px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 ${selectedProductType === tab.id ? 'bg-[#ee4d2d] text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-              >
-                <span>{tab.label}</span>
-                <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${selectedProductType === tab.id ? 'bg-white text-[#ee4d2d]' : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'}`}>
-                  {tab.count}
-                </span>
-              </button>
-            ))}
-          </div>
-
-          {/* Grid Hàng Hóa Đa Năng */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5">
-            
-            {/* 1. RENDER TIỆN ÍCH / THẺ GAME (NẾU CHỌN ALL HOẶC UTILITY) */}
-            {(selectedProductType === 'all' || selectedProductType === 'utility') && filteredUtilities.slice(0, selectedProductType === 'utility' ? 36 : 6).map((ut) => (
-              <div
-                key={ut.id}
-                onClick={() => onSelectUtility ? onSelectUtility(ut.id) : onShowToast(`Chi tiết tiện ích: ${ut.title}`, 'info')}
-                className={`rounded border hover:border-[#ee4d2d] hover:-translate-y-0.5 transition duration-150 shadow-sm cursor-pointer overflow-hidden flex flex-col justify-between group ${isShopeeDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}
-              >
-                <div>
-                  <div className="w-full h-32 bg-slate-100 dark:bg-slate-800 relative flex items-center justify-center overflow-hidden">
-                    {ut.cover_image_url || ut.icon_url ? (
-                      <img src={ut.cover_image_url || ut.icon_url} alt={ut.title} className="w-full h-full object-cover group-hover:scale-105 transition duration-200" />
-                    ) : (
-                      <span className="text-4xl">💳</span>
-                    )}
-                    <span className="absolute top-0 left-0 bg-blue-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-br">
-                      {ut.category_label || 'Tiện Ích'}
-                    </span>
-                    {ut.discount_percent > 0 && (
-                      <span className="absolute top-0 right-0 bg-yellow-400 text-red-600 text-[10px] font-bold px-1 py-0.2">
-                        -{ut.discount_percent}%
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="p-2 space-y-1">
-                    <div className="text-[11px] font-semibold line-clamp-2 leading-snug group-hover:text-[#ee4d2d] transition" title={ut.title}>
-                      {ut.title}
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <span className="text-[9px] border border-blue-500 text-blue-500 px-1 rounded">Bảo Hành 1-1</span>
-                      <span className="text-[9px] text-slate-400">Còn {ut.stock_quantity ?? 99}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-2 pt-0 space-y-1.5">
-                  <div className="flex items-baseline justify-between">
-                    <div className="text-[#ee4d2d] font-bold text-xs">{(ut.current_price || 0).toLocaleString('vi-VN')} đ</div>
-                    {ut.original_price > ut.current_price && (
-                      <div className="text-[10px] text-slate-400 line-through">{(ut.original_price || 0).toLocaleString('vi-VN')}đ</div>
-                    )}
-                  </div>
-
-                  <button
-                    onClick={(e) => handleAddUtilityToCart(ut, e)}
-                    className="w-full py-1 rounded bg-[#ee4d2d] hover:bg-orange-600 text-white text-[10px] font-bold flex items-center justify-center gap-1 transition shadow-sm cursor-pointer"
-                  >
-                    <ShoppingCart className="w-3 h-3" />
-                    <span>Thêm Giỏ Hàng</span>
-                  </button>
-                </div>
-              </div>
-            ))}
-
-            {/* 2. RENDER CỬA HÀNG ACC GAME (NẾU CHỌN ALL HOẶC ACCOUNT) */}
-            {(selectedProductType === 'all' || selectedProductType === 'account') && filteredStoreProducts.slice(0, selectedProductType === 'account' ? 36 : 6).map((prod) => (
-              <div
-                key={prod.id}
-                onClick={() => onSelectProduct ? onSelectProduct(prod) : onShowToast(`Chi tiết tài khoản: ${prod.title}`, 'info')}
-                className={`rounded border hover:border-[#ee4d2d] hover:-translate-y-0.5 transition duration-150 shadow-sm cursor-pointer overflow-hidden flex flex-col justify-between group ${isShopeeDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}
-              >
-                <div>
-                  <div className="w-full h-32 bg-slate-100 dark:bg-slate-800 relative flex items-center justify-center overflow-hidden">
-                    {prod.cover_image_url || prod.product_images?.[0] ? (
-                      <img src={prod.cover_image_url || prod.product_images?.[0]} alt={prod.title} className="w-full h-full object-cover group-hover:scale-105 transition duration-200" />
-                    ) : (
-                      <span className="text-4xl">🎮</span>
-                    )}
-                    <span className="absolute top-0 left-0 bg-emerald-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-br">
-                      Acc Trắng TT
-                    </span>
-                    {prod.discount_percent > 0 && (
-                      <span className="absolute top-0 right-0 bg-yellow-400 text-red-600 text-[10px] font-bold px-1 py-0.2">
-                        -{prod.discount_percent}%
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="p-2 space-y-1">
-                    <div className="text-[11px] font-semibold line-clamp-2 leading-snug group-hover:text-[#ee4d2d] transition" title={prod.title}>
-                      {prod.title}
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <span className="text-[9px] border border-emerald-500 text-emerald-500 px-1 rounded">Giao 0s</span>
-                      <span className="text-[9px] text-slate-400">{prod.game_name}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-2 pt-0 space-y-1.5">
-                  <div className="flex items-baseline justify-between">
-                    <div className="text-[#ee4d2d] font-bold text-xs">{(prod.current_price || 0).toLocaleString('vi-VN')} đ</div>
-                    {prod.original_price > prod.current_price && (
-                      <div className="text-[10px] text-slate-400 line-through">{(prod.original_price || 0).toLocaleString('vi-VN')}đ</div>
-                    )}
-                  </div>
-
-                  <button
-                    onClick={(e) => handleAddProductToCart(prod, e)}
-                    className="w-full py-1 rounded bg-[#ee4d2d] hover:bg-orange-600 text-white text-[10px] font-bold flex items-center justify-center gap-1 transition shadow-sm cursor-pointer"
-                  >
-                    <ShoppingCart className="w-3 h-3" />
-                    <span>Thêm Giỏ Hàng</span>
-                  </button>
-                </div>
-              </div>
-            ))}
-
-            {/* 3. RENDER SỰ KIỆN GIVEAWAY (NẾU CHỌN ALL HOẶC GIVEAWAY) */}
-            {(selectedProductType === 'all' || selectedProductType === 'giveaway') && filteredGiveaways.slice(0, selectedProductType === 'giveaway' ? 36 : 6).map((gw) => (
-              <div
-                key={gw.id}
-                onClick={() => onSelectGiveaway ? onSelectGiveaway(gw.id) : onShowToast(`Sự kiện Giveaway: ${gw.title}`, 'info')}
-                className={`rounded border hover:border-[#ee4d2d] hover:-translate-y-0.5 transition duration-150 shadow-sm cursor-pointer overflow-hidden flex flex-col justify-between group ${isShopeeDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}
-              >
-                <div>
-                  <div className="w-full h-32 bg-slate-100 dark:bg-slate-800 relative flex items-center justify-center overflow-hidden">
-                    {gw.cover_image_url || gw.game_icon_url ? (
-                      <img src={gw.cover_image_url || gw.game_icon_url} alt={gw.title} className="w-full h-full object-cover group-hover:scale-105 transition duration-200" />
-                    ) : (
-                      <span className="text-4xl">🎉</span>
-                    )}
-                    <span className="absolute top-0 left-0 bg-purple-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-br">
-                      Giveaway 0Đ
-                    </span>
-                    <span className="absolute top-0 right-0 bg-red-600 text-white text-[10px] font-bold px-1 py-0.2">
-                      HOT
-                    </span>
-                  </div>
-
-                  <div className="p-2 space-y-1">
-                    <div className="text-[11px] font-semibold line-clamp-2 leading-snug group-hover:text-[#ee4d2d] transition" title={gw.title}>
-                      {gw.title}
-                    </div>
-                    <div className="text-[10px] text-slate-500 line-clamp-1">{gw.game_name}</div>
-                  </div>
-                </div>
-
-                <div className="p-2 pt-0 space-y-1.5">
-                  <div className="flex items-baseline justify-between">
-                    <div className="text-[#ee4d2d] font-bold text-xs">0 đ (Miễn Phí)</div>
-                    <div className="text-[10px] text-slate-400">Đã nhận: {gw.claimed_codes || 0}</div>
-                  </div>
-
-                  <button
-                    onClick={() => onSelectGiveaway ? onSelectGiveaway(gw.id) : null}
-                    className="w-full py-1 rounded bg-purple-600 hover:bg-purple-700 text-white text-[10px] font-bold flex items-center justify-center gap-1 transition shadow-sm cursor-pointer"
-                  >
-                    <Gift className="w-3 h-3" />
-                    <span>Săn Quà 0Đ Ngay</span>
-                  </button>
-                </div>
-              </div>
-            ))}
-
-            {/* 4. RENDER DANH MỤC GAME GIFTCODE (NẾU CHỌN ALL HOẶC GIFTCODE) */}
-            {(selectedProductType === 'all' || selectedProductType === 'giftcode') && filteredGames.slice(0, selectedProductType === 'giftcode' ? 36 : 18).map((game) => {
-              const codeCount = game.codes_count || game.active_codes_count || game.codes?.length || 0;
-              const firstCode = game.codes && game.codes.length > 0 ? game.codes[0].code : null;
-
-              return (
-                <div 
-                  key={game.id || game.slug}
-                  onClick={() => onSelectGame(game)}
-                  className={`rounded border hover:border-[#ee4d2d] hover:-translate-y-0.5 transition duration-150 shadow-sm cursor-pointer overflow-hidden flex flex-col justify-between group ${isShopeeDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}
+                  Tất Cả ({upcomingGames.length})
+                </button>
+                <button
+                  onClick={() => setUpcomingStatusFilter('UPCOMING')}
+                  className={`px-2.5 py-1 rounded transition cursor-pointer ${upcomingStatusFilter === 'UPCOMING' ? 'bg-[#ee4d2d] text-white shadow-xs' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'}`}
                 >
-                  <div>
-                    <div className="w-full h-32 bg-slate-100 dark:bg-slate-800 relative flex items-center justify-center overflow-hidden">
-                      {game.icon_url ? (
-                        <img src={game.icon_url} alt={game.name} className="w-full h-full object-cover group-hover:scale-105 transition duration-200" />
-                      ) : (
-                        <span className="text-4xl">🎮</span>
-                      )}
-                      
-                      <span className="absolute top-0 left-0 bg-[#ee4d2d] text-white text-[9px] font-bold px-1.5 py-0.5 rounded-br">
-                        Yêu Thích+
-                      </span>
-                      <span className="absolute top-0 right-0 bg-yellow-400 text-red-600 text-[10px] font-bold px-1 py-0.2">
-                        {codeCount > 0 ? `${codeCount} Code` : 'Mới'}
-                      </span>
-                    </div>
+                  Đang Chờ Mở ({upcomingGames.filter((g) => g.status === 'UPCOMING' || g.status === 'APPROVED').length})
+                </button>
+                <button
+                  onClick={() => setUpcomingStatusFilter('PENDING')}
+                  className={`px-2.5 py-1 rounded transition cursor-pointer ${upcomingStatusFilter === 'PENDING' ? 'bg-[#ee4d2d] text-white shadow-xs' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'}`}
+                >
+                  Chờ Duyệt ({upcomingGames.filter((g) => g.status === 'PENDING').length})
+                </button>
+                <button
+                  onClick={() => setUpcomingStatusFilter('RELEASED')}
+                  className={`px-2.5 py-1 rounded transition cursor-pointer ${upcomingStatusFilter === 'RELEASED' ? 'bg-[#ee4d2d] text-white shadow-xs' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'}`}
+                >
+                  Đã Ra Mắt ({upcomingGames.filter((g) => g.status === 'LAUNCHED' || g.status === 'RELEASED').length})
+                </button>
+              </div>
+            </div>
 
-                    <div className="p-2 space-y-1">
-                      <div className="text-[11px] font-semibold line-clamp-2 leading-snug group-hover:text-[#ee4d2d] transition" title={game.name}>
-                        {game.name}
+            {/* Grid of upcoming games */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {filteredUpcoming.map((game) => {
+                const expCodes = game.expectedCodes && game.expectedCodes.length > 0 ? game.expectedCodes : [];
+                return (
+                  <div 
+                    key={game.id || game.slug}
+                    className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 flex flex-col justify-between space-y-2 hover:border-[#ee4d2d] transition"
+                  >
+                    <div>
+                      <div className="flex items-start gap-2.5 mb-2">
+                        <div className="w-11 h-11 rounded-xl overflow-hidden bg-slate-200 dark:bg-slate-800 shrink-0 flex items-center justify-center border border-slate-300 dark:border-slate-700">
+                          {game.icon_url || game.iconUrl ? (
+                            <img src={game.icon_url || game.iconUrl} alt={game.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-xl">🎮</span>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h4 className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white truncate">{game.name}</h4>
+                          <div className="text-[10px] text-slate-500 flex items-center gap-1.5 mt-0.5">
+                            <span className="bg-orange-100 dark:bg-orange-950/60 text-[#ee4d2d] px-1.5 py-0.2 rounded font-semibold">{game.category}</span>
+                            <span className="truncate">{game.publisher || 'NPH Game'}</span>
+                          </div>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1 flex-wrap">
-                        <span className="text-[9px] border border-[#ee4d2d] text-[#ee4d2d] px-1 rounded">Giao 0s</span>
-                        <span className="text-[9px] bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 px-1 rounded truncate max-w-[80px]">
-                          {game.publisher || 'NPH Game'}
+
+                      {/* Release date & Status */}
+                      <div className="text-xs bg-white dark:bg-slate-900 p-2 rounded-lg border border-slate-200/80 dark:border-slate-800 flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-1 text-[11px] text-slate-600 dark:text-slate-300">
+                          <Calendar className="w-3.5 h-3.5 text-[#ee4d2d]" />
+                          <span>{game.releaseDate ? game.releaseDate.split('T')[0] : 'Chưa rõ ngày ra mắt'}</span>
+                        </div>
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600">
+                          {game.status === 'PENDING' ? 'Chờ Duyệt' : game.status === 'RELEASED' ? 'Đã Ra Mắt' : 'Sắp Mở Server'}
                         </span>
                       </div>
+
+                      {/* Expected codes: NO FAKE CODES */}
+                      <div className="text-xs">
+                        <div className="text-[10px] font-semibold text-amber-500 mb-1 flex items-center gap-1">
+                          <Gift className="w-3 h-3" />
+                          <span>Quà dự kiến:</span>
+                        </div>
+                        {expCodes.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {expCodes.map((c, i) => (
+                              <span key={i} className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-300 font-mono text-[10px] font-bold border border-amber-500/20">
+                                {typeof c === 'string' ? c : (c as any).code}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-[10px] text-slate-400 italic bg-white dark:bg-slate-900 p-1.5 rounded border border-slate-200 dark:border-slate-800">
+                            Chưa có quà dự kiến (Đang cập nhật từ NPH)
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                      <span className="text-[10px] text-slate-400">{game.subscribersCount || 0} người canh</span>
+                      <button
+                        onClick={() => onShowToast(`Đã bật báo code cho game "${game.name}" khi mở server!`, 'success')}
+                        className="px-2.5 py-1 rounded bg-[#ee4d2d] hover:bg-orange-600 text-white font-bold text-[10px] transition cursor-pointer"
+                      >
+                        Báo Code
+                      </button>
                     </div>
                   </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
-                  <div className="p-2 pt-0 space-y-1.5">
-                    <div className="flex items-baseline justify-between">
-                      <div className="text-[#ee4d2d] font-bold text-xs">0 đ (Miễn Phí)</div>
-                      <div className="text-[10px] text-slate-400">{codeCount} mã sẵn</div>
+        {/* SUBVIEW 5: CỬA HÀNG CODE RIÊNG (10 GÓI HIỆP KHÁCH HÀNH) */}
+        {subView === 'store' && (
+          <div className="rounded-xl overflow-hidden shadow-sm p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+            <StoreView
+              onSelectProduct={onSelectProduct || (() => {})}
+              onDirectCheckout={(prod, variant) => {
+                handleAddProductToCart(prod, { stopPropagation: () => {} } as any);
+                if (onOpenCart) onOpenCart();
+              }}
+              onShowToast={(t, m, type) => onShowToast(m ? `${t}: ${m}` : t, type as any)}
+              currentUser={currentUser}
+              onOpenAuth={onOpenAuth}
+            />
+          </div>
+        )}
+
+        {/* SUBVIEW 6: SÀN GIAO DỊCH RIÊNG (SELLER CENTER Ở LẠI TEST1) */}
+        {subView === 'seller' && (
+          <div className="rounded-xl overflow-hidden shadow-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+            <SellerCenterView
+              currentUser={currentUser}
+              onOpenLogin={onOpenAuth}
+              games={allGames as any}
+              onNavigateHome={() => setSubView('home')}
+            />
+          </div>
+        )}
+
+        {/* SUBVIEW 6.5: TRANG TÀI KHOẢN & VÍ CORE (VÀO TRONG TEST1) */}
+        {subView === 'account' && (
+          <div className="rounded-xl overflow-hidden shadow-sm p-4 sm:p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-6">
+            {/* Header hồ sơ */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#ee4d2d] to-amber-500 text-white font-bold text-2xl flex items-center justify-center shadow-md overflow-hidden shrink-0">
+                  {currentUser?.avatar ? (
+                    <img src={currentUser.avatar} alt="Avatar" className="w-full h-full object-cover" />
+                  ) : (
+                    <span>{currentUser?.displayName?.charAt(0).toUpperCase() || currentUser?.username?.charAt(0).toUpperCase() || 'U'}</span>
+                  )}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+                      {currentUser?.displayName || currentUser?.name || currentUser?.username || 'Khách Thử Nghiệm Sàn'}
+                    </h2>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-950/60 text-[#ee4d2d] border border-[#ee4d2d]/30">
+                      {currentUser?.role === 'admin' ? 'Quản Trị Viên' : 'Thành Viên Shopee Mall'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {currentUser?.email || 'Tài khoản trải nghiệm tại sàn codegame.shop/test1'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                {currentUser ? (
+                  <button
+                    onClick={() => setIsProfileOpen(true)}
+                    className="flex-1 sm:flex-initial px-3.5 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Settings className="w-3.5 h-3.5" />
+                    <span>Hồ Sơ & Bảo Mật</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={onOpenAuth}
+                    className="flex-1 sm:flex-initial px-4 py-2 rounded-lg bg-[#ee4d2d] hover:bg-[#d73211] text-white font-bold text-xs transition shadow cursor-pointer"
+                  >
+                    Đăng Nhập / Đăng Ký
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Lưới 4 Thẻ Chức Năng Quản Lý */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Thẻ 1: Ví Core & Nạp Tiền */}
+              <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 rounded-lg bg-amber-500/10 text-amber-500">
+                      <Wallet className="w-4 h-4" />
                     </div>
-
-                    {firstCode && (
-                      <button 
-                        onClick={(e) => handleCopyCode(firstCode, e)}
-                        className="w-full py-1 rounded bg-orange-500/10 hover:bg-orange-500/20 text-[#ee4d2d] font-mono text-[10px] font-bold flex items-center justify-center gap-1 transition"
-                      >
-                        {copiedCode === firstCode ? (
-                          <>
-                            <Check className="w-3 h-3 text-emerald-500" />
-                            <span>Đã Copy!</span>
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="w-3 h-3" />
-                            <span>{firstCode}</span>
-                          </>
-                        )}
-                      </button>
-                    )}
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">Ví Core Sàn</h4>
+                      <p className="text-[10px] text-slate-400">Tỷ lệ quy đổi: 1 Core = 1.000 VNĐ</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-base font-extrabold text-[#ee4d2d]">{walletBalanceDisplay}</div>
+                    <div className="text-[10px] text-slate-400">Khớp số dư thực</div>
                   </div>
                 </div>
-              );
-            })}
-          </div>
 
-          {filteredGames.length > 24 && (
-            <div className="text-center pt-3">
-              <button 
-                onClick={() => onShowToast('Đang hiển thị toàn bộ hàng hóa trên sàn!', 'info')}
-                className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs px-10 py-2.5 rounded shadow-sm font-medium transition cursor-pointer"
+                <div className="flex gap-2 pt-1">
+                  <button
+                    onClick={onOpenWallet}
+                    className="flex-1 py-2 px-3 rounded-lg bg-gradient-to-r from-[#ee4d2d] to-orange-500 hover:from-[#d73211] hover:to-orange-600 text-white font-bold text-xs shadow-sm flex items-center justify-center gap-1.5 cursor-pointer transition"
+                  >
+                    <CreditCard className="w-3.5 h-3.5" />
+                    <span>Nạp VietQR 24/7</span>
+                  </button>
+                  <button
+                    onClick={() => setIsProfileOpen(true)}
+                    className="py-2 px-3 rounded-lg bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-semibold text-xs hover:border-[#ee4d2d] flex items-center justify-center gap-1 cursor-pointer transition"
+                  >
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>Lịch Sử</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Thẻ 2: Kho Mã & Đơn Hàng */}
+              <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-500">
+                      <Package className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">Kho Mã & Đơn Hàng</h4>
+                      <p className="text-[10px] text-slate-400">Giao mã tự động 0s • Bảo hộ 168h</p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 border border-emerald-500/20">
+                    Sẵn Sàng
+                  </span>
+                </div>
+
+                <div className="flex gap-2 pt-1">
+                  <button
+                    onClick={() => onOpenReceivedCodes?.('marketplace')}
+                    className="flex-1 py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm flex items-center justify-center gap-1.5 cursor-pointer transition"
+                  >
+                    <ShoppingBag className="w-3.5 h-3.5" />
+                    <span>Đơn Hàng Sàn</span>
+                  </button>
+                  <button
+                    onClick={() => onOpenReceivedCodes?.('giveaways')}
+                    className="py-2 px-3 rounded-lg bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-semibold text-xs hover:border-emerald-500 flex items-center justify-center gap-1 cursor-pointer transition"
+                  >
+                    <Gift className="w-3.5 h-3.5" />
+                    <span>Mã Sự Kiện</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Thẻ 3: Game Đang Theo Dõi */}
+              <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 rounded-lg bg-blue-500/10 text-blue-500">
+                      <Bookmark className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">Tủ Game Theo Dõi</h4>
+                      <p className="text-[10px] text-slate-400">Chống trùng lặp • Nhận thông báo mã mới</p>
+                    </div>
+                  </div>
+                  <span className="text-xs font-bold text-blue-600 dark:text-blue-400">
+                    {bookmarkedGamesList.length} game
+                  </span>
+                </div>
+
+                <button
+                  onClick={() => setIsBookmarkDrawerOpen(true)}
+                  className="w-full py-2 px-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm flex items-center justify-center gap-1.5 cursor-pointer transition"
+                >
+                  <Bookmark className="w-3.5 h-3.5 fill-current" />
+                  <span>Mở Tủ Game Đang Lưu ({bookmarkedGamesList.length})</span>
+                </button>
+              </div>
+
+              {/* Thẻ 4: Bảo Mật & Pháp Lý Sàn */}
+              <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 rounded-lg bg-purple-500/10 text-purple-500">
+                      <ShieldCheck className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">Bảo Mật & Pháp Lý</h4>
+                      <p className="text-[10px] text-slate-400">Bảo chứng sàn 168h • Tuân thủ G1/G234</p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-purple-50 dark:bg-purple-950/40 text-purple-600 border border-purple-500/20">
+                    Bảo Hộ
+                  </span>
+                </div>
+
+                <div className="flex gap-2 pt-1">
+                  <button
+                    onClick={() => setSubView('terms')}
+                    className="flex-1 py-2 px-3 rounded-lg bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-semibold text-xs hover:border-purple-500 flex items-center justify-center gap-1 cursor-pointer transition"
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    <span>Điều Khoản</span>
+                  </button>
+                  <button
+                    onClick={() => setSubView('privacy')}
+                    className="flex-1 py-2 px-3 rounded-lg bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-semibold text-xs hover:border-purple-500 flex items-center justify-center gap-1 cursor-pointer transition"
+                  >
+                    <Lock className="w-3.5 h-3.5" />
+                    <span>Bảo Mật</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* SUBVIEW 7: NHIỆM VỤ GAME */}
+        {subView === 'missions' && (
+          <div className="rounded-xl overflow-hidden shadow-sm p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+            <MissionsView
+              currentUser={currentUser}
+              onOpenAuth={onOpenAuth}
+              onShowToast={(t, m, type) => onShowToast(m ? `${t}: ${m}` : t, type as any)}
+            />
+          </div>
+        )}
+
+        {/* SUBVIEW 8: TELEGRAM VIEW */}
+        {subView === 'telegram' && (
+          <div className="rounded-xl overflow-hidden shadow-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+            <TelegramView
+              onOpenAuth={onOpenAuth}
+              onOpenProfile={() => setIsProfileOpen(true)}
+              onShowToast={(t, m, type) => onShowToast(m ? `${t}: ${m}` : t, type as any)}
+            />
+          </div>
+        )}
+
+        {/* SUBVIEW 9: MỤC LỤC TOÀN BỘ GAME A-Z */}
+        {subView === 'a-z' && (
+          <div className="rounded-xl overflow-hidden shadow-sm p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-4">
+            <div className="pb-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-lg text-slate-900 dark:text-white flex items-center gap-2">
+                  <List className="w-5 h-5 text-[#ee4d2d]" />
+                  <span>Mục Lục Toàn Bộ Tựa Game A-Z ({allGames.length} Game Có Giấy Phép)</span>
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Tra cứu nhanh chóng theo bảng chữ cái từ A đến Z toàn bộ kho game mobile và PC.
+                </p>
+              </div>
+            </div>
+
+            {/* Quick jumping alphabet bar */}
+            <div className="flex flex-wrap gap-1 p-2 bg-slate-50 dark:bg-slate-950 rounded-lg border border-slate-200 dark:border-slate-800 text-xs font-bold">
+              {Object.keys(azGroupedGames).sort().map((letter) => (
+                <a
+                  key={letter}
+                  href={`#az-group-${letter}`}
+                  className="w-7 h-7 rounded flex items-center justify-center bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-[#ee4d2d] hover:text-white transition shadow-2xs"
+                >
+                  {letter}
+                </a>
+              ))}
+            </div>
+
+            {/* Letter Groups */}
+            <div className="space-y-6">
+              {Object.keys(azGroupedGames).sort().map((letter) => (
+                <div key={letter} id={`az-group-${letter}`} className="scroll-mt-32">
+                  <div className="flex items-center gap-2 mb-2 pb-1 border-b-2 border-[#ee4d2d]/30">
+                    <span className="w-8 h-8 rounded-lg bg-[#ee4d2d] text-white font-extrabold flex items-center justify-center text-sm shadow">
+                      {letter}
+                    </span>
+                    <span className="text-xs text-slate-500 font-semibold">({azGroupedGames[letter].length} game)</span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                    {azGroupedGames[letter].map((g) => (
+                      <button
+                        key={g.id || g.slug}
+                        onClick={() => onSelectGame(g)}
+                        className="p-2 rounded-lg bg-slate-50 dark:bg-slate-800/60 hover:bg-orange-50 dark:hover:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 text-left transition flex items-center gap-2 cursor-pointer group"
+                      >
+                        <div className="w-7 h-7 rounded bg-slate-200 dark:bg-slate-700 shrink-0 overflow-hidden flex items-center justify-center text-xs">
+                          {g.icon_url ? <img src={g.icon_url} alt={g.name} className="w-full h-full object-cover" /> : '🎮'}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate group-hover:text-[#ee4d2d]">
+                            {g.name}
+                          </div>
+                          <div className="text-[10px] text-slate-400 truncate">
+                            {g.codes_count || g.active_codes_count || 0} mã
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* SUBVIEW 10: ĐIỀU KHOẢN DỊCH VỤ */}
+        {subView === 'terms' && (
+          <div className="rounded-xl overflow-hidden shadow-sm p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-4">
+            <h3 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <FileText className="w-6 h-6 text-[#ee4d2d]" />
+              <span>Điều Khoản Dịch Vụ Sàn CodeGame Mall</span>
+            </h3>
+            <div className="text-xs text-slate-600 dark:text-slate-300 space-y-3 leading-relaxed">
+              <p><strong>1. Quy định chung:</strong> Toàn bộ giftcode và mã quà tặng trên sàn CodeGame Mall được chia sẻ hoàn toàn miễn phí hoặc phân phối từ các nhà phát hành game chính thức có giấy phép phê duyệt nội dung G1/G234 tại Việt Nam.</p>
+              <p><strong>2. Cơ chế bảo chứng 168 giờ:</strong> Đối với các giao dịch tài khoản, thẻ nạp và tiện ích qua sàn, số tiền thanh toán của người mua được hệ thống tạm giữ an toàn trong 168 giờ (7 ngày). Trong khoảng thời gian này, nếu phát sinh lỗi mã hoặc tranh chấp, người mua có quyền yêu cầu hoàn tiền 100% hoặc đổi mã 1-chạm.</p>
+              <p><strong>3. Chống gian lận và tự mua:</strong> Hệ thống nghiêm cấm mọi hành vi tự mua hàng của chính gian hàng mình, spam tạo đơn ảo hoặc dùng công cụ tự động can thiệp vào tài nguyên máy chủ.</p>
+              <p><strong>4. Quyền của Ban Quản Trị:</strong> Ban Quản Trị có quyền cập nhật và bổ sung các điều khoản nhằm bảo vệ tối đa quyền lợi chính đáng của cộng đồng game thủ và các gian hàng đối tác.</p>
+            </div>
+          </div>
+        )}
+
+        {/* SUBVIEW 11: CHÍNH SÁCH BẢO MẬT */}
+        {subView === 'privacy' && (
+          <div className="rounded-xl overflow-hidden shadow-sm p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-4">
+            <h3 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <ShieldCheck className="w-6 h-6 text-emerald-500" />
+              <span>Chính Sách Bảo Mật & An Toàn Thông Tin</span>
+            </h3>
+            <div className="text-xs text-slate-600 dark:text-slate-300 space-y-3 leading-relaxed">
+              <p><strong>1. Bảo vệ dữ liệu cá nhân:</strong> Chúng tôi cam kết tuyệt đối bảo mật thông tin tài khoản, email và số điện thoại của người dùng theo tiêu chuẩn an toàn thông tin mạng.</p>
+              <p><strong>2. Mã hóa giao dịch ví và kho mã:</strong> Toàn bộ mã giftcode trong kho và lịch sử biến động số dư ví Core được mã hóa bằng thuật toán AES-GCM Web Crypto trên mạng lưới Cloudflare Edge Network.</p>
+              <p><strong>3. Không chia sẻ cho bên thứ ba:</strong> Chúng tôi không bán, cho thuê hay tiết lộ bất kỳ thông tin cá nhân nào của bạn cho bên thứ ba vì bất kỳ mục đích thương mại nào.</p>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* SUBVIEW CHÍNH: HOME STOREFRONT SHOPEE MALL                               */}
+        {/* ========================================================================= */}
+        {subView === 'home' && (
+          <>
+            {/* 3.0. DẢI BANNER BÀN GIAO SIÊU TỐC (WHITE-LABEL CALLOUT) */}
+            <div className="bg-gradient-to-r from-red-600 via-orange-500 to-amber-500 rounded-xl p-3 text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
+              <div className="flex items-center gap-2.5">
+                <span className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center font-bold text-lg shrink-0">⚡</span>
+                <div>
+                  <div className="font-bold text-sm">Bạn muốn sở hữu website sàn game phong cách Shopee này?</div>
+                  <div className="text-xs text-white/90">Bàn giao trọn gói dưới 2 phút • Tích hợp sẵn kho 623+ game & cổng VietQR tự động</div>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsWhiteLabelOpen(true)}
+                className="bg-white text-[#ee4d2d] hover:bg-amber-50 font-bold px-4 py-1.5 rounded-lg text-xs shadow transition active:scale-95 cursor-pointer whitespace-nowrap self-end sm:self-auto"
               >
-                Xem Thêm Hàng Hóa Khác ({filteredGames.length} game có sẵn)
+                Xem Báo Giá & Tùy Biến Thử →
               </button>
             </div>
-          )}
-        </div>
 
-        {/* 3.6. FOOTER SHOPEE */}
-        <div className="border-t border-slate-200 dark:border-slate-800 pt-6 text-xs text-slate-500 dark:text-slate-400 space-y-4">
-          <div className="flex flex-wrap items-center justify-center gap-3">
+            {/* 3.1. HERO BANNER GRID (2/3 + 1/3) */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+              {/* Banner Chính Lớn */}
+              <div className="md:col-span-2 rounded-xl bg-gradient-to-r from-red-600 via-orange-500 to-amber-500 text-white p-5 sm:p-6 relative overflow-hidden flex flex-col justify-between min-h-[200px] sm:min-h-[220px] shadow-sm">
+                <div className="z-10">
+                  <div className="inline-flex items-center gap-1.5 bg-white/20 px-2.5 py-1 rounded-full text-[10px] sm:text-xs font-bold uppercase tracking-wider mb-2">
+                    🔥 SIÊU HỘI SÀN GAME & GIFTCODE 0Đ
+                  </div>
+                  <h2 className="text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight">SĂN CODE & MUA TIỆN ÍCH GAME 0S</h2>
+                  <p className="text-xs sm:text-sm text-white/90 mt-1 max-w-md">Tổng hợp 593+ game ABEI • Thẻ game chiết khấu cao • Gói code Hiệp Khách Hành • Bảo chứng 168h</p>
+                </div>
+                <div className="z-10 flex items-center justify-between mt-4">
+                  <button 
+                    onClick={() => {
+                      const el = document.getElementById('shopee-products-grid');
+                      if (el) el.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                    className="bg-white text-[#ee4d2d] font-bold px-4 sm:px-5 py-2 rounded shadow-md hover:bg-amber-50 text-xs transition cursor-pointer"
+                  >
+                    Khám Phá Kệ Hàng Ngay →
+                  </button>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-3 h-1.5 bg-white rounded-full"></span>
+                    <span className="w-1.5 h-1.5 bg-white/50 rounded-full"></span>
+                    <span className="w-1.5 h-1.5 bg-white/50 rounded-full"></span>
+                  </div>
+                </div>
+                <div className="absolute -right-10 -bottom-10 w-60 h-60 bg-white/10 rounded-full blur-xl pointer-events-none"></div>
+              </div>
+
+              {/* 2 Banner Phụ Cột Phải */}
+              <div className="grid grid-cols-2 md:grid-cols-1 gap-2.5">
+                <div 
+                  onClick={() => setIsGuaranteeOpen(true)}
+                  className="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-700 text-white p-3.5 flex flex-col justify-between cursor-pointer hover:opacity-95 transition shadow-sm"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] bg-white/20 px-1.5 py-0.5 rounded font-bold uppercase">Bảo Chứng Sàn</span>
+                    <ShieldCheck className="w-4 h-4 text-emerald-300" />
+                  </div>
+                  <div className="mt-2">
+                    <div className="font-bold text-xs sm:text-sm">Giữ Tiền 168 Giờ</div>
+                    <div className="text-[10px] text-white/80">Hoàn tiền 100% nếu mã lỗi</div>
+                  </div>
+                </div>
+
+                <div 
+                  onClick={onOpenWallet}
+                  className="rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 text-white p-3.5 flex flex-col justify-between cursor-pointer hover:opacity-95 transition shadow-sm"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] bg-white/20 px-1.5 py-0.5 rounded font-bold uppercase">VietQR 0S</span>
+                    <CreditCard className="w-4 h-4 text-amber-300" />
+                  </div>
+                  <div className="mt-2">
+                    <div className="font-bold text-xs sm:text-sm">Nạp Tiền Tự Động</div>
+                    <div className="text-[10px] text-white/80">Cộng số dư ví tức thì 24/7</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 3.2. DỊCH VỤ NHANH SHOPEE (8 Icon Dịch Vụ) */}
+            <div className={`rounded-xl p-4 shadow-sm border ${isShopeeDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
+              <div className="grid grid-cols-4 sm:grid-cols-8 gap-3 text-center">
+                
+                <button 
+                  onClick={() => onOpenReceivedCodes ? onOpenReceivedCodes('orders') : onShowToast('Mở Tủ Mã để xem mã giao 0s', 'info')} 
+                  className="group flex flex-col items-center cursor-pointer"
+                >
+                  <div className="w-11 h-11 rounded-2xl bg-orange-500/10 border border-orange-500/30 flex items-center justify-center text-xl group-hover:-translate-y-1 transition duration-200 shadow-sm text-orange-500">
+                    ⚡
+                  </div>
+                  <span className="text-[11px] font-medium mt-2 leading-tight">Giao Mã 0s</span>
+                </button>
+
+                <button 
+                  onClick={() => {
+                    setSelectedProductType('giftcode');
+                    const el = document.getElementById('shopee-products-grid');
+                    if (el) el.scrollIntoView({ behavior: 'smooth' });
+                  }} 
+                  className="group flex flex-col items-center cursor-pointer"
+                >
+                  <div className="w-11 h-11 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center justify-center text-xl group-hover:-translate-y-1 transition duration-200 shadow-sm text-red-500">
+                    🎁
+                  </div>
+                  <span className="text-[11px] font-medium mt-2 leading-tight">Săn Code 0Đ</span>
+                </button>
+
+                <button 
+                  onClick={() => setIsGuaranteeOpen(true)} 
+                  className="group flex flex-col items-center cursor-pointer"
+                >
+                  <div className="w-11 h-11 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-xl group-hover:-translate-y-1 transition duration-200 shadow-sm text-amber-500">
+                    🛡️
+                  </div>
+                  <span className="text-[11px] font-medium mt-2 leading-tight">Bảo Hộ 168H</span>
+                </button>
+
+                <button onClick={onOpenWallet} className="group flex flex-col items-center cursor-pointer">
+                  <div className="w-11 h-11 rounded-2xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-xl group-hover:-translate-y-1 transition duration-200 shadow-sm text-blue-500">
+                    💳
+                  </div>
+                  <span className="text-[11px] font-medium mt-2 leading-tight">Nạp VietQR</span>
+                </button>
+
+                <button onClick={onOpenGrowth} className="group flex flex-col items-center cursor-pointer">
+                  <div className="w-11 h-11 rounded-2xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-xl group-hover:-translate-y-1 transition duration-200 shadow-sm text-purple-500">
+                    🎡
+                  </div>
+                  <span className="text-[11px] font-medium mt-2 leading-tight">Vòng Quay Xu</span>
+                </button>
+
+                <button 
+                  onClick={() => setSubView('today-codes')} 
+                  className="group flex flex-col items-center cursor-pointer"
+                >
+                  <div className="w-11 h-11 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-xl group-hover:-translate-y-1 transition duration-200 shadow-sm text-emerald-500">
+                    🏷️
+                  </div>
+                  <span className="text-[11px] font-medium mt-2 leading-tight">Mã Hôm Nay</span>
+                </button>
+
+                <button 
+                  onClick={() => setSubView('upcoming')} 
+                  className="group flex flex-col items-center cursor-pointer"
+                >
+                  <div className="w-11 h-11 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-xl group-hover:-translate-y-1 transition duration-200 shadow-sm text-indigo-500">
+                    🚀
+                  </div>
+                  <span className="text-[11px] font-medium mt-2 leading-tight">Sắp Ra Mắt</span>
+                </button>
+
+                <button 
+                  onClick={() => setIsSupportOpen(true)} 
+                  className="group flex flex-col items-center cursor-pointer"
+                >
+                  <div className="w-11 h-11 rounded-2xl bg-pink-500/10 border border-pink-500/30 flex items-center justify-center text-xl group-hover:-translate-y-1 transition duration-200 shadow-sm text-pink-500">
+                    💬
+                  </div>
+                  <span className="text-[11px] font-medium mt-2 leading-tight">Hỗ Trợ 24/7</span>
+                </button>
+
+              </div>
+            </div>
+
+            {/* 3.3. DANH MỤC GAME (6 Nhóm Danh Mục Chuẩn Web Chính + Bộ Sắp Xếp) */}
+            <div className={`rounded-xl shadow-sm border ${isShopeeDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
+              <div className="p-3 border-b border-slate-200/60 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Compass className="w-4 h-4 text-[#ee4d2d]" />
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-[#ee4d2d]">
+                    6 CHUYÊN MỤC GAME CHUẨN (ABEI - G1)
+                  </h3>
+                  <span className="text-xs text-slate-500">({filteredGames.length} / {allGames.length} game)</span>
+                </div>
+
+                {/* Sắp xếp: Mới nhất, Nhiều mã nhất, Ngày cấp phép */}
+                <div className="flex items-center gap-1.5 text-xs">
+                  <span className="text-slate-400 flex items-center gap-1">
+                    <ArrowUpDown className="w-3.5 h-3.5" />
+                    <span>Sắp xếp:</span>
+                  </span>
+                  <button
+                    onClick={() => setSortOrder('latest')}
+                    className={`px-2 py-0.5 rounded transition cursor-pointer text-[11px] font-semibold ${sortOrder === 'latest' ? 'bg-[#ee4d2d] text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}`}
+                  >
+                    Mới nhất
+                  </button>
+                  <button
+                    onClick={() => setSortOrder('codes')}
+                    className={`px-2 py-0.5 rounded transition cursor-pointer text-[11px] font-semibold ${sortOrder === 'codes' ? 'bg-[#ee4d2d] text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}`}
+                  >
+                    Nhiều mã nhất
+                  </button>
+                  <button
+                    onClick={() => setSortOrder('licensed')}
+                    className={`px-2 py-0.5 rounded transition cursor-pointer text-[11px] font-semibold ${sortOrder === 'licensed' ? 'bg-[#ee4d2d] text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}`}
+                  >
+                    Ngày cấp phép
+                  </button>
+                </div>
+              </div>
+
+              {/* 6 Category Pills */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 divide-x divide-y sm:divide-y-0 divide-slate-100 dark:divide-slate-800 text-center">
+                {MAIN_GAME_CATEGORIES.map((cat) => (
+                  <button 
+                    key={cat.id}
+                    onClick={() => setSelectedCategory(cat.id)}
+                    className={`p-3 transition cursor-pointer flex flex-col items-center justify-center ${selectedCategory === cat.id ? 'bg-orange-500/10 text-[#ee4d2d] font-bold border-b-2 border-[#ee4d2d]' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50 text-slate-700 dark:text-slate-300'}`}
+                  >
+                    <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-lg mb-1 shadow-inner">
+                      {cat.icon}
+                    </div>
+                    <div className="text-[11px] leading-tight font-medium line-clamp-1">{cat.label}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 3.4. FLASH SALE GIỜ VÀNG (Shopee Flash Sale Section) */}
+            <div className={`rounded-xl shadow-sm border p-4 space-y-3 ${isShopeeDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
+              <div className="flex items-center justify-between pb-2 border-b border-slate-200/60 dark:border-slate-800">
+                <div className="flex items-center gap-3">
+                  <div className="text-lg sm:text-xl font-black text-[#ee4d2d] flex items-center tracking-tight">
+                    <Flame className="w-5 h-5 sm:w-6 sm:h-6 mr-1 fill-current" />
+                    <span>FLASH SALE GIỜ VÀNG</span>
+                  </div>
+                  {/* Countdown Box */}
+                  <div className="flex items-center gap-1 font-mono text-xs font-bold">
+                    <span className="bg-black text-white px-1.5 py-0.5 rounded">{String(timeLeft.hours).padStart(2, '0')}</span>
+                    <span>:</span>
+                    <span className="bg-black text-white px-1.5 py-0.5 rounded">{String(timeLeft.minutes).padStart(2, '0')}</span>
+                    <span>:</span>
+                    <span className="bg-black text-white px-1.5 py-0.5 rounded">{String(timeLeft.seconds).padStart(2, '0')}</span>
+                  </div>
+                </div>
+
+                <button 
+                  onClick={() => setSelectedProductType('giftcode')}
+                  className="text-xs text-[#ee4d2d] hover:underline font-semibold flex items-center cursor-pointer"
+                >
+                  <span>Xem Tất Cả</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              {/* Flash Sale Product Cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5">
+                {flashSaleGames.map((game) => {
+                  const codeCount = game.codes_count || game.active_codes_count || game.codes?.length || 0;
+                  const firstCode = game.codes && game.codes.length > 0 ? game.codes[0].code : null;
+
+                  return (
+                    <div 
+                      key={game.id || game.slug}
+                      onClick={() => onSelectGame(game)}
+                      className={`rounded-lg border p-2 flex flex-col justify-between hover:border-[#ee4d2d] hover:shadow-md transition cursor-pointer group relative ${isShopeeDark ? 'bg-slate-800/80 border-slate-700' : 'bg-white border-slate-200'}`}
+                    >
+                      <div>
+                        <div className="relative w-full aspect-square rounded overflow-hidden bg-slate-100 dark:bg-slate-700 mb-2">
+                          {game.icon_url ? (
+                            <img src={game.icon_url} alt={game.name} className="w-full h-full object-cover group-hover:scale-105 transition duration-200" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-2xl">🎮</div>
+                          )}
+                          <span className="absolute top-0 right-0 bg-yellow-400 text-red-600 font-extrabold text-[9px] px-1 py-0.2">
+                            HOT
+                          </span>
+                        </div>
+                        <div className="font-semibold text-xs truncate group-hover:text-[#ee4d2d] transition" title={game.name}>
+                          {game.name}
+                        </div>
+                        <div className="text-[10px] text-slate-400 mt-0.5 truncate">{game.publisher || 'NPH Game'}</div>
+                      </div>
+
+                      <div className="mt-2 pt-1 border-t border-slate-100 dark:border-slate-700/60">
+                        <div className="text-[#ee4d2d] font-bold text-xs">0đ (Miễn Phí)</div>
+                        <div className="w-full bg-orange-100 dark:bg-orange-950/60 rounded-full h-3 mt-1 relative overflow-hidden flex items-center">
+                          <div className="bg-[#ee4d2d] h-full rounded-full" style={{ width: `${Math.min(100, Math.max(30, codeCount * 5))}%` }}></div>
+                          <span className="absolute inset-0 text-[8px] text-center font-bold text-white flex items-center justify-center leading-none">
+                            {codeCount} Mã Khả Dụng
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 3.5. KỆ HÀNG HÓA SHOPEE MALL: 4 NHÓM SẢN PHẨM & PHÂN TRANG */}
+            <div id="shopee-products-grid" className="space-y-3 scroll-mt-28">
+              
+              {/* TAB CHUYỂN ĐỔI KỆ HÀNG */}
+              <div className="flex items-center justify-between border-b-2 border-[#ee4d2d] pb-2 flex-wrap gap-2">
+                <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto scrollbar-none">
+                  {[
+                    { id: 'all', label: '🔥 Tất Cả Hàng Hóa', count: (allGames.length + filteredStoreProducts.length + filteredUtilities.length + filteredGiveaways.length) },
+                    { id: 'giftcode', label: '🎁 Giftcode 0Đ', count: allGames.length },
+                    { id: 'utility', label: '💳 Tiện Ích & Thẻ Game', count: filteredUtilities.length },
+                    { id: 'account', label: '🎮 Gói Code Cửa Hàng', count: filteredStoreProducts.length },
+                    { id: 'giveaway', label: '🎉 Săn Giveaway', count: filteredGiveaways.length },
+                  ].map((tab) => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setSelectedProductType(tab.id as any)}
+                      className={`px-3 py-1.5 rounded-t-lg font-bold text-xs whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 ${
+                        selectedProductType === tab.id
+                          ? 'bg-[#ee4d2d] text-white shadow'
+                          : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-orange-50'
+                      }`}
+                    >
+                      <span>{tab.label}</span>
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${selectedProductType === tab.id ? 'bg-white text-[#ee4d2d]' : 'bg-slate-200 dark:bg-slate-700 text-slate-600'}`}>
+                        {tab.count}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="text-xs text-slate-500 font-medium">
+                  Trang {currentPage} / {totalPages} • Tổng {filteredGames.length} tựa game
+                </div>
+              </div>
+
+              {/* LƯỚI SẢN PHẨM TỔNG HỢP */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5">
+                
+                {/* 1. RENDER TIỆN ÍCH GAME (Cloud Phone, Thẻ Game) */}
+                {(selectedProductType === 'all' || selectedProductType === 'utility') && filteredUtilities.slice(0, selectedProductType === 'utility' ? 36 : 6).map((ut) => {
+                  const isOutOfStock = (ut.stock_quantity ?? 0) <= 0;
+                  return (
+                    <div
+                      key={ut.id}
+                      onClick={() => onSelectUtility ? onSelectUtility(ut.id) : onShowToast(`Tiện ích: ${ut.title}`, 'info')}
+                      className={`rounded-lg border hover:border-[#ee4d2d] hover:-translate-y-0.5 transition duration-150 shadow-sm cursor-pointer overflow-hidden flex flex-col justify-between group ${isShopeeDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}
+                    >
+                      <div>
+                        <div className="w-full h-32 bg-slate-100 dark:bg-slate-800 relative flex items-center justify-center overflow-hidden">
+                          {ut.cover_image_url || ut.icon_url ? (
+                            <img src={ut.cover_image_url || ut.icon_url} alt={ut.title} className="w-full h-full object-cover group-hover:scale-105 transition duration-200" />
+                          ) : (
+                            <span className="text-4xl">📱</span>
+                          )}
+                          <span className="absolute top-0 left-0 bg-blue-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-br">
+                            Tiện Ích
+                          </span>
+                          {ut.discount_percent > 0 && (
+                            <span className="absolute top-0 right-0 bg-yellow-400 text-red-600 text-[10px] font-bold px-1 py-0.2">
+                              -{ut.discount_percent}%
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="p-2 space-y-1">
+                          <div className="text-[11px] font-semibold line-clamp-2 leading-snug group-hover:text-[#ee4d2d] transition" title={ut.title}>
+                            {ut.title}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="text-[9px] border border-blue-500 text-blue-500 px-1 rounded">Bảo Hành 1-1</span>
+                            <span className={`text-[9px] ${isOutOfStock ? 'text-rose-500 font-bold' : 'text-slate-400'}`}>
+                              {isOutOfStock ? 'Còn 0 (Hết Hàng)' : `Còn ${ut.stock_quantity ?? 99}`}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="p-2 pt-0 space-y-1.5">
+                        <div className="flex items-baseline justify-between">
+                          <div className="text-[#ee4d2d] font-bold text-xs">{(ut.current_price || 0).toLocaleString('vi-VN')} đ</div>
+                          {ut.original_price > ut.current_price && (
+                            <div className="text-[10px] text-slate-400 line-through">{(ut.original_price || 0).toLocaleString('vi-VN')}đ</div>
+                          )}
+                        </div>
+
+                        {/* Khóa nút mua khi hết hàng */}
+                        <button
+                          disabled={isOutOfStock}
+                          onClick={isOutOfStock ? undefined : (e) => handleAddUtilityToCart(ut, e)}
+                          className={`w-full py-1 rounded text-[10px] font-bold flex items-center justify-center gap-1 transition shadow-sm ${
+                            isOutOfStock 
+                              ? 'bg-slate-300 dark:bg-slate-700 text-slate-500 cursor-not-allowed' 
+                              : 'bg-[#ee4d2d] hover:bg-orange-600 text-white cursor-pointer'
+                          }`}
+                        >
+                          <ShoppingCart className="w-3 h-3" />
+                          <span>{isOutOfStock ? 'Hết Hàng' : 'Thêm Giỏ Hàng'}</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* 2. RENDER CỬA HÀNG GÓI CODE (10 GÓI HIỆP KHÁCH HÀNH CỦA WEB CHÍNH) */}
+                {(selectedProductType === 'all' || selectedProductType === 'account') && filteredStoreProducts.slice(0, selectedProductType === 'account' ? 36 : 6).map((prod) => {
+                  const isOutOfStock = (prod.stock_quantity ?? 0) <= 0;
+                  return (
+                    <div
+                      key={prod.id}
+                      onClick={() => onSelectProduct ? onSelectProduct(prod) : onShowToast(`Chi tiết gói code: ${prod.title}`, 'info')}
+                      className={`rounded-lg border hover:border-[#ee4d2d] hover:-translate-y-0.5 transition duration-150 shadow-sm cursor-pointer overflow-hidden flex flex-col justify-between group ${isShopeeDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}
+                    >
+                      <div>
+                        <div className="w-full h-32 bg-slate-100 dark:bg-slate-800 relative flex items-center justify-center overflow-hidden">
+                          {prod.cover_image_url || prod.product_images?.[0] ? (
+                            <img src={prod.cover_image_url || prod.product_images?.[0]} alt={prod.title} className="w-full h-full object-cover group-hover:scale-105 transition duration-200" />
+                          ) : (
+                            <span className="text-4xl">📦</span>
+                          )}
+                          <span className="absolute top-0 left-0 bg-emerald-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-br">
+                            Gói Code
+                          </span>
+                          {prod.discount_percent > 0 && (
+                            <span className="absolute top-0 right-0 bg-yellow-400 text-red-600 text-[10px] font-bold px-1 py-0.2">
+                              -{prod.discount_percent}%
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="p-2 space-y-1">
+                          <div className="text-[11px] font-semibold line-clamp-2 leading-snug group-hover:text-[#ee4d2d] transition" title={prod.title}>
+                            {prod.title}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="text-[9px] border border-emerald-500 text-emerald-500 px-1 rounded">Giao 0s</span>
+                            <span className="text-[9px] text-slate-400">{prod.game_name || 'Hiệp Khách Hành'}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="p-2 pt-0 space-y-1.5">
+                        <div className="flex items-baseline justify-between">
+                          <div className="text-[#ee4d2d] font-bold text-xs">{(prod.current_price || 0).toLocaleString('vi-VN')} đ</div>
+                          {prod.original_price > prod.current_price && (
+                            <div className="text-[10px] text-slate-400 line-through">{(prod.original_price || 0).toLocaleString('vi-VN')}đ</div>
+                          )}
+                        </div>
+
+                        {/* Khóa nút mua khi hết hàng */}
+                        <button
+                          disabled={isOutOfStock}
+                          onClick={isOutOfStock ? undefined : (e) => handleAddProductToCart(prod, e)}
+                          className={`w-full py-1 rounded text-[10px] font-bold flex items-center justify-center gap-1 transition shadow-sm ${
+                            isOutOfStock
+                              ? 'bg-slate-300 dark:bg-slate-700 text-slate-500 cursor-not-allowed'
+                              : 'bg-[#ee4d2d] hover:bg-orange-600 text-white cursor-pointer'
+                          }`}
+                        >
+                          <ShoppingCart className="w-3 h-3" />
+                          <span>{isOutOfStock ? 'Hết Hàng' : 'Thêm Giỏ Hàng'}</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* 3. RENDER SỰ KIỆN GIVEAWAY */}
+                {(selectedProductType === 'all' || selectedProductType === 'giveaway') && filteredGiveaways.slice(0, selectedProductType === 'giveaway' ? 36 : 6).map((gw) => (
+                  <div
+                    key={gw.id}
+                    onClick={() => onSelectGiveaway ? onSelectGiveaway(gw.id) : onShowToast(`Sự kiện Giveaway: ${gw.title}`, 'info')}
+                    className={`rounded-lg border hover:border-[#ee4d2d] hover:-translate-y-0.5 transition duration-150 shadow-sm cursor-pointer overflow-hidden flex flex-col justify-between group ${isShopeeDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}
+                  >
+                    <div>
+                      <div className="w-full h-32 bg-slate-100 dark:bg-slate-800 relative flex items-center justify-center overflow-hidden">
+                        {gw.banner_url || gw.game_icon ? (
+                          <img src={gw.banner_url || gw.game_icon} alt={gw.title} className="w-full h-full object-cover group-hover:scale-105 transition duration-200" />
+                        ) : (
+                          <span className="text-4xl">🎉</span>
+                        )}
+                        <span className="absolute top-0 left-0 bg-purple-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-br">
+                          Giveaway
+                        </span>
+                      </div>
+
+                      <div className="p-2 space-y-1">
+                        <div className="text-[11px] font-semibold line-clamp-2 leading-snug group-hover:text-[#ee4d2d] transition" title={gw.title}>
+                          {gw.title}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-[9px] border border-purple-500 text-purple-500 px-1 rounded">Miễn Phí</span>
+                          <span className="text-[9px] text-slate-400">{gw.game_name}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-2 pt-0 space-y-1.5">
+                      <div className="flex items-baseline justify-between">
+                        <div className="text-purple-600 font-bold text-xs">0 đ (Quà Tặng)</div>
+                        <div className="text-[10px] text-slate-400">{gw.total_codes || 100} suất</div>
+                      </div>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onSelectGiveaway) onSelectGiveaway(gw.id);
+                        }}
+                        className="w-full py-1 rounded bg-purple-600 hover:bg-purple-700 text-white text-[10px] font-bold flex items-center justify-center gap-1 transition shadow-sm cursor-pointer"
+                      >
+                        <Gift className="w-3 h-3" />
+                        <span>Săn Quà 0Đ Ngay</span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+
+                {/* 4. RENDER DANH MỤC GAME GIFTCODE (PHÂN TRANG 24 GAME / TRANG) */}
+                {(selectedProductType === 'all' || selectedProductType === 'giftcode') && paginatedGames.map((game) => {
+                  const codeCount = game.codes_count || game.active_codes_count || game.codes?.length || 0;
+                  const firstCode = game.codes && game.codes.length > 0 ? game.codes[0].code : null;
+
+                  return (
+                    <div 
+                      key={game.id || game.slug}
+                      onClick={() => onSelectGame(game)}
+                      className={`rounded-lg border hover:border-[#ee4d2d] hover:-translate-y-0.5 transition duration-150 shadow-sm cursor-pointer overflow-hidden flex flex-col justify-between group ${isShopeeDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}
+                    >
+                      <div>
+                        <div className="w-full h-32 bg-slate-100 dark:bg-slate-800 relative flex items-center justify-center overflow-hidden">
+                          {game.icon_url ? (
+                            <img src={game.icon_url} alt={game.name} className="w-full h-full object-cover group-hover:scale-105 transition duration-200" />
+                          ) : (
+                            <span className="text-4xl">🎮</span>
+                          )}
+                          
+                          <span className="absolute top-0 left-0 bg-[#ee4d2d] text-white text-[9px] font-bold px-1.5 py-0.5 rounded-br">
+                            Yêu Thích+
+                          </span>
+                          <span className="absolute top-0 right-0 bg-yellow-400 text-red-600 text-[10px] font-bold px-1 py-0.2">
+                            {codeCount > 0 ? `${codeCount} Code` : 'Mới'}
+                          </span>
+
+                          {/* Nút bookmark / theo dõi trực tiếp trên thẻ game */}
+                          <button
+                            onClick={(e) => handleToggleBookmark(game.id || game.slug, e)}
+                            className={`absolute bottom-1 right-1 p-1 rounded-full transition z-10 cursor-pointer ${
+                              bookmarkedGamesList.some((bg) => bg.id === game.id || bg.slug === game.slug)
+                                ? 'bg-amber-400 text-slate-950 shadow-md'
+                                : 'bg-black/50 hover:bg-black/80 text-white/90 backdrop-blur-xs'
+                            }`}
+                            title="Lưu vào tủ game theo dõi"
+                          >
+                            <Bookmark className="w-3 h-3 fill-current" />
+                          </button>
+                        </div>
+
+                        <div className="p-2 space-y-1">
+                          <div className="text-[11px] font-semibold line-clamp-2 leading-snug group-hover:text-[#ee4d2d] transition" title={game.name}>
+                            {game.name}
+                          </div>
+                          <div className="flex items-center gap-1 flex-wrap">
+                            <span className="text-[9px] border border-[#ee4d2d] text-[#ee4d2d] px-1 rounded">Giao 0s</span>
+                            {Boolean(game.license_number || game.so_giay_phep) && (
+                              <span className="text-[9px] bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 px-1 rounded truncate max-w-[80px]">
+                                GP G1
+                              </span>
+                            )}
+                            <span className="text-[9px] bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 px-1 rounded truncate max-w-[80px]">
+                              {game.publisher || 'NPH Game'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="p-2 pt-0 space-y-1.5">
+                        <div className="flex items-baseline justify-between">
+                          <div className="text-[#ee4d2d] font-bold text-xs">0 đ (Miễn Phí)</div>
+                          <div className="text-[10px] text-slate-400">{codeCount} mã sẵn</div>
+                        </div>
+
+                        {firstCode ? (
+                          <button 
+                            onClick={(e) => handleCopyCode(firstCode, e)}
+                            className="w-full py-1 rounded bg-orange-500/10 hover:bg-orange-500/20 text-[#ee4d2d] font-mono text-[10px] font-bold flex items-center justify-center gap-1 transition cursor-pointer"
+                          >
+                            {copiedCode === firstCode ? (
+                              <>
+                                <Check className="w-3 h-3 text-emerald-500" />
+                                <span>Đã Copy!</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="w-3 h-3" />
+                                <span>{firstCode}</span>
+                              </>
+                            )}
+                          </button>
+                        ) : (
+                          <button 
+                            onClick={() => onSelectGame(game)}
+                            className="w-full py-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] font-bold flex items-center justify-center gap-1 transition cursor-pointer"
+                          >
+                            Xem Chi Tiết Mã
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Thông báo nếu không tìm thấy game trong danh mục */}
+              {filteredGames.length === 0 && (
+                <div className="py-12 text-center bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-500">
+                  <Compass className="w-10 h-10 mx-auto text-slate-400 mb-2 opacity-50" />
+                  <p className="font-semibold text-sm text-slate-700 dark:text-slate-300">Không tìm thấy tựa game nào trong danh mục này</p>
+                  <p className="text-xs text-slate-400 mt-1">Vui lòng chọn danh mục khác hoặc xóa từ khóa tìm kiếm</p>
+                  <button
+                    onClick={() => { setSelectedCategory('all'); setSearchKeyword(''); }}
+                    className="mt-3 px-4 py-1.5 rounded-lg bg-[#ee4d2d] text-white text-xs font-bold hover:bg-orange-600 transition cursor-pointer"
+                  >
+                    Xem Toàn Bộ {allGames.length} Game
+                  </button>
+                </div>
+              )}
+
+              {/* BỘ PHÂN TRANG CHUẨN SHOPEE (ĐỦ 593 GAME) */}
+              {totalPages > 1 && (
+                <div className="pt-6 pb-2 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+                  <div className="text-slate-500 font-medium">
+                    Đang hiển thị {paginatedGames.length} / {filteredGames.length} tựa game (Trang {currentPage} / {totalPages})
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    <button
+                      disabled={currentPage <= 1}
+                      onClick={() => {
+                        setCurrentPage((p) => Math.max(1, p - 1));
+                        const el = document.getElementById('shopee-products-grid');
+                        if (el) el.scrollIntoView({ behavior: 'smooth' });
+                      }}
+                      className={`p-1.5 rounded border ${currentPage <= 1 ? 'border-slate-200 text-slate-300 cursor-not-allowed' : 'border-slate-300 hover:bg-slate-100 text-slate-700 cursor-pointer'}`}
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+
+                    {/* Page Numbers */}
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      let pageNum = currentPage;
+                      if (currentPage <= 3) pageNum = i + 1;
+                      else if (currentPage >= totalPages - 2) pageNum = totalPages - 4 + i;
+                      else pageNum = currentPage - 2 + i;
+                      if (pageNum < 1 || pageNum > totalPages) return null;
+
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => {
+                            setCurrentPage(pageNum);
+                            const el = document.getElementById('shopee-products-grid');
+                            if (el) el.scrollIntoView({ behavior: 'smooth' });
+                          }}
+                          className={`w-7 h-7 rounded text-xs font-bold transition cursor-pointer ${
+                            currentPage === pageNum
+                              ? 'bg-[#ee4d2d] text-white shadow-xs'
+                              : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-orange-50 text-slate-700 dark:text-slate-300'
+                          }`}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    })}
+
+                    <button
+                      disabled={currentPage >= totalPages}
+                      onClick={() => {
+                        setCurrentPage((p) => Math.min(totalPages, p + 1));
+                        const el = document.getElementById('shopee-products-grid');
+                        if (el) el.scrollIntoView({ behavior: 'smooth' });
+                      }}
+                      className={`p-1.5 rounded border ${currentPage >= totalPages ? 'border-slate-200 text-slate-300 cursor-not-allowed' : 'border-slate-300 hover:bg-slate-100 text-slate-700 cursor-pointer'}`}
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+            </div>
+          </>
+        )}
+
+        {/* 3.6. FOOTER ĐẦY ĐỦ 4 CỘT CHUẨN WEB CHÍNH */}
+        <div className="border-t border-slate-200 dark:border-slate-800 pt-8 mt-8 text-xs text-slate-500 dark:text-slate-400 space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            
+            {/* Cột 1: Về CodeGame Mall */}
+            <div className="space-y-2.5">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-[#ee4d2d] flex items-center justify-center text-white font-black text-sm">
+                  🎮
+                </div>
+                <span className="font-extrabold text-sm text-slate-900 dark:text-white">{shopBrand.name}</span>
+              </div>
+              <p className="text-slate-500 text-[11px] leading-relaxed">
+                Nền tảng thương mại điện tử chuyên biệt: Mua bán Tiện ích game, Gói code Hiệp Khách Hành, Thẻ game chiết khấu cao và chia sẻ Giftcode 0đ từ NPH có giấy phép G1/G234.
+              </p>
+              <div className="text-[10px] text-slate-400">
+                Hạ tầng Edge Network • Vận hành 24/7 • Giữ tiền 168h
+              </div>
+            </div>
+
+            {/* Cột 2: Danh Mục Thể Loại */}
+            <div className="space-y-2">
+              <h4 className="font-bold text-slate-900 dark:text-white uppercase tracking-wider text-[11px]">Chuyên Mục Game Hot</h4>
+              <ul className="space-y-1.5 text-[11px]">
+                {MAIN_GAME_CATEGORIES.slice(1).map((cat) => (
+                  <li key={cat.id}>
+                    <button
+                      onClick={() => {
+                        setSelectedCategory(cat.id);
+                        setSubView('home');
+                        const el = document.getElementById('shopee-products-grid');
+                        if (el) el.scrollIntoView({ behavior: 'smooth' });
+                      }}
+                      className="hover:text-[#ee4d2d] transition text-left cursor-pointer"
+                    >
+                      {cat.icon} {cat.label}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Cột 3: Hỗ Trợ & Pháp Lý */}
+            <div className="space-y-2">
+              <h4 className="font-bold text-slate-900 dark:text-white uppercase tracking-wider text-[11px]">Hỗ Trợ & Pháp Lý</h4>
+              <ul className="space-y-1.5 text-[11px]">
+                <li>
+                  <button onClick={() => setIsGuaranteeOpen(true)} className="hover:text-[#ee4d2d] transition cursor-pointer">
+                    🛡️ Chính Sách Bảo Chứng 168 Giờ
+                  </button>
+                </li>
+                <li>
+                  <button onClick={() => setSubView('terms')} className="hover:text-[#ee4d2d] transition cursor-pointer">
+                    📄 Điều Khoản Dịch Vụ
+                  </button>
+                </li>
+                <li>
+                  <button onClick={() => setSubView('privacy')} className="hover:text-[#ee4d2d] transition cursor-pointer">
+                    🔒 Chính Sách Bảo Mật
+                  </button>
+                </li>
+                <li>
+                  <button onClick={() => setIsSupportOpen(true)} className="hover:text-[#ee4d2d] transition cursor-pointer">
+                    💬 Trung Tâm Hỗ Trợ CSKH 24/7
+                  </button>
+                </li>
+                <li>
+                  <button onClick={() => onShowToast('Hotline CSKH: 0987.654.321', 'info')} className="hover:text-[#ee4d2d] transition cursor-pointer">
+                    📞 Hotline: {shopBrand.hotline}
+                  </button>
+                </li>
+              </ul>
+            </div>
+
+            {/* Cột 4: Kết Nối & Tải App */}
+            <div className="space-y-2.5">
+              <h4 className="font-bold text-slate-900 dark:text-white uppercase tracking-wider text-[11px]">Kết Nối & Tải Ứng Dụng</h4>
+              <div className="space-y-2 text-[11px]">
+                <button
+                  onClick={() => setSubView('telegram')}
+                  className="w-full py-1.5 px-3 rounded-lg bg-blue-500 hover:bg-blue-600 text-white font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>Kênh Telegram Thông Báo</span>
+                </button>
+                <button
+                  onClick={onOpenDownloadApp}
+                  className="w-full py-1.5 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
+                >
+                  <Smartphone className="w-3.5 h-3.5" />
+                  <span>Tải App Trực Tiếp (APK)</span>
+                </button>
+              </div>
+
+              {/* Ngôn ngữ Footer */}
+              <div className="pt-2">
+                <span className="text-[10px] text-slate-400 block mb-1">Ngôn ngữ hiển thị:</span>
+                <LanguageSelector variant="footer" />
+              </div>
+            </div>
+
+          </div>
+
+          {/* 2 NÚT CTA CHỦ LỰC */}
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
             <button 
               onClick={() => setIsWhiteLabelOpen(true)}
               className="inline-flex items-center gap-2 bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600 text-white font-bold text-xs px-6 py-2.5 rounded-full shadow transition cursor-pointer"
@@ -987,7 +2106,7 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
             </button>
           </div>
 
-          <div className="text-center text-[11px] pt-2">
+          <div className="text-center text-[11px] pt-1">
             © 2026 {shopBrand.name} - Giao Diện Sàn Thương Mại Điện Tử Tiện Ích & Code Game (Bản Test 1 tại <code>/test1</code>)
           </div>
         </div>
@@ -1024,7 +2143,7 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
         </button>
       </div>
 
-      {/* 6. MODALS TÍCH HỢP */}
+      {/* 6. MODALS TÍCH HỢP TRONG TEST1 */}
       <ShopeeGuaranteeModal
         isOpen={isGuaranteeOpen}
         onClose={() => setIsGuaranteeOpen(false)}
@@ -1046,6 +2165,40 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
           hotline: st.hotline
         })}
         onShowToast={onShowToast}
+      />
+
+      {/* User Profile Modal trong test1 */}
+      <UserProfileModal
+        isOpen={isProfileOpen}
+        onClose={() => setIsProfileOpen(false)}
+        currentUser={currentUser}
+        onOpenAuth={onOpenAuth}
+        onShowToast={(t, m, type) => onShowToast(m ? `${t}: ${m}` : t, type as any)}
+        onOpenWallet={onOpenWallet}
+        onOpenReceivedCodes={onOpenReceivedCodes}
+      />
+
+      {/* Submit Code Modal trong test1 */}
+      <SubmitCodeModal
+        isOpen={isSubmitCodeOpen}
+        onClose={() => setIsSubmitCodeOpen(false)}
+        games={allGames}
+        currentUser={currentUser}
+        onShowToast={(t, m, type) => onShowToast(m ? `${t}: ${m}` : t, type as any)}
+      />
+
+      {/* Bookmark Drawer (Tủ Game Theo Dõi - Chống Trùng Lặp) */}
+      <BookmarkDrawer
+        isOpen={isBookmarkDrawerOpen}
+        onClose={() => setIsBookmarkDrawerOpen(false)}
+        bookmarkedGames={bookmarkedGamesList}
+        onRemoveBookmark={(id) => handleToggleBookmark(id)}
+        onSelectGame={onSelectGame}
+        onClearAll={() => {
+          localStorage.removeItem('wcg_bookmarks');
+          syncBookmarks();
+          onShowToast('Đã xóa toàn bộ tủ game', 'info');
+        }}
       />
 
     </div>

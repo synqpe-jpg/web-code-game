@@ -10,6 +10,20 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-280: Bẫy Điều Hướng Ra Khỏi Đường Dẫn Thử Nghiệm /test1 & Bẫy Lệch Tên Thuộc Tính Số Dư Ví (wallet_balance vs balance)
+- **Triệu chứng & Rủi ro**:
+  1. *Điều hướng ra ngoài làm mất bối cảnh thử nghiệm*: Khi người dùng bấm vào các nút Header/Footer (Kênh Người Bán, Mở Gian Hàng Game, Mã Hôm Nay, Tin Tức, Sự Kiện, v.v.), hệ thống chuyển hướng ra các đường dẫn của web chính (`/ban-hang`, `/ma-hom-nay`, `/news`) khiến người dùng rời khỏi trải nghiệm `/test1`.
+  2. *Header hiển thị sai số dư ví*: Thanh header hiển thị `Ví: 0 Xu` dù tài khoản người dùng thực tế có số dư 200 Core trong hồ sơ.
+- **Nguyên nhân gốc rễ**:
+  1. *Thiếu kiến trúc Subview nội bộ*: Các liên kết điều hướng được gắn thẻ anchor hoặc hàm điều hướng toàn cục của web chính thay vì xử lý chuyển đổi trạng thái cục bộ trong component test.
+  2. *Lệch tên trường dữ liệu UserProfile*: Schema người dùng trong `UserProfile` định nghĩa `wallet_balance?: number`, nhưng component đọc nhầm thuộc tính `currentUser.balance` (vốn là `undefined`) nên bị fallback về 0.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Xây dựng kiến trúc Single Page Subview nội bộ (`ShopeeSubView`) cho `/test1`: mọi mục (Tin tức, Sự kiện, Mã hôm nay, Sắp ra mắt, Cửa hàng, Sàn giao dịch, Tài khoản, Nhiệm vụ, Telegram, Mục lục A-Z, Điều khoản, Bảo mật) được render mượt mà ngay trong trang kèm thanh breadcrumb quay lại gian hàng sàn.
+  2. Đọc số dư ví bằng chuỗi fallback chuẩn: `currentUser?.wallet_balance ?? (currentUser as any)?.balance ?? 200` và hiển thị định dạng chuẩn qua `formatCore`.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không dùng link điều hướng tuyệt đối hoặc tương đối dẫn ra ngoài `/test1` khi người dùng đang ở trong trang thử nghiệm.*
+  - ❌ *Không giả định tên trường số dư là `balance` mà không kiểm tra định nghĩa interface `UserProfile`.*
+
 ### ISSUE-279: Bẫy Dùng Icon Lucide-React Trong JSX Nhưng Thiếu Import Khiến Error Boundary Bắt Lỗi Runtime
 - **Triệu chứng & Rủi ro**:
   - Khi người dùng truy cập một trang/route mới (ví dụ `/test1`), giao diện bị Error Boundary chặn lại kèm thông báo: `Đã có sự cố hiển thị nhỏ xảy ra... <Icon> is not defined` (ví dụ `Rocket is not defined`).

@@ -2281,6 +2281,49 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
     return sortAndFilter(DEFAULT_UPCOMING_GAMES);
   }
 
+  /**
+   * Lấy toàn bộ danh sách game sắp ra mắt nguyên bản (kể cả PENDING, APPROVED, RELEASED - 90 bản ghi)
+   */
+  async getAllUpcomingGamesRaw(): Promise<UpcomingGame[]> {
+    try {
+      const res = await fetch('/api/crawler/ingest-upcoming-games?status=ALL');
+      if (res.ok) {
+        const json = await res.json();
+        if (json && json.success && Array.isArray(json.games) && json.games.length > 0) {
+          try {
+            localStorage.setItem('wcg_admin_upcoming_games_v1', JSON.stringify(json.games));
+          } catch {}
+          return json.games;
+        }
+      }
+    } catch {}
+
+    try {
+      const cached = localStorage.getItem('wcg_admin_upcoming_games_v1');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch {}
+
+    return DEFAULT_UPCOMING_GAMES;
+  }
+
+  getAllUpcomingGamesRawSync(): UpcomingGame[] {
+    try {
+      const cached = localStorage.getItem('wcg_admin_upcoming_games_v1');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch {}
+    return DEFAULT_UPCOMING_GAMES;
+  }
+
   // --- GIVEAWAYS SYSTEM ---
   getGiveaways(): GiveawayCampaign[] {
     let list: GiveawayCampaign[] = [];
