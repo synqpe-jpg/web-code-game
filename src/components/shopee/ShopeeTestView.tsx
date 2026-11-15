@@ -5,7 +5,7 @@ import {
   Zap, Gift, ShieldCheck, CreditCard, Flame, Sparkles, 
   ChevronRight, Smartphone, Compass, Trophy, Copy, Check,
   ShoppingBag, Package, User, Tag, Plus, CheckCircle, ExternalLink,
-  Layers, Clock, PhoneCall, Send, ShieldAlert, Sparkle
+  Layers, Clock, PhoneCall, Send, ShieldAlert, Sparkle, Rocket
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { cartService } from '../../services/cartService';

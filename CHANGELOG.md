@@ -7,6 +7,22 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-15]
 
+### 396. Khắc Phục Lỗi "Rocket is not defined" Trên Giao Diện Sàn Shopee (/test1)
+- **Triệu chứng & Nguyên nhân gốc rễ (Root Cause)**:
+  - Khi người dùng truy cập `https://codegame.shop/test1`, Error Boundary bắt được lỗi hiển thị `Rocket is not defined`.
+  - Nguyên nhân: Icon `<Rocket className="w-4 h-4" />` được sử dụng trong nút "Đặt Mua Website Sàn Này" ở Footer nhưng bị thiếu trong danh sách import từ gói thư viện `lucide-react` ở đầu file `src/components/shopee/ShopeeTestView.tsx`.
+- **Giải pháp áp dụng (Solution)**:
+  1. Bổ sung `Rocket` vào danh sách import từ `lucide-react` trong `src/components/shopee/ShopeeTestView.tsx`.
+  2. Chạy script kiểm toán toàn bộ thẻ JSX component và đối chiếu với danh sách import trong tất cả các component của Shopee (`ShopeeTestView`, `ShopeeGuaranteeModal`, `ShopeeSupportModal`, `ShopeeWhiteLabelModal`), xác nhận 100% icon đã được import đầy đủ, không còn bất kỳ biến nào bị thiếu (`Missing icons: []`).
+- **Kết quả nghiệm thu**:
+  - Giao diện `https://codegame.shop/test1/` tải mượt mà không còn lỗi hiển thị.
+  - Build Vite & Cloudflare Edge Worker bundle thành công 100%.
+  - Tự động triển khai đồng thời lên `web-code-game` và `admin-code-game-shop`.
+
+---
+
+## [2026-11-15]
+
 ### 395. Hoàn Thiện Web Kế Hoạch Phát Triển Bản Sàn Toàn Diện (Shopee Game Style) Tại /test1
 - **Bối cảnh & Yêu cầu của Chủ sở hữu**:
   - Người dùng yêu cầu tiếp tục hoàn thiện web Kế hoạch phát triển bản sàn toàn diện, kiểm tra đối chiếu chi tiết xem còn thiếu những gì web `codegame.shop` có mà bản sàn toàn diện chưa có và trực tiếp bổ sung đầy đủ.
