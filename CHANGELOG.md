@@ -7,6 +7,44 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-15]
 
+### 395. Hoàn Thiện Web Kế Hoạch Phát Triển Bản Sàn Toàn Diện (Shopee Game Style) Tại /test1
+- **Bối cảnh & Yêu cầu của Chủ sở hữu**:
+  - Người dùng yêu cầu tiếp tục hoàn thiện web Kế hoạch phát triển bản sàn toàn diện, kiểm tra đối chiếu chi tiết xem còn thiếu những gì web `codegame.shop` có mà bản sàn toàn diện chưa có và trực tiếp bổ sung đầy đủ.
+- **Phân tích đối chiếu & Hiện trạng trước khi sửa**:
+  - Web `codegame.shop` có: 4 nhóm hàng hóa (Giftcode 0đ, Tiện ích/Thẻ game, Cửa hàng Acc game, Sự kiện Giveaway), Giỏ hàng đa gian hàng `cartService` gom shop và tách đơn con, Tủ mã khách hàng, Bảo chứng sàn 168h, Trung tâm hỗ trợ 24/7, Thông báo FOMO realtime, Vòng quay may mắn, Game sắp ra mắt, và Tải App APK.
+  - Bản sàn tại `/test1` trước đó: Mới chỉ hiển thị duy nhất danh sách Game Giftcode 0đ, thiếu toàn bộ 3 nhóm sản phẩm trả phí và săn quà (Tiện ích, Acc game, Giveaway); Badge giỏ hàng ghi cứng số `0` không cập nhật; thiếu nút thêm giỏ hàng; thiếu lối vào Tủ Mã / Đơn Mua; thiếu modal giải thích bảo chứng 168h; thiếu popup FOMO; và thiếu bộ cấu hình thương hiệu bàn giao cho khách mua web theo kế hoạch.
+- **Giải pháp áp dụng (Solution)**:
+  1. *Kết nối Trọn Vẹn 4 Nhóm Hàng Hóa Vào Sàn Shopee (`src/components/shopee/ShopeeTestView.tsx` & `src/App.tsx`)*:
+     - Mở rộng props để nhận đầy đủ: `storeProducts` (Tài khoản game), `utilities` (Gói nạp & tiện ích thẻ game), `giveaways` (Chiến dịch săn quà), `upcomingGames` (Game sắp ra mắt).
+     - Thiết kế hệ thống tab phân loại hàng hóa chuẩn Shopee Mall: `[ 🔥 Tất Cả Hàng Hóa | 🎁 Giftcode 0Đ | 💳 Thẻ Game & Nạp | 🎮 Tài Khoản Acc | 🎉 Săn Giveaway ]` kèm số lượng sản phẩm thời gian thực.
+  2. *Tích Hợp Luồng Mua Sắm & Giỏ Hàng Chuẩn Shopee*:
+     - Tích hợp `cartService.addToCart` trên từng thẻ sản phẩm Tiện ích và Tài khoản Game kèm hiệu ứng pháo hoa Confetti và thông báo toast.
+     - Lắng nghe sự kiện `wcg_cart_updated` để cập nhật huy hiệu số lượng trên icon Giỏ Hàng Header theo thời gian thực (loại bỏ hoàn toàn số 0 ghi cứng).
+     - Bổ sung nút **"Đơn Mua / Tủ Mã"** trực tiếp trên Topbar Shopee, kết nối với `handleOpenReceivedCodes('marketplace')`.
+  3. *Tích Hợp Các Modal Dịch Vụ Nhanh Chuyên Nghiệp*:
+     - `ShopeeGuaranteeModal`: Giải thích chi tiết chính sách giữ tiền 168 giờ (7 ngày) bảo hộ người mua, cơ chế giao mã 0s, báo lỗi 1-chạm và hoàn tiền 100%.
+     - `ShopeeSupportModal`: Trung tâm hỗ trợ 24/7 tích hợp Bot Telegram, Hotline CSKH (0987.654.321) và FAQ giải đáp thắc mắc.
+     - `ShopeeWhiteLabelModal`: Công cụ cấu hình xem trước thương hiệu shop trực tiếp (Tên shop, slogan, STK SePay, hotline) kèm bảng giá 2 gói bàn giao siêu tốc (Gói Khởi Nghiệp 1.5M & Gói Chuyên Nghiệp 2.5M) theo đúng `KE_HOACH_PHAT_TRIEN_BAN_SAN_TOAN_DIEN.md`.
+  4. *Động Cơ Marketing FOMO Realtime (Shopee Live Notifications Ticker)*:
+     - Triển khai popup thông báo nổ giao dịch ngẫu nhiên thực tế ở góc trái dưới mỗi 8 giây (người mua vừa nạp tiền VietQR, mua thẻ Garena, mua acc Liên Quân, nhận giftcode).
+  5. *Nối Dây Hoàn Chỉnh Các Nút Chức Năng Trên Topbar & 8 Icon Dịch Vụ*:
+     - Kênh người bán / Mở gian hàng $\rightarrow$ `onOpenSellerCenter`.
+     - Tải Ứng Dụng (APK) $\rightarrow$ `onOpenDownloadApp`.
+     - Thông Báo $\rightarrow$ `onOpenEmailModal`.
+     - Giao Mã 0s $\rightarrow$ `onOpenReceivedCodes('orders')`.
+     - Sắp Ra Mắt $\rightarrow$ `onOpenUpcoming`.
+     - Mã Hôm Nay $\rightarrow$ `onNavigateTodayCodes`.
+     - Bot Telegram $\rightarrow$ `ShopeeSupportModal`.
+- **Kết quả nghiệm thu**:
+  - Build Vite & Cloudflare Edge Worker bundle thành công 100% trong 33s.
+  - Audit zero test artifacts và tin tức đạt 100% (0 lỗi).
+  - Web chính `codegame.shop` được bảo toàn nguyên vẹn 100%, không bị ảnh hưởng.
+  - Tuyến đường `/test1` trở thành một Showroom sàn TMĐT Shopee hoàn chỉnh, sẵn sàng đem đi chào khách mua web.
+
+---
+
+## [2026-11-15]
+
 ### 394. Chuyển Mục "Mã Hôm Nay" Thành Mục Con Của "Tin Tức" & Tinh Gọn Thanh Điều Hướng Header
 - **Bối cảnh & Yêu cầu của Chủ sở hữu**:
   - Người dùng yêu cầu chuyển mục "Mã hôm nay" trên website thành một mục nhỏ nằm bên trong mục "Tin Tức" (`NewsView`).

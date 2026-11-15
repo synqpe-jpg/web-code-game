@@ -1984,14 +1984,40 @@ export const App: React.FC = () => {
             {currentTab === 'shopee-test' && (
               <ShopeeTestView
                 allGames={allGamesList.length > 0 ? allGamesList : games}
+                storeProducts={dataService.getStoreProducts()}
+                utilities={dataService.getUtilityProducts()}
+                giveaways={dataService.getGiveaways()}
+                upcomingGames={upcomingGames}
                 onSelectGame={setSelectedGame}
                 onSelectGameSlug={handleSelectGameSlug}
+                onSelectProduct={(prod) => {
+                  setSelectedProduct(prod);
+                  setSelectedPackageIdParam(null);
+                }}
+                onSelectUtility={(utilityId) => {
+                  handleSelectTab('utilities');
+                  setSelectedUtilityId(utilityId);
+                  window.location.hash = `#utility=${utilityId}`;
+                }}
+                onSelectGiveaway={(giveawayId) => {
+                  handleSelectTab('giveaways');
+                  window.location.hash = `#gw=${giveawayId}`;
+                }}
                 onOpenAuth={() => setIsAuthModalOpen(true)}
                 onOpenWallet={() => setIsWalletModalOpen(true)}
                 onOpenCart={() => setIsCartOpen(true)}
                 onOpenGrowth={() => {
                   setGrowthInitialTab('wheel');
                   setIsGrowthCenterOpen(true);
+                }}
+                onOpenUpcoming={() => setIsAllUpcomingModalOpen(true)}
+                onOpenDownloadApp={() => setIsDownloadModalOpen(true)}
+                onOpenEmailModal={() => setIsEmailModalOpen(true)}
+                onOpenReceivedCodes={(initialTab = 'marketplace') => handleOpenReceivedCodes(initialTab)}
+                onOpenSellerCenter={() => handleSelectTab('seller-center')}
+                onNavigateTodayCodes={() => {
+                  setCurrentTab('news');
+                  setInitialNewsSubTab('today-codes');
                 }}
                 onBackToHome={() => handleSelectTab('catalog')}
                 currentUser={currentUser}

@@ -7,29 +7,34 @@
 
 ---
 
-## GIAI ĐOẠN 1: HOÀN THIỆN "CỬA HÀNG MẪU HOÀN CHỈNH" (DEMO STOREFRONT V1)
-*(Thời gian dự kiến: Hoàn thiện ngay tại tuyến đường `/test1`)*
+## GIAI ĐOẠN 1: HOÀN THIỆN "CỬA HÀNG MẪU HOÀN CHỈNH" (DEMO STOREFRONT V1) — ✅ ĐÃ HOÀN TẤT 100%
+*(Hiện đã vận hành trực tiếp tại tuyến đường `/test1`)*
 
-### 1.1. Luồng Bán Hàng & Mua Sắm Chuẩn Shopee
+### 1.1. Luồng Bán Hàng & Mua Sắm Chuẩn Shopee (✅ Đã Nối Hoàn Tất)
 * **Giỏ Hàng Đa Sản Phẩm (Cart Drawer Modal)**:
-  * Cho phép người mua chọn nhiều món: 1 thẻ Garena, 1 gói Kim Cương, 1 giftcode VIP, 1 tài khoản game.
-  * Tự động tính toán tổng tiền, áp dụng mã giảm giá voucher (ví dụ: `GIAM20K`, `FREESHIP`).
+  * Đã tích hợp `cartService` với bộ đếm badge thời gian thực (`wcg_cart_updated`).
+  * Người mua có thể bấm **"Thêm Giỏ Hàng"** trực tiếp trên từng thẻ Thẻ Game/Tiện Ích, Tài Khoản Game hoặc bấm **"Mua Ngay"**.
+  * Hỗ trợ tự động gom nhóm gian hàng, tách đơn con và thanh toán ví Core hoặc chuyển khoản VietQR cho từng shop.
 * **Cổng Thanh Toán VietQR Tự Động (Tích hợp SePay)**:
-  * Sinh mã VietQR chuẩn EMVCo có sẵn nội dung chuyển khoản và số tiền chính xác.
-  * Khi khách quét app ngân hàng thanh toán $\rightarrow$ Web tự động nhận biến động số dư qua Webhook trong 3 - 5 giây và hoàn tất đơn hàng ngay lập tức.
+  * Sinh mã VietQR chuẩn EMVCo có sẵn nội dung chuyển khoản và số tiền chính xác, tự động cộng Xu sau 3 giây.
 * **Giao Mã Tức Thì 0 Giây (Auto Key Delivery)**:
   * Mã số thẻ, tài khoản mật khẩu được giải mã bảo mật Web Crypto AES-GCM và hiển thị ngay trên màn hình hoàn tất đơn hàng.
-  * Đồng thời lưu vĩnh viễn vào **"Tủ Mã Của Tôi"** của khách hàng.
+  * Đồng thời lưu vĩnh viễn vào **"Đơn Mua / Tủ Mã"** (liên kết trực tiếp trên Topbar Shopee).
 
-### 1.2. Bốn Nhóm Sản Phẩm Mẫu Thực Tế (Bày Sẵn Trên Kệ Hàng)
+### 1.2. Bốn Nhóm Sản Phẩm Mẫu Thực Tế (Bày Sẵn Trên Kệ Hàng - ✅ Đã Đầy Đủ 100%)
 1. **Giftcode Game Miễn Phí (0 Đồng)**: Kết nối kho 623+ game thật, người mua bấm copy hoặc săn mã kèm pháo hoa Confetti.
-2. **Thẻ Game & Thẻ Điện Thoại**: Thẻ Garena, Zing Xu, Thẻ Gate, Vcoin (hỗ trợ nhập kho mã thẻ và số seri).
-3. **Gói Nạp Tiện Ích Tự Động**: Nạp Kim Cương Free Fire, Robux Roblox, Quân Huy Liên Quân, FC Online qua ID nhân vật.
-4. **Tài Khoản Game & Acc Reroll Giá Rẻ**: Bán acc trắng thông tin (1K, 10K, 50K, 100K) kèm thông tin đăng nhập tự động bàn giao.
+2. **Thẻ Game & Tiện Ích Gói Nạp**: Thẻ Garena, Zing Xu, Robux Roblox, Kim Cương Free Fire (hỗ trợ thêm vào giỏ hàng và bảo hành 1-1).
+3. **Tài Khoản Game & Acc Reroll Giá Rẻ**: Bán acc trắng thông tin (1K, 10K, 50K, 100K) kèm giao mã tự động 0s.
+4. **Sự Kiện Giveaway Săn Quà 0Đ**: Nút săn quà trực tiếp với kiểm tra điều kiện tài khoản và hạn mức.
+* **Hệ Thống Tab Phân Loại Hàng Hóa Chuẩn Shopee**:
+  * `[ 🔥 Tất Cả Hàng Hóa | 🎁 Giftcode 0Đ | 💳 Thẻ Game & Nạp | 🎮 Tài Khoản Acc | 🎉 Săn Giveaway ]`.
 
-### 1.3. Động Cơ Marketing & Kích Thích Mua Hàng (FOMO Engine)
-* **Flash Sale Giờ Vàng**: Đồng hồ đếm ngược thời gian thực, huy hiệu giảm giá sốc `-50%`, `-70%`, thanh tiến độ cuộn sóng *"ĐÃ BÁN xx/yy"*.
-* **Thông Báo Nổi Mua Hàng Thời Gian Thực**: Hiển thị thông báo người chơi vừa nạp tiền / mua acc thành công, tự động tác động lên số lượng tồn kho theo quy tắc 1 - 1.
+### 1.3. Động Cơ Marketing & Kích Thích Mua Hàng (FOMO Engine - ✅ Đã Triển Khai)
+* **Flash Sale Giờ Vàng**: Đồng hồ đếm ngược thời gian thực, huy hiệu giảm giá sốc `-100%`, `-50%`, thanh tiến độ cuộn sóng *"CÒN xx MÃ"*.
+* **Thông Báo Nổi Mua Hàng Thời Gian Thực (Shopee FOMO Ticker)**: Pop-up góc trái dưới màn hình hiển thị liên tục giao dịch người chơi vừa mua thẻ/acc/code kèm bảo chứng 168h.
+* **Chính Sách Bảo Chứng Sàn 168H (`ShopeeGuaranteeModal`)**: Modal giải thích minh bạch chính sách giữ tiền 7 ngày bảo vệ quyền lợi người mua.
+* **Trung Tâm Hỗ Trợ 24/7 (`ShopeeSupportModal`)**: Hỗ trợ Hotline, Zalo, Bot Telegram và hướng dẫn xử lý khiếu nại.
+* **Bộ Công Cụ Bán Sàn White-Label (`ShopeeWhiteLabelModal`)**: Cho phép khách hàng trải nghiệm đổi tên shop, slogan, STK ngân hàng và hotline trực tiếp trên giao diện sàn demo.
 
 ---
 
