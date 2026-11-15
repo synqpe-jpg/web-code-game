@@ -1452,6 +1452,59 @@ async function runPrerender() {
   fs.writeFileSync(path.join(missionsEnDir, 'index.html'), missionsHtml, 'utf8');
   console.log(`[Prerender] Đã xuất bản dist/nhiem-vu/index.html & dist/missions/index.html`);
 
+  // 3.7. Prerender Shopee Marketplace Test Page (dist/test1/index.html)
+  const test1Dir = path.join(distDir, 'test1');
+  if (!fs.existsSync(test1Dir)) fs.mkdirSync(test1Dir, { recursive: true });
+  const test1Html = buildPageHtml({
+    title: 'Sàn Thương Mại Điện Tử Tiện Ích & Code Game Phong Cách Shopee | CodeGame.shop',
+    description: 'Trải nghiệm sàn thương mại điện tử tiện ích và giftcode game phong cách Shopee độc quyền. Giao mã tự động 0 giây, nạp VietQR 3 giây, bảo chứng giữ tiền 168 giờ.',
+    canonicalPath: '/test1',
+    ogType: 'website',
+    bodyContent: `
+      <div class="min-h-screen bg-[#f5f5f5] text-slate-800">
+        <header class="bg-[#ee4d2d] text-white p-4 text-center font-bold">
+          Sàn TMĐT Tiện Ích & Giftcode Game Shopee Style
+        </header>
+        <main class="max-w-6xl mx-auto p-4 text-center">
+          <h1 class="text-2xl font-black text-[#ee4d2d]">Săn Code & Mua Tiện Ích Game Phong Cách Shopee</h1>
+          <p class="text-sm text-slate-600 mt-2">Đang tải toàn bộ dữ liệu 623+ game, thẻ game, tiện ích và acc game...</p>
+        </main>
+      </div>
+    `,
+  });
+  fs.writeFileSync(path.join(test1Dir, 'index.html'), test1Html, 'utf8');
+  console.log(`[Prerender] Đã xuất bản dist/test1/index.html`);
+
+  // 3.8. Prerender Cart Pages (dist/gio-hang/index.html & dist/cart/index.html)
+  const cartDir = path.join(distDir, 'gio-hang');
+  if (!fs.existsSync(cartDir)) fs.mkdirSync(cartDir, { recursive: true });
+  const cartEnDir = path.join(distDir, 'cart');
+  if (!fs.existsSync(cartEnDir)) fs.mkdirSync(cartEnDir, { recursive: true });
+  const cartHtml = buildPageHtml({
+    title: 'Giỏ Hàng Đa Gian Hàng | CodeGame.shop',
+    description: 'Giỏ hàng mua sắm mã giftcode, thẻ nạp, acc game và tiện ích đa gian hàng uy tín trên sàn CodeGame.Shop.',
+    canonicalPath: '/gio-hang',
+    ogType: 'website',
+  });
+  fs.writeFileSync(path.join(cartDir, 'index.html'), cartHtml, 'utf8');
+  fs.writeFileSync(path.join(cartEnDir, 'index.html'), cartHtml, 'utf8');
+  console.log(`[Prerender] Đã xuất bản dist/gio-hang/index.html & dist/cart/index.html`);
+
+  // 3.9. Prerender Seller Pages (dist/ban-hang/index.html & dist/seller/index.html)
+  const sellerDir = path.join(distDir, 'ban-hang');
+  if (!fs.existsSync(sellerDir)) fs.mkdirSync(sellerDir, { recursive: true });
+  const sellerEnDir = path.join(distDir, 'seller');
+  if (!fs.existsSync(sellerEnDir)) fs.mkdirSync(sellerEnDir, { recursive: true });
+  const sellerHtml = buildPageHtml({
+    title: 'Kênh Người Bán & Quản Lý Gian Hàng | CodeGame.shop',
+    description: 'Kênh người bán chính thức trên sàn CodeGame.Shop. Đăng bán thẻ game, tài khoản và tiện ích với phí sàn chỉ 5%, quản lý đơn hàng tự động 24/7.',
+    canonicalPath: '/ban-hang',
+    ogType: 'website',
+  });
+  fs.writeFileSync(path.join(sellerDir, 'index.html'), sellerHtml, 'utf8');
+  fs.writeFileSync(path.join(sellerEnDir, 'index.html'), sellerHtml, 'utf8');
+  console.log(`[Prerender] Đã xuất bản dist/ban-hang/index.html & dist/seller/index.html`);
+
   // 4. Prerender all 189 Game Detail Pages (dist/game/${slug}/index.html)
   for (const game of games) {
     const slug = game.slug || game.id;
