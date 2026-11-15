@@ -217,7 +217,7 @@ export const Header: React.FC<HeaderProps> = ({
                   </span>
                 )}
               </div>
-              <span className="text-[10px] text-slate-400 font-sans hidden sm:block">
+              <span className="text-[10px] text-muted-foreground font-sans hidden sm:block">
                 {branding?.portalSubtitle || t.header.portalSubtitle}
               </span>
             </div>
@@ -256,7 +256,7 @@ export const Header: React.FC<HeaderProps> = ({
               className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 currentTab === 'news'
                   ? 'bg-primary text-white shadow-glow-primary'
-                  : 'text-slate-300 hover:text-white hover:bg-card'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-card'
               }`}
             >
               <Newspaper className="w-4 h-4" />
@@ -280,7 +280,7 @@ export const Header: React.FC<HeaderProps> = ({
               className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 currentTab === 'store'
                   ? 'bg-secondary text-white shadow-sm'
-                  : 'text-slate-300 hover:text-white hover:bg-card'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-card'
               }`}
             >
               <ShoppingBag className="w-4 h-4 text-secondary" />
@@ -337,7 +337,7 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 type="button"
                 onClick={onOpenCart}
-                className="relative p-1.5 sm:p-2 min-w-[32px] min-h-[32px] sm:min-w-[38px] sm:min-h-[38px] flex items-center justify-center rounded-xl bg-card hover:bg-card-hover border border-border text-slate-300 hover:text-foreground transition-all cursor-pointer active:scale-95 shadow-sm shrink-0"
+                className="relative p-1.5 sm:p-2 min-w-[32px] min-h-[32px] sm:min-w-[38px] sm:min-h-[38px] flex items-center justify-center rounded-xl bg-card hover:bg-card-hover border border-border text-muted-foreground hover:text-foreground transition-all cursor-pointer active:scale-95 shadow-sm shrink-0"
                 title="Giỏ hàng đa gian hàng"
                 aria-label="Giỏ hàng đa gian hàng"
               >
@@ -354,7 +354,7 @@ export const Header: React.FC<HeaderProps> = ({
             {!currentUser && (
               <button
                 onClick={onOpenBookmarks}
-                className="relative p-1.5 sm:p-2 min-w-[32px] min-h-[32px] sm:min-w-[38px] sm:min-h-[38px] flex items-center justify-center rounded-xl bg-card hover:bg-card-hover border border-border text-slate-300 hover:text-foreground transition-all cursor-pointer active:scale-95 shadow-sm shrink-0"
+                className="relative p-1.5 sm:p-2 min-w-[32px] min-h-[32px] sm:min-w-[38px] sm:min-h-[38px] flex items-center justify-center rounded-xl bg-card hover:bg-card-hover border border-border text-muted-foreground hover:text-foreground transition-all cursor-pointer active:scale-95 shadow-sm shrink-0"
                 title={t.header.bookmarksTitle}
                 aria-label={t.header.bookmarksTitle}
               >
@@ -392,7 +392,7 @@ export const Header: React.FC<HeaderProps> = ({
                           }}
                         />
                       ) : (
-                        <User className="w-4 h-4 text-slate-300" />
+                        <User className="w-4 h-4 text-muted-foreground" />
                       )}
                       <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-400 border border-card" />
                     </div>
@@ -434,12 +434,12 @@ export const Header: React.FC<HeaderProps> = ({
                               Sửa ↗
                             </span>
                           </div>
-                          <span className="text-[10px] text-slate-400 truncate block mb-1">
+                          <span className="text-[10px] text-muted-foreground truncate block mb-1">
                             {currentUser.email}
                           </span>
                           {/* Số dư ngay dưới mail */}
                           <div className="flex items-center gap-1.5 pt-1 border-t border-border/40">
-                            <span className="text-[10px] text-slate-400">Số dư:</span>
+                            <span className="text-[10px] text-muted-foreground">Số dư:</span>
                             <span className="font-mono font-bold text-emerald-400 text-xs">
                               {formatCore(currentUser.wallet_balance)}
                             </span>
@@ -607,7 +607,7 @@ export const Header: React.FC<HeaderProps> = ({
                             {bookmarkCount} game
                           </span>
                         ) : (
-                          <span className="text-[10px] text-slate-400 font-medium">Trống</span>
+                          <span className="text-[10px] text-muted-foreground font-medium">Trống</span>
                         )}
                       </button>
 
@@ -727,11 +727,11 @@ export const Header: React.FC<HeaderProps> = ({
                             {isDarkMode ? (
                               <Sun className="w-4 h-4 text-amber-400 shrink-0" />
                             ) : (
-                              <Moon className="w-4 h-4 text-slate-400 shrink-0" />
+                              <Moon className="w-4 h-4 text-muted-foreground shrink-0" />
                             )}
                             <span className="font-medium">{isDarkMode ? 'Chế độ Sáng' : 'Chế độ Tối'}</span>
                           </span>
-                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-muted border border-border/60 text-slate-300">
+                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-muted border border-border/60 text-muted-foreground">
                             {isDarkMode ? 'Sáng' : 'Tối'}
                           </span>
                         </button>
@@ -843,7 +843,7 @@ export const Header: React.FC<HeaderProps> = ({
                             {isDarkMode ? (
                               <Sun className="w-4 h-4 text-amber-400 shrink-0" />
                             ) : (
-                              <Moon className="w-4 h-4 text-slate-400 shrink-0" />
+                              <Moon className="w-4 h-4 text-muted-foreground shrink-0" />
                             )}
                             <span className="font-medium">{isDarkMode ? 'Chế độ Sáng' : 'Chế độ Tối'}</span>
                           </span>
