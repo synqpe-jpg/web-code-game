@@ -12,7 +12,7 @@
 
 import { getSettingD1, setSettingD1, getMultipleSettingsD1 } from '../../services/d1_service';
 import { recordSoftDelete, isRecordTombstoned, getActiveTombstonesMap, filterOutTombstones } from '../../services/soft_delete_service';
-import { normalizeVietnamese, stripAccents, GAME_ACRONYM_MAP, invalidateGamesCatalogCache } from '../games';
+import { normalizeVietnamese, stripAccents, GAME_ACRONYM_MAP, invalidateGamesCatalogCache, isJunkCode, SQL_JUNK_CODE_CONDITION } from '../games';
 import { invalidateCatalogEdgeCache } from '../../services/cache_service';
 import { parseExpirationDate, isCodeExpired, decodeHtmlEntities } from '../../../src/utils/codeUtils';
 import fallbackGamesData from '../../../src/data/games188.json';
@@ -1526,6 +1526,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       for (const c of codesToSync) {
         const cVal = String(c.code || c.codeValue || c.code_value || c.gift_code || '').trim();
         if (!cVal) continue;
+        if (isJunkCode(cVal)) {
+          console.warn(`[Junk Code Filter] Bỏ qua mã rác "${cVal}" cho game "${finalSlug}" (Publish Game Sync)`);
+          continue;
+        }
         const cId = c.id || `code_${finalSlug}_${encodeURIComponent(cVal).replace(/[^a-zA-Z0-9_-]/g, '_')}`;
         const isExp = isCodeExpired(c);
         const expVal = c.expiresAt || c.expires_at || c.expiry || null;
@@ -1613,8 +1617,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
             android_package_name = CASE WHEN excluded.android_package_name IS NOT NULL AND excluded.android_package_name != '' THEN excluded.android_package_name ELSE games.android_package_name END,
             is_active = 1,
             status = 'ACTIVE',
-            active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.status = 'active' OR codes.status = 'verified') AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now', '+7 hours'))),
-            total_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug),
+            active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.status = 'active' OR codes.status = 'verified') AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now', '+7 hours')) AND ${SQL_JUNK_CODE_CONDITION}),
+            total_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND ${SQL_JUNK_CODE_CONDITION}),
             last_code_at = datetime('now'),
             updated_at = datetime('now');
         `).bind(
@@ -1812,6 +1816,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           }
 
           if (codeStr && codeStr.length >= 1 && !parsedCodes.some((p) => p.code === codeStr)) {
+            if (isJunkCode(codeStr)) {
+              console.warn(`[Junk Code Filter] Bỏ qua mã rác "${codeStr}" cho game "${rawSlug}" (Queue Game API)`);
+              continue;
+            }
             parsedCodes.push({
               code: codeStr,
               rewards: rewardsStr,
@@ -2010,10 +2018,18 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         await setSettingD1(env.DB, 'wcg_admin_custom_free_codes_v1', customCodes);
         await setSettingD1(env.DB, 'wcg_crawler_pending_codes_v1', pendingCodes);
 
-        // Lưu mã vào bảng codes của D1
-        if (codesToInsertInD1.length > 0) {
+        // Lưu mã vào bảng codes của D1 (lọc sạch mã rác)
+        const cleanCodesToInsert = codesToInsertInD1.filter((nc) => {
+          if (isJunkCode(nc.code)) {
+            console.warn(`[Junk Code Filter] Bỏ qua mã rác "${nc.code}" cho game "${nc.gameSlug}" (Queue Game D1 Insert)`);
+            return false;
+          }
+          return true;
+        });
+
+        if (cleanCodesToInsert.length > 0) {
           try {
-            const batchStmts = codesToInsertInD1.map((nc) => {
+            const batchStmts = cleanCodesToInsert.map((nc) => {
               const expiresAt = nc.expires_at || nc.expiresAt || nc.expiry || null;
               return env.DB.prepare(`
                 INSERT OR REPLACE INTO codes (
@@ -2035,13 +2051,13 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
               await env.DB.batch(batchStmts.slice(i, i + 50));
             }
 
-            // Tự động recompute active_codes_count, total_codes_count trên bảng games D1
-            const queuedSlugs = Array.from(new Set(codesToInsertInD1.map((nc) => String(nc.gameSlug || '').trim().toLowerCase()).filter(Boolean)));
+            // Tự động recompute active_codes_count, total_codes_count trên bảng games D1 (loại trừ mã rác)
+            const queuedSlugs = Array.from(new Set(cleanCodesToInsert.map((nc) => String(nc.gameSlug || '').trim().toLowerCase()).filter(Boolean)));
             for (const qs of queuedSlugs) {
               await env.DB.prepare(`
                 UPDATE games
-                SET active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.status = 'active' OR codes.status = 'verified') AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now', '+7 hours'))),
-                    total_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug),
+                SET active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.status = 'active' OR codes.status = 'verified') AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now', '+7 hours')) AND ${SQL_JUNK_CODE_CONDITION}),
+                    total_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND ${SQL_JUNK_CODE_CONDITION}),
                     last_code_at = datetime('now'),
                     updated_at = datetime('now')
                 WHERE slug = ?
@@ -2119,11 +2135,11 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         });
         d1UpdatedCount = updateRes?.meta?.changes || 0;
 
-        // Cập nhật lại số lượng active_codes_count trên games
+        // Cập nhật lại số lượng active_codes_count trên games (loại trừ mã rác)
         await env.DB.prepare(`
           UPDATE games SET
-            total_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug),
-            active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.status = 'active' OR codes.status = 'verified') AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now', '+7 hours'))),
+            total_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND ${SQL_JUNK_CODE_CONDITION}),
+            active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.status = 'active' OR codes.status = 'verified') AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now', '+7 hours')) AND ${SQL_JUNK_CODE_CONDITION}),
             updated_at = datetime('now')
           WHERE slug = ? OR slug = ? OR slug = ?
         `).bind(targetSlug, targetSlug.replace(/-mobile$/i, ''), `${targetSlug}-mobile`).run().catch(() => {});
@@ -2391,7 +2407,16 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           // Đồng bộ trực tiếp vào bảng codes và cập nhật bảng games trên SQLite D1 (ISSUE-112: Tránh lệch tầng đọc)
           if (env.DB) {
             try {
-              const codeStmts = approvedCustomRecords.map((rec) => {
+              const cleanApprovedRecords = approvedCustomRecords.filter((rec) => {
+                const cCode = String(rec.code || '').trim();
+                if (isJunkCode(cCode)) {
+                  console.warn(`[Junk Code Filter] Bỏ qua mã rác approved "${cCode}" cho game "${rec.gameSlug}"`);
+                  return false;
+                }
+                return true;
+              });
+
+              const codeStmts = cleanApprovedRecords.map((rec) => {
                 const cSlug = String(rec.gameSlug || '').trim().toLowerCase();
                 const cCode = String(rec.code || '').trim().toUpperCase();
                 const cId = rec.id || `code_${cSlug}_${cCode}`;
@@ -2411,8 +2436,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
               for (const slug of affectedGameSlugs) {
                 await env.DB.prepare(`
                   UPDATE games
-                  SET active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.status = 'active' OR codes.status = 'verified') AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now', '+7 hours'))),
-                      total_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug),
+                  SET active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.status = 'active' OR codes.status = 'verified') AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now', '+7 hours')) AND ${SQL_JUNK_CODE_CONDITION}),
+                      total_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND ${SQL_JUNK_CODE_CONDITION}),
                       last_code_at = datetime('now'),
                       updated_at = datetime('now')
                   WHERE slug = ?
@@ -2518,8 +2543,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
           await env.DB.prepare(`
             UPDATE games 
-            SET active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.expires_at IS NULL OR codes.expires_at >= date('now', '+7 hours'))),
-                total_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug)
+            SET active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.expires_at IS NULL OR codes.expires_at >= date('now', '+7 hours')) AND ${SQL_JUNK_CODE_CONDITION}),
+                total_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND ${SQL_JUNK_CODE_CONDITION})
           `).run().catch(() => {});
         } catch (dbErr) {
           console.warn('[Cleanup] Lỗi dọn dẹp codes/games table D1:', dbErr);
@@ -3224,12 +3249,12 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           }
         }
 
-        // Cập nhật lại bộ đếm total_codes_count và active_codes_count trên games
+        // Cập nhật lại bộ đếm total_codes_count và active_codes_count trên games (loại trừ mã rác)
         try {
           await env.DB.prepare(`
             UPDATE games SET
-              total_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug),
-              active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.status = 'active' OR codes.status = 'verified') AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now', '+7 hours'))),
+              total_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND ${SQL_JUNK_CODE_CONDITION}),
+              active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.status = 'active' OR codes.status = 'verified') AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now', '+7 hours')) AND ${SQL_JUNK_CODE_CONDITION}),
               updated_at = datetime('now')
             WHERE LOWER(TRIM(slug)) = ?
           `).bind(matchedSlug).run();
@@ -4762,6 +4787,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
       // 4.3. LỌC TRÙNG & TẠO BẢN GHI MÃ CODE MỚI
       for (const c of codesToIngest) {
+        if (isJunkCode(c.code)) {
+          console.warn(`[Junk Code Filter] Bỏ qua mã rác "${c.code}" cho game "${gameSlug}" (Batch Ingestion)`);
+          continue;
+        }
         const upperCode = c.code.toUpperCase();
         const wasKnownExpired = Boolean(expiredCodeValuesBySlug.get(gameSlug)?.has(upperCode));
         const isExp = c.isExpired || wasKnownExpired || (c.rawStatus && (String(c.rawStatus).toLowerCase() === 'expired' || String(c.rawStatus).toLowerCase() === 'hết hạn'));
@@ -5133,6 +5162,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           const s = String(nc.gameSlug || nc.slug || nc.gameId || '').trim().toLowerCase();
           const c = String(nc.code || nc.codeValue || '').trim(); // B3: Giữ nguyên case phân biệt hoa/thường!
           if (!s || !c) continue;
+          if (isJunkCode(c)) {
+            console.warn(`[Junk Code Filter] Bỏ qua mã rác "${c}" cho game "${s}" (Batch Crawler Ingestion)`);
+            continue;
+          }
           const id = nc.id || `code_${s}_${encodeURIComponent(c).replace(/[^a-zA-Z0-9_-]/g, '_')}`;
           const rewards = decodeHtmlEntities(nc.rewards || nc.description || 'Quà tân thủ & vật phẩm ingame');
           const isExp = isCodeExpired(nc);
@@ -5154,7 +5187,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           }
         }
 
-        // Cập nhật precomputed counter, instructions và redeem_url cho từng game bị ảnh hưởng
+        // Cập nhật precomputed counter, instructions và redeem_url cho từng game bị ảnh hưởng (loại trừ mã rác)
         for (const res of executionResults) {
           if (!res || !res.matchedGame) continue;
           const slug = String(res.matchedGame.slug).trim().toLowerCase();
@@ -5163,8 +5196,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
           const updateRes: any = await env.DB.prepare(`
             UPDATE games SET
-              total_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug),
-              active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.status = 'active' OR codes.status = 'verified') AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now', '+7 hours'))),
+              total_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND ${SQL_JUNK_CODE_CONDITION}),
+              active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.status = 'active' OR codes.status = 'verified') AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now', '+7 hours')) AND ${SQL_JUNK_CODE_CONDITION}),
               instructions = CASE WHEN ? IS NOT NULL THEN ? ELSE instructions END,
               redeem_url = CASE WHEN ? IS NOT NULL THEN ? ELSE redeem_url END,
               last_code_at = datetime('now'),

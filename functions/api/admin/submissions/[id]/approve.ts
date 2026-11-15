@@ -1,5 +1,6 @@
 import { ensureSchemaUpgrades, getSettingD1, setSettingD1, logAdminAudit } from '../../../../services/d1_service';
 import { verifyAdminAuth } from '../../../../services/mission_service';
+import { isJunkCode, SQL_JUNK_CODE_CONDITION } from '../../../games';
 
 interface Env {
   DB: D1Database;
@@ -85,17 +86,21 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     const rewards = String(sub.rewards || 'Mã quà tặng do thành viên đóng góp').trim();
 
     if (codeValue && gameSlug) {
-      const codeId = `code_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-      await env.DB.prepare(`
-        INSERT INTO codes (id, game_slug, code, rewards, status, expires_at, source, created_at)
-        VALUES (?, ?, ?, ?, 'active', NULL, 'submission', datetime('now'))
-      `).bind(codeId, gameSlug, codeValue, rewards).run().catch(() => {});
+      if (isJunkCode(codeValue)) {
+        console.warn(`[Junk Code Filter] Bỏ qua mã rác submission "${codeValue}" cho game "${gameSlug}"`);
+      } else {
+        const codeId = `code_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+        await env.DB.prepare(`
+          INSERT INTO codes (id, game_slug, code, rewards, status, expires_at, source, created_at)
+          VALUES (?, ?, ?, ?, 'active', NULL, 'submission', datetime('now'))
+        `).bind(codeId, gameSlug, codeValue, rewards).run().catch(() => {});
+      }
 
-      // Tự động recompute active_codes_count, total_codes_count, last_code_at trên bảng games D1
+      // Tự động recompute active_codes_count, total_codes_count, last_code_at trên bảng games D1 (loại trừ mã rác)
       await env.DB.prepare(`
         UPDATE games
-        SET active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.status = 'active' OR codes.status = 'verified') AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now', '+7 hours'))),
-            total_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug),
+        SET active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.status = 'active' OR codes.status = 'verified') AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now', '+7 hours')) AND ${SQL_JUNK_CODE_CONDITION}),
+            total_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND ${SQL_JUNK_CODE_CONDITION}),
             last_code_at = datetime('now'),
             updated_at = datetime('now')
         WHERE slug = ?

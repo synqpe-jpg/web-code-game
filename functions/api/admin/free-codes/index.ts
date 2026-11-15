@@ -1,5 +1,6 @@
 import { ensureSchemaUpgrades, logAdminAudit } from '../../../services/d1_service';
 import { verifyAdminAuth } from '../../../services/mission_service';
+import { isJunkCode, SQL_JUNK_CODE_CONDITION } from '../../games';
 
 interface Env {
   DB: D1Database;
@@ -168,17 +169,24 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       );
     }
 
+    if (isJunkCode(code)) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Mã giftcode không hợp lệ (thuộc danh mục mã rác/chuỗi nhãn hệ thống).' }),
+        { status: 400, headers: CORS_HEADERS }
+      );
+    }
+
     const newId = `code_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
     await env.DB.prepare(`
       INSERT INTO codes (id, game_slug, code, rewards, status, expires_at, source, created_at)
       VALUES (?, ?, ?, ?, ?, ?, 'admin', datetime('now'))
     `).bind(newId, gameSlug, code, rewards, status, expiresAt).run();
 
-    // Tự động recompute active_codes_count, total_codes_count, last_code_at trên bảng games D1
+    // Tự động recompute active_codes_count, total_codes_count, last_code_at trên bảng games D1 (loại trừ mã rác)
     await env.DB.prepare(`
       UPDATE games
-      SET active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.status = 'active' OR codes.status = 'verified') AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now', '+7 hours'))),
-          total_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug),
+      SET active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.status = 'active' OR codes.status = 'verified') AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now', '+7 hours')) AND ${SQL_JUNK_CODE_CONDITION}),
+          total_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND ${SQL_JUNK_CODE_CONDITION}),
           last_code_at = datetime('now'),
           updated_at = datetime('now')
       WHERE slug = ?
@@ -265,12 +273,12 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
 
     await env.DB.prepare(`DELETE FROM codes WHERE id IN (${placeholders})`).bind(...ids).run();
 
-    // Tự động recompute active_codes_count, total_codes_count trên bảng games D1 cho các game bị ảnh hưởng
+    // Tự động recompute active_codes_count, total_codes_count trên bảng games D1 cho các game bị ảnh hưởng (loại trừ mã rác)
     for (const s of affectedSlugs) {
       await env.DB.prepare(`
         UPDATE games
-        SET active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.status = 'active' OR codes.status = 'verified') AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now', '+7 hours'))),
-            total_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug),
+        SET active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.status = 'active' OR codes.status = 'verified') AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now', '+7 hours')) AND ${SQL_JUNK_CODE_CONDITION}),
+            total_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND ${SQL_JUNK_CODE_CONDITION}),
             updated_at = datetime('now')
         WHERE slug = ?
       `).bind(s).run().catch(() => {});

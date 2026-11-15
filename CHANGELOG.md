@@ -7,6 +7,33 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-15]
 
+### 392. Chặn Mã Rác Ở Đường Nạp & Loại Rác Khỏi Công Thức Tính Cột Đếm + Xóa 3 Dòng REDEMPTION Khỏi CSDL D1
+- **Bối cảnh & Hiện trạng**:
+  - Tại bản e38070b, đường nạp mã (`functions/api/crawler/ingest-codes.ts`) không có bước lọc rác trước 4 điểm INSERT OR REPLACE INTO codes, dẫn đến nguy cơ các chuỗi ảnh WordPress responsive (`IN-...-WxH`, `REDEMPTION-WxH`) bị nạp trở lại vào D1 trong tương lai.
+  - Công thức tính lại cột đếm `active_codes_count` và `total_codes_count` tại 10 vị trí sử dụng `COUNT(*)` thuần túy đếm gộp cả các dòng mã rác.
+  - Tồn tại 3 dòng mã mang đúng chuỗi `REDEMPTION` (nhãn nút/tiêu đề cào nhầm) trong D1 ở 3 game: `astra-knights-of-veda` (17/17), `cherry-tale` (14/19), và `pew-pew-slime-idle-rpg` (25/30).
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Thiếu Single Source of Truth cho bộ lọc mã rác*: `JUNK_CODE_REGEX` trước đó chỉ nằm cục bộ trong `functions/api/games.ts` và chưa bao gồm mẫu khớp chính xác từ `REDEMPTION`.
+  2. *Đường nạp mã và câu SQL COUNT(*) không có bộ lọc junk*: Không có điều kiện loại trừ mã rác ở các điểm INSERT và trong câu lệnh SQL `COUNT(*)`.
+- **Giải pháp áp dụng (Solution)**:
+  1. *Thiết lập Single Source of Truth*:
+     - Định nghĩa `JUNK_CODE_REGEX` và hàm helper `isJunkCode` trong `src/utils/codeUtils.ts`: `/^(?:IN-.*-\d+X\d+|REDEMPTION(?:-SCREEN)?-\d+X\d+|REDEMPTION)$/i`. Tuyệt đối không chặn các mã thật chứa từ redemption (như `REDEMPTION2026`).
+     - Định nghĩa hằng số điều kiện SQL `SQL_JUNK_CODE_CONDITION`: `UPPER(TRIM(codes.code)) != 'REDEMPTION' AND UPPER(codes.code) NOT GLOB 'IN-*-*[0-9]X[0-9]*' AND UPPER(codes.code) NOT GLOB 'REDEMPTION*[0-9]X[0-9]*'`.
+  2. *Chặn mã rác ở tất cả các đường nạp mã*:
+     - `functions/api/crawler/ingest-codes.ts`: Áp `isJunkCode` tại cả 4 điểm INSERT/batch (Publish Game Sync, Queue Game API, Approve Codes, Batch Crawler Ingestion).
+     - `functions/api/admin/free-codes/index.ts`: Chặn tạo mã rác qua POST.
+     - `functions/api/admin/submissions/[id]/approve.ts`: Bỏ qua ghi mã rác khi duyệt submission.
+  3. *Cập nhật công thức SQL tính lại cột đếm*:
+     - Áp dụng `AND ${SQL_JUNK_CODE_CONDITION}` vào tất cả 10 vị trí recompute trên toàn hệ thống (`free-codes`, `submissions`, `ingest-codes`, `sync.ts`).
+  4. *Sao lưu & Xóa 3 dòng REDEMPTION khỏi D1*:
+     - Sao lưu an toàn vào `backups/junk-codes-3-rows-redemption-2026-11-15.json` và `~/workspace/code-watch/backups/`.
+     - Xóa 3 ID dòng rác khỏi bảng `codes` D1.
+- **Kết quả nghiệm thu**:
+  - `astra-knights-of-veda`: 17 / 17 $\rightarrow$ **16 / 16** (khớp hoàn hảo 100%, 0 mã REDEMPTION).
+  - `cherry-tale`: 14 còn hạn / 19 tổng $\rightarrow$ **13 còn hạn / 18 tổng** (0 mã REDEMPTION).
+  - `pew-pew-slime-idle-rpg`: 25 còn hạn / 30 tổng $\rightarrow$ **24 còn hạn / 29 tổng** (0 mã REDEMPTION).
+  - Đấu Trường Chân Lý bảo toàn đúng 63 code (cả 2 slug), Da Hood 138/138, Anime Vanguards 121/126, Type Soul 71/71, tổng số game giữ nguyên 593 game.
+
 ## [2026-11-15]
 
 ### 391. Loại Bỏ 3 Nhánh Ghi Cứng Số Mã Cũ (Anime Vanguards, Da Hood, Type Soul) & Giải Phóng Dữ Liệu Thời Gian Thực Từ D1

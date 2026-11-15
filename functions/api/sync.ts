@@ -25,7 +25,7 @@ import {
   deduplicatePoolCodes,
 } from '../services/d1_service';
 import { verifyToken, computeHash, verifyTemporaryAuditToken } from '../services/auth_service';
-import { invalidateGamesCatalogCache } from './games';
+import { invalidateGamesCatalogCache, SQL_JUNK_CODE_CONDITION } from './games';
 import { invalidateCatalogEdgeCache } from '../services/cache_service';
 import { recordSoftDelete, isRecordTombstoned, getActiveTombstonesMap, filterOutTombstones } from '../services/soft_delete_service';
 import fallbackGamesData from '../../src/data/games188.json';
@@ -2242,8 +2242,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
         await env.DB.prepare(`
           UPDATE games SET
-            total_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug),
-            active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.status = 'active' OR codes.status = 'verified') AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now', '+7 hours'))),
+            total_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND ${SQL_JUNK_CODE_CONDITION}),
+            active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.status = 'active' OR codes.status = 'verified') AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now', '+7 hours')) AND ${SQL_JUNK_CODE_CONDITION}),
             updated_at = datetime('now')
           WHERE slug = ? OR slug = ? OR slug = ?
         `).bind(targetSlug, targetSlug.replace(/-mobile$/i, ''), `${targetSlug}-mobile`).run().catch(() => {});
@@ -2420,8 +2420,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         // 7. Recompute code count cho cuu-am-chan-kinh-mobile và cuu-am-chan-kinh-2d
         await env.DB.prepare(`
           UPDATE games SET
-            total_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug),
-            active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.status = 'active' OR codes.status = 'verified') AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now', '+7 hours'))),
+            total_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND ${SQL_JUNK_CODE_CONDITION}),
+            active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.status = 'active' OR codes.status = 'verified') AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now', '+7 hours')) AND ${SQL_JUNK_CODE_CONDITION}),
             last_code_at = (SELECT MAX(added_at) FROM codes WHERE codes.game_slug = games.slug),
             updated_at = datetime('now')
           WHERE slug IN ('cuu-am-chan-kinh-mobile', 'cuu-am-chan-kinh-2d', 'tieu-ngao-doc-ton-vgp')
@@ -2985,8 +2985,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         // Cập nhật lại số lượng codes trên toàn bộ D1 games
         await env.DB.prepare(`
           UPDATE games SET
-            total_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug),
-            active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.status = 'active' OR codes.status = 'verified') AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now', '+7 hours'))),
+            total_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND ${SQL_JUNK_CODE_CONDITION}),
+            active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.status = 'active' OR codes.status = 'verified') AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now', '+7 hours')) AND ${SQL_JUNK_CODE_CONDITION}),
             last_code_at = (SELECT MAX(added_at) FROM codes WHERE codes.game_slug = games.slug),
             updated_at = datetime('now');
         `).run().catch(() => {});
@@ -3215,8 +3215,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         await ensureSchemaUpgrades(env.DB);
         const updateRes = await env.DB.prepare(`
           UPDATE games SET
-            total_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug),
-            active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.status = 'active' OR codes.status = 'verified') AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now', '+7 hours'))),
+            total_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND ${SQL_JUNK_CODE_CONDITION}),
+            active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.status = 'active' OR codes.status = 'verified') AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now', '+7 hours')) AND ${SQL_JUNK_CODE_CONDITION}),
             last_code_at = (SELECT MAX(added_at) FROM codes WHERE codes.game_slug = games.slug);
         `).run();
 
@@ -3224,8 +3224,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           SELECT
             (SELECT COUNT(*) FROM games) as total_games,
             (SELECT COUNT(*) FROM games WHERE is_active = 1 AND total_codes_count > 0) as published_games,
-            (SELECT COUNT(*) FROM codes) as total_codes,
-            (SELECT COUNT(*) FROM codes WHERE status = 'active' AND (expires_at IS NULL OR expires_at = '' OR expires_at >= date('now', '+7 hours'))) as active_codes;
+            (SELECT COUNT(*) FROM codes WHERE ${SQL_JUNK_CODE_CONDITION}) as total_codes,
+            (SELECT COUNT(*) FROM codes WHERE status = 'active' AND (expires_at IS NULL OR expires_at = '' OR expires_at >= date('now', '+7 hours')) AND ${SQL_JUNK_CODE_CONDITION}) as active_codes;
         `).first();
 
         return new Response(
@@ -3245,7 +3245,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           SELECT
             (SELECT COUNT(*) FROM games) as total_games,
             (SELECT COUNT(*) FROM games WHERE is_active = 1 AND total_codes_count > 0) as published_games,
-            (SELECT COUNT(*) FROM codes) as total_codes;
+            (SELECT COUNT(*) FROM codes WHERE ${SQL_JUNK_CODE_CONDITION}) as total_codes;
         `).first();
 
         return new Response(

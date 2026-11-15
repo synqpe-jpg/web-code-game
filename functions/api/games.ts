@@ -1,9 +1,16 @@
 import { getMultipleSettingsD1, getSettingD1, withD1Timeout, ensureSchemaUpgrades } from '../services/d1_service';
-import { isCodeExpired, parseExpirationDate, decodeHtmlEntities } from '../../src/utils/codeUtils';
+import {
+  isCodeExpired,
+  parseExpirationDate,
+  decodeHtmlEntities,
+  JUNK_CODE_REGEX,
+  isJunkCode,
+  SQL_JUNK_CODE_CONDITION,
+} from '../../src/utils/codeUtils';
 import fallbackGamesData from '../../src/data/games188.json';
 import fallbackCodesData from '../../src/data/crawled_codes_188.json';
 
-export const JUNK_CODE_REGEX = /^(?:IN-.*-\d+X\d+|REDEMPTION(?:-SCREEN)?-\d+X\d+)$/i;
+export { JUNK_CODE_REGEX, isJunkCode, SQL_JUNK_CODE_CONDITION };
 
 export function cleanRewardText(raw: any): string {
   const text = decodeHtmlEntities(String(raw || '').trim());

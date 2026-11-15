@@ -10,6 +10,22 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-278: Bẫy Không Lọc Rác Tại Cửa Ngõ Nạp Mã Khiến D1 Bị Tái Nhiễm & Bẫy Câu Lệnh SQL COUNT(*) Đếm Cả Dòng Rác
+- **Triệu chứng & Rủi ro**:
+  1. *D1 bị tái nhiễm mã rác sau mỗi đợt cào*: Đường nạp mã (`ingest-codes.ts`) không lọc qua regex trước khi INSERT INTO codes, khiến các chuỗi ảnh WordPress responsive (`IN-...-WxH`, `REDEMPTION-WxH`) hoặc nhãn nút `REDEMPTION` cào nhầm lại lọt vào D1.
+  2. *Thẻ ngoài danh sách đếm thừa so với chi tiết*: Dù API chi tiết đã lọc qua `JUNK_CODE_REGEX`, câu lệnh SQL `COUNT(*)` lưu vào bảng `games` vẫn đếm cả dòng rác khiến thẻ ngoài báo nhiều hơn modal bên trong.
+- **Nguyên nhân gốc rễ**:
+  1. *Thiếu Single Source of Truth ở tầng ingestion*: Regex lọc rác chỉ đặt ở API chi tiết đọc (`games.ts`), không chặn ở tầng ghi (`ingest-codes.ts`, `free-codes/index.ts`, `submissions`).
+  2. *Toán tử COUNT(*) thô không loại trừ junk*: SQL D1 không dùng được regex JS trực tiếp, nếu không thêm điều kiện lọc tương đương (`GLOB` / `NOT LIKE` / `!= 'REDEMPTION'`) thì cột `active_codes_count` và `total_codes_count` luôn bị lệch.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Đưa `JUNK_CODE_REGEX` và `isJunkCode` vào `src/utils/codeUtils.ts` làm SSOT dùng chung cho toàn bộ các module.
+  2. Áp dụng `isJunkCode` tại tất cả các điểm INSERT (Publish Game Sync, Queue Game, Approve Codes, Batch Ingestion, Admin Free Codes, Submissions).
+  3. Định nghĩa chuẩn SQL filter `SQL_JUNK_CODE_CONDITION = "UPPER(TRIM(codes.code)) != 'REDEMPTION' AND UPPER(codes.code) NOT GLOB 'IN-*-*[0-9]X[0-9]*' AND UPPER(codes.code) NOT GLOB 'REDEMPTION*[0-9]X[0-9]*'"` và gắn vào 10 vị trí recompute `COUNT(*)` trên D1.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không chỉ lọc ở tầng đọc (Chi tiết) mà bỏ quên tầng ghi (Ingest/Recompute).*
+  - ❌ *Không dùng regex lỏng lẻo chặn các mã hợp lệ có chứa từ REDEMPTION (ví dụ REDEMPTION2026).*
+
+
 ### ISSUE-277: Bẫy Gom Các Giá Trị Ghi Cứng Lịch Sử Vào Hàm Chuẩn Hóa Khiến Dữ Liệu Thời Gian Thực Bị Đè Bẹp & Bẫy Chênh Lệch Số Đếm Do Regex Lọc Mã Rác Ảnh WordPress
 - **Triệu chứng & Rủi ro**:
   1. *Thẻ ngoài danh sách báo số lượng cũ dù D1 đã cập nhật*: `type-soul` trong D1 có 71 mã nhưng ngoài danh sách bị ép về 68; `anime-vanguards` có 130 mã nhưng ngoài danh sách bị ép về 119.

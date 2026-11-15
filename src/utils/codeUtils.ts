@@ -3,6 +3,25 @@
  * CodeGame.Shop Standard Giftcode Utilities
  */
 
+/**
+ * Định nghĩa chuẩn duy nhất cho chuỗi mã rác (Junk Giftcode Single Source of Truth)
+ * 1. Dạng ảnh WordPress responsive: IN-<GAME>-<WxH> (ví dụ IN-DA-HOOD-781X439, IN-ANIME-VANGUARDS-1024X576)
+ * 2. Dạng ảnh REDEMPTION: REDEMPTION-<WxH> hoặc REDEMPTION-SCREEN-<WxH> (ví dụ REDEMPTION-1024X576, REDEMPTION-SCREEN-550X309)
+ * 3. Chuỗi đúng bằng REDEMPTION (so khớp toàn chuỗi, không phân biệt hoa/thường — nhãn nút/tiêu đề bị cào nhầm thành mã)
+ * LƯU Ý: Tuyệt đối KHÔNG chặn các mã chỉ chứa từ REDEMPTION (ví dụ REDEMPTION2026, MYREDEMPTION).
+ */
+export const JUNK_CODE_REGEX = /^(?:IN-.*-\d+X\d+|REDEMPTION(?:-SCREEN)?-\d+X\d+|REDEMPTION)$/i;
+
+export function isJunkCode(code: any): boolean {
+  if (!code || typeof code !== 'string') return false;
+  return JUNK_CODE_REGEX.test(code.trim());
+}
+
+/**
+ * Điều kiện SQL chuẩn dùng để loại bỏ các dòng mã rác khỏi bộ đếm SQLite D1
+ */
+export const SQL_JUNK_CODE_CONDITION = `UPPER(TRIM(codes.code)) != 'REDEMPTION' AND UPPER(codes.code) NOT GLOB 'IN-*-*[0-9]X[0-9]*' AND UPPER(codes.code) NOT GLOB 'REDEMPTION*[0-9]X[0-9]*'`;
+
 export interface ParsedExpiration {
   formatted: string;
   isExpired: boolean;
