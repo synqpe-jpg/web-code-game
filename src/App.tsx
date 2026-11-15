@@ -41,7 +41,6 @@ const MyReceivedCodesModal = lazyWithRetry(() => import('./components/MyReceived
 const UserProfileModal = lazyWithRetry(() => import('./components/UserProfileModal').then((m) => ({ default: m.UserProfileModal })));
 const DownloadAppModal = lazyWithRetry(() => import('./components/DownloadAppModal').then((m) => ({ default: m.DownloadAppModal })));
 const EmailSubscriptionModal = lazyWithRetry(() => import('./components/notification/EmailSubscriptionModal').then((m) => ({ default: m.EmailSubscriptionModal })));
-const TodayCodesView = lazyWithRetry(() => import('./components/TodayCodesView').then((m) => ({ default: m.TodayCodesView })));
 const SellerCenterView = lazyWithRetry(() => import('./components/seller/SellerCenterView').then((m) => ({ default: m.SellerCenterView })));
 const PublicStoreView = lazyWithRetry(() => import('./components/seller/PublicStoreView').then((m) => ({ default: m.PublicStoreView })));
 const CartDrawerModal = lazyWithRetry(() => import('./components/cart/CartDrawerModal').then((m) => ({ default: m.CartDrawerModal })));
@@ -114,7 +113,7 @@ export const App: React.FC = () => {
       if (hash.includes('utilities') || hash.includes('utility=') || hash.includes('ut=') || path === '/utilities' || path.startsWith('/utilities/')) return 'utilities';
       if (hash.includes('missions') || hash.includes('nhiem-vu') || path === '/missions' || path.startsWith('/missions/') || path === '/nhiem-vu' || path.startsWith('/nhiem-vu/')) return 'missions';
       if (hash.includes('telegram') || path === '/telegram' || path.startsWith('/telegram/')) return 'telegram';
-      if (hash.includes('ma-hom-nay') || hash.includes('today') || path === '/ma-hom-nay' || path.startsWith('/ma-hom-nay/')) return 'today-codes';
+      if (hash.includes('ma-hom-nay') || hash.includes('today') || path === '/ma-hom-nay' || path.startsWith('/ma-hom-nay/')) return 'news';
     }
     return 'catalog';
   });
@@ -129,10 +128,13 @@ export const App: React.FC = () => {
     return '';
   });
 
-  const [initialNewsSubTab, setInitialNewsSubTab] = useState<'news' | 'events'>(() => {
+  const [initialNewsSubTab, setInitialNewsSubTab] = useState<'news' | 'events' | 'today-codes'>(() => {
     if (typeof window !== 'undefined') {
       const path = window.location.pathname.toLowerCase();
       const hash = window.location.hash.toLowerCase();
+      if (path === '/ma-hom-nay' || path.startsWith('/ma-hom-nay/') || hash.includes('ma-hom-nay') || hash.includes('today')) {
+        return 'today-codes';
+      }
       if (path === '/su-kien' || path.startsWith('/su-kien/') || path === '/events' || path.startsWith('/events/') || hash.includes('su-kien') || hash.includes('events')) {
         return 'events';
       }
@@ -690,7 +692,9 @@ export const App: React.FC = () => {
           if (mId) setInitialMissionId(mId);
           return;
         } else if (pathname === '/ma-hom-nay' || pathname.startsWith('/ma-hom-nay/') || hash.includes('ma-hom-nay')) {
-          setCurrentTab('today-codes');
+          setSelectedGame(null);
+          setCurrentTab('news');
+          setInitialNewsSubTab('today-codes');
           return;
         } else if (pathname === '/ban-hang' || pathname.startsWith('/ban-hang/') || hash.includes('ban-hang')) {
           setCurrentTab('seller-center');
@@ -769,14 +773,22 @@ export const App: React.FC = () => {
     setSelectedGame(null);
     setSelectedProduct(null);
     setSelectedUtilityId(null);
+
+    if (tab === 'today-codes') {
+      setCurrentTab('news');
+      setInitialNewsSubTab('today-codes');
+      if (window.location.pathname !== '/ma-hom-nay' || window.location.hash) {
+        window.history.pushState(null, '', '/ma-hom-nay');
+      }
+      return;
+    }
+
     setCurrentTab(tab);
 
     const targetPath = tab === 'catalog'
       ? '/'
       : tab === 'missions'
       ? '/nhiem-vu'
-      : tab === 'today-codes'
-      ? '/ma-hom-nay'
       : tab === 'seller-center'
       ? '/ban-hang'
       : tab === 'store-detail'
@@ -811,6 +823,11 @@ export const App: React.FC = () => {
 
       if (currentTab === 'news') {
         const path = window.location.pathname.toLowerCase();
+        const isTodayCodesPath =
+          path === '/ma-hom-nay' ||
+          path.startsWith('/ma-hom-nay/') ||
+          initialNewsSubTab === 'today-codes';
+
         const isEventsPath =
           path === '/su-kien' ||
           path.startsWith('/su-kien/') ||
@@ -820,6 +837,11 @@ export const App: React.FC = () => {
 
         if (window.location.pathname.startsWith('/news/') && window.location.pathname.length > 6) {
           // Viewing a specific news article full page: preserve /news/<slug> in address bar!
+        } else if (isTodayCodesPath) {
+          document.title = 'Giftcode Hôm Nay - Tổng Hợp Mã Code Game Có Hạn Trong Ngày 2026 | CodeGame.shop';
+          if (path !== '/ma-hom-nay') {
+            window.history.replaceState(null, '', '/ma-hom-nay');
+          }
         } else if (isEventsPath) {
           document.title = 'Sự Kiện Game & Lịch Khởi Tranh Mới Nhất 2026 | CodeGame.shop';
           if (path !== '/su-kien' && path !== '/events') {
@@ -948,7 +970,8 @@ export const App: React.FC = () => {
       }
       if (hash === '#ma-hom-nay' || hash.startsWith('#ma-hom-nay') || hash.includes('today') || path === '/ma-hom-nay' || path.startsWith('/ma-hom-nay/')) {
         setSelectedGame(null);
-        setCurrentTab('today-codes');
+        setCurrentTab('news');
+        setInitialNewsSubTab('today-codes');
         return;
       }
       if (hash === '#cart' || hash === '#gio-hang' || path === '/gio-hang' || path === '/cart') {
@@ -1033,7 +1056,8 @@ export const App: React.FC = () => {
         setCurrentTab('missions');
       } else if (path === '/ma-hom-nay' || path.startsWith('/ma-hom-nay/')) {
         setSelectedGame(null);
-        setCurrentTab('today-codes');
+        setCurrentTab('news');
+        setInitialNewsSubTab('today-codes');
       } else if (path === '/ban-hang' || path.startsWith('/ban-hang/')) {
         setSelectedGame(null);
         setCurrentTab('seller-center');
@@ -1929,13 +1953,11 @@ export const App: React.FC = () => {
             )}
 
             {currentTab === 'today-codes' && (
-              <TodayCodesView
-                onBackToHome={() => handleSelectTab('catalog')}
-                onSelectGame={async (slug) => {
-                  const game = await dataService.getGameBySlug(slug, false);
-                  if (game) setSelectedGame(game);
-                }}
+              <NewsView
                 onShowToast={showToast}
+                onSelectGameSlug={handleSelectGameSlug}
+                initialArticleSlug={initialNewsSlug}
+                initialSubTab="today-codes"
               />
             )}
 

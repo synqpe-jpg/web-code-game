@@ -19,7 +19,6 @@ import {
   Award,
   Globe,
   Send,
-  Flame,
   Store,
   ShoppingCart,
 } from 'lucide-react';
@@ -234,20 +233,6 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <Gift className="w-4 h-4" />
               <span>{t.nav.catalog}</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => onSelectTab('today-codes')}
-              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                currentTab === 'today-codes'
-                  ? 'bg-amber-500 text-slate-950 font-black shadow-glow-accent'
-                  : 'text-amber-400 hover:text-amber-300 hover:bg-card'
-              }`}
-              title="Mã hạn ngày hôm nay (hết hạn 22:30)"
-            >
-              <Flame className="w-4 h-4 text-amber-400" />
-              <span>Mã Hôm Nay</span>
             </button>
 
             <button

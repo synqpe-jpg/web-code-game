@@ -26,13 +26,14 @@ import { dataService } from '../services/dataService';
 import { SafeNewsCover } from '../utils/newsImageUtils';
 import { NewsDetailModal } from './NewsDetailModal';
 import { GameEventsList } from './GameEventsList';
+import { TodayCodesView } from './TodayCodesView';
 import { useLanguage } from '../context/LanguageContext';
 
 interface NewsViewProps {
   onShowToast: (title: string, message?: string, type?: 'success' | 'error' | 'info') => void;
   onSelectGameSlug?: (slug: string) => void;
   initialArticleSlug?: string | null;
-  initialSubTab?: 'news' | 'events';
+  initialSubTab?: 'news' | 'events' | 'today-codes';
 }
 
 export const NewsView: React.FC<NewsViewProps> = ({
@@ -42,11 +43,14 @@ export const NewsView: React.FC<NewsViewProps> = ({
   initialSubTab,
 }) => {
   const { t } = useLanguage();
-  const [subTab, setSubTab] = useState<'news' | 'events'>(() => {
+  const [subTab, setSubTab] = useState<'news' | 'today-codes' | 'events'>(() => {
     if (initialSubTab) return initialSubTab;
     if (typeof window !== 'undefined') {
       const path = window.location.pathname.toLowerCase();
       const hash = window.location.hash.toLowerCase();
+      if (path === '/ma-hom-nay' || path.startsWith('/ma-hom-nay/') || hash.includes('ma-hom-nay') || hash.includes('today')) {
+        return 'today-codes';
+      }
       if (path === '/su-kien' || path.startsWith('/su-kien/') || path === '/events' || path.startsWith('/events/') || hash.includes('su-kien') || hash.includes('events')) {
         return 'events';
       }
@@ -336,7 +340,16 @@ export const NewsView: React.FC<NewsViewProps> = ({
         }
       }
       setSelectedArticle(null);
-      document.title = 'Tin Tức Game & Sự Kiện Giftcode Mới Nhất 2026 | CodeGame.shop';
+      if (path === '/ma-hom-nay' || path.startsWith('/ma-hom-nay/')) {
+        setSubTab('today-codes');
+        document.title = 'Giftcode Hôm Nay - Tổng Hợp Mã Code Game Có Hạn Trong Ngày 2026 | CodeGame.shop';
+      } else if (path === '/su-kien' || path.startsWith('/su-kien/') || path === '/events' || path.startsWith('/events/')) {
+        setSubTab('events');
+        document.title = 'Sự Kiện Game - Tổng Hợp Sự Kiện Nhận Giftcode Hot 2026 | CodeGame.shop';
+      } else {
+        setSubTab('news');
+        document.title = 'Tin Tức Game & Sự Kiện Giftcode Mới Nhất 2026 | CodeGame.shop';
+      }
     };
 
     window.addEventListener('popstate', handlePopState);
@@ -359,9 +372,9 @@ export const NewsView: React.FC<NewsViewProps> = ({
 
   return (
     <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 animate-fade-in">
-      {/* Sub-tab Navigation (Tách Tin Tức & Sự Kiện Game độc lập) */}
+      {/* Sub-tab Navigation (Tin Tức Game, Mã Hôm Nay, Sự Kiện Game) */}
       <div className="flex items-center justify-center mb-6">
-        <div className="inline-flex p-1.5 rounded-2xl bg-card/90 border border-border/80 shadow-md backdrop-blur-md max-w-md w-full">
+        <div className="inline-flex p-1.5 rounded-2xl bg-card/90 border border-border/80 shadow-md backdrop-blur-md max-w-xl w-full">
           <button
             type="button"
             onClick={() => {
@@ -369,16 +382,37 @@ export const NewsView: React.FC<NewsViewProps> = ({
               if (typeof window !== 'undefined' && window.history?.pushState) {
                 window.history.pushState(null, '', '/news');
               }
+              document.title = 'Tin Tức Game & Sự Kiện Giftcode Mới Nhất 2026 | CodeGame.shop';
             }}
-            className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer ${
+            className={`flex-1 flex items-center justify-center gap-1.5 sm:gap-2 py-2.5 px-3 sm:px-4 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer ${
               subTab === 'news'
                 ? 'bg-primary text-white shadow-md'
                 : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
             }`}
           >
-            <Newspaper className="w-4 h-4" />
+            <Newspaper className="w-4 h-4 shrink-0" />
             <span>Tin Tức Game</span>
           </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setSubTab('today-codes');
+              if (typeof window !== 'undefined' && window.history?.pushState) {
+                window.history.pushState(null, '', '/ma-hom-nay');
+              }
+              document.title = 'Giftcode Hôm Nay - Tổng Hợp Mã Code Game Có Hạn Trong Ngày 2026 | CodeGame.shop';
+            }}
+            className={`flex-1 flex items-center justify-center gap-1.5 sm:gap-2 py-2.5 px-3 sm:px-4 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer ${
+              subTab === 'today-codes'
+                ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-black shadow-md'
+                : 'text-amber-500 dark:text-amber-400 hover:text-amber-600 dark:hover:text-amber-300 hover:bg-muted/50'
+            }`}
+          >
+            <Flame className="w-4 h-4 text-amber-500 dark:text-amber-400 shrink-0" />
+            <span>Mã Hôm Nay</span>
+          </button>
+
           <button
             type="button"
             onClick={() => {
@@ -386,20 +420,27 @@ export const NewsView: React.FC<NewsViewProps> = ({
               if (typeof window !== 'undefined' && window.history?.pushState) {
                 window.history.pushState(null, '', '/su-kien');
               }
+              document.title = 'Sự Kiện Game - Tổng Hợp Sự Kiện Nhận Giftcode Hot 2026 | CodeGame.shop';
             }}
-            className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer ${
+            className={`flex-1 flex items-center justify-center gap-1.5 sm:gap-2 py-2.5 px-3 sm:px-4 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer ${
               subTab === 'events'
                 ? 'bg-gradient-to-r from-amber-500 via-rose-500 to-purple-600 text-white shadow-md'
                 : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
             }`}
           >
-            <Zap className="w-4 h-4 text-amber-300" />
+            <Zap className="w-4 h-4 text-amber-300 shrink-0" />
             <span>Sự Kiện Game</span>
           </button>
         </div>
       </div>
 
-      {subTab === 'events' ? (
+      {subTab === 'today-codes' ? (
+        <TodayCodesView
+          embedded={true}
+          onSelectGame={(slug) => onSelectGameSlug?.(slug)}
+          onShowToast={onShowToast}
+        />
+      ) : subTab === 'events' ? (
         <GameEventsList onShowToast={onShowToast} onSelectGameSlug={onSelectGameSlug} />
       ) : (
         <>

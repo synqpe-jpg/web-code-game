@@ -7,6 +7,33 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-15]
 
+### 394. Chuyển Mục "Mã Hôm Nay" Thành Mục Con Của "Tin Tức" & Tinh Gọn Thanh Điều Hướng Header
+- **Bối cảnh & Yêu cầu của Chủ sở hữu**:
+  - Người dùng yêu cầu chuyển mục "Mã hôm nay" trên website thành một mục nhỏ nằm bên trong mục "Tin Tức" (`NewsView`).
+  - Tinh gọn thanh điều hướng Desktop Header để tránh rườm rà và giúp bố cục tổng thể gọn gàng, trực quan.
+- **Giải pháp áp dụng (Solution)**:
+  1. *Tinh gọn Header Navigation (`src/components/Header.tsx`)*:
+     - Gỡ bỏ nút cấp 1 "Mã Hôm Nay" khỏi thanh điều hướng chính của Header (`currentTab = 'today-codes'`).
+     - Thanh điều hướng Desktop Header giữ lại 5 tab chính chuẩn mực: `[ Danh Mục | Tin Tức | Giveaway | Cửa Hàng | Tiện Ích ]`.
+  2. *Mở rộng Sub-tab Navigation trong Tin Tức (`src/components/NewsView.tsx`)*:
+     - Mở rộng hệ thống sub-tab từ 2 mục (`[ Tin Tức Game | Sự Kiện Game ]`) thành 3 mục: `[ Tin Tức Game | 🔥 Mã Hôm Nay | Sự Kiện Game ]`.
+     - Nút "Mã Hôm Nay" được làm nổi bật với icon Flame và hiệu ứng màu cam hổ phách bắt mắt (`from-amber-500 to-orange-500`).
+     - Khi chuyển sang sub-tab "Mã Hôm Nay": Render `<TodayCodesView embedded={true} ... />`, cập nhật URL thành `/ma-hom-nay` và tiêu đề trang tương ứng.
+  3. *Tối ưu Hóa Chế Độ Nhúng & Hỗ Trợ Đa Theme (`src/components/TodayCodesView.tsx`)*:
+     - Bổ sung prop `embedded?: boolean`. Khi ở chế độ nhúng (`embedded={true}`), loại bỏ padding dư thừa và nút "Về Trang Chủ", hiển thị thanh toolbar tinh gọn với nhãn nổi bật và nút "Cập nhật".
+     - Chuyển đổi toàn bộ màu tối ghi cứng (`bg-slate-950`, `bg-slate-900`) sang CSS semantic tokens (`bg-card`, `bg-muted`, `bg-background`, `text-foreground`), giúp giao diện hiển thị sắc nét, hài hòa trên cả Chế độ Sáng (Light Mode) và Chế độ Tối (Dark Mode).
+  4. *Tương Thích Ngược & Điều Hướng Sâu (`src/App.tsx`)*:
+     - Mở rộng kiểu `initialNewsSubTab` hỗ trợ thêm `'today-codes'`.
+     - Tuyến đường `/ma-hom-nay` và `#ma-hom-nay` tự động kích hoạt `currentTab = 'news'` kèm `initialNewsSubTab = 'today-codes'`.
+     - Nút "Mã Hôm Nay" tại Hero Banner và Shopee Test View tiếp tục hoạt động mượt mà mà không bị đứt gãy liên kết.
+- **Kết quả nghiệm thu**:
+  - Build Vite & Cloudflare Edge Worker bundle thành công 100%.
+  - Triển khai đồng thời lên `web-code-game` và `admin-code-game-shop`.
+
+---
+
+## [2026-11-15]
+
 ### 393. Triển Khai Tuyến Đường Thử Nghiệm Phong Cách Shopee Cô Lập Tuyệt Đối Tại /test1
 - **Bối cảnh & Yêu cầu của Chủ sở hữu**:
   - Người dùng yêu cầu tạo giao diện phong cách Shopee (Shopee Game Style) để tham khảo và trải nghiệm thử nghiệm thực tế.
@@ -60,6 +87,8 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
   - `cherry-tale`: 14 còn hạn / 19 tổng $\rightarrow$ **13 còn hạn / 18 tổng** (0 mã REDEMPTION).
   - `pew-pew-slime-idle-rpg`: 25 còn hạn / 30 tổng $\rightarrow$ **24 còn hạn / 29 tổng** (0 mã REDEMPTION).
   - Đấu Trường Chân Lý bảo toàn đúng 63 code (cả 2 slug), Da Hood 138/138, Anime Vanguards 121/126, Type Soul 71/71, tổng số game giữ nguyên 593 game.
+
+---
 
 ## [2026-11-15]
 
