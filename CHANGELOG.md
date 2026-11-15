@@ -7,6 +7,33 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-15]
 
+### 393. Triển Khai Tuyến Đường Thử Nghiệm Phong Cách Shopee Cô Lập Tuyệt Đối Tại /test1
+- **Bối cảnh & Yêu cầu của Chủ sở hữu**:
+  - Người dùng yêu cầu tạo giao diện phong cách Shopee (Shopee Game Style) để tham khảo và trải nghiệm thử nghiệm thực tế.
+  - Điều kiện tiên quyết: **Tuyệt đối KHÔNG làm ảnh hưởng hay xáo trộn giao diện và hoạt động của trang web chính `codegame.shop`**.
+- **Giải pháp áp dụng (Solution)**:
+  1. *Kiến trúc Route Phụ Độc Lập*:
+     - Thiết lập tuyến đường thử nghiệm cô lập tại `/test1` và `#/test1` trong `src/App.tsx`.
+     - Khách hàng thông thường truy cập trang chủ `https://codegame.shop/` vẫn thấy 100% giao diện hiện tại bình thường, không suy suyển 1 pixel.
+     - Chỉ khi truy cập `https://codegame.shop/test1`, hệ thống mới kích hoạt giao diện thử nghiệm Shopee.
+  2. *Thành phần Giao Diện Shopee Test (`src/components/shopee/ShopeeTestView.tsx`)*:
+     - Dải banner thông báo vàng phía trên cùng: Báo hiệu rõ ràng người dùng đang xem bản thử nghiệm kèm nút `← Quay Lại Web Gốc (codegame.shop)`.
+     - Shopee Topbar: Kênh Người Bán, Mở Gian Hàng, Tải App APK, Thông Báo, Hỗ Trợ 24/7, Đăng Nhập / Đăng Ký và hiển thị số dư ví Xu Core.
+     - Main Header Cam Shopee (`#ee4d2d`): Logo Codegame Mall, Thanh tìm kiếm lớn có lọc game thời gian thực kèm từ khóa hot, giỏ hàng có badge.
+     - Hero Banner Grid (tỷ lệ 2/3 + 1/3): Banner chính săn code 0đ + 2 banner phụ nạp VietQR và bảo chứng giữ tiền sàn 168h.
+     - 8 Icon dịch vụ nhanh: Giao mã 0s, Săn code 0đ, Bảo hộ 168h, Nạp VietQR, Vòng quay xu, Mã hôm nay, Sắp ra mắt, Bot Telegram.
+     - Danh mục thể loại game: Nhập vai, Bắn súng, Chiến thuật, Gacha, Thẻ bài, MOBA, Casual.
+     - Flash Sale Giờ Vàng: Đồng hồ đếm ngược giờ vàng chạy thời gian thực, thanh tiến độ bán `CÒN xx MÃ`.
+     - Gợi ý hôm nay (Shopee Mall Cards): Kết nối trực tiếp với 623+ game thật trong database, nút sao chép mã 1-chạm bắn pháo hoa Confetti, xem chi tiết game qua modal.
+     - Tích hợp nút chuyển đổi giao diện Shopee Trắng (Gốc) và Shopee Dark Game.
+  3. *Tự động Triển khai & Kiểm thử*:
+     - Build Vite và Cloudflare Edge Worker bundle thành công 100%.
+     - Triển khai đồng thời lên `web-code-game` và `admin-code-game-shop`, verify deploy và warm-up edge cache hoàn tất.
+
+---
+
+## [2026-11-15]
+
 ### 392. Chặn Mã Rác Ở Đường Nạp & Loại Rác Khỏi Công Thức Tính Cột Đếm + Xóa 3 Dòng REDEMPTION Khỏi CSDL D1
 - **Bối cảnh & Hiện trạng**:
   - Tại bản e38070b, đường nạp mã (`functions/api/crawler/ingest-codes.ts`) không có bước lọc rác trước 4 điểm INSERT OR REPLACE INTO codes, dẫn đến nguy cơ các chuỗi ảnh WordPress responsive (`IN-...-WxH`, `REDEMPTION-WxH`) bị nạp trở lại vào D1 trong tương lai.
