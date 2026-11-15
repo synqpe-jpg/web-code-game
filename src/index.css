@@ -46,6 +46,15 @@
     --color-glow: rgba(139, 92, 246, 0.15);
   }
 
+  html.light .wallpaper-layer,
+  .light .wallpaper-layer,
+  html.light .wallpaper-glow,
+  .light .wallpaper-glow {
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+  }
+
 
   * {
     border-color: var(--color-border);

@@ -20,8 +20,9 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
   2. *Màu ghi cứng trong Header.tsx*: Khai báo các class tĩnh `text-slate-300` và `text-slate-400` không thích ứng theo class `.light`, đặc biệt `hover:text-white` khiến chữ biến thành màu trắng tàng hình khi rê chuột trên thẻ sáng.
   3. *Thẻ theme-color light*: `index.html` dòng 8 khai báo `content="#0B0D19"` cho cả media query light.
 - **Giải pháp áp dụng (Solution)**:
-  1. *Ẩn hoàn toàn lớp Wallpaper & Ambient Glow khi ở Chế độ Sáng (`src/App.tsx`)*:
+  1. *Ẩn hoàn toàn lớp Wallpaper & Ambient Glow khi ở Chế độ Sáng (`src/App.tsx`, `src/index.css`, `index.html`)*:
      - Thêm điều kiện `{isDarkMode && branding.backgroundUrl && (` và class `dark:block hidden` cho lớp ảnh nền và lớp Ambient Top Glow.
+     - Thiết lập chốt chặn 3 tầng: class `wallpaper-layer` và `wallpaper-glow` được bảo vệ thêm bằng quy tắc CSS `html.light .wallpaper-layer, .light .wallpaper-layer { display: none !important; opacity: 0 !important; }` tại cả Critical CSS `index.html` và `src/index.css`.
      - Bảo đảm ở chế độ Sáng nền ngoài đạt trắng tinh khiết 100% (`rgb(255, 255, 255)`), đồng thời bảo toàn trọn vẹn 100% ảnh nền gaming và hiệu ứng glow ở chế độ Tối (Dark mode).
   2. *Chuyển toàn bộ 12 vị trí trong Header.tsx sang Semantic Tokens*:
      - Tab điều hướng chưa chọn: Đổi `text-slate-300 hover:text-white hover:bg-card` thành `text-muted-foreground hover:text-foreground hover:bg-card` (dòng 259, 283).
@@ -30,8 +31,9 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
      - Nhãn phụ, nhãn "Số dư:", nhãn "Trống": Đổi `text-slate-400` thành `text-muted-foreground` (dòng 220, 437, 442, 610).
      - Icon Moon và badge "Sáng"/"Tối" trong menu đổi theme (cả desktop và mobile): Đổi `text-slate-400` và `text-slate-300` thành `text-muted-foreground` (dòng 730, 734, 846).
      - Giữ nguyên màu thương hiệu và nhãn màu vàng `text-slate-950` trên nền tab "🔥 Mã Hôm Nay".
-  3. *Đồng bộ thẻ theme-color (`index.html`)*:
+  3. *Đồng bộ thẻ theme-color & Nâng cấp Service Worker Cache (v8)*:
      - Sửa thẻ `media="(prefers-color-scheme: light)"` thành `content="#FFFFFF"`.
+     - Nâng cấp Cache Service Worker lên `codegame-pwa-v8` trong `public/sw.js` nhằm tự động dọn sạch cache cũ trên tất cả trình duyệt, đảm bảo nạp ngay bundle JS với các token màu mới.
 - **Kết quả nghiệm thu**:
   - Nền ngoài trang ở chế độ Sáng đạt chuẩn trắng tinh khiết `rgb(255, 255, 255)`.
   - Toàn bộ menu và header có độ tương phản cao ($\ge$ 4.5:1), sắc nét và dễ đọc.

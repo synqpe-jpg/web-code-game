@@ -1648,7 +1648,7 @@ export const App: React.FC = () => {
         {/* Dynamic Wallpaper Image Layer (Chỉ hiển thị ở chế độ Tối, ẩn hoàn toàn ở chế độ Sáng để đảm bảo nền trắng tinh khiết) */}
         {isDarkMode && branding.backgroundUrl && (
           <div
-            className={`absolute inset-0 transition-opacity duration-700 dark:block hidden ${
+            className={`wallpaper-layer absolute inset-0 transition-opacity duration-700 dark:block hidden ${
               branding.backgroundStyle === 'ambient'
                 ? 'bg-cover bg-center blur-xl scale-105'
                 : branding.backgroundStyle === 'cover'
@@ -1666,7 +1666,7 @@ export const App: React.FC = () => {
 
         {/* Ambient Top Glow Effect (Chỉ hiển thị ở chế độ Tối) */}
         {isDarkMode && (
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-96 bg-primary/15 rounded-full blur-3xl pointer-events-none dark:block hidden" />
+          <div className="wallpaper-glow absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-96 bg-primary/15 rounded-full blur-3xl pointer-events-none dark:block hidden" />
         )}
       </div>
 
