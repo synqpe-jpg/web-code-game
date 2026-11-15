@@ -5,6 +5,37 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ---
 
+## [2026-11-15]
+
+### 388. Bổ Sung Bảng Màu Sáng (.light) Toàn Diện Cho CSS Variables & Đồng Bộ Critical Inline CSS Hiển Thị Chế Độ Sáng Thật
+- **Bối cảnh & Hiện trạng**:
+  - Tại bản 82654f1, cơ chế đồng bộ theme Modern Web Guidance (`<meta name="color-scheme">`, `documentElement.style.colorScheme`, class `light`/`dark`, script `index.html`, lưu `wcg_theme`) đã hoàn thành và nhãn theme chuyển đổi chính xác.
+  - Tuy nhiên, khi chuyển sang chế độ Sáng (Light mode), toàn bộ giao diện vẫn bị tối đen do hệ thống thiếu bảng màu sáng cho các biến CSS và critical CSS trong `index.html` ép cứng `!important #0B0D19`.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Thiếu bảng biến theme sáng trong CSS*: `src/index.css` trong khối `:root` chỉ định nghĩa 18 biến CSS với giá trị tối (`--color-background: #0B0D19`, `--color-card: #13182C`, v.v...) và hoàn toàn không có khối `:root.light, html.light, .light`. Do Tailwind mapping mọi semantic utility (`bg-background`, `bg-card`, `text-foreground`, `border-border`) qua các biến này nên khi class `.light` được gắn, các biến màu không thay đổi giá trị.
+  2. *Critical CSS trong index.html ghi cứng !important #0B0D19*: `html { background-color: #0B0D19 !important; }` và `body { background-color: #0B0D19 !important; color: #F8FAFC; }` đè bẹp inline style do script khởi động gán, khiến màn hình luôn mang màu tối. Header, Banner, và Card critical cũng ghi cứng nền tối mà không có selector cho `html.light`.
+  3. *Màu tối ghi cứng còn sót trong components*: Một số component (như `ErrorBoundary.tsx` dòng 84 có `bg-[#0B0D19]`, `HeroBanner.tsx` dòng 165 có `text-slate-200`, `Footer.tsx` có `text-slate-300`, `Header.tsx` có `text-slate-300`) bỏ qua biến theme, gây khó đọc trên nền trắng sáng.
+- **Giải pháp áp dụng (Solution)**:
+  1. *Khai báo đầy đủ khối :root.light, html.light, .light trong src/index.css*:
+     - Định nghĩa lại toàn bộ 18 biến theme cho Light mode: `--color-background: #FFFFFF`, `--color-foreground: #0F172A`, `--color-card: #FFFFFF`, `--color-card-hover: #F1F5F9`, `--color-card-foreground: #0F172A`, `--color-muted: #E2E8F0`, `--color-muted-foreground: #475569`, `--color-border: #E2E8F0`, `--color-glow: rgba(139, 92, 246, 0.15)`, bảo toàn màu thương hiệu (`primary`, `secondary`, `accent`).
+     - Bổ sung thích ứng sáng cho `.glass-panel` (`rgba(255, 255, 255, 0.85)`), `.shadow-cyber-card`, và `.custom-scrollbar` (`rgba(226, 232, 240, 0.6)`).
+  2. *Chuyển Critical CSS trong index.html sang CSS Variables & Hỗ Trợ html.light*:
+     - Khai báo CSS variables trong `:root` và `:root.light, html.light, .light` của critical style.
+     - Chuyển `html` và `body` sang `background-color: var(--color-background) !important; color: var(--color-foreground) !important;`.
+     - Bổ sung quy tắc `html.light { background-color: #FFFFFF !important; }` và `html.light body { background-color: #FFFFFF !important; color: #0F172A !important; }`.
+     - Thích ứng `header, .site-header`, `.critical-hero-banner`, `.critical-card-item` cho `html.light`.
+     - Giữ nguyên `#app-preloader` với nền tối `#0B0D19` có chủ ý.
+  3. *Rà soát và chuyển đổi màu tối ghi cứng trong src/*:
+     - `src/components/ErrorBoundary.tsx`: Chuyển `bg-[#0B0D19]` và `text-white` thành `bg-background text-foreground`, `bg-card border-border`, `bg-muted/60`.
+     - `src/components/HeroBanner.tsx`: Chuyển `text-slate-200` tại quick tags thành `text-foreground`.
+     - `src/components/Footer.tsx`: Chuyển `text-slate-300`, `text-slate-200`, `text-slate-400` thành `text-muted-foreground` và `text-foreground`.
+     - `src/components/Header.tsx`: Chuyển `text-slate-300` tại nút chuyển theme và icon alerts thành `text-muted-foreground`.
+     - Giữ nguyên các màu thương hiệu có chủ ý: Telegram `#229ED9`, Zalo/Messenger/Facebook, mã QR VietQR, và app preloader.
+- **Kết quả nghiệm thu**:
+  - Khi bật chế độ Sáng, nền trang lập tức chuyển sang trắng tinh khiết (`#FFFFFF`), chữ `#0F172A`, các thẻ game/sản phẩm chuyển sang nền trắng với viền sáng rõ nét.
+  - Không còn hiện tượng FOUC hay bị ép màu tối bởi critical CSS.
+  - Trạng thái Sáng/Tối được duy trì vĩnh viễn và không bị tự đổi lại màu tối.
+
 ## [2026-11-14]
 
 ### 387. Đồng Bộ 3 Nhóm Vấn Đề Modern Web Guidance (Autofill Token, IME-Safe Enter Submit, Đồng Bộ color-scheme) & Tối Ưu fetchpriority Cho Ảnh Cover Tin Tức

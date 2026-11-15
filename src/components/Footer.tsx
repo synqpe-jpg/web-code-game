@@ -71,7 +71,7 @@ export const Footer: React.FC<FooterProps> = ({ onSelectCategory, categories, on
 
   return (
     <>
-      <footer className="bg-card/90 border-t border-border mt-12 sm:mt-16 pt-10 pb-8 text-xs text-slate-300 w-full max-w-full overflow-hidden box-border">
+      <footer className="bg-card/90 border-t border-border mt-12 sm:mt-16 pt-10 pb-8 text-xs text-muted-foreground w-full max-w-full overflow-hidden box-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8 pb-8 border-b border-border/60">
             {/* Brand & Introduction */}
@@ -93,20 +93,20 @@ export const Footer: React.FC<FooterProps> = ({ onSelectCategory, categories, on
                 </span>
               </div>
               {siteIntro ? (
-                <p className="text-slate-300 leading-relaxed max-w-md text-xs sm:text-sm">
+                <p className="text-muted-foreground leading-relaxed max-w-md text-xs sm:text-sm">
                   {siteIntro}
                 </p>
               ) : null}
               {(badge1Visible || badge2Visible) && (
                 <div className="flex items-center gap-2 pt-1 flex-wrap">
                   {badge1Visible && badge1Text && (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-muted text-slate-200 text-[11px] font-mono border border-border">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-muted text-foreground text-[11px] font-mono border border-border">
                       <Server className="w-3.5 h-3.5 text-emerald-400" />
                       <span>{badge1Text}</span>
                     </span>
                   )}
                   {badge2Visible && badge2Text && (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-muted text-slate-200 text-[11px] font-mono border border-border">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-muted text-foreground text-[11px] font-mono border border-border">
                       <Zap className="w-3.5 h-3.5 text-secondary" />
                       <span>{badge2Text}</span>
                     </span>
@@ -158,7 +158,7 @@ export const Footer: React.FC<FooterProps> = ({ onSelectCategory, categories, on
                 <li>
                   <a
                     href="/the-loai/kiem-hiep-tien-hiep"
-                    className="text-slate-300 hover:text-primary-light transition-colors text-left block"
+                    className="text-muted-foreground hover:text-primary-light transition-colors text-left block"
                   >
                     Kiếm Hiệp & Tiên Hiệp
                   </a>
@@ -166,7 +166,7 @@ export const Footer: React.FC<FooterProps> = ({ onSelectCategory, categories, on
                 <li>
                   <a
                     href="/the-loai/nhap-vai-gacha-anime"
-                    className="text-slate-300 hover:text-primary-light transition-colors text-left block"
+                    className="text-muted-foreground hover:text-primary-light transition-colors text-left block"
                   >
                     Nhập Vai Gacha & Anime
                   </a>
@@ -174,7 +174,7 @@ export const Footer: React.FC<FooterProps> = ({ onSelectCategory, categories, on
                 <li>
                   <a
                     href="/the-loai/ban-sung-sinh-ton"
-                    className="text-slate-300 hover:text-primary-light transition-colors text-left block"
+                    className="text-muted-foreground hover:text-primary-light transition-colors text-left block"
                   >
                     Bắn Súng & Sinh Tồn
                   </a>
@@ -182,7 +182,7 @@ export const Footer: React.FC<FooterProps> = ({ onSelectCategory, categories, on
                 <li>
                   <a
                     href="/the-loai/tam-quoc-chien-thuat"
-                    className="text-slate-300 hover:text-primary-light transition-colors text-left block"
+                    className="text-muted-foreground hover:text-primary-light transition-colors text-left block"
                   >
                     Tam Quốc & Chiến Thuật
                   </a>
@@ -190,7 +190,7 @@ export const Footer: React.FC<FooterProps> = ({ onSelectCategory, categories, on
                 <li>
                   <a
                     href="/the-loai/roblox-mini-game"
-                    className="text-slate-300 hover:text-primary-light transition-colors text-left block"
+                    className="text-muted-foreground hover:text-primary-light transition-colors text-left block"
                   >
                     Roblox & Mini Game
                   </a>
@@ -198,7 +198,7 @@ export const Footer: React.FC<FooterProps> = ({ onSelectCategory, categories, on
                 <li>
                   <a
                     href="/the-loai/nhap-vai-mmorpg"
-                    className="text-slate-300 hover:text-primary-light transition-colors text-left block"
+                    className="text-muted-foreground hover:text-primary-light transition-colors text-left block"
                   >
                     Nhập Vai & MMORPG
                   </a>
@@ -224,7 +224,7 @@ export const Footer: React.FC<FooterProps> = ({ onSelectCategory, categories, on
                 <li>
                   <button
                     onClick={() => setActiveModal('terms')}
-                    className="flex items-center gap-1.5 text-slate-300 hover:text-primary-light transition-colors cursor-pointer text-left"
+                    className="flex items-center gap-1.5 text-muted-foreground hover:text-primary-light transition-colors cursor-pointer text-left"
                   >
                     <FileText className="w-3.5 h-3.5 text-primary-light shrink-0" />
                     <span>{activeTerms.title || t.footer.termsOfService}</span>
@@ -233,7 +233,7 @@ export const Footer: React.FC<FooterProps> = ({ onSelectCategory, categories, on
                 <li>
                   <button
                     onClick={() => setActiveModal('privacy')}
-                    className="flex items-center gap-1.5 text-slate-300 hover:text-primary-light transition-colors cursor-pointer text-left"
+                    className="flex items-center gap-1.5 text-muted-foreground hover:text-primary-light transition-colors cursor-pointer text-left"
                   >
                     <Lock className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                     <span>{activePrivacy.title || t.footer.privacyPolicy}</span>
@@ -242,13 +242,13 @@ export const Footer: React.FC<FooterProps> = ({ onSelectCategory, categories, on
                 <li>
                   <button
                     onClick={() => setActiveModal('contact')}
-                    className="flex items-center gap-1.5 text-slate-300 hover:text-primary-light transition-colors cursor-pointer text-left"
+                    className="flex items-center gap-1.5 text-muted-foreground hover:text-primary-light transition-colors cursor-pointer text-left"
                   >
                     <Mail className="w-3.5 h-3.5 text-secondary shrink-0" />
                     <span>{t.footer.contactSupport}</span>
                   </button>
                 </li>
-                <li className="flex items-start gap-1.5 pt-1 text-slate-400 text-[11px]">
+                <li className="flex items-start gap-1.5 pt-1 text-muted-foreground text-[11px]">
                   <Globe2 className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                   <span>{t.footer.rights}</span>
                 </li>
@@ -257,7 +257,7 @@ export const Footer: React.FC<FooterProps> = ({ onSelectCategory, categories, on
           </div>
 
           {/* Bottom Bar (§2.3: Đảm bảo khoảng trắng sau © 2026 và sau dấu chấm) */}
-          <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-slate-400">
+          <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-muted-foreground">
             <p>{`© ${new Date().getFullYear()} ${brandTitle || 'CodeGame.Shop'}. ${t.footer.rights}`}</p>
             <p className="flex items-center gap-1">
               {siteIntro}
@@ -294,13 +294,13 @@ export const Footer: React.FC<FooterProps> = ({ onSelectCategory, categories, on
               </div>
               <button
                 onClick={() => setActiveModal(null)}
-                className="p-2 rounded-xl bg-muted/60 hover:bg-muted text-slate-300 hover:text-foreground cursor-pointer"
+                className="p-2 rounded-xl bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="mt-4 max-h-[60vh] overflow-y-auto pr-2 text-xs sm:text-sm text-slate-200 leading-relaxed whitespace-pre-line space-y-3">
+            <div className="mt-4 max-h-[60vh] overflow-y-auto pr-2 text-xs sm:text-sm text-foreground/90 leading-relaxed whitespace-pre-line space-y-3">
               {activeModal === 'terms' && activeTerms.content}
               {activeModal === 'privacy' && activePrivacy.content}
               {activeModal === 'contact' && (
@@ -324,7 +324,7 @@ export const Footer: React.FC<FooterProps> = ({ onSelectCategory, categories, on
                       <span>Hotline 24/7: <strong className="text-emerald-400 font-mono ml-1">{supportHotline}</strong></span>
                     </div>
                   </div>
-                  <p className="text-slate-400 text-xs">Hệ thống xử lý tự động 24/7. Hỗ trợ kỹ thuật viên trực tuyến từ 8:00 đến 23:00 hàng ngày.</p>
+                  <p className="text-muted-foreground text-xs">Hệ thống xử lý tự động 24/7. Hỗ trợ kỹ thuật viên trực tuyến từ 8:00 đến 23:00 hàng ngày.</p>
                 </div>
               )}
             </div>

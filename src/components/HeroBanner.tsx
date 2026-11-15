@@ -162,7 +162,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
               <button
                 key={tag}
                 onClick={() => onSelectQuickTag(tag)}
-                className="px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[10px] sm:text-xs bg-card hover:bg-card-hover border border-border text-slate-200 hover:text-primary-light hover:border-primary/50 transition-all cursor-pointer font-medium active:scale-95 shrink-0"
+                className="px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[10px] sm:text-xs bg-card hover:bg-card-hover border border-border text-foreground hover:text-primary-light hover:border-primary/50 transition-all cursor-pointer font-medium active:scale-95 shrink-0"
               >
                 {tag}
               </button>

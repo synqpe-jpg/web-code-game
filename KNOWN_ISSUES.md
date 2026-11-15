@@ -10,6 +10,22 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-275: Bẫy Chỉ Toggle Class Theme Nhưng Thiếu Bảng Biến CSS (.light) & Bẫy Critical Inline CSS Ghi Cứng !important Khiến Giao Diện Sáng Bị Đóng Băng Màu Tối
+- **Triệu chứng & Rủi ro**:
+  1. *Giao diện không đổi sang màu sáng*: Người dùng bấm chuyển sang "Chế độ Sáng", nhãn nút đổi thành "Chế độ Tối" và thuộc tính `<meta name="color-scheme">` đổi thành `light`, nhưng toàn bộ trang web (nền trang, thẻ game, header, sidebar) vẫn giữ nguyên màu tối `#0B0D19` và `#13182C`.
+  2. *Inline script anti-FOUC bị vô hiệu hóa*: Script trong `<head>` cố gắng gán `backgroundColor = '#FFFFFF'` khi đọc thấy `wcg_theme = 'light'`, nhưng critical CSS stylesheet có `html { background-color: #0B0D19 !important; }` nên màu trắng không bao giờ hiển thị.
+- **Nguyên nhân gốc rễ**:
+  1. File `src/index.css` chỉ khai báo 18 biến màu tối trong `:root` và hoàn toàn không có khối `:root.light, html.light, .light`. Mọi class Tailwind (`bg-background`, `bg-card`, v.v.) ánh xạ qua các biến CSS này, nên khi có class `light`, giá trị biến vẫn là màu tối.
+  2. Critical CSS trong `index.html` ép `!important` vào các màu tối ghi cứng `#0B0D19` thay vì sử dụng CSS variables `var(--color-background)`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Khai báo đầy đủ bảng 18 biến màu sáng trong `:root.light, html.light, .light` của `src/index.css`: `--color-background: #FFFFFF`, `--color-foreground: #0F172A`, `--color-card: #FFFFFF`, `--color-border: #E2E8F0`, `--color-muted: #E2E8F0`, v.v...
+  2. Thích ứng `.glass-panel`, `.shadow-cyber-card`, `.custom-scrollbar` cho chế độ sáng.
+  3. Chuyển critical CSS trong `index.html` sang dùng biến `var(--color-background) !important` và bổ sung luật rõ ràng cho `html.light`, `html.light body`, `html.light header`, `html.light .critical-card-item`.
+  4. Rà soát và thay thế các class ghi cứng màu tối (`bg-[#0B0D19]`, `text-slate-300`) trong các component sang semantic tokens.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không chỉ thay đổi `<meta name="color-scheme">` hoặc class `document.documentElement` mà quên cung cấp bộ giá trị biến CSS cho theme sáng.*
+  - ❌ *Không dùng quy tắc `!important #0B0D19` ghi cứng trong critical stylesheet vì sẽ đè bẹp hoàn toàn inline style của theme sáng.*
+
 ### ISSUE-274: Bẫy Thiếu Token Autocomplete Cho Trình Quản Lý Mật Khẩu, Bẫy Lắng Nghe Phím Enter Bỏ Qua Cờ isComposing Khi Gõ Tiếng Việt IME, & Bẫy Đổi Dark Mode Không Đồng Bộ meta color-scheme
 - **Triệu chứng & Rủi ro**:
   1. *Trình duyệt và Password Manager không nhận diện biểu mẫu*: Người dùng đăng nhập, đổi mật khẩu hoặc đăng ký nhưng trình duyệt không tự động gợi ý tài khoản đã lưu, không hỗ trợ autofill, và không tự sinh mật khẩu mạnh an toàn do thiếu `autocomplete="current-password"`, `autocomplete="new-password"`, `autocomplete="username"`.

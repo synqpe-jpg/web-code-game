@@ -24,6 +24,28 @@
     --color-glow: rgba(139, 92, 246, 0.25);
   }
 
+  :root.light, html.light, .light {
+    color-scheme: light;
+    --color-background: #FFFFFF;
+    --color-foreground: #0F172A;
+    --color-card: #FFFFFF;
+    --color-card-hover: #F1F5F9;
+    --color-card-foreground: #0F172A;
+    --color-primary: #8B5CF6;
+    --color-primary-hover: #7C3AED;
+    --color-primary-light: #A78BFA;
+    --color-on-primary: #FFFFFF;
+    --color-secondary: #06B6D4;
+    --color-on-secondary: #FFFFFF;
+    --color-accent: #F43F5E;
+    --color-accent-hover: #E11D48;
+    --color-on-accent: #FFFFFF;
+    --color-muted: #E2E8F0;
+    --color-muted-foreground: #475569;
+    --color-border: #E2E8F0;
+    --color-glow: rgba(139, 92, 246, 0.15);
+  }
+
 
   * {
     border-color: var(--color-border);
@@ -115,6 +137,14 @@
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.08);
+}
+html.light .glass-panel, .light .glass-panel {
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+html.light .shadow-cyber-card, .light .shadow-cyber-card {
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.06), 0 0 0 1px var(--color-border);
 }
 
 
@@ -420,4 +450,13 @@
 .custom-scrollbar {
   scrollbar-width: thin;
   scrollbar-color: rgba(148, 163, 184, 0.25) transparent;
+}
+html.light .custom-scrollbar::-webkit-scrollbar-track, .light .custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(226, 232, 240, 0.6);
+}
+html.light .custom-scrollbar::-webkit-scrollbar-thumb, .light .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.45);
+}
+html.light .custom-scrollbar, .light .custom-scrollbar {
+  scrollbar-color: rgba(148, 163, 184, 0.45) transparent;
 }

@@ -847,7 +847,7 @@ export const Header: React.FC<HeaderProps> = ({
                             )}
                             <span className="font-medium">{isDarkMode ? 'Chế độ Sáng' : 'Chế độ Tối'}</span>
                           </span>
-                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-muted border border-border/60 text-slate-300">
+                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-muted border border-border/60 text-muted-foreground">
                             {isDarkMode ? 'Sáng' : 'Tối'}
                           </span>
                         </button>
@@ -877,7 +877,7 @@ export const Header: React.FC<HeaderProps> = ({
                   window.open('https://t.me/webcodegame_vn', '_blank', 'noopener,noreferrer');
                 }
               }}
-              className="p-1.5 sm:p-2 min-w-[32px] min-h-[32px] sm:min-w-[38px] sm:min-h-[38px] flex items-center justify-center rounded-xl transition-all cursor-pointer active:scale-95 shadow-sm shrink-0 relative group bg-card hover:bg-[#229ED9]/15 border border-border/80 hover:border-[#229ED9]/40 text-slate-300 hover:text-[#229ED9]"
+              className="p-1.5 sm:p-2 min-w-[32px] min-h-[32px] sm:min-w-[38px] sm:min-h-[38px] flex items-center justify-center rounded-xl transition-all cursor-pointer active:scale-95 shadow-sm shrink-0 relative group bg-card hover:bg-[#229ED9]/15 border border-border/80 hover:border-[#229ED9]/40 text-muted-foreground hover:text-[#229ED9]"
               title="Cộng đồng Telegram & Bot nhận code riêng"
               aria-label="Cộng đồng Telegram"
             >
@@ -888,7 +888,7 @@ export const Header: React.FC<HeaderProps> = ({
             {onOpenNotificationModal && (
               <button
                 onClick={onOpenNotificationModal}
-                className="p-1.5 sm:p-2 min-w-[32px] min-h-[32px] sm:min-w-[38px] sm:min-h-[38px] flex items-center justify-center rounded-xl bg-card hover:bg-card-hover border border-border/80 hover:border-secondary/40 text-slate-300 hover:text-secondary transition-all cursor-pointer active:scale-95 shadow-sm shrink-0 relative group"
+                className="p-1.5 sm:p-2 min-w-[32px] min-h-[32px] sm:min-w-[38px] sm:min-h-[38px] flex items-center justify-center rounded-xl bg-card hover:bg-card-hover border border-border/80 hover:border-secondary/40 text-muted-foreground hover:text-secondary transition-all cursor-pointer active:scale-95 shadow-sm shrink-0 relative group"
                 title="Đăng ký nhận mã code & sự kiện qua Email"
                 aria-label="Nhận thông báo email"
               >

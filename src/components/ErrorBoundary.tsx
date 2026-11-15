@@ -81,22 +81,22 @@ export class ErrorBoundary extends Component<Props, State> {
   public render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen bg-[#0B0D19] flex items-center justify-center p-4 text-white">
-          <div className="w-full max-w-md rounded-2xl bg-slate-900/90 border border-slate-800 p-6 sm:p-8 text-center shadow-2xl backdrop-blur-xl">
+        <div className="min-h-screen bg-background flex items-center justify-center p-4 text-foreground">
+          <div className="w-full max-w-md rounded-2xl bg-card border border-border p-6 sm:p-8 text-center shadow-2xl backdrop-blur-xl">
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-rose-500/10 text-rose-400 border border-rose-500/20">
               <AlertTriangle className="h-8 w-8" />
             </div>
 
-            <h2 className="mt-5 text-lg sm:text-xl font-bold font-heading text-white">
+            <h2 className="mt-5 text-lg sm:text-xl font-bold font-heading text-foreground">
               {this.props.fallbackTitle || 'Đã có sự cố hiển thị nhỏ xảy ra'}
             </h2>
 
-            <p className="mt-2 text-xs sm:text-sm text-slate-400 leading-relaxed">
+            <p className="mt-2 text-xs sm:text-sm text-muted-foreground leading-relaxed">
               Hệ thống đã tự động ngăn ngừa màn hình đen và bảo vệ trạng thái an toàn cho bạn.
             </p>
 
             {this.state.error?.message && (
-              <div className="mt-4 p-3 rounded-xl bg-slate-950/60 border border-slate-800/80 text-[11px] font-mono text-slate-400 text-left max-h-24 overflow-y-auto break-all">
+              <div className="mt-4 p-3 rounded-xl bg-muted/60 border border-border text-[11px] font-mono text-muted-foreground text-left max-h-24 overflow-y-auto break-all">
                 {this.state.error.message}
               </div>
             )}
