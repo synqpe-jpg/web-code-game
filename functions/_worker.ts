@@ -1848,6 +1848,8 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
       if ((request.method === 'GET' || request.method === 'HEAD') && (
         pathname.startsWith('/game/') ||
         pathname.startsWith('/g/') ||
+        pathname.startsWith('/test1/game/') ||
+        pathname.startsWith('/test1/g/') ||
         pathname === '/news' ||
         pathname.startsWith('/news/') ||
         pathname.startsWith('/giveaways/') ||
@@ -2626,8 +2628,17 @@ async function renderSeoHtml(
     }
   };
 
-  if (pathname.startsWith('/game/') || pathname.startsWith('/g/')) {
-    let slug = pathname.replace(/^\/(?:game|g)\//i, '').replace(/\/$/, '').trim().toLowerCase();
+  if (
+    pathname.startsWith('/game/') ||
+    pathname.startsWith('/g/') ||
+    pathname.startsWith('/test1/game/') ||
+    pathname.startsWith('/test1/g/')
+  ) {
+    let slug = pathname
+      .replace(/^\/(?:test1\/)?(?:game|g)\//i, '')
+      .replace(/\/$/, '')
+      .trim()
+      .toLowerCase();
     if (slug === 'doors') slug = 'doors-roblox';
     const cleanWithoutMobile = slug.replace(/-mobile$/i, '');
     let game: any = null;

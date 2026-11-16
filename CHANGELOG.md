@@ -7,6 +7,36 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-16]
 
+### 402. Sửa Dứt Điểm 5 Điểm Tồn Tại Trên /test1: Deep Link TDZ Route Game Detail, Tương Phản Thẻ Sự Kiện, 3 Bản Ghi Where Winds Meet A-Z, Kích Hoạt Vòng Quay Xu & Chuẩn Hóa Tiêu Đề Giveaway (16/11/2026)
+- **Bối cảnh & Yêu cầu của Chủ sở hữu**:
+  - Sau build `dbf2159` khắc phục sập trang chủ `/test1`, kiểm tra thực tế bằng trình duyệt thật ghi nhận 5 điểm chưa xong:
+    1. *Việc 1 (Nghiêm trọng nhất)*: Deep link `/test1/game/:slug` (như `/test1/game/genshin-impact`) lần 1 bị sập error boundary "Cannot access 'M' before initialization", lần 2 không lỗi nhưng tự trả về `/test1` không mở modal. Yêu cầu: sửa triệt để TDZ trên route game detail, modal phải mở được, cấm tự chuyển về trang chủ, cấm tắt error boundary.
+    2. *Việc 2*: Tiêu đề thẻ Sự Kiện và tên game đầu thẻ bị xám/trắng trên nền trắng ở theme Shopee Trắng.
+    3. *Việc 3*: Where Winds Meet xuất hiện 3 lần trong A–Z (mục W Mobile, mục W PC, mục Y Yến Vân Thập Lục Thanh). Yêu cầu đối soát CSDL `games188.json` và phân biệt rõ ràng.
+    4. *Việc 4*: Nút "Vòng Quay Xu" (trong hàng 8 nút nhanh) chỉ đổi hero slide 2 mà không mở modal vòng quay `GrowthCenterModal`.
+    5. *Việc 5*: Giveaway trang 2 có tiêu đề chỉ 1 ký tự ("e", "f", "LQ").
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Deep Link & TDZ Game Detail*: Trong `GameDetailModal.tsx`, biến `currentGame` (`useMemo`) được khai báo ở dòng 480 trong khi các hàm handler (`handleReportCode`, `handleSubmitComment`, `handleToggleFollow`, `handleTelegramFollowClick`) truy cập `currentGame` ở dòng 160, 270, 336, 377; khi minified sinh ra TDZ ReferenceError. Đồng thời `App.tsx` chưa hỗ trợ route `/test1/game/:slug` trong `parseHash` và `handlePopState`, tự động gọi `setSelectedGame(null)` và đè URL về `/test1`. Ngoài ra `functions/_worker.ts` chưa map route `/test1/game/:slug` vào `renderSeoHtml`.
+  2. *Tương phản Thẻ Sự Kiện*: `GameEventsList.tsx` áp dụng `text-foreground` cho tên game và tiêu đề sự kiện; trên theme Shopee Trắng biến này kế thừa màu sáng/trắng dẫn đến chữ trắng trên nền trắng.
+  3. *Where Winds Meet 3 lần*: CSDL `games188.json` chứa 3 bản ghi riêng biệt: `where-winds-meet-mobile` (Bản Mobile Quốc Tế NetEase, 565 mã), `where-winds-meet` (Bản PC Quốc Tế Everstone, 22 mã) và `yen-van-thap-luc-thanh` (Bản VN Funtap Games có GP G1, 579 mã). Tên hiển thị trước đó bị nối chuỗi lặp lại danh xưng.
+  4. *Nút Vòng Quay Xu*: `GrowthCenterModal.tsx` bọc điều kiện `if (!isOpen || !config.isEnabled) return null;` khiến modal bị đóng băng nếu cấu hình tắt; đồng thời nút chỉ gán handler mà chưa kích hoạt mở modal kết hợp đồng thời với hero slide.
+  5. *Tiêu đề Giveaway 1 ký tự*: Bộ lọc trong `ShopeeTestView.tsx` chỉ kiểm tra chuỗi số `/^[0-9]+$/` và rỗng, bỏ lọt các tiêu đề siêu ngắn độ dài <= 3 ký tự ("e", "f", "LQ").
+- **Giải pháp áp dụng (Solution)**:
+  1. *Khắc phục Deep Link & TDZ*:
+     - Di chuyển khai báo `isExpired` và `currentGame` lên đầu `GameDetailModal.tsx` ngay sau các state ban đầu, triệt tiêu hoàn toàn TDZ.
+     - Bổ sung routing `/test1/game/:slug` và `/test1/g/:slug` vào `parseHash` và `handlePopState` trong `App.tsx`; đồng bộ URL 2 chiều khi mở modal và phục hồi về `/test1` khi đóng modal.
+     - Cập nhật `functions/_worker.ts` phục vụ route `/test1/game/:slug` qua `renderSeoHtml` trả về HTTP 200 kèm meta đầy đủ.
+  2. *Tối ưu Tương Phản Thẻ Sự Kiện*: Đổi class tên game và tiêu đề sự kiện sang `text-slate-900 dark:text-white font-black`, tương phản sắc nét trên theme Shopee Trắng.
+  3. *Chuẩn Hóa Danh Xưng Where Winds Meet*: Định danh rõ ràng 3 bản ghi độc lập trong `getGameDisplayName()`: `Where Winds Meet (Bản Mobile Quốc Tế)`, `Where Winds Meet (Bản PC Quốc Tế)`, `Yến Vân Thập Lục Thanh (Bản Phát Hành VN)`.
+  4. *Kích Hoạt Vòng Quay Xu*: Gỡ bỏ điều kiện chặn `!config.isEnabled` trong `GrowthCenterModal.tsx`; gán handler cả nút 8 dịch vụ nhanh và nút "Quay Thưởng Ngay →" trên Slide 2 mở trực tiếp `GrowthCenterModal`.
+  5. *Chuẩn Hóa Tiêu Đề Giveaway*: Áp dụng bộ lọc `isInvalidTitle = !gw.title || gw.title.trim().length <= 3 || /^[0-9]+$/.test(gw.title.trim())`, tự động tạo tiêu đề chuẩn `Săn Quà Tặng Giftcode <Tên Game>` cho tất cả 43 sự kiện.
+- **Kết quả nghiệm thu**:
+  - Build Vite & Prerender 593 game thành công 100%.
+  - Zero test artifacts PASSED 100%.
+  - Triển khai Cloudflare Pages và đồng bộ GitHub main.
+
+---
+
 ### 401. Hotfix Lỗi Khởi Tạo Biến Trước Khi Khai Báo (TDZ) Gây Crash Error Boundary Trên /test1 (16/11/2026)
 - **Bối cảnh & Yêu cầu của Chủ sở hữu**:
   - Người dùng truy cập `codegame.shop/test1` nhận thông báo lỗi: `Đã có sự cố hiển thị nhỏ xảy ra... Cannot access 'M' before initialization`.

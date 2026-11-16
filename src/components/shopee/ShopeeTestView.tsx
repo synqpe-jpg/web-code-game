@@ -346,9 +346,9 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
   // Định danh chuẩn mực chống trùng tên trên cùng 1 bảng A-Z
   const getGameDisplayName = (g: GameItem) => {
     const slug = g.slug || '';
-    if (slug === 'where-winds-meet-mobile') return `${g.name} (Bản Mobile)`;
-    if (slug === 'where-winds-meet') return `${g.name} (Bản PC)`;
-    if (slug === 'yen-van-thap-luc-thanh') return `${g.name} (Yến Vân Thập Lục Thanh)`;
+    if (slug === 'where-winds-meet-mobile') return 'Where Winds Meet (Bản Mobile Quốc Tế)';
+    if (slug === 'where-winds-meet') return 'Where Winds Meet (Bản PC Quốc Tế)';
+    if (slug === 'yen-van-thap-luc-thanh') return 'Yến Vân Thập Lục Thanh (Bản Phát Hành VN)';
     if (slug === 'dau-truong-chan-ly-mobile') return `${g.name} (TFT Mobile VN)`;
     if (slug === 'dau-truong-chan-ly') return `${g.name} (TFT PC)`;
     if (slug === 'ta-la-hac-ngo-khong-vplay') return `${g.name} (VPlay)`;
@@ -1562,7 +1562,10 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
                   )}
                   {heroSlide === 1 && (
                     <button 
-                      onClick={() => onOpenGrowth ? onOpenGrowth() : onShowToast('Mở Vòng Quay Xu May Mắn', 'info')}
+                      onClick={() => {
+                        if (onOpenGrowth) onOpenGrowth();
+                        else onShowToast('Mở Vòng Quay Xu May Mắn', 'info');
+                      }}
                       className="bg-white text-[#ee4d2d] font-bold px-4 sm:px-5 py-2 rounded shadow-md hover:bg-amber-50 text-xs transition cursor-pointer"
                     >
                       Quay Thưởng Ngay →
@@ -1676,7 +1679,14 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
                   <span className="text-[11px] font-medium mt-2 leading-tight">Nạp VietQR</span>
                 </button>
 
-                <button onClick={onOpenGrowth} className="group flex flex-col items-center cursor-pointer">
+                <button
+                  onClick={() => {
+                    setHeroSlide(1);
+                    if (onOpenGrowth) onOpenGrowth();
+                    else onShowToast('Mở Vòng Quay Xu May Mắn', 'info');
+                  }}
+                  className="group flex flex-col items-center cursor-pointer"
+                >
                   <div className="w-11 h-11 rounded-2xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-xl group-hover:-translate-y-1 transition duration-200 shadow-sm text-purple-500">
                     🎡
                   </div>
@@ -2048,9 +2058,10 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
 
                 {/* 3. RENDER SỰ KIỆN GIVEAWAY */}
                 {(selectedProductType === 'all' || selectedProductType === 'giveaway') && paginatedGiveaways.map((gw) => {
-                  const gwDisplayTitle = (!gw.title || /^[0-9]+$/.test(gw.title.trim()))
+                  const isInvalidTitle = !gw.title || gw.title.trim().length <= 3 || /^[0-9]+$/.test(gw.title.trim());
+                  const gwDisplayTitle = isInvalidTitle
                     ? `Săn Quà Tặng Giftcode ${gw.game_name || 'Đặc Biệt'}`
-                    : gw.title;
+                    : gw.title.trim();
 
                   return (
                     <div

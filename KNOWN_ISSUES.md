@@ -10,6 +10,22 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-285: Bẫy Temporal Dead Zone (TDZ) Trên Route Chi Tiết Game Khi Component Truy Cập Biến useMemo Trước Dòng Khởi Tạo & Bẫy Deep Link Bị Reset URL Về Trang Chủ
+- **Triệu chứng & Rủi ro**:
+  1. *Lỗi ReferenceError minified*: Deep link `/test1/game/:slug` (hoặc mở modal chi tiết game) lần đầu bị sập error boundary với mã lỗi: `Cannot access 'M' before initialization`.
+  2. *Mất liên kết deep link*: Trình duyệt tự động chuyển hướng / replaceState về trang chủ `/test1`, gạt bỏ slug game khỏi thanh địa chỉ và không mở modal chi tiết game.
+  3. *Chữ trắng trên nền trắng ở theme sáng*: Sử dụng biến CSS trừu tượng (`text-foreground`) khiến các thẻ sự kiện bị hiển thị màu trắng trên nền thẻ trắng.
+- **Nguyên nhân gốc rễ**:
+  1. Biến `currentGame` trong `GameDetailModal.tsx` được khai báo bằng `useMemo` ở dòng 480, nhưng các hàm handler và effects ở các dòng 160, 270, 336, 377 đã tham chiếu tới `currentGame.slug`. Khi build production và minify, công cụ đóng gói (Rollup/Vite) đặt biến trong cùng một lexical block nhưng chưa gán giá trị, gây TDZ lúc mount.
+  2. `App.tsx` chưa định tuyến riêng cho `/test1/game/:slug` mà gộp chung vào nhánh `pathname.startsWith('/test1/')`, gọi `setSelectedGame(null)` và tự động `replaceState(null, '', '/test1')`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Khai báo `currentGame` và các hàm phụ trợ ngay đầu component `GameDetailModal.tsx` trước tất cả các handler và effects.
+  2. Định tuyến độc lập cho `/test1/game/:slug` trong `parseHash` và `handlePopState`, tự động nạp fallback và fetch D1; đồng bộ URL `/test1/game/:slug` hai chiều và khôi phục về `/test1` khi đóng modal.
+  3. Chỉ định tường minh `text-slate-900 dark:text-white font-black` cho tiêu đề và tên game trong `GameEventsList.tsx`.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không đặt khai báo `currentGame` ở cuối component sau các hàm xử lý sự kiện.*
+  - ❌ *Không chuyển hướng người dùng về trang chủ để né lỗi deep link.*
+
 ### ISSUE-284: Bẫy Khởi Tạo Biến Trước Khi Khai Báo (TDZ - Temporal Dead Zone) Trong React Hook Dependencies Gây Crash Production Error Boundary
 - **Triệu chứng & Rủi ro**:
   1. *Crash runtime với mã lỗi minified*: Trang `/test1` văng Error Boundary kèm lỗi: `Cannot access 'M' before initialization`.

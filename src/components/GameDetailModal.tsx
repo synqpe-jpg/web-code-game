@@ -94,6 +94,29 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
   const [isReportingCode, setIsReportingCode] = useState<Record<string, boolean>>({});
   const [isLoadingCodes, setIsLoadingCodes] = useState<boolean>(() => !Boolean(game?.codes && game.codes.length > 0 && (game as any).codes_pool_complete));
 
+  const isExpired = (c: GiftCode) => isCodeExpired(c);
+
+  // Ensure currentGame is declared early at top of component to prevent TDZ ReferenceError
+  const currentGame = React.useMemo(() => {
+    if (!game) return null;
+    const base = liveGame && (liveGame.slug === game.slug || liveGame.id === game.id) ? liveGame : game;
+    const baseCodes = base.codes || [];
+    const propCodes = game.codes || [];
+    // Prioritize authoritative server detail codes, fallback to prop codes if base is empty
+    const bestCodes = baseCodes.length > 0 ? baseCodes : propCodes;
+    const activeBestCodes = bestCodes.filter((c) => !isExpired(c));
+    return {
+      ...game,
+      ...base,
+      codes: bestCodes,
+      codes_count: activeBestCodes.length,
+      active_codes_count: activeBestCodes.length,
+      expired_codes_count: bestCodes.length - activeBestCodes.length,
+      total_codes_count: bestCodes.length,
+      icon_url: base.icon_url || game.icon_url || `/game_icons/${game.slug}.webp`,
+    };
+  }, [game, liveGame]);
+
   // --- Feature 2: Bình Luận & Đánh Giá Game ---
   interface GameCommentItem {
     id: string;
@@ -473,29 +496,6 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
-
-  const isExpired = (c: GiftCode) => isCodeExpired(c);
-
-  // Ensure currentGame is strictly null if game is null or closed, and always preserve highest code count and safe icon
-  const currentGame = React.useMemo(() => {
-    if (!game) return null;
-    const base = liveGame && (liveGame.slug === game.slug || liveGame.id === game.id) ? liveGame : game;
-    const baseCodes = base.codes || [];
-    const propCodes = game.codes || [];
-    // Prioritize authoritative server detail codes, fallback to prop codes if base is empty
-    const bestCodes = baseCodes.length > 0 ? baseCodes : propCodes;
-    const activeBestCodes = bestCodes.filter((c) => !isExpired(c));
-    return {
-      ...game,
-      ...base,
-      codes: bestCodes,
-      codes_count: activeBestCodes.length,
-      active_codes_count: activeBestCodes.length,
-      expired_codes_count: bestCodes.length - activeBestCodes.length,
-      total_codes_count: bestCodes.length,
-      icon_url: base.icon_url || game.icon_url || `/game_icons/${game.slug}.webp`,
-    };
-  }, [game, liveGame]);
 
   useEffect(() => {
     if (!currentGame || !currentGame.codes) return;

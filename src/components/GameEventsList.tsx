@@ -346,7 +346,7 @@ export const GameEventsList: React.FC<GameEventsListProps> = ({
           <div className="w-14 h-14 rounded-full bg-muted/60 flex items-center justify-center mx-auto text-muted-foreground">
             <Zap className="w-7 h-7" />
           </div>
-          <h3 className="text-base font-bold text-foreground">Không tìm thấy sự kiện phù hợp</h3>
+          <h3 className="text-base font-bold text-slate-900 dark:text-white">Không tìm thấy sự kiện phù hợp</h3>
           <p className="text-xs text-muted-foreground max-w-md mx-auto">
             Thử thay đổi bộ lọc trạng thái thời gian hoặc tìm kiếm bằng tên tựa game khác.
           </p>
@@ -387,7 +387,7 @@ export const GameEventsList: React.FC<GameEventsListProps> = ({
                         }}
                       />
                       <div className="min-w-0">
-                        <span className="text-xs font-black text-foreground group-hover:text-primary transition-colors truncate block">
+                        <span className="text-xs font-black text-slate-900 dark:text-white group-hover:text-primary transition-colors truncate block">
                           {event.game_name}
                         </span>
                         <div className="mt-0.5">{renderSourceBadge(event.source_type, event.source_name)}</div>
@@ -399,7 +399,7 @@ export const GameEventsList: React.FC<GameEventsListProps> = ({
                   </div>
 
                   {/* Event Title */}
-                  <h3 className="text-sm sm:text-base font-black text-foreground line-clamp-2 leading-snug">
+                  <h3 className="text-sm sm:text-base font-black text-slate-900 dark:text-white line-clamp-2 leading-snug">
                     {event.title}
                   </h3>
 
@@ -480,7 +480,7 @@ export const GameEventsList: React.FC<GameEventsListProps> = ({
                     href={event.source_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-muted hover:bg-muted/80 text-foreground border border-border text-xs font-bold transition-all active:scale-95 cursor-pointer truncate"
+                    className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-muted hover:bg-muted/80 text-slate-900 dark:text-slate-100 border border-border text-xs font-bold transition-all active:scale-95 cursor-pointer truncate"
                     title={`Mở bài đăng sự kiện chính thức tại ${event.source_name}`}
                   >
                     <ExternalLink className="w-3.5 h-3.5 text-muted-foreground shrink-0" />

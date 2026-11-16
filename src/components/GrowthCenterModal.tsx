@@ -160,7 +160,7 @@ export const GrowthCenterModal: React.FC<GrowthCenterModalProps> = ({
     }
   }, [config.slices, activeTab]);
 
-  if (!isOpen || !config.isEnabled || typeof document === 'undefined') return null;
+  if (!isOpen || typeof document === 'undefined') return null;
 
   const currentUserId = currentUser?.id || 'guest_user';
   const siteUrl = typeof window !== 'undefined' ? window.location.origin : 'https://codegame.shop';

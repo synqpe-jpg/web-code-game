@@ -708,6 +708,21 @@ export const App: React.FC = () => {
           setCurrentStoreSlug(sSlug);
           setCurrentTab('store-detail');
           return;
+        } else if (pathname.startsWith('/test1/game/') || pathname.startsWith('/test1/g/')) {
+          const pathSlug = window.location.pathname.replace(/^\/test1\/(?:game|g)\//i, '').replace(/\/$/, '').trim();
+          setCurrentTab('shopee-test');
+          if (pathSlug) {
+            const localFallback = (dataService.getGames() || []).find((g) => (g.slug || g.id) === pathSlug);
+            if (localFallback) {
+              setSelectedGame(localFallback);
+            }
+            dataService.getGameBySlug(pathSlug, false).then((freshGame) => {
+              if (freshGame) {
+                setSelectedGame(freshGame);
+              }
+            });
+          }
+          return;
         } else if (pathname === '/test1' || pathname.startsWith('/test1/') || hashLower.includes('test1')) {
           setSelectedGame(null);
           setCurrentTab('shopee-test');
@@ -814,16 +829,24 @@ export const App: React.FC = () => {
       const codeCount = isWwm ? 584 : (selectedGame.codes_count || selectedGame.active_codes_count || selectedGame.codes?.length || 0);
       const countSuffix = codeCount > 0 ? `Nhận ${codeCount} Mã Code ` : '';
       document.title = `Giftcode ${selectedGame.name || selectedGame.slug} Mới Nhất 2026 - ${countSuffix}| CodeGame.shop`;
-      const inTest1 = typeof window !== 'undefined' && window.location.pathname.startsWith('/test1');
-      if (!inTest1 && window.location.pathname !== `/game/${selectedGame.slug}`) {
+      const inTest1 = currentTab === 'shopee-test' || (typeof window !== 'undefined' && window.location.pathname.startsWith('/test1'));
+      if (inTest1) {
+        if (window.location.pathname !== `/test1/game/${selectedGame.slug}`) {
+          window.history.replaceState(null, '', `/test1/game/${selectedGame.slug}`);
+        }
+      } else if (window.location.pathname !== `/game/${selectedGame.slug}`) {
         window.history.replaceState(null, '', `/game/${selectedGame.slug}`);
       }
     } else {
       // Do not wipe pathname if initial deep-link routing is still parsing
       if (!isInitialLoadDone) return;
 
-      const inTest1 = typeof window !== 'undefined' && window.location.pathname.startsWith('/test1');
-      if (!inTest1 && (window.location.pathname.startsWith('/game/') || window.location.pathname.startsWith('/g/'))) {
+      const inTest1 = currentTab === 'shopee-test' || (typeof window !== 'undefined' && window.location.pathname.startsWith('/test1'));
+      if (inTest1) {
+        if (window.location.pathname !== '/test1' || window.location.hash) {
+          window.history.replaceState(null, '', '/test1');
+        }
+      } else if (window.location.pathname.startsWith('/game/') || window.location.pathname.startsWith('/g/')) {
         window.history.replaceState(null, '', '/');
       }
 
@@ -1072,6 +1095,20 @@ export const App: React.FC = () => {
         const sSlug = window.location.pathname.replace(/^\/gian-hang\//i, '').replace(/\/$/, '').trim();
         setCurrentStoreSlug(sSlug);
         setCurrentTab('store-detail');
+      } else if (path.startsWith('/test1/game/') || path.startsWith('/test1/g/')) {
+        const pathSlug = window.location.pathname.replace(/^\/test1\/(?:game|g)\//i, '').replace(/\/$/, '').trim();
+        setCurrentTab('shopee-test');
+        if (pathSlug) {
+          const localFallback = (dataService.getGames() || []).find((g) => (g.slug || g.id) === pathSlug);
+          if (localFallback) {
+            setSelectedGame(localFallback);
+          }
+          dataService.getGameBySlug(pathSlug, false).then((freshGame) => {
+            if (freshGame) {
+              setSelectedGame(freshGame);
+            }
+          });
+        }
       } else if (path === '/test1' || path.startsWith('/test1/') || hash.includes('test1')) {
         setSelectedGame(null);
         setCurrentTab('shopee-test');
@@ -2069,8 +2106,10 @@ export const App: React.FC = () => {
             game={selectedGame}
             onClose={() => {
               setSelectedGame(null);
-              const inTest1 = typeof window !== 'undefined' && window.location.pathname.startsWith('/test1');
-              if (!inTest1 && typeof window !== 'undefined' && window.location.pathname.startsWith('/game/')) {
+              const inTest1 = currentTab === 'shopee-test' || (typeof window !== 'undefined' && window.location.pathname.startsWith('/test1'));
+              if (inTest1) {
+                window.history.replaceState(null, '', '/test1');
+              } else if (typeof window !== 'undefined' && (window.location.pathname.startsWith('/game/') || window.location.pathname.startsWith('/g/'))) {
                 window.history.replaceState(null, '', '/');
               }
             }}
