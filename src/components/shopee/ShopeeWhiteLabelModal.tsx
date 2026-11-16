@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Sparkles, X, Check, Rocket, ShieldCheck, CreditCard, Send, ShoppingBag, Coins, Palette, Save } from 'lucide-react';
+import { Sparkles, X, Check, Rocket, ShieldCheck, CreditCard, Send, ShoppingBag, Coins, Palette, Save, Layers } from 'lucide-react';
 import { dataService } from '../../services/dataService';
+import { INDUSTRY_PRESETS_LIST, getIndustryPreset, getDefaultCategoriesConfig } from '../../data/industryPresets';
 
 interface ShopeeWhiteLabelModalProps {
   isOpen: boolean;
@@ -11,6 +12,7 @@ interface ShopeeWhiteLabelModalProps {
     hotline: string;
     currencyMode?: 'VND' | 'CORE';
     themeAccent?: string;
+    presetId?: string;
   };
   onApplyPreviewSettings?: (settings: {
     shopName: string;
@@ -18,6 +20,7 @@ interface ShopeeWhiteLabelModalProps {
     hotline: string;
     currencyMode?: 'VND' | 'CORE';
     themeAccent?: string;
+    presetId?: string;
   }) => void;
   onShowToast: (msg: string, type?: 'success' | 'error' | 'info' | 'warning') => void;
 }
@@ -29,6 +32,7 @@ export const ShopeeWhiteLabelModal: React.FC<ShopeeWhiteLabelModalProps> = ({
   onApplyPreviewSettings,
   onShowToast
 }) => {
+  const [selectedPreset, setSelectedPreset] = useState<string>(initialSettings?.presetId || 'gaming');
   const [shopName, setShopName] = useState(initialSettings?.shopName || 'Shop Thời Trang & Phụ Kiện Nam');
   const [shopSlogan, setShopSlogan] = useState(initialSettings?.shopSlogan || 'Sàn Mua Sắm Tiện Ích & Uy Tín #1');
   const [bankAccount, setBankAccount] = useState('19036789999 - Techcombank (NGUYEN VAN NAM)');
@@ -45,17 +49,35 @@ export const ShopeeWhiteLabelModal: React.FC<ShopeeWhiteLabelModalProps> = ({
       if (initialSettings.hotline) setHotline(initialSettings.hotline);
       if (initialSettings.currencyMode) setCurrencyMode(initialSettings.currencyMode);
       if (initialSettings.themeAccent) setThemeAccent(initialSettings.themeAccent);
+      if (initialSettings.presetId) setSelectedPreset(initialSettings.presetId);
     }
   }, [initialSettings, isOpen]);
 
   if (!isOpen) return null;
 
+  const handleSelectPresetInModal = (presetId: string) => {
+    setSelectedPreset(presetId);
+    const p = getIndustryPreset(presetId);
+    setShopName(p.defaultShopName);
+    setShopSlogan(p.defaultSlogan);
+    setHotline(p.defaultHotline);
+    setCurrencyMode(p.defaultCurrency);
+    setThemeAccent(p.defaultAccent);
+  };
+
   const handleApplyPreview = (e: React.FormEvent) => {
     e.preventDefault();
     if (onApplyPreviewSettings) {
-      onApplyPreviewSettings({ shopName, shopSlogan, hotline, currencyMode, themeAccent });
+      onApplyPreviewSettings({
+        shopName,
+        shopSlogan,
+        hotline,
+        currencyMode,
+        themeAccent,
+        presetId: selectedPreset,
+      });
     }
-    onShowToast(`Đã áp dụng xem trước thương hiệu "${shopName}" trên sàn!`, 'success');
+    onShowToast(`Đã áp dụng xem trước ngành hàng & thương hiệu "${shopName}"!`, 'success');
   };
 
   const handleSaveToSystem = async () => {
@@ -76,10 +98,22 @@ export const ShopeeWhiteLabelModal: React.FC<ShopeeWhiteLabelModalProps> = ({
           themeAccent,
         },
       });
+
+      // Lưu cấu hình danh mục ngành hàng theo preset đã chọn
+      const catConfig = getDefaultCategoriesConfig(selectedPreset);
+      dataService.saveProductCategoriesConfig(catConfig);
+
       if (onApplyPreviewSettings) {
-        onApplyPreviewSettings({ shopName, shopSlogan, hotline, currencyMode, themeAccent });
+        onApplyPreviewSettings({
+          shopName,
+          shopSlogan,
+          hotline,
+          currencyMode,
+          themeAccent,
+          presetId: selectedPreset,
+        });
       }
-      onShowToast(`Đã lưu thành công thương hiệu "${shopName}" vào hệ thống D1!`, 'success');
+      onShowToast(`Đã lưu thành công thương hiệu & danh mục ngành hàng vào hệ thống D1!`, 'success');
       onClose();
     } catch (e: any) {
       onShowToast('Lỗi lưu cấu hình: ' + (e?.message || ''), 'error');
@@ -123,6 +157,40 @@ export const ShopeeWhiteLabelModal: React.FC<ShopeeWhiteLabelModalProps> = ({
             <p className="text-xs text-slate-600 dark:text-slate-400">
               Nhập tên shop và thông tin của bạn vào ô dưới, hệ thống sẽ tự động cập nhật thương hiệu của bạn lên toàn bộ giao diện sàn:
             </p>
+
+            {/* 1-Click Industry Preset Switcher */}
+            <div className="space-y-1.5 pb-2 border-b border-orange-200/60 dark:border-orange-900/40">
+              <label className="font-semibold block text-slate-800 dark:text-slate-200 flex items-center justify-between text-xs">
+                <span className="flex items-center gap-1.5">
+                  <Layers className="w-4 h-4 text-indigo-500" />
+                  <span>Chọn Nhanh Mẫu Ngành Hàng (1-Click Demo Presets):</span>
+                </span>
+                <span className="text-[10px] text-slate-500 font-mono">
+                  {INDUSTRY_PRESETS[selectedPreset]?.name || 'Game'}
+                </span>
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                {INDUSTRY_PRESETS_LIST.map((preset) => {
+                  const isSel = selectedPreset === preset.id;
+                  return (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => handleSelectPresetInModal(preset.id)}
+                      className={`p-2 rounded-xl border text-center transition cursor-pointer flex flex-col items-center justify-between ${
+                        isSel
+                          ? 'border-[#ee4d2d] bg-orange-100/60 dark:bg-orange-950/60 ring-2 ring-orange-400 font-bold text-[#ee4d2d]'
+                          : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50'
+                      }`}
+                    >
+                      <span className="text-xl">{preset.icon}</span>
+                      <span className="text-[10px] leading-tight truncate w-full mt-1 font-bold">{preset.name}</span>
+                      <span className="text-[9px] text-slate-400 mt-0.5">{preset.categories.length} mục</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
             <form onSubmit={handleApplyPreview} className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
               <div>

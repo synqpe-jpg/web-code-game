@@ -11,8 +11,11 @@ import type {
   UtilityCategory,
   StoreCategory,
   UpcomingGame,
+  ProductCategoriesConfig,
+  ProductCategoryItem,
 } from '../types/game';
 import { DEFAULT_UPCOMING_GAMES } from '../types/game';
+import { getDefaultCategoriesConfig, INDUSTRY_PRESETS } from '../data/industryPresets';
 import { getUpcomingGameIconUrl } from '../utils/upcomingGameIconUtils';
 import { calculateEffectiveOrder } from '../utils/upcomingGameGrowthUtils';
 import { smartVietnameseMatch, calculateGameSearchScore, matchGameSearch } from '../utils/textUtils';
@@ -4035,6 +4038,58 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
       mode: 'classic',
       pageSize: 24,
     };
+  }
+
+  // Universal Product Categories Configuration (Đa Ngành Hàng)
+  getProductCategoriesConfig(): ProductCategoriesConfig {
+    try {
+      if (typeof window !== 'undefined') {
+        // 1. Kiểm tra trực tiếp key wcg_admin_categories_config
+        const saved = localStorage.getItem('wcg_admin_categories_config');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed && Array.isArray(parsed.categories) && parsed.categories.length > 0) {
+            return {
+              activePresetId: parsed.activePresetId || 'gaming',
+              categories: parsed.categories,
+              searchSuggestions: Array.isArray(parsed.searchSuggestions) ? parsed.searchSuggestions : [],
+              footerCategoryTitle: parsed.footerCategoryTitle || 'Chuyên Mục Hàng Đầu',
+              headerCategoryTitle: parsed.headerCategoryTitle || 'Tất Cả Danh Mục',
+            };
+          }
+        }
+
+        // 2. Fallback kiểm tra trong wcg_admin_content_v4 nếu được lưu dạng ContentItem
+        const contentSaved = localStorage.getItem('wcg_admin_content_v4');
+        if (contentSaved) {
+          const items = JSON.parse(contentSaved);
+          if (Array.isArray(items)) {
+            const catItem = items.find((i: any) => i.key === 'product_categories_config');
+            if (catItem && catItem.extraData && Array.isArray(catItem.extraData.categories)) {
+              return {
+                activePresetId: catItem.extraData.activePresetId || 'gaming',
+                categories: catItem.extraData.categories,
+                searchSuggestions: Array.isArray(catItem.extraData.searchSuggestions) ? catItem.extraData.searchSuggestions : [],
+                footerCategoryTitle: catItem.extraData.footerCategoryTitle || 'Chuyên Mục Hàng Đầu',
+                headerCategoryTitle: catItem.extraData.headerCategoryTitle || 'Tất Cả Danh Mục',
+              };
+            }
+          }
+        }
+      }
+    } catch {}
+    return getDefaultCategoriesConfig('gaming');
+  }
+
+  saveProductCategoriesConfig(config: ProductCategoriesConfig): void {
+    try {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('wcg_admin_categories_config', JSON.stringify(config));
+        window.dispatchEvent(new CustomEvent('wcg_admin_data_updated', {
+          detail: { key: 'categories_config', config }
+        }));
+      }
+    } catch {}
   }
 
   // Private Codes for logged-in user

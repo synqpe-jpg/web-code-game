@@ -10,6 +10,16 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-293: Thiết Kế Bảng Quản Lý Danh Mục Đa Ngành Không Tràn Ngang & Tự Động Phân Giải Matcher Cho Sản Phẩm Tĩnh
+- **Triệu chứng & Rủi ro**:
+  - Khi người dùng thêm nhiều danh mục với tên dài và danh sách từ khóa lọc phức tạp, bảng quản lý trong Admin có thể bị tràn ngang (horizontal overflow), đẩy cột thao tác Sửa/Xóa ra khỏi màn hình vi phạm Rule 9.
+  - Khi chuyển sang ngành hàng mới (Thời trang, Mỹ phẩm), nếu danh mục dùng hàm match cứng kiểu regex cũ (`/kiếm hiệp/i`) sẽ gây lỗi hoặc không lọc được bất kỳ sản phẩm nào.
+- **Nguyên nhân gốc rễ**:
+  - Cấu trúc `MAIN_GAME_CATEGORIES` cũ dùng hàm `match: (c: string) => /.../` không thể serialize thành JSON để lưu vào CSDL Cloudflare D1.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Lưu danh mục dạng mảng chuỗi `matchKeywords: string[]` (ví dụ `['áo', 'polo', 'thun']`), vừa serialize lưu JSON 100% vào D1, vừa lọc sản phẩm linh hoạt trên cả `name`, `category`, `publisher` và `description`.
+  - Áp dụng nghiêm ngặt Rule 9: thẻ `<table>` sử dụng `table-fixed w-full` và phân chia chính xác tỷ lệ cột `12% / 28% / 22% / 24% / 14%` (tổng 100%), cắt tỉa chuỗi dài bằng `truncate` kèm `title`.
+
 ### ISSUE-292: Thiết Kế Hệ Thống Đa Ngành (White-Label Branding, Dynamic Currency & Themes) Không Phá Vỡ Giao Diện Web Gốc
 - **Triệu chứng & Rủi ro**:
   - Khi mở rộng website sang mô hình thương mại điện tử đa ngành (thời trang, mỹ phẩm, khóa học, phần mềm...), nếu thay đổi cứng tiền tệ hoặc màu sắc sẽ làm hỏng trải nghiệm người dùng web gốc vốn chuyên về game code (`Core`).

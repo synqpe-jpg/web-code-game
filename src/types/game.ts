@@ -243,6 +243,41 @@ export interface StoreCategory {
   isSystem?: boolean;
 }
 
+// Universal Product Category Model (Danh Mục Hàng Hóa Đa Ngành)
+export interface ProductCategoryItem {
+  id: string;
+  label: string;
+  icon: string;
+  description?: string;
+  searchTags?: string[];
+  matchKeywords?: string[];
+  isSystem?: boolean;
+}
+
+export interface ProductCategoriesConfig {
+  activePresetId: string; // 'gaming' | 'fashion' | 'beauty' | 'tech' | 'services' | 'custom'
+  categories: ProductCategoryItem[];
+  searchSuggestions: string[];
+  footerCategoryTitle?: string;
+  headerCategoryTitle?: string;
+}
+
+export interface IndustryPreset {
+  id: string;
+  name: string;
+  icon: string;
+  badge: string;
+  defaultShopName: string;
+  defaultSlogan: string;
+  defaultHotline: string;
+  defaultCurrency: 'VND' | 'CORE';
+  defaultAccent: 'orange' | 'blue' | 'red' | 'green' | 'purple';
+  footerCategoryTitle: string;
+  headerCategoryTitle: string;
+  searchSuggestions: string[];
+  categories: ProductCategoryItem[];
+}
+
 // Order & Received Code
 export interface OrderRecord {
   id: string;

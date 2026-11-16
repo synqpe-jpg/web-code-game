@@ -31,10 +31,16 @@ import {
   Palette,
   Phone,
   ArrowRight,
+  Plus,
+  Edit2,
+  Trash2,
+  Tag,
 } from 'lucide-react';
 import { adminDataService } from '../services/adminDataService';
 import { ImageUploadInput } from '../components/ui/ImageUploadInput';
 import { FloatingNotificationModule } from './FloatingNotificationModule';
+import type { ProductCategoriesConfig, ProductCategoryItem, IndustryPreset } from '../../types/game';
+import { getDefaultCategoriesConfig, INDUSTRY_PRESETS, INDUSTRY_PRESETS_LIST } from '../../data/industryPresets';
 
 interface ContentCMSModuleProps {
   onShowToast: (title: string, desc?: string, type?: 'success' | 'error' | 'info') => void;
@@ -52,6 +58,7 @@ type SectionTab =
   | 'footer'
   | 'legal'
   | 'branding'
+  | 'categories'
   | 'floating';
 
 const isLegacyOrEmpty = (t?: string | null) => {
@@ -166,6 +173,26 @@ export const ContentCMSModule: React.FC<ContentCMSModuleProps> = ({ onShowToast,
   const [privacyContent, setPrivacyContent] = useState(
     '1. Chúng tôi tôn trọng và cam kết bảo vệ thông tin tài khoản và dữ liệu cá nhân của người dùng.\n2. Thông tin số dư và mã giao dịch ví được bảo vệ và lưu trữ mã hóa trên hạ tầng bảo mật Cloudflare Edge Network.\n3. Chúng tôi tuyệt đối không bán hoặc cung cấp thông tin của bạn cho bên thứ ba vì bất kỳ mục đích thương mại nào.'
   );
+
+  // ==========================================
+  // 10. PRODUCT CATEGORIES & INDUSTRY PRESETS STATE
+  // ==========================================
+  const [categoriesConfig, setCategoriesConfig] = useState<ProductCategoriesConfig>(() =>
+    getDefaultCategoriesConfig('gaming')
+  );
+  const [selectedPresetId, setSelectedPresetId] = useState<string>('gaming');
+  const [headerCatTitle, setHeaderCatTitle] = useState('Tất Cả Danh Mục');
+  const [footerCatTitle, setFooterCatTitle] = useState('Chuyên Mục Hàng Đầu');
+  const [searchKeywordsText, setSearchKeywordsText] = useState(
+    'Thẻ Garena, Hiệp Khách Hành, Liên Quân 0đ, Roblox Blox Fruits, Free Fire Kim Cương'
+  );
+  const [editingCategory, setEditingCategory] = useState<ProductCategoryItem | null>(null);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [catFormLabel, setCatFormLabel] = useState('');
+  const [catFormIcon, setCatFormIcon] = useState('📦');
+  const [catFormId, setCatFormId] = useState('');
+  const [catFormDesc, setCatFormDesc] = useState('');
+  const [catFormKeywords, setCatFormKeywords] = useState('');
 
   useEffect(() => {
     loadCMSData();
@@ -355,7 +382,106 @@ export const ContentCMSModule: React.FC<ContentCMSModuleProps> = ({ onShowToast,
       if (privacy.content !== undefined) setPrivacyContent(privacy.content);
     }
 
+    // 10. Product Categories & Industry Presets
+    const catCfg = adminDataService.getProductCategoriesConfig();
+    setCategoriesConfig(catCfg);
+    setSelectedPresetId(catCfg.activePresetId || 'gaming');
+    setHeaderCatTitle(catCfg.headerCategoryTitle || 'Tất Cả Danh Mục');
+    setFooterCatTitle(catCfg.footerCategoryTitle || 'Chuyên Mục Hàng Đầu');
+    setSearchKeywordsText((catCfg.searchSuggestions || []).join(', '));
+
     setIsLoading(false);
+  };
+
+  const handleSelectPreset = (preset: IndustryPreset) => {
+    setSelectedPresetId(preset.id);
+    const newConfig: ProductCategoriesConfig = {
+      activePresetId: preset.id,
+      categories: [...preset.categories],
+      searchSuggestions: [...preset.searchSuggestions],
+      footerCategoryTitle: preset.footerCategoryTitle,
+      headerCategoryTitle: preset.headerCategoryTitle,
+    };
+    setCategoriesConfig(newConfig);
+    setHeaderCatTitle(preset.headerCategoryTitle);
+    setFooterCatTitle(preset.footerCategoryTitle);
+    setSearchKeywordsText(preset.searchSuggestions.join(', '));
+
+    // Tùy chọn đồng bộ gợi ý sang Branding để chuyển đổi nhanh trọn gói
+    if (preset.defaultSlogan) setPortalSubtitle(preset.defaultSlogan);
+    if (preset.defaultHotline) setSupportHotline(preset.defaultHotline);
+    if (preset.defaultCurrency) setCurrencyMode(preset.defaultCurrency);
+    if (preset.defaultAccent) setThemeAccent(preset.defaultAccent);
+
+    onShowToast(
+      `Đã tải mẫu: ${preset.name}`,
+      `Đã chuyển sang ${preset.categories.length} danh mục & 5 từ khóa tìm kiếm. Bấm "Lưu Mục Này" để kích hoạt trên Web Khách.`,
+      'info'
+    );
+  };
+
+  const handleOpenAddCategory = () => {
+    setEditingCategory(null);
+    setCatFormLabel('');
+    setCatFormIcon('📦');
+    setCatFormId(`cat_${Date.now()}`);
+    setCatFormDesc('');
+    setCatFormKeywords('');
+    setIsCategoryModalOpen(true);
+  };
+
+  const handleOpenEditCategory = (cat: ProductCategoryItem) => {
+    setEditingCategory(cat);
+    setCatFormLabel(cat.label);
+    setCatFormIcon(cat.icon);
+    setCatFormId(cat.id);
+    setCatFormDesc(cat.description || '');
+    setCatFormKeywords((cat.matchKeywords || []).join(', '));
+    setIsCategoryModalOpen(true);
+  };
+
+  const handleSaveCategoryModal = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!catFormLabel.trim()) {
+      onShowToast('Lỗi nhập liệu', 'Vui lòng điền tên danh mục.', 'error');
+      return;
+    }
+    const cleanId = catFormId.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '-') || `cat_${Date.now()}`;
+    const keywords = catFormKeywords
+      .split(',')
+      .map((k) => k.trim())
+      .filter(Boolean);
+
+    const newItem: ProductCategoryItem = {
+      id: cleanId,
+      label: catFormLabel.trim(),
+      icon: catFormIcon.trim() || '📦',
+      description: catFormDesc.trim(),
+      matchKeywords: keywords.length > 0 ? keywords : [catFormLabel.trim().toLowerCase()],
+      isSystem: editingCategory ? editingCategory.isSystem : false,
+    };
+
+    let updatedList = [...categoriesConfig.categories];
+    if (editingCategory) {
+      updatedList = updatedList.map((c) => (c.id === editingCategory.id ? newItem : c));
+    } else {
+      updatedList.push(newItem);
+    }
+
+    const updatedConfig = { ...categoriesConfig, categories: updatedList };
+    setCategoriesConfig(updatedConfig);
+    setIsCategoryModalOpen(false);
+    onShowToast('Đã cập nhật', `Danh mục "${newItem.label}" đã được lưu tạm. Bấm "Lưu Mục Này" để đồng bộ lên hệ thống.`, 'success');
+  };
+
+  const handleDeleteCategory = (catId: string) => {
+    if (catId === 'all') {
+      onShowToast('Cảnh báo', 'Không thể xóa danh mục mặc định [Tất cả].', 'error');
+      return;
+    }
+    const updatedList = categoriesConfig.categories.filter((c) => c.id !== catId);
+    setCategoriesConfig({ ...categoriesConfig, categories: updatedList });
+    onShowToast('Đã xóa', `Đã xóa danh mục khỏi danh sách. Bấm "Lưu Mục Này" để đồng bộ.`, 'info');
   };
 
   const handleSaveSingleSection = async (sectionKey: string) => {
@@ -553,6 +679,28 @@ export const ContentCMSModule: React.FC<ContentCMSModuleProps> = ({ onShowToast,
             type: 'PRIVACY',
           });
           break;
+
+        case 'categories': {
+          const suggestions = searchKeywordsText
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean);
+          const finalCfg: ProductCategoriesConfig = {
+            ...categoriesConfig,
+            activePresetId: selectedPresetId,
+            headerCategoryTitle: headerCatTitle.trim() || 'Tất Cả Danh Mục',
+            footerCategoryTitle: footerCatTitle.trim() || 'Chuyên Mục Hàng Đầu',
+            searchSuggestions: suggestions.length > 0 ? suggestions : categoriesConfig.searchSuggestions,
+          };
+          adminDataService.saveProductCategoriesConfig(finalCfg);
+          setCategoriesConfig(finalCfg);
+          onShowToast(
+            'Đã cập nhật Danh mục Ngành hàng!',
+            `Đã lưu ${finalCfg.categories.length} danh mục theo mẫu [${finalCfg.activePresetId}].`,
+            'success'
+          );
+          break;
+        }
       }
 
       await adminDataService.syncToCloudflareKV('wcg_admin_content_v4', adminDataService.getContentItems());
@@ -704,6 +852,21 @@ export const ContentCMSModule: React.FC<ContentCMSModuleProps> = ({ onShowToast,
         type: 'PRIVACY',
       });
 
+      // 10. Product Categories Config
+      const allSuggestions = searchKeywordsText
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const allFinalCfg: ProductCategoriesConfig = {
+        ...categoriesConfig,
+        activePresetId: selectedPresetId,
+        headerCategoryTitle: headerCatTitle.trim() || 'Tất Cả Danh Mục',
+        footerCategoryTitle: footerCatTitle.trim() || 'Chuyên Mục Hàng Đầu',
+        searchSuggestions: allSuggestions.length > 0 ? allSuggestions : categoriesConfig.searchSuggestions,
+      };
+      adminDataService.saveProductCategoriesConfig(allFinalCfg);
+      setCategoriesConfig(allFinalCfg);
+
       await adminDataService.syncToCloudflareKV('wcg_admin_content_v4', adminDataService.getContentItems());
 
       onShowToast(
@@ -730,7 +893,8 @@ export const ContentCMSModule: React.FC<ContentCMSModuleProps> = ({ onShowToast,
     { id: 'footer', label: '7. Chân Trang & Hỗ Trợ', icon: PhoneCall },
     { id: 'legal', label: '8. Điều Khoản & Bảo Mật', icon: FileText },
     { id: 'branding', label: '9. Nhận Diện Thương Hiệu & Bán Web (White-Label)', icon: Sparkles },
-    { id: 'floating', label: '10. Cửa Sổ Thông Báo Nổi (Popup / Banner)', icon: BellRing },
+    { id: 'categories', label: '10. Danh Mục Ngành Hàng (Đa Ngành)', icon: Layers },
+    { id: 'floating', label: '11. Cửa Sổ Thông Báo Nổi (Popup / Banner)', icon: BellRing },
   ];
 
   return (
@@ -2070,6 +2234,37 @@ export const ContentCMSModule: React.FC<ContentCMSModuleProps> = ({ onShowToast,
                   </button>
                 </div>
               </div>
+
+              {/* LIÊN KẾT NHANH SANG TAB 10 DANH MỤC NGÀNH HÀNG */}
+              <div className="pt-3 border-t border-indigo-100 dark:border-indigo-900/50">
+                <div className="p-3.5 rounded-xl bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-950/30 dark:to-indigo-950/30 border border-purple-200/70 dark:border-purple-900/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-purple-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                      <Layers className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                        <span>Cây Danh Mục Hàng Hóa & Ngành Hàng (Tab 10)</span>
+                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-purple-200 text-purple-800 dark:bg-purple-900/60 dark:text-purple-300 font-mono font-bold uppercase">
+                          {selectedPresetId}
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5">
+                        Đang cấu hình <strong>{categoriesConfig.categories.length} danh mục</strong> cho sàn. Chuyển sang Tab 10 để đổi mẫu hoặc thêm/sửa danh mục.
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('categories')}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition cursor-pointer shrink-0"
+                  >
+                    <span>Xem & Đổi Danh Mục</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -2273,6 +2468,231 @@ export const ContentCMSModule: React.FC<ContentCMSModuleProps> = ({ onShowToast,
           </div>
         )}
 
+        {/* ========================================================================= */}
+        {/* 10. DANH MỤC HÀNG HÓA & NGÀNH HÀNG (PRODUCT CATEGORIES & INDUSTRY PRESETS) */}
+        {/* ========================================================================= */}
+        {(activeTab === 'all' || activeTab === 'categories') && (
+          <div className="rounded-2xl border border-indigo-200/80 bg-gradient-to-b from-indigo-50/40 to-white p-5 sm:p-6 dark:border-indigo-900/60 dark:from-indigo-950/20 dark:to-slate-900 shadow-sm space-y-5">
+            {/* Header section */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-indigo-100 dark:border-indigo-900/50 gap-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-md shrink-0">
+                  <Layers className="h-5 w-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <span>10. Danh Mục Ngành Hàng & Từ Khóa Tìm Kiếm (Universal Categories)</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-400 font-mono font-bold">
+                      Đa Ngành
+                    </span>
+                  </h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Cấu hình danh mục hàng hóa linh hoạt phù hợp mọi ngành nghề (Thời trang, Mỹ phẩm, Đồ công nghệ, Khóa học số, Game...).
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleOpenAddCategory}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2 text-xs font-bold transition shadow-sm cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Thêm Danh Mục</span>
+                </button>
+                <button
+                  type="button"
+                  disabled={isSaving}
+                  onClick={() => handleSaveSingleSection('categories')}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 text-xs font-bold transition shadow-sm cursor-pointer disabled:opacity-50"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  <span>Lưu Mục Này</span>
+                </button>
+              </div>
+            </div>
+
+            {/* BLOCK 1: BỘ 5 MẪU NGÀNH HÀNG SẴN CÓ (1-CLICK INDUSTRY PRESETS) */}
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-amber-500" />
+                  <span>Chọn Mẫu Ngành Hàng Sẵn Có (1-Click Chuyển Đổi Sàn):</span>
+                </span>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Đang chọn: <strong className="text-indigo-600 dark:text-indigo-400 font-bold uppercase">{selectedPresetId}</strong>
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+                {INDUSTRY_PRESETS_LIST.map((preset) => {
+                  const isSelected = selectedPresetId === preset.id;
+                  return (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => handleSelectPreset(preset)}
+                      className={`p-3 rounded-xl border text-left transition cursor-pointer flex flex-col justify-between ${
+                        isSelected
+                          ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-950/40 ring-2 ring-indigo-500'
+                          : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800 hover:bg-slate-50'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="text-xl">{preset.icon}</span>
+                          <span className="text-[9px] px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300 font-semibold truncate">
+                            {preset.badge}
+                          </span>
+                        </div>
+                        <div className="font-bold text-xs text-slate-900 dark:text-white mt-1.5 line-clamp-1">
+                          {preset.name}
+                        </div>
+                        <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                          {preset.categories.length} danh mục mẫu
+                        </div>
+                      </div>
+
+                      <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-700/60 text-[10px] font-bold">
+                        {isSelected ? (
+                          <span className="text-indigo-600 dark:text-indigo-400">✓ Đang kích hoạt</span>
+                        ) : (
+                          <span className="text-slate-400">Bấm để tải mẫu</span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* BLOCK 2: TIÊU ĐỀ & TỪ KHÓA TÌM KIẾM GỢI Ý */}
+            <div className="p-4 rounded-xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                    Tiêu Đề Danh Mục (Hiển Thị Tại Header):
+                  </label>
+                  <input
+                    type="text"
+                    value={headerCatTitle}
+                    onChange={(e) => setHeaderCatTitle(e.target.value)}
+                    placeholder="VD: Tất Cả Danh Mục Thời Trang"
+                    className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs font-medium text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                    Tiêu Đề Danh Mục (Hiển Thị Tại Footer Cột 2):
+                  </label>
+                  <input
+                    type="text"
+                    value={footerCatTitle}
+                    onChange={(e) => setFooterCatTitle(e.target.value)}
+                    placeholder="VD: Chuyên Mục Thời Trang Hot"
+                    className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs font-medium text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1 flex items-center justify-between">
+                  <span>Từ Khóa Gợi Ý Dưới Thanh Tìm Kiếm (Cách nhau bằng dấu phẩy):</span>
+                  <span className="text-[10px] text-slate-400">Hiển thị dưới ô tìm kiếm Shopee Header</span>
+                </label>
+                <input
+                  type="text"
+                  value={searchKeywordsText}
+                  onChange={(e) => setSearchKeywordsText(e.target.value)}
+                  placeholder="VD: Áo polo nam, Quần jeans, Váy đầm, Sneaker trắng, Túi xách da"
+                  className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs font-medium text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                />
+              </div>
+            </div>
+
+            {/* BLOCK 3: BẢNG QUẢN LÝ DANH MỤC (SINGLE-SCREEN FIRST, RULE 9) */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                  <Tag className="w-4 h-4 text-indigo-500" />
+                  <span>Danh Sách Cây Danh Mục Hàng Hóa ({categoriesConfig.categories.length}):</span>
+                </span>
+                <span className="text-[10px] text-slate-400">
+                  Hiển thị thành thanh biểu tượng danh mục trên trang chủ
+                </span>
+              </div>
+
+              <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+                <table className="table-fixed w-full text-xs text-left">
+                  <thead className="bg-slate-100/80 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 font-bold uppercase text-[10px] border-b border-slate-200 dark:border-slate-800">
+                    <tr>
+                      <th className="p-2.5 w-[12%] text-center">Icon</th>
+                      <th className="p-2.5 w-[28%]">Tên Danh Mục</th>
+                      <th className="p-2.5 w-[22%]">Mã ID (Slug)</th>
+                      <th className="p-2.5 w-[24%]">Mô Tả / Từ Khóa Lọc</th>
+                      <th className="p-2.5 w-[14%] text-right pr-3">Thao Tác</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                    {categoriesConfig.categories.map((cat, idx) => (
+                      <tr key={cat.id || idx} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition">
+                        <td className="p-2.5 text-center">
+                          <span className="text-lg inline-block w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto shadow-xs">
+                            {cat.icon || '📦'}
+                          </span>
+                        </td>
+                        <td className="p-2.5">
+                          <div className="font-bold text-slate-900 dark:text-white truncate" title={cat.label}>
+                            {cat.label}
+                          </div>
+                          {cat.id === 'all' && (
+                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-400 font-mono font-bold">
+                              Mặc định sàn
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-2.5">
+                          <code className="text-[11px] font-mono text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 px-1.5 py-0.5 rounded truncate block" title={cat.id}>
+                            {cat.id}
+                          </code>
+                        </td>
+                        <td className="p-2.5">
+                          <div className="text-slate-500 dark:text-slate-400 truncate" title={cat.description || (cat.matchKeywords || []).join(', ')}>
+                            {cat.description || (cat.matchKeywords || []).join(', ') || '—'}
+                          </div>
+                        </td>
+                        <td className="p-2.5 text-right pr-3">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditCategory(cat)}
+                              className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-indigo-950/60 dark:hover:text-indigo-400 text-slate-600 dark:text-slate-300 transition cursor-pointer"
+                              title="Chỉnh sửa danh mục"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                            {cat.id !== 'all' && (
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteCategory(cat.id)}
+                                className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/60 dark:hover:text-rose-400 text-slate-600 dark:text-slate-300 transition cursor-pointer"
+                                title="Xóa danh mục"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Global Save Button */}
         <div className="sticky bottom-4 z-20 flex items-center justify-between rounded-2xl bg-slate-900/90 backdrop-blur-md p-4 border border-slate-700 shadow-2xl">
           <div className="flex items-center gap-2 text-xs text-slate-300">
@@ -2290,6 +2710,118 @@ export const ContentCMSModule: React.FC<ContentCMSModuleProps> = ({ onShowToast,
           </button>
         </div>
       </form>
+      )}
+
+      {/* MODAL THÊM / SỬA DANH MỤC HÀNG HÓA */}
+      {isCategoryModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Layers className="w-5 h-5" />
+                <h4 className="font-bold text-sm">
+                  {editingCategory ? 'Chỉnh Sửa Danh Mục' : 'Thêm Danh Mục Mới'}
+                </h4>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCategoryModalOpen(false)}
+                className="w-7 h-7 rounded-full bg-black/20 hover:bg-black/30 text-white flex items-center justify-center transition cursor-pointer text-xs"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveCategoryModal} className="p-5 space-y-4 text-xs">
+              <div>
+                <label className="font-bold block mb-1 text-slate-700 dark:text-slate-300">
+                  Tên Danh Mục:
+                </label>
+                <input
+                  type="text"
+                  value={catFormLabel}
+                  onChange={(e) => setCatFormLabel(e.target.value)}
+                  placeholder="VD: Áo Thun & Polo Nam"
+                  required
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold block mb-1 text-slate-700 dark:text-slate-300">
+                    Biểu Tượng (Icon Emoji):
+                  </label>
+                  <input
+                    type="text"
+                    value={catFormIcon}
+                    onChange={(e) => setCatFormIcon(e.target.value)}
+                    placeholder="VD: 👕, 👗, 💄, ⚡"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-indigo-500 text-center text-lg"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold block mb-1 text-slate-700 dark:text-slate-300">
+                    Mã ID (Slug):
+                  </label>
+                  <input
+                    type="text"
+                    value={catFormId}
+                    onChange={(e) => setCatFormId(e.target.value)}
+                    disabled={editingCategory?.id === 'all'}
+                    placeholder="VD: ao-thun-nam"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:opacity-50 font-mono"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold block mb-1 text-slate-700 dark:text-slate-300">
+                  Mô Tả Ngắn:
+                </label>
+                <input
+                  type="text"
+                  value={catFormDesc}
+                  onChange={(e) => setCatFormDesc(e.target.value)}
+                  placeholder="VD: Áo thun cổ tròn, polo thể thao, sơ mi cao cấp"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold block mb-1 text-slate-700 dark:text-slate-300">
+                  Từ Khóa Lọc Tự Động (Cách nhau bằng dấu phẩy):
+                </label>
+                <input
+                  type="text"
+                  value={catFormKeywords}
+                  onChange={(e) => setCatFormKeywords(e.target.value)}
+                  placeholder="VD: áo, polo, thun, tee, jacket"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
+                  Sản phẩm có chứa các từ khóa này trong tên/mô tả sẽ tự động xuất hiện khi người dùng bấm vào danh mục.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setIsCategoryModalOpen(false)}
+                  className="px-4 py-2 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-2 rounded-xl shadow-sm transition cursor-pointer"
+                >
+                  {editingCategory ? 'Lưu Thay Đổi' : 'Thêm Vào Danh Sách'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

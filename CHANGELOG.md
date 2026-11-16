@@ -7,6 +7,24 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-16]
 
+### 410. Triển Khai Bước 2: Hệ Thống Danh Mục Hàng Hóa Linh Hoạt & Đa Ngành (Universal Product Categories & Industry Presets) (16/11/2026)
+- **Bối cảnh**: Triển khai Bước 2 trong lộ trình biến website thành sàn thương mại điện tử đa ngành (bán hoặc cho thuê trọn gói), cho phép người mua kinh doanh mọi mặt hàng (Thời trang, Mỹ phẩm, Thiết bị số/Công nghệ, Khóa học/Dịch vụ số, Game code...).
+- **Giải pháp thực hiện**:
+  1. **Khởi tạo Bộ Mẫu Ngành Hàng (`src/data/industryPresets.ts`)**: Xây dựng 5 bộ mẫu preset ngành hàng hoàn chỉnh (`gaming`, `fashion`, `beauty`, `tech`, `services`), mỗi preset bao gồm icon, tên shop mẫu, slogan, đơn vị tiền tệ, tông màu, tiêu đề danh mục Header/Footer, 5 từ khóa tìm kiếm gợi ý và 7 danh mục hàng hóa tiêu chuẩn có sẵn `matchKeywords` lọc sản phẩm.
+  2. **Nâng cấp Module Content CMS (Tab 10)**: Bổ sung Tab `10. Danh Mục Ngành Hàng (Đa Ngành)` trong `ContentCMSModule.tsx` cho phép Quản trị viên:
+     - 1-Click chuyển đổi sàn sang bất kỳ ngành hàng nào trong 5 mẫu có sẵn.
+     - Tùy chỉnh Tiêu đề danh mục Header, Footer và 5 từ khóa tìm kiếm gợi ý dưới Search bar.
+     - Bảng quản lý danh mục tuân thủ tuyệt đối Rule 9 (Single-Screen First, table-fixed 100% width, zero horizontal overflow): sửa/xóa/thêm danh mục linh hoạt.
+     - Modal Thêm / Chỉnh sửa danh mục với đầy đủ Icon, Tên, Slug, Mô tả và Từ khóa lọc tự động.
+  3. **Đồng bộ Web Khách (`ShopeeTestView.tsx`)**:
+     - Thay thế mảng tĩnh `MAIN_GAME_CATEGORIES` bằng state động `categoriesConfig` nạp từ `dataService.getProductCategoriesConfig()`.
+     - Bộ lọc `filteredGames` lọc thông minh theo `matchKeywords` của danh mục đã chọn.
+     - Thanh danh mục Category Bar và Footer Cột 2 tự động hiển thị theo danh mục và bảng màu sàn của ngành hàng đang active.
+     - Từ khóa gợi ý dưới Search Bar tự động đổi theo ngành hàng.
+  4. **Tích Hợp Modal White-Label Bán Web (`ShopeeWhiteLabelModal.tsx`)**: Bổ sung bộ chọn nhanh 5 ngành hàng giúp khách hàng trải nghiệm thử (Live Demo) hoặc lưu trực tiếp vào D1 (`test_*`), sẵn sàng bàn giao trong 2 phút.
+- **Phạm vi file**: `src/types/game.ts`, `src/data/industryPresets.ts`, `src/services/dataService.ts`, `src/admin/services/adminDataService.ts`, `src/admin/modules/ContentCMSModule.tsx`, `src/components/shopee/ShopeeTestView.tsx`, `src/components/shopee/ShopeeWhiteLabelModal.tsx`.
+- **Kiểm thử**: Build Vite & Cloudflare Pages Edge Worker pass 100%, 0 test artifacts, audit sạch 100%.
+
 ### 409. Triển Khai Bước 1: Bộ Nhận Diện Thương Hiệu Đa Ngành (White-Label Branding), Đơn Vị Tiền Tệ (VNĐ vs Core), Bảng Màu Sàn Động & Tích Hợp VietQR/SePay Trực Quan (16/11/2026)
 - **Bối cảnh**: Triển khai Bước 1 trong kế hoạch nâng cấp website thành nền tảng thương mại điện tử đa ngành (Universal / White-Label E-commerce) để bán hoặc cho thuê lại sàn cho các chủ shop / doanh nghiệp khác.
 - **Giải pháp thực hiện**:

@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import type { GameItem, UserProfile, StoreProduct, UtilityProduct, GiveawayCampaign, UpcomingGame } from '../../types/game';
+import type { GameItem, UserProfile, StoreProduct, UtilityProduct, GiveawayCampaign, UpcomingGame, ProductCategoriesConfig, ProductCategoryItem } from '../../types/game';
+import { getDefaultCategoriesConfig, INDUSTRY_PRESETS } from '../../data/industryPresets';
 import rawGamesFallback from '../../data/games188.json';
 import { 
   Search, ShoppingCart, Bell, HelpCircle, ArrowLeft, 
@@ -275,6 +276,11 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
     };
   });
 
+  // Dynamic Product Categories & Industry Presets from DataService
+  const [categoriesConfig, setCategoriesConfig] = useState<ProductCategoriesConfig>(() => {
+    return dataService.getProductCategoriesConfig();
+  });
+
   // Dynamic Theme Accent Color Palette
   const currentAccent = useMemo(() => {
     return THEME_ACCENTS[shopBrand.themeAccent] || THEME_ACCENTS.orange;
@@ -299,6 +305,8 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
         themeAccent: b.themeAccent || 'orange',
         logoUrl: b.logoUrl || '',
       });
+      const c = dataService.getProductCategoriesConfig();
+      setCategoriesConfig(c);
     };
     window.addEventListener('wcg_admin_data_updated', handleBrandingSync);
     window.addEventListener('storage', handleBrandingSync);
@@ -437,9 +445,19 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
 
     // Filter by category matcher
     if (selectedCategory !== 'all') {
-      const activeCat = MAIN_GAME_CATEGORIES.find((c) => c.id === selectedCategory);
-      if (activeCat && activeCat.match) {
-        list = list.filter((g) => activeCat.match(g.category || ''));
+      const activeCat = categoriesConfig.categories.find((c) => c.id === selectedCategory);
+      if (activeCat) {
+        if (activeCat.matchKeywords && activeCat.matchKeywords.length > 0) {
+          list = list.filter((g) => {
+            const targetText = `${g.category || ''} ${g.name || ''} ${g.publisher || ''} ${g.description || ''}`.toLowerCase();
+            return activeCat.matchKeywords!.some((kw) => targetText.includes(kw.toLowerCase()));
+          });
+        } else {
+          list = list.filter((g) => {
+            const catLower = (g.category || '').toLowerCase();
+            return catLower === activeCat.id.toLowerCase() || catLower.includes(activeCat.label.toLowerCase());
+          });
+        }
       }
     }
 
@@ -918,12 +936,31 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
 
             {/* Từ khóa gợi ý */}
             <div className="hidden sm:flex items-center gap-3 text-[11px] text-white/80 mt-1.5 overflow-hidden whitespace-nowrap">
-              <button onClick={() => { setSearchKeyword('Garena'); setSelectedProductType('utility'); }} className="hover:text-amber-200 transition">Thẻ Garena</button>
-              <button onClick={() => { setSearchKeyword('Hiệp Khách Hành'); setSelectedProductType('account'); }} className="hover:text-amber-200 transition">Hiệp Khách Hành (10 gói)</button>
-              <button onClick={() => { setSearchKeyword('Liên Quân'); setSelectedProductType('all'); }} className="hover:text-amber-200 transition">Liên Quân 0đ</button>
-              <button onClick={() => { setSearchKeyword('Roblox'); setSelectedProductType('all'); }} className="hover:text-amber-200 transition">Roblox Blox Fruits</button>
-              <button onClick={() => { setSearchKeyword('Free Fire'); setSelectedProductType('all'); }} className="hover:text-amber-200 transition">Free Fire Kim Cương</button>
-              <button onClick={() => { setSearchKeyword(''); setSelectedProductType('all'); }} className="hover:text-amber-200 transition font-bold text-amber-300">Tất Cả ({allGames?.length || 593} game)</button>
+              {categoriesConfig.searchSuggestions && categoriesConfig.searchSuggestions.length > 0 ? (
+                categoriesConfig.searchSuggestions.slice(0, 5).map((kw, i) => (
+                  <button
+                    key={i}
+                    onClick={() => {
+                      setSearchKeyword(kw);
+                      setSelectedProductType('all');
+                    }}
+                    className="hover:text-amber-200 transition"
+                  >
+                    {kw}
+                  </button>
+                ))
+              ) : (
+                <>
+                  <button onClick={() => { setSearchKeyword('Garena'); setSelectedProductType('utility'); }} className="hover:text-amber-200 transition">Thẻ Garena</button>
+                  <button onClick={() => { setSearchKeyword('Hiệp Khách Hành'); setSelectedProductType('account'); }} className="hover:text-amber-200 transition">Hiệp Khách Hành (10 gói)</button>
+                  <button onClick={() => { setSearchKeyword('Liên Quân'); setSelectedProductType('all'); }} className="hover:text-amber-200 transition">Liên Quân 0đ</button>
+                  <button onClick={() => { setSearchKeyword('Roblox'); setSelectedProductType('all'); }} className="hover:text-amber-200 transition">Roblox Blox Fruits</button>
+                  <button onClick={() => { setSearchKeyword('Free Fire'); setSelectedProductType('all'); }} className="hover:text-amber-200 transition">Free Fire Kim Cương</button>
+                </>
+              )}
+              <button onClick={() => { setSearchKeyword(''); setSelectedProductType('all'); }} className="hover:text-amber-200 transition font-bold text-amber-300">
+                Tất Cả ({allGames?.length || 593} {categoriesConfig.activePresetId === 'gaming' ? 'game' : 'mặt hàng'})
+              </button>
             </div>
           </div>
 
@@ -1968,16 +2005,20 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
                 </div>
               </div>
 
-              {/* 6 Category Pills */}
+              {/* Dynamic Universal Category Bar */}
               <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 divide-x divide-y sm:divide-y-0 divide-slate-100 dark:divide-slate-800 text-center">
-                {MAIN_GAME_CATEGORIES.map((cat) => (
+                {categoriesConfig.categories.map((cat) => (
                   <button 
                     key={cat.id}
                     onClick={() => setSelectedCategory(cat.id)}
-                    className={`p-3 transition cursor-pointer flex flex-col items-center justify-center ${selectedCategory === cat.id ? 'bg-orange-500/10 text-[#ee4d2d] font-bold border-b-2 border-[#ee4d2d]' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50 text-slate-700 dark:text-slate-300'}`}
+                    className={`p-3 transition cursor-pointer flex flex-col items-center justify-center ${
+                      selectedCategory === cat.id 
+                        ? `bg-orange-500/10 ${currentAccent.textColor} font-bold border-b-2 border-current` 
+                        : 'hover:bg-slate-50 dark:hover:bg-slate-800/50 text-slate-700 dark:text-slate-300'
+                    }`}
                   >
                     <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-lg mb-1 shadow-inner">
-                      {cat.icon}
+                      {cat.icon || '📦'}
                     </div>
                     <div className="text-[11px] leading-tight font-medium line-clamp-1">{cat.label}</div>
                   </button>
@@ -2542,11 +2583,13 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
               </div>
             </div>
 
-            {/* Cột 2: Danh Mục Thể Loại */}
+            {/* Cột 2: Danh Mục Thể Loại & Hàng Hóa */}
             <div className="space-y-2">
-              <h4 className="font-extrabold text-slate-950 dark:text-white uppercase tracking-wider text-xs">Chuyên Mục Game Hot</h4>
+              <h4 className="font-extrabold text-slate-950 dark:text-white uppercase tracking-wider text-xs">
+                {categoriesConfig.footerCategoryTitle || 'Chuyên Mục Hàng Đầu'}
+              </h4>
               <ul className="space-y-2 text-xs font-semibold">
-                {MAIN_GAME_CATEGORIES.slice(1).map((cat) => (
+                {(categoriesConfig.categories.length > 1 ? categoriesConfig.categories.slice(1) : categoriesConfig.categories).map((cat) => (
                   <li key={cat.id}>
                     <button
                       onClick={() => {
@@ -2557,7 +2600,7 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
                       }}
                       className="text-slate-700 dark:text-slate-300 hover:text-[#ee4d2d] dark:hover:text-[#ff6b4a] transition text-left cursor-pointer flex items-center gap-1.5"
                     >
-                      <span>{cat.icon}</span>
+                      <span>{cat.icon || '📦'}</span>
                       <span>{cat.label}</span>
                     </button>
                   </li>
@@ -2694,15 +2737,23 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
           hotline: shopBrand.hotline,
           currencyMode: shopBrand.currencyMode,
           themeAccent: shopBrand.themeAccent,
+          presetId: categoriesConfig.activePresetId,
         }}
-        onApplyPreviewSettings={(st) => setShopBrand({
-          ...shopBrand,
-          name: st.shopName,
-          slogan: st.shopSlogan,
-          hotline: st.hotline,
-          currencyMode: st.currencyMode || 'VND',
-          themeAccent: st.themeAccent || 'orange',
-        })}
+        onApplyPreviewSettings={(st) => {
+          setShopBrand({
+            ...shopBrand,
+            name: st.shopName,
+            slogan: st.shopSlogan,
+            hotline: st.hotline,
+            currencyMode: st.currencyMode || 'VND',
+            themeAccent: st.themeAccent || 'orange',
+          });
+          if (st.presetId) {
+            const newCatCfg = getDefaultCategoriesConfig(st.presetId);
+            setCategoriesConfig(newCatCfg);
+            dataService.saveProductCategoriesConfig(newCatCfg);
+          }
+        }}
         onShowToast={onShowToast}
       />
 

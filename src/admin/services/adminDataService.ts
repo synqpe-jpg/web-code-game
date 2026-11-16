@@ -22,7 +22,8 @@ import {
   UpcomingGameAdminRecord,
   UpcomingGameApiLogEntry,
 } from '../types/adminTypes';
-import type { GiveawayCampaign, StoreProduct, UtilityProduct, UtilityCategory, StoreCategory, CrawlerSource } from '../../types/game';
+import type { GiveawayCampaign, StoreProduct, UtilityProduct, UtilityCategory, StoreCategory, CrawlerSource, ProductCategoriesConfig, ProductCategoryItem } from '../../types/game';
+import { getDefaultCategoriesConfig, INDUSTRY_PRESETS } from '../../data/industryPresets';
 import defaultCrawlerSources from '../../data/crawler_sources.json';
 import rawGamesData from '../../data/games188.json';
 import rawCodesData from '../../data/crawled_codes_188.json';
@@ -3273,6 +3274,69 @@ class AdminDataService {
         pageSize: config.pageSize || 24,
       },
     });
+  }
+
+  public getProductCategoriesConfig(): ProductCategoriesConfig {
+    // 1. Tìm trong contentItems
+    const item = this.contentItems.find((c) => c.key === 'product_categories_config');
+    if (item && item.extraData && Array.isArray(item.extraData.categories)) {
+      return {
+        activePresetId: item.extraData.activePresetId || 'gaming',
+        categories: item.extraData.categories,
+        searchSuggestions: Array.isArray(item.extraData.searchSuggestions) ? item.extraData.searchSuggestions : [],
+        footerCategoryTitle: item.extraData.footerCategoryTitle || 'Chuyên Mục Hàng Đầu',
+        headerCategoryTitle: item.extraData.headerCategoryTitle || 'Tất Cả Danh Mục',
+      };
+    }
+
+    // 2. Fallback localStorage
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('wcg_admin_categories_config');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed && Array.isArray(parsed.categories) && parsed.categories.length > 0) {
+            return {
+              activePresetId: parsed.activePresetId || 'gaming',
+              categories: parsed.categories,
+              searchSuggestions: Array.isArray(parsed.searchSuggestions) ? parsed.searchSuggestions : [],
+              footerCategoryTitle: parsed.footerCategoryTitle || 'Chuyên Mục Hàng Đầu',
+              headerCategoryTitle: parsed.headerCategoryTitle || 'Tất Cả Danh Mục',
+            };
+          }
+        }
+      } catch {}
+    }
+
+    return getDefaultCategoriesConfig('gaming');
+  }
+
+  public saveProductCategoriesConfig(config: ProductCategoriesConfig): void {
+    // 1. Lưu dưới dạng ContentItem để tự động đồng bộ qua API Sync / D1
+    this.saveContentItem({
+      key: 'product_categories_config',
+      title: config.headerCategoryTitle || 'Danh Mục Hàng Hóa Đa Ngành',
+      content: `Cấu hình danh mục ngành hàng (${config.categories.length} danh mục, preset: ${config.activePresetId})`,
+      isActive: true,
+      type: 'CATEGORIES' as any,
+      extraData: {
+        activePresetId: config.activePresetId,
+        categories: config.categories,
+        searchSuggestions: config.searchSuggestions,
+        footerCategoryTitle: config.footerCategoryTitle,
+        headerCategoryTitle: config.headerCategoryTitle,
+      },
+    });
+
+    // 2. Cập nhật localStorage và phát tín hiệu realtime
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('wcg_admin_categories_config', JSON.stringify(config));
+        window.dispatchEvent(new CustomEvent('wcg_admin_data_updated', {
+          detail: { key: 'categories_config', config }
+        }));
+      } catch {}
+    }
   }
 
   public getFloatingNotificationConfig(): FloatingNotificationConfig {
