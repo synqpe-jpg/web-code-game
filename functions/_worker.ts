@@ -2704,7 +2704,7 @@ async function renderSeoHtml(
         let currentInst = game?.instructions || '';
         let currentRedeem = game?.redeem_url || '';
         if (game && (!currentInst || currentInst.includes('Avatar nhân vật'))) {
-          const fbG = (fallbackGamesData as any[]).find((x: any) => x && (x.slug === slug || x.id === slug || x.slug === game.slug || (isWwmGame && (x.slug === 'yen-van-thap-luc-thanh' || x.slug === 'where-winds-meet'))));
+          const fbG = (fallbackGamesData as any[]).find((x: any) => x && (x.slug === slug || x.id === slug || x.slug === game.slug || (isYenVan && (x.slug === 'yen-van-thap-luc-thanh' || x.slug === 'where-winds-meet-mobile'))));
           if (fbG?.instructions && !fbG.instructions.includes('Avatar nhân vật')) {
             currentInst = fbG.instructions;
             currentRedeem = fbG.redeem_url || '';
@@ -2716,7 +2716,7 @@ async function renderSeoHtml(
         // 2. Fallback sang catalog nếu bảng games chưa có
         if (!game) {
           const catalog = await gamesApi.getLoadedCatalog(env.DB);
-          game = catalog.allRawGames?.find((g: any) => g && (String(g.slug || '').toLowerCase() === slug || String(g.id || '').toLowerCase() === slug || String(g.slug || '').toLowerCase().replace(/-mobile$/i, '') === cleanWithoutMobile || (isWwmGame && (g.slug === 'yen-van-thap-luc-thanh' || g.slug === 'where-winds-meet'))));
+          game = catalog.allRawGames?.find((g: any) => g && (String(g.slug || '').toLowerCase() === slug || String(g.id || '').toLowerCase() === slug || String(g.slug || '').toLowerCase().replace(/-mobile$/i, '') === cleanWithoutMobile || (isYenVan && (g.slug === 'yen-van-thap-luc-thanh' || g.slug === 'where-winds-meet-mobile'))));
           if (game) {
             const allResolved = gamesApi.resolveCodesForGame(game, catalog.codesMap) || [];
             const activeCodes = allResolved.filter((c: any) => !isCodeExpired(c));
@@ -2744,7 +2744,7 @@ async function renderSeoHtml(
     }
 
     if (game) {
-      const isWwm = isWwmGame || game.slug === 'where-winds-meet' || game.slug === 'where-winds-meet-mobile' || game.slug === 'yen-van-thap-luc-thanh';
+      const isWwm = isYenVan || game.slug === 'where-winds-meet-mobile' || game.slug === 'yen-van-thap-luc-thanh';
       const codeCount = game.codes_count || game.active_codes_count || displayCodes.length || 0;
       const countSuffix = codeCount > 0
         ? ` - Nhận ${codeCount} Mã Code`
