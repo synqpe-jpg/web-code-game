@@ -10,6 +10,21 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-287: Bẫy 0-Byte Cache Poisoning Trên Cloudflare Worker Do Stream Đóng Sớm Khi Nhận Request HEAD & Bẫy Chờ Async State Deep Link Ở Frame 0
+- **Triệu chứng & Rủi ro**:
+  1. *0-Byte Response trên Edge Cache*: Khi request HEAD tới URL `/test1/game/:slug` (hoặc curl `-I` / crawler), Cloudflare Cache API lưu một bản ghi rỗng 0 bytes. Các request GET thông thường sau đó trúng Cache HIT trả về nội dung trống 0 bytes khiến màn hình trắng tinh hoặc sập hiển thị.
+  2. *Deep link giật/chớp hoặc không mở modal ở lần đầu*: State `selectedGame` trong `App.tsx` khởi tạo bằng `null`, component phải render 1 frame trắng/trang chủ trước khi effect bất đồng bộ kịp cập nhật dữ liệu.
+- **Nguyên nhân gốc rễ**:
+  1. `functions/_worker.ts` truyền trực tiếp `ReadableStream` (`seoRes.clone().body`) vào `cfCache.put` bên trong `ctx.waitUntil`. Khi client đóng kết nối sớm sau phản hồi HEAD (`Response(null)`), luồng stream bị hủy ngang, `cfCache` lưu dữ liệu 0 byte. Đồng thời khi đọc cache (`cfCache.match`), code không xác thực độ dài dữ liệu đã lưu.
+  2. `selectedGame` trong `App.tsx` sử dụng `useState<GameItem | null>(null)` không truyền callback khởi tạo đồng bộ ban đầu.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Đọc và đệm toàn bộ chuỗi HTML vào bộ nhớ (`const seoHtml = await seoRes.text()`) trước khi đưa vào cache. Chỉ gọi `cfCache.put` khi `seoHtml.length > 50`.
+  2. Tại nhánh đọc cache `cfCache.match(cacheKey)`: Nếu `!isHead` và `cachedText.length < 50`, lập tức gọi `cfCache.delete(cacheKey)` để xóa bỏ bản ghi độc hại và chuyển tiếp sang render mới.
+  3. Khởi tạo `selectedGame` bằng callback đọc đồng bộ từ `fallbackGamesData` (593 game) theo `window.location.pathname`, đảm bảo modal xuất hiện ngay ở frame 0.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không bao giờ truyền trực tiếp `ReadableStream` chưa đọc vào `cfCache.put` bên trong `ctx.waitUntil` khi request có thể là HEAD.*
+  - ❌ *Không bao giờ trả về dữ liệu cache mà không kiểm tra độ dài tối thiểu của body.*
+
 ### ISSUE-286: Bẫy Race Condition Trên URL Sync Effect Khiến Deep Link Bị Reset URL, Lệch Thống Kê Mã Code Do Gom Nhầm Bản PC Vào Mobile & Thiếu Class Light Trên Thẻ HTML Khi Chuyển Theme Sáng
 - **Triệu chứng & Rủi ro**:
   1. *Deep Link Bị Reset*: Truy cập liên kết trực tiếp `/test1/game/:slug` ở lần tải đầu tiên (fresh page load) bị effect đồng bộ URL tự động đè lại về `/test1` trước khi dữ liệu game kịp nạp xong, làm đóng modal hoặc không hiển thị game.

@@ -1876,23 +1876,30 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
             if (cached) {
               const cachedBuildId = cached.headers.get('x-build-id');
               if (!cachedBuildId || cachedBuildId === buildTag) {
-                const edgeDur = (performance.now() - reqStart).toFixed(1);
-                const res = new Response(isHead ? null : cached.body, cached);
-                res.headers.set('cf-cache-status', 'HIT');
-                res.headers.set('X-Edge-Cache', 'HIT');
-                res.headers.set('Server-Timing', `edge;dur=${edgeDur}, cache;desc="HIT"`);
-                return res;
+                const cachedText = isHead ? null : await cached.text();
+                // Phòng vệ: Nếu cached body bị rỗng (< 50 bytes) do lỗi race condition hoặc HEAD request trước đó
+                if (!isHead && (!cachedText || cachedText.length < 50)) {
+                  try { ctx.waitUntil(cfCache.delete(cacheKey)); } catch {}
+                } else {
+                  const edgeDur = (performance.now() - reqStart).toFixed(1);
+                  const res = new Response(isHead ? null : cachedText, cached);
+                  res.headers.set('cf-cache-status', 'HIT');
+                  res.headers.set('X-Edge-Cache', 'HIT');
+                  res.headers.set('Server-Timing', `edge;dur=${edgeDur}, cache;desc="HIT"`);
+                  return res;
+                }
               }
             }
           } catch {}
         }
 
         const seoRes = await renderSeoHtml(request, env, pathname);
+        const seoHtml = await seoRes.text();
         const edgeDur = (performance.now() - reqStart).toFixed(1);
         const d1Dur = (globalThis as any).__wcg_last_d1_dur || 0;
         const cacheStatus = isFresh ? 'BYPASS' : 'MISS';
 
-        if (cfCache && seoRes.status === 200 && ctx.waitUntil) {
+        if (cfCache && seoRes.status === 200 && seoHtml.length > 50 && ctx.waitUntil) {
           try {
             const toCacheHeaders = new Headers(seoRes.headers);
             toCacheHeaders.set('Cache-Control', 'public, max-age=120, s-maxage=3600, stale-while-revalidate=86400');
@@ -1900,7 +1907,7 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
             toCacheHeaders.set('X-Edge-Cache', 'HIT');
             toCacheHeaders.set('X-Build-Id', buildTag);
             toCacheHeaders.set('Server-Timing', `edge;dur=0.1, cache;desc="HIT"`);
-            const toCacheRes = new Response(seoRes.clone().body, {
+            const toCacheRes = new Response(seoHtml, {
               status: seoRes.status,
               statusText: seoRes.statusText,
               headers: toCacheHeaders,
@@ -1926,7 +1933,7 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
             headers: clientHeaders,
           });
         }
-        return new Response(seoRes.body, {
+        return new Response(seoHtml, {
           status: seoRes.status,
           statusText: seoRes.statusText,
           headers: clientHeaders,
@@ -2155,9 +2162,13 @@ async function handleDynamicSitemap(
         'X-Sitemap-Source': 'isolate-cache',
       },
     });
-    if (cfCache && ctx.waitUntil) {
+    if (cfCache && ctx.waitUntil && xml && xml.length > 50) {
       try {
-        ctx.waitUntil(cfCache.put(cacheKey, res.clone()));
+        const toCacheSitemap = new Response(xml, {
+          status: 200,
+          headers: res.headers,
+        });
+        ctx.waitUntil(cfCache.put(cacheKey, toCacheSitemap));
       } catch {}
     }
     return res;
@@ -2179,9 +2190,13 @@ async function handleDynamicSitemap(
       },
     });
 
-    if (cfCache && ctx.waitUntil) {
+    if (cfCache && ctx.waitUntil && xml && xml.length > 50) {
       try {
-        ctx.waitUntil(cfCache.put(cacheKey, res.clone()));
+        const toCacheSitemap = new Response(xml, {
+          status: 200,
+          headers: res.headers,
+        });
+        ctx.waitUntil(cfCache.put(cacheKey, toCacheSitemap));
       } catch {}
     }
     return res;
@@ -3034,8 +3049,8 @@ async function renderSeoHtml(
           </section>
 
           <div class="text-center pt-2">
-            <a href="/" class="inline-block px-6 py-2.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-200 text-xs font-bold transition-all">
-              ← Quay Lại Danh Sách Game
+            <a href="${pathname.startsWith('/test1') ? '/test1' : '/'}" class="inline-block px-6 py-2.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-200 text-xs font-bold transition-all">
+              ${pathname.startsWith('/test1') ? '← Quay Lại Sàn Test 1' : '← Quay Lại Danh Sách Game'}
             </a>
           </div>
 
@@ -3046,7 +3061,7 @@ async function renderSeoHtml(
               <span>•</span>
               <a href="/the-loai/${clusterSlug}" class="text-gray-300 hover:text-white">${escape(game.category || 'Thể loại')}</a>
               <span>•</span>
-              <a href="/" class="hover:text-white">Trang Chủ</a>
+              <a href="${pathname.startsWith('/test1') ? '/test1' : '/'}" class="hover:text-white">${pathname.startsWith('/test1') ? 'Sàn Test 1' : 'Trang Chủ'}</a>
             </div>
           </footer>
         </div>

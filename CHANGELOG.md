@@ -7,6 +7,34 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-16]
 
+### 404. Khắc Phục Triệt Để 0-Byte Cache Poisoning Trên Edge Worker, Khởi Tạo Đồng Bộ Deep Link Frame 0 & Hoàn Thiện Đồng Bộ Theme Shopee (16/11/2026)
+- **Bối cảnh & Triệu chứng**:
+  - Khi người dùng hoặc crawler gửi request HEAD (hoặc script verify deploy gửi HEAD request) tới đường dẫn `/test1/game/:slug`, `functions/_worker.ts` thực thi `renderSeoHtml` và lưu vào Cloudflare Cache API `cfCache.put(cacheKey, toCacheRes)`. Do luồng stream `seoRes.clone().body` bị đóng ngay khi phản hồi HEAD kết thúc, `cfCache` đã lưu một bản ghi có body rỗng (0 bytes). Các request GET tiếp theo trúng Edge Cache HIT trả về nội dung 0 byte.
+  - Ngoài ra, state `selectedGame` trong `App.tsx` khởi tạo là `null` ban đầu khiến modal game detail phải chờ qua 1 nhịp effect bất đồng bộ mới hiển thị.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *0-Byte Edge Cache Poisoning*: `functions/_worker.ts` truyền trực tiếp `ReadableStream` (`seoRes.clone().body`) vào `cfCache.put` bên trong `ctx.waitUntil`. Khi request là `HEAD`, response trả về cho client có body `null`, runtime đóng stream sớm dẫn tới `cfCache` lưu bản ghi rỗng (0 bytes). Thêm vào đó, nhánh đọc cache HIT không kiểm tra độ dài body trước khi trả về.
+  2. *Initial Render Deep Link Delay*: `App.tsx` khởi tạo `useState<GameItem | null>(null)` cho `selectedGame`. Trên frame 0, `selectedGame` là `null`, phải chờ qua `parseHash` bất đồng bộ.
+  3. *SSR Fallback Link*: `renderSeoHtml` chèn nút "Quay Lại Danh Sách Game" và link footer trỏ cứng về `/` kể cả khi người dùng truy cập từ `/test1/game/:slug`.
+- **Giải pháp áp dụng (Solution)**:
+  1. *Khắc phục triệt để Cache Poisoning*:
+     - Trong `functions/_worker.ts`: Đọc và buffer toàn bộ HTML thành chuỗi bộ nhớ (`const seoHtml = await seoRes.text()`). Chỉ lưu vào `cfCache` khi `seoHtml.length > 50`.
+     - Nhánh đọc cache `cfCache.match(cacheKey)`: Nếu `!isHead` và body trong cache có độ dài `< 50 bytes` (dấu hiệu bản ghi lỗi), Worker lập tức gọi `cfCache.delete(cacheKey)` và chuyển tiếp sang render HTML mới.
+     - Cập nhật tương tự cho cache dynamic sitemap XML.
+  2. *Khởi tạo đồng bộ Deep Link Frame 0*:
+     - Trong `src/App.tsx`: Khởi tạo giá trị ban đầu cho `useState<GameItem | null>` bằng callback đồng bộ tra cứu ngay từ `fallbackGamesData` (593 game) dựa trên `window.location.pathname`. Khi người dùng mở deep link `/test1/game/:slug`, modal render ngay lập tức ở frame 0, loại bỏ hoàn toàn hiện tượng nhấp nháy hoặc rút URL.
+     - Trong `handleSelectGameSlug`: Nếu game chưa có trong cache server, thiết lập ngay fallback đồng bộ từ `fallbackGamesData` trước khi chờ API hoàn tất.
+  3. *Đồng bộ SSR Navigation Link cho /test1*:
+     - `functions/_worker.ts`: Cập nhật nút quay lại và link chân trang trong HTML SSR trỏ về `/test1` kèm nhãn "Sàn Test 1" khi URL bắt đầu bằng `/test1`.
+  4. *Theme Contrast*:
+     - Đổi modal AuthPrompt trong `GameDetailModal.tsx` từ `bg-slate-900` sang `bg-card` để tự động ăn khớp với theme Shopee Trắng.
+- **Kết quả nghiệm thu**:
+  - `curl.exe -sI` và `curl.exe -s` trên `/test1/game/genshin-impact` trả về đầy đủ 93.660 ký tự HTML, không bao giờ bị 0 bytes.
+  - Deep link hiển thị modal ngay lập tức ở lần tải đầu 3/3 lần.
+  - Build Vite & Prerender 593 game thành công 100% (0 lỗi).
+  - Không có bất kỳ liên kết nào đưa người dùng rời khỏi `/test1`.
+
+---
+
 ### 403. Sửa Dứt Điểm 7 Nhóm Việc Trên /test1: Deep Link Race Condition, Số Mã Where Winds Meet Đồng Bộ D1, 3 Lỗi Nhỏ (Huy Hiệu Sự Kiện, Vòng Quay Canvas, Giveaway), Thanh Mục 12 Mục Kèm 2 Mũi Tên Cuộn & Số Đếm Chuẩn, Đồng Bộ Theme Shopee Cho Toàn Bộ Modal/Khung Trong, Gỡ Bỏ Nút Chuyển Về Web Gốc (16/11/2026)
 - **Bối cảnh & Yêu cầu của Chủ sở hữu**:
   - Sau build `89c2a2d`, người dùng và hệ thống kiểm tra ghi nhận 7 nhóm việc cần giải quyết dứt điểm trên `codegame.shop/test1`:

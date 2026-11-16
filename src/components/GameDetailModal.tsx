@@ -1655,7 +1655,7 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
           }}
         >
           <div
-            className="relative w-full max-w-sm rounded-3xl bg-slate-900 border border-emerald-500/30 p-5 sm:p-6 shadow-2xl text-center space-y-4"
+            className="relative w-full max-w-sm rounded-3xl bg-card border border-emerald-500/30 p-5 sm:p-6 shadow-2xl text-center space-y-4"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Nút đóng */}

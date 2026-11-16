@@ -216,7 +216,24 @@ export const App: React.FC = () => {
   const [selectedUpcomingSlug, setSelectedUpcomingSlug] = useState<string | null>(null);
 
   // Modals & Drawers
-  const [selectedGame, setSelectedGame] = useState<GameItem | null>(null);
+  const [selectedGame, setSelectedGame] = useState<GameItem | null>(() => {
+    if (typeof window !== 'undefined') {
+      const pathname = window.location.pathname;
+      let pathSlug = '';
+      if (pathname.startsWith('/test1/game/') || pathname.startsWith('/test1/g/')) {
+        pathSlug = pathname.replace(/^\/test1\/(?:game|g)\//i, '').replace(/\/$/, '').trim().toLowerCase();
+      } else if (pathname.startsWith('/game/') || pathname.startsWith('/g/')) {
+        pathSlug = pathname.replace(/^\/(?:game|g)\//i, '').replace(/\/$/, '').trim().toLowerCase();
+      }
+      if (pathSlug) {
+        const found = (fallbackGamesData as any[]).find((g: any) =>
+          g && ((g.slug && g.slug.toLowerCase() === pathSlug) || (g.id && String(g.id).toLowerCase() === pathSlug))
+        );
+        if (found) return found;
+      }
+    }
+    return null;
+  });
   const [sharePayload, setSharePayload] = useState<SharePayload | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<StoreProduct | null>(null);
   const [selectedPackageIdParam, setSelectedPackageIdParam] = useState<string | null>(null);
@@ -1538,6 +1555,13 @@ export const App: React.FC = () => {
     const cachedGame = dataService.getCachedServerGame(slug);
     if (cachedGame && (cachedGame as any).is_full_detail && !cachedGame.is_partial_preview) {
       setSelectedGame(cachedGame);
+    } else {
+      const localFallback = (fallbackGamesData as any[]).find((g: any) =>
+        g && ((g.slug && g.slug.toLowerCase() === slug.toLowerCase()) || (g.id && String(g.id).toLowerCase() === slug.toLowerCase()))
+      );
+      if (localFallback) {
+        setSelectedGame(localFallback);
+      }
     }
     const fullGame = await dataService.getGameBySlug(slug, false);
     if (fullGame) {
