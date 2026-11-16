@@ -2163,6 +2163,7 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
                         'quy-mon-quan': 'Quỷ Môn Quan',
                         'free-fire': 'Garena Free Fire',
                         'di-gioi-sinh-ton': 'Dị Giới Sinh Tồn',
+                        'di-gioi-sinh-ton-oeg': 'Dị Giới Sinh Tồn',
                       };
                       resolvedGameName = slugMap[gw.game_slug.toLowerCase()] || gw.game_slug.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
                     }

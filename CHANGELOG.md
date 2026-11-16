@@ -7,6 +7,16 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-16]
 
+### 406. Đồng Bộ Dứt Điểm Bộ Đếm Mã Where Winds Meet Chuẩn D1 (579 Còn Hạn / 41 Hết Hạn / 620 Tổng) & Chuẩn Hóa Tiêu Đề Giveaway Dị Giới Sinh Tồn (16/11/2026)
+- **Bối cảnh**: Trình duyệt kiểm tra thấy modal Where Winds Meet Mobile hiển thị 565 còn hạn / 55 hết hạn thay vì 579 còn hạn / 41 hết hạn theo chuẩn D1. Đồng thời thẻ Giveaway thứ 5 trang 2 mang slug di-gioi-sinh-ton-oeg.
+- **Nguyên nhân gốc rễ**:
+  1. isCodeExpired trong src/utils/codeUtils.ts chỉ kiểm tra các status âm tính (expired, inactive...) mà không trả về alse ngay khi gặp status === 'active', dẫn đến 14 mã còn hạn mang ngày hết hạn cũ (2026-11-09) bị đánh dấu nhầm thành hết hạn (579 - 14 = 565).
+  2. ShopeeTestView.tsx thiếu ánh xạ slug di-gioi-sinh-ton-oeg trong slugMap.
+- **Giải pháp**:
+  1. Bổ sung điều kiện ưu tiên D1 trong isCodeExpired: nếu status === 'active' (hoặc còn hạn, is_active === 1), lập tức trả về alse.
+  2. Bổ sung 'di-gioi-sinh-ton-oeg': 'Dị Giới Sinh Tồn' vào slugMap trong ShopeeTestView.tsx.
+- **Phạm vi file**: src/utils/codeUtils.ts, src/components/shopee/ShopeeTestView.tsx.
+
 ### 405. Khắc Phục Triệt Để Chập Chờn Lần Tải Đầu Tiên Bằng Cache-Control max-age=0 & Anti-FOUC Test1, Tách Biệt Độc Lập Where Winds Meet Chuẩn D1 620/579 Mã, Nâng Tương Phản Huy Hiệu Sự Kiện, Giữ Vững Vòng Quay May Mắn (16/11/2026)
 - **Bối cảnh & Triệu chứng**:
   - Tại lần tải đầu tiên ở tab mới tới deep link `/test1/game/:slug` (như Genshin Impact), URL bị tạm rút về `/test1` trước khi modal mở lại; modal hiển thị nền tối navy và xuất hiện 2 liên kết cũ dẫn về web gốc. Các lần tải sau đó thì mở ngay và mang theme trắng.

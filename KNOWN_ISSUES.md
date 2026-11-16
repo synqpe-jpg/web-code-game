@@ -10,6 +10,17 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-289: Bẫy Hàm isCodeExpired Bỏ Qua Trạng Thái Active Từ SQLite D1 & Đánh Dấu Hết Hạn Dựa Trên Ngày Cũ
+- **Triệu chứng & Rủi ro**:
+  - Modal chi tiết Where Winds Meet hiển thị 565 mã còn hạn / 55 mã hết hạn thay vì 579 mã còn hạn / 41 mã hết hạn chuẩn D1.
+- **Nguyên nhân gốc rễ**:
+  - Trong D1 database, 14 mã của Where Winds Meet vẫn mang status: 'active' nhưng cột expires_at lưu ngày 2026-11-09. Hàm isCodeExpired chỉ kiểm tra nhánh status === 'expired' trước khi tiếp tục kiểm tra ngày. Do ngày cũ hơn hiện tại nên 14 mã này bị đánh dấu hết hạn (579 - 14 = 565).
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Ưu tiên trạng thái thực tế từ D1: nếu status === 'active', 'còn hạn', 'con han' hoặc is_active === 1, lập tức trả về alse (còn hạn), không kiểm tra thêm chuỗi ngày cũ.
+- **Failed Attempts (Cấm Lặp Lại)**:
+  - ❌ Sửa trực tiếp số cứng 579 vào giao diện modal: Gây sai lệch khi người dùng lọc theo tab 'Còn hạn' / 'Hết hạn'.
+  - ❌ Re-parse ngày mà không kiểm tra status từ D1: D1 là nguồn sự thật duy nhất.
+
 ### ISSUE-288: Bẫy Trình Duyệt Lưu Disk Cache HTML Với max-age=120 Khiến Tab Mới Chạy Bản Bundle JS Cũ, Anti-FOUC Gây Flash Nền Tối Trên /test1 & Bẫy Gom Nhầm Bản PC Vào Mobile
 - **Triệu chứng & Rủi ro**:
   1. *Lần tải đầu tiên chạy code cũ*: Mở tab mới tới deep link `/test1/game/:slug` bị tạm rút URL về `/test1`, modal mang nền tối navy, xuất hiện 2 link web gốc cũ; các lần tải sau lại bình thường.

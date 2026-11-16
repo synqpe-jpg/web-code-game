@@ -295,7 +295,7 @@ export function isCodeExpired(codeObj: any, nowMs?: number): boolean {
     return true;
   }
 
-  // 2. Check explicit status
+  // 2. Check explicit status (D1 database is Single Source of Truth)
   const statusStr = String(codeObj.status || codeObj.statusValue || '').trim().toLowerCase();
   if (
     statusStr === 'expired' ||
@@ -305,6 +305,9 @@ export function isCodeExpired(codeObj: any, nowMs?: number): boolean {
     statusStr === 'disabled'
   ) {
     return true;
+  }
+  if (statusStr === 'active' || statusStr === 'còn hạn' || statusStr === 'con han' || codeObj.is_active === 1) {
+    return false;
   }
 
   // 3. Check expiration date fields
