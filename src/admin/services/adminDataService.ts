@@ -2841,6 +2841,48 @@ class AdminDataService {
     return true;
   }
 
+  public updateOrderShipping(
+    orderId: string,
+    update: {
+      trackingCode?: string;
+      carrier?: string;
+      status?: 'PROCESSING' | 'SHIPPING' | 'DELIVERED' | 'CANCELLED' | string;
+      shippingNote?: string;
+    }
+  ): boolean {
+    const order = this.orders.find((o) => o.id === orderId || o.orderCode === orderId);
+    if (!order) return false;
+
+    if (update.trackingCode !== undefined) order.trackingCode = update.trackingCode;
+    if (update.carrier !== undefined) order.carrier = update.carrier;
+    if (update.status !== undefined) order.status = update.status;
+    if (update.shippingNote !== undefined) order.shippingNote = update.shippingNote;
+
+    this.saveOrders();
+
+    // Đồng bộ sang wcg_orders của client nếu có
+    try {
+      const clientOrdersRaw = localStorage.getItem('wcg_orders');
+      if (clientOrdersRaw) {
+        const clientOrders = JSON.parse(clientOrdersRaw);
+        const target = clientOrders.find((co: any) => co.id === order.id || co.id === order.orderCode);
+        if (target) {
+          if (update.trackingCode !== undefined) target.tracking_code = update.trackingCode;
+          if (update.carrier !== undefined) target.carrier = update.carrier;
+          if (update.status !== undefined) target.status = update.status.toLowerCase();
+          if (update.shippingNote !== undefined) target.shipping_note = update.shippingNote;
+          localStorage.setItem('wcg_orders', JSON.stringify(clientOrders));
+        }
+      }
+    } catch {}
+
+    this.logAction('UPDATE_ORDER_SHIPPING', orderId, 'INFO', {
+      orderCode: order.orderCode,
+      ...update,
+    });
+    return true;
+  }
+
   // --- MODULE 10: SEPAY CONFIG & WEBHOOK SIMULATION ---
   public getSePayConfig(): SePayConfig {
     return this.sepayConfig;

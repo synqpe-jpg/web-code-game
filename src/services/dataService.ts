@@ -3107,7 +3107,23 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
     productId: string,
     quantity: number = 1,
     idempotencyKey?: string,
-    options?: { expectedPrice?: number }
+    options?: {
+      expectedPrice?: number;
+      paymentMethod?: 'wallet' | 'vietqr';
+      orderType?: 'physical' | 'digital';
+      shippingInfo?: {
+        name: string;
+        phone: string;
+        address: string;
+        note?: string;
+      };
+      variantInfo?: {
+        id?: string;
+        name?: string;
+        attributes?: Record<string, string>;
+      };
+      shippingFee?: number;
+    }
   ): Promise<{ success: boolean; order?: OrderRecord; message?: string; newBalance?: number; remainingBalance?: number; code?: string; old_price?: number; new_price?: number }> {
     const products = this.getStoreProducts();
     const prod = products.find((p) => p.id === productId || p.sku === productId || p.title === productId);
@@ -3115,7 +3131,7 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
 
     const user = this.getCurrentUser();
     if (!user) {
-      return { success: false, message: 'Vui lòng đăng nhập tài khoản để thực hiện mua mã.' };
+      return { success: false, message: 'Vui lòng đăng nhập tài khoản để thực hiện mua hàng.' };
     }
 
     const qty = Math.max(1, Math.min(999, Math.floor(quantity || 1)));
@@ -3125,15 +3141,179 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
     }
     const totalPrice = unitPrice * qty;
 
+    // Check if this is a physical goods order
+    const isPhysical = (options?.orderType === 'physical') || (prod.product_type === 'physical');
+    const shippingFee = isPhysical ? (options?.shippingFee !== undefined ? options.shippingFee : (prod.shipping_fee || 0)) : 0;
+    const finalAmount = totalPrice + shippingFee;
+
     // Local balance preliminary check
     const currentBal = Number(user.wallet_balance) || 0;
-    if (currentBal <= 0) {
+    const pMethod = options?.paymentMethod || 'wallet';
+
+    if (pMethod === 'wallet' && currentBal <= 0) {
       return {
         success: false,
-        message: 'Số dư ví hiện tại là 0 Core. Vui lòng nạp thêm Core để thanh toán.',
+        message: 'Số dư ví hiện tại là 0. Vui lòng nạp thêm tiền để thanh toán.',
       };
     }
 
+    if (pMethod === 'wallet' && currentBal < finalAmount) {
+      return {
+        success: false,
+        message: `Số dư ví không đủ. Cần ${finalAmount.toLocaleString('vi-VN')} Core (bao gồm phí vận chuyển), ví hiện có ${currentBal.toLocaleString('vi-VN')} Core.`,
+      };
+    }
+
+    // --- XỬ LÝ ĐẶT HÀNG VẬT LÝ TOÀN QUỐC (PHYSICAL SHIPPING WORKFLOW) ---
+    if (isPhysical) {
+      // Check available stock
+      const currentStock = Number(prod.stock_quantity) || 0;
+      if (currentStock < qty) {
+        return {
+          success: false,
+          message: `Sản phẩm không đủ số lượng trong kho (chỉ còn ${currentStock} sản phẩm).`,
+        };
+      }
+
+      // Deduct wallet if paid via wallet
+      let newBalance = currentBal;
+      if (pMethod === 'wallet') {
+        newBalance = Math.max(0, currentBal - finalAmount);
+        user.wallet_balance = newBalance;
+        this.saveCurrentUser(user);
+      }
+
+      // Update product stock and variants stock
+      const targetFinalStock = Math.max(0, currentStock - qty);
+      let updatedVariants = prod.variants;
+      if (options?.variantInfo?.id && Array.isArray(prod.variants)) {
+        updatedVariants = prod.variants.map((v) =>
+          v.id === options.variantInfo?.id ? { ...v, stock: Math.max(0, (v.stock || 0) - qty) } : v
+        );
+      }
+
+      const updatedProducts = products.map((p) =>
+        p.id === prod.id
+          ? {
+              ...p,
+              stock_quantity: targetFinalStock,
+              sold_count: (Number(p.sold_count) || 0) + qty,
+              variants: updatedVariants,
+            }
+          : p
+      );
+      localStorage.setItem('wcg_admin_store_products_v4', JSON.stringify(updatedProducts));
+      localStorage.setItem(this.STORE_PRODUCTS_KEY, JSON.stringify(updatedProducts));
+
+      // Generate Physical Order
+      const randSuffix = (typeof crypto !== 'undefined' && crypto.randomUUID)
+        ? crypto.randomUUID().slice(0, 6).toUpperCase()
+        : Math.random().toString(36).substring(2, 6).toUpperCase();
+      const orderId = `ORD-PHY-${Date.now()}-${randSuffix}`;
+
+      const physicalOrder: OrderRecord = {
+        id: orderId,
+        product_id: prod.id,
+        product_title: prod.title,
+        game_name: prod.brand || prod.industry || 'Hàng Vật Lý',
+        amount: finalAmount,
+        quantity: qty,
+        unit_price: unitPrice,
+        code_content: 'Hàng vật lý - Đang đóng gói & chuẩn bị vận chuyển',
+        code_items: ['Hàng vật lý - Giao qua bưu cục toàn quốc'],
+        status: 'pending',
+        created_at: new Date().toISOString(),
+        payment_method: pMethod,
+        order_type: 'physical',
+        shipping_name: options?.shippingInfo?.name || user.displayName || user.username,
+        shipping_phone: options?.shippingInfo?.phone || user.phone || '',
+        shipping_address: options?.shippingInfo?.address || '',
+        shipping_note: options?.shippingInfo?.note || '',
+        variant_id: options?.variantInfo?.id,
+        variant_name: options?.variantInfo?.name,
+        variant_attributes: options?.variantInfo?.attributes,
+        shipping_fee: shippingFee,
+        carrier: '',
+        tracking_code: '',
+      };
+
+      // Save client order
+      const orders = this.getOrders();
+      orders.unshift(physicalOrder);
+      localStorage.setItem(this.ORDERS_KEY, JSON.stringify(orders));
+
+      // Save into Admin Orders for cross-sync
+      try {
+        const adminOrdersRaw = localStorage.getItem('wcg_admin_orders_v4');
+        const adminOrders: any[] = adminOrdersRaw ? JSON.parse(adminOrdersRaw) : [];
+        const newAdminOrder = {
+          id: physicalOrder.id,
+          orderCode: physicalOrder.id,
+          buyerName: physicalOrder.shipping_name || user.displayName || user.username,
+          buyerEmail: user.email,
+          buyerPhone: physicalOrder.shipping_phone || user.phone || '',
+          productTitle: prod.title + (physicalOrder.variant_name ? ` (${physicalOrder.variant_name})` : ''),
+          amount: finalAmount,
+          paymentMethod: pMethod === 'vietqr' ? 'VIETQR' : 'WALLET',
+          deliveredCodes: [],
+          status: 'PROCESSING',
+          createdAt: physicalOrder.created_at,
+          orderType: 'PHYSICAL',
+          shippingName: physicalOrder.shipping_name,
+          shippingPhone: physicalOrder.shipping_phone,
+          shippingAddress: physicalOrder.shipping_address,
+          shippingNote: physicalOrder.shipping_note,
+          trackingCode: '',
+          carrier: '',
+          variantName: physicalOrder.variant_name,
+          variantAttributes: physicalOrder.variant_attributes,
+          shippingFee: physicalOrder.shipping_fee,
+        };
+        adminOrders.unshift(newAdminOrder);
+        localStorage.setItem('wcg_admin_orders_v4', JSON.stringify(adminOrders));
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('wcg_admin_data_updated', { detail: { type: 'ORDERS_UPDATED' } }));
+        }
+      } catch {}
+
+      // Record transaction if wallet
+      if (pMethod === 'wallet') {
+        try {
+          const txsRaw = localStorage.getItem('wcg_admin_transactions_v4');
+          const txs: any[] = txsRaw ? JSON.parse(txsRaw) : [];
+          const purchaseTx = {
+            id: physicalOrder.id,
+            referenceId: physicalOrder.id,
+            memberId: user.id,
+            memberEmail: user.email,
+            type: 'ORDER',
+            amount: finalAmount,
+            balanceBefore: currentBal,
+            balanceAfter: newBalance,
+            status: 'COMPLETED',
+            description: `Thanh toán đơn hàng vật lý: ${qty}x ${prod.title}${physicalOrder.variant_name ? ` (${physicalOrder.variant_name})` : ''}`,
+            createdAt: physicalOrder.created_at,
+          };
+          txs.unshift(purchaseTx);
+          localStorage.setItem('wcg_admin_transactions_v4', JSON.stringify(txs.slice(0, 500)));
+        } catch {}
+      }
+
+      // Notify updates
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('wcg_user_updated', { detail: user }));
+        window.dispatchEvent(new CustomEvent('wcg_wallet_updated', { detail: { newBalance } }));
+      }
+
+      return {
+        success: true,
+        order: physicalOrder,
+        newBalance: user.wallet_balance,
+        remainingBalance: user.wallet_balance,
+      };
+    }
+
+    // --- XỬ LÝ ĐẶT HÀNG MÃ SỐ / GAME DIGITAL (NGUYÊN BẢN CODEGAME.SHOP) ---
     const finalKey = idempotencyKey || (
       (typeof crypto !== 'undefined' && crypto.randomUUID)
         ? crypto.randomUUID()

@@ -7,6 +7,43 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-16]
 
+### 412. Triển Khai Bước 4: Quy Trình Đặt Hàng & Giao Nhận Linh Hoạt (Physical Shipping Info - Họ Tên, SĐT, Địa Chỉ Giao Hàng Toàn Quốc vs Instant Digital Code Delivery) (16/11/2026)
+- **Bối cảnh**: Triển khai Bước 4 trong lộ trình phát triển sàn thương mại điện tử đa ngành (bán hoặc cho thuê trọn gói), tách biệt rõ ràng 2 luồng: Hàng vật lý (quần áo, mỹ phẩm, công nghệ... cần thông tin nhận hàng, tính cước ship, cập nhật mã vận đơn và trạng thái giao hàng) và Hàng kỹ thuật số (mã thẻ, key, code ingame... nhận mã tự động 0 giây).
+- **Giải pháp thực hiện**:
+  1. **Chuẩn Hóa Mô Hình Đơn Hàng Đa Ngành (`OrderRecord` & `AdminOrderRecord`)**:
+     - Bổ sung `order_type?: 'physical' | 'digital'`, `shipping_name`, `shipping_phone`, `shipping_address`, `shipping_note`, `tracking_code`, `carrier`, `variant_id`, `variant_name`, `variant_attributes`, `shipping_fee`.
+     - Mở rộng trạng thái đơn: `'completed' | 'pending' | 'shipping' | 'delivered' | 'cancelled' | 'refunded'`.
+  2. **Nâng Cấp Xử Lý Đơn Hàng Client (`dataService.ts`)**:
+     - `createOrder`: Nhận diện sản phẩm vật lý (`prod.product_type === 'physical'`), tự động cộng phí vận chuyển vào tổng thanh toán, kiểm tra và trừ tồn kho (cả SKU biến thể nếu có), trừ số dư ví nếu thanh toán bằng ví hoặc hỗ trợ VietQR.
+     - Tự động sinh mã đơn hàng chuẩn `ORD-PHY-*` và đồng bộ tức thì sang danh sách đơn hàng Quản trị (`wcg_admin_orders_v4`) qua event `ORDERS_UPDATED`.
+  3. **Nâng Cấp Modal Thanh Toán Đơn Hàng (`ProductCheckoutModal.tsx`)**:
+     - Khi sản phẩm là `physical`:
+       - Tự động hiển thị Khối **"Thông Tin Nhận Hàng Toàn Quốc"** gồm: Họ tên người nhận, SĐT (validate định dạng 10 số VN), Địa chỉ giao hàng chi tiết và Ghi chú bưu tá.
+       - Tự động lưu cache thông tin giao hàng vào `localStorage.getItem('wcg_shipping_info')` giúp khách hàng không phải nhập lại cho lần mua sau.
+       - Hiển thị badge cước phí vận chuyển (Miễn phí toàn quốc hoặc cộng phí ship tương ứng).
+       - Nút đặt hàng: `Xác Nhận Đặt Hàng & Giao Toàn Quốc • [Tổng tiền đã gồm phí ship]`.
+     - Màn hình Thành Công:
+       - Nếu là Hàng Vật Lý: Hiển thị icon xe tải 🚚 "Đặt Hàng Thành Công! Đang Chuẩn Bị Hàng & Đóng Gói", kèm bảng tóm tắt chi tiết người nhận, SĐT, địa chỉ giao nhận và số tiền.
+       - Nếu là Hàng Số: Giữ nguyên 100% giao diện nhận mã code ingame 0 giây và nút sao chép mã.
+  4. **Nâng Cấp Quản Trị Đơn Hàng Admin (`OrdersModule.tsx`) Tuân Thủ Tuyệt Đối Rule 9 (Single-Screen First)**:
+     - 100% các cột bảng nằm trọn trong 1 màn hình máy tính (1366x768 / 1280x720) với `table-fixed w-full`, độ rộng cột chuẩn xác, cắt tỉa văn bản dài bằng `truncate` kèm `title` tooltip.
+     - Bộ lọc phân loại hàng linh hoạt: Tất cả loại hàng / 📦 Hàng Vật Lý (Giao vận) / ⚡ Hàng Kỹ Thuật Số (Mã code).
+     - Bộ lọc trạng thái: Tất cả / Hoàn thành & Đã giao / Đang giao hàng (SHIPPING) / Đang xử lý / Chờ thanh toán QR / Đã hủy / Đã hoàn tiền.
+     - Modal **"Cập Nhật Vận Đơn & Trạng Thái Giao Hàng"**: Quản trị viên dễ dàng chọn hãng vận chuyển (GHTK, GHN, Viettel Post, Shopee Xpress, J&T...), nhập mã vận đơn `tracking_code`, chuyển trạng thái sang `SHIPPING` hoặc `DELIVERED`, và lưu cập nhật tức thì.
+- **Phạm vi file**: `src/types/game.ts`, `src/admin/types/adminTypes.ts`, `src/services/dataService.ts`, `src/admin/services/adminDataService.ts`, `src/components/ProductCheckoutModal.tsx`, `src/admin/modules/OrdersModule.tsx`.
+- **Kiểm thử**: Build Vite & Cloudflare Pages Edge Worker pass 100%, 0 test artifacts, audit sạch 100%.
+
+### 411. Triển Khai Bước 3: Chuẩn Hóa Cấu Trúc Sản Phẩm Đa Ngành (Universal Product Schema - Phân Loại, Thuộc Tính Size/Màu, Kho Hàng Vật Lý & Số) (16/11/2026)
+- **Bối cảnh**: Triển khai Bước 3 trong lộ trình nâng cấp website thành sàn thương mại điện tử đa ngành (bán hoặc cho thuê trọn gói), bổ sung các trường thuộc tính linh hoạt (size, màu sắc, thương hiệu, xuất xứ, bảo hành) và kho hàng vật lý / số.
+- **Giải pháp thực hiện**:
+  1. Mở rộng `StoreProduct` với `product_type` ('physical' | 'digital'), `industry`, `brand`, `origin`, `warranty_period`, `shipping_fee`, `attributes`, `variants`.
+  2. Tạo kho sản phẩm mẫu 5 ngành hàng (`src/data/industryPresetProducts.ts`) với 15 mặt hàng thực tế phong phú.
+  3. Cập nhật adapter `getProductPackages` và giỏ hàng `cartService.ts` bảo đảm tương thích 100% với các gói sản phẩm game hiện có.
+  4. Nâng cấp Modal Chi Tiết Sản Phẩm (`ProductDetailModal.tsx`) với giao diện thông số kỹ thuật và bộ chọn thuộc tính tương tác trực quan.
+  5. Nâng cấp Quản trị Sản phẩm (`StoreProductsModule.tsx`) hỗ trợ tạo, sửa, xóa sản phẩm đa ngành và phân loại biến thể theo chuẩn Rule 9.
+- **Phạm vi file**: `src/types/game.ts`, `src/data/industryPresetProducts.ts`, `src/services/dataService.ts`, `src/services/cartService.ts`, `src/components/ProductDetailModal.tsx`, `src/admin/modules/StoreProductsModule.tsx`.
+- **Kiểm thử**: Build Vite & Cloudflare Edge Worker pass 100%, 0 test artifacts, audit sạch 100%.
+
 ### 410. Triển Khai Bước 2: Hệ Thống Danh Mục Hàng Hóa Linh Hoạt & Đa Ngành (Universal Product Categories & Industry Presets) (16/11/2026)
 - **Bối cảnh**: Triển khai Bước 2 trong lộ trình biến website thành sàn thương mại điện tử đa ngành (bán hoặc cho thuê trọn gói), cho phép người mua kinh doanh mọi mặt hàng (Thời trang, Mỹ phẩm, Thiết bị số/Công nghệ, Khóa học/Dịch vụ số, Game code...).
 - **Giải pháp thực hiện**:

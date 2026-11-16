@@ -320,10 +320,23 @@ export interface OrderRecord {
   unit_price?: number;
   code_content: string;
   code_items?: string[];
-  status: 'completed' | 'pending' | 'failed';
+  status: 'completed' | 'pending' | 'failed' | 'shipping' | 'delivered' | 'cancelled' | string;
   price_rule?: 'escalating' | 'first_purchase' | 'normal' | string;
   created_at: string;
   payment_method: 'wallet' | 'vietqr';
+
+  // --- TRƯỜNG ĐA NGÀNH: GIAO NHẬN VẬN TẢI & THUỘC TÍNH SẢN PHẨM ---
+  order_type?: 'physical' | 'digital'; // 'physical': hàng vật lý cần giao, 'digital': hàng số trả mã tức thì
+  shipping_name?: string; // Họ tên người nhận hàng
+  shipping_phone?: string; // Số điện thoại nhận hàng
+  shipping_address?: string; // Địa chỉ chi tiết nhận hàng (Số nhà, đường, phường, quận, tỉnh)
+  shipping_note?: string; // Ghi chú giao hàng từ khách
+  tracking_code?: string; // Mã vận đơn từ hãng vận chuyển (GHTK, GHN, Viettel Post...)
+  carrier?: string; // Tên đơn vị vận chuyển (GHTK, GHN, Viettel Post, Shopee Xpress, J&T...)
+  variant_id?: string; // Mã SKU biến thể
+  variant_name?: string; // Tên biến thể (ví dụ: "Size L - Trắng")
+  variant_attributes?: Record<string, string>; // Chi tiết thuộc tính đã chọn {"Màu sắc": "Trắng", "Size": "L"}
+  shipping_fee?: number; // Cước phí vận chuyển
 }
 
 export interface ClaimedCodeRecord {

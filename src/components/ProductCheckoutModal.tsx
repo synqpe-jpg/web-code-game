@@ -22,6 +22,12 @@ import {
   QrCode,
   Clock,
   RefreshCw,
+  Truck,
+  MapPin,
+  Phone,
+  User,
+  FileText,
+  Package,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import QRCode from 'qrcode';
@@ -97,6 +103,57 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
   const [sepayConfig] = useState(() => dataService.getSePayConfig());
   const minQrAmount = Number(sepayConfig?.minQrAmount || 2000);
   const [paymentMethod, setPaymentMethod] = useState<'wallet' | 'vietqr'>('wallet');
+
+  // --- TRƯỜNG ĐA NGÀNH: HÀNG VẬT LÝ & GIAO HÀNG TOÀN QUỐC ---
+  const isPhysical = Boolean(product?.product_type === 'physical' || liveProduct?.product_type === 'physical');
+  const shippingFee = isPhysical ? Number(product?.shipping_fee ?? liveProduct?.shipping_fee ?? 0) : 0;
+
+  const [shippingName, setShippingName] = useState<string>(() => {
+    if (typeof localStorage !== 'undefined') {
+      const saved = localStorage.getItem('wcg_shipping_info');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (parsed?.name) return parsed.name;
+        } catch {}
+      }
+    }
+    return currentUser?.displayName || currentUser?.username || '';
+  });
+
+  const [shippingPhone, setShippingPhone] = useState<string>(() => {
+    if (typeof localStorage !== 'undefined') {
+      const saved = localStorage.getItem('wcg_shipping_info');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (parsed?.phone) return parsed.phone;
+        } catch {}
+      }
+    }
+    return currentUser?.phone || '';
+  });
+
+  const [shippingAddress, setShippingAddress] = useState<string>(() => {
+    if (typeof localStorage !== 'undefined') {
+      const saved = localStorage.getItem('wcg_shipping_info');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (parsed?.address) return parsed.address;
+        } catch {}
+      }
+    }
+    return '';
+  });
+
+  const [shippingNote, setShippingNote] = useState<string>('');
+
+  const saveShippingCache = (name: string, phone: string, address: string) => {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('wcg_shipping_info', JSON.stringify({ name, phone, address }));
+    }
+  };
 
   const [qrOrder, setQrOrder] = useState<any | null>(null);
   const [qrStatus, setQrStatus] = useState<'idle' | 'creating' | 'waiting' | 'paid' | 'expired' | 'error'>('idle');
@@ -574,11 +631,12 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
     : (safeQty > 0
         ? (firstItemActualPrice + Math.max(0, safeQty - 1) * effectiveRegularPrice)
         : 0);
+  const finalGrandTotal = totalPrice + (isPhysical ? shippingFee : 0);
   const totalDiscountAmount = isFirstPurchaseEligible
     ? Math.max(0, (effectiveRegularPrice * safeQty) - totalPrice)
     : 0;
   const isPriceValid = !isNaN(totalPrice) && totalPrice > 0;
-  const isBalanceEnough = isPriceValid && (userBalance >= totalPrice);
+  const isBalanceEnough = isPriceValid && (userBalance >= finalGrandTotal);
   const checkoutDisplayStock = realStock <= 0 ? 0 : marketingService.getDisplayStock(effectiveTargetId, realStock);
 
   useEffect(() => {
@@ -777,8 +835,8 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
 
     if (!isBalanceEnough) {
       onShowToast(
-        'Số Dư Core Không Đủ',
-        `Bạn cần ${formatCore(totalPrice)} nhưng ví hiện chỉ có ${formatCore(userBalance)}. Vui lòng nạp thêm Core để thanh toán.`,
+        'Số Dư Ví Không Đủ',
+        `Bạn cần ${formatCore(finalGrandTotal)} nhưng ví hiện chỉ có ${formatCore(userBalance)}. Vui lòng nạp thêm tiền để thanh toán.`,
         'error'
       );
       return;
@@ -787,6 +845,24 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
     if (realStock <= 0) {
       onShowToast('Hết hàng', 'Sản phẩm tạm thời hết hàng trong kho.', 'error');
       return;
+    }
+
+    // Kiểm tra thông tin giao nhận nếu là hàng vật lý
+    if (isPhysical) {
+      if (!shippingName.trim()) {
+        onShowToast('Thiếu thông tin người nhận', 'Vui lòng nhập Họ tên người nhận hàng.', 'warning');
+        return;
+      }
+      const cleanPhone = shippingPhone.trim().replace(/\s+/g, '');
+      if (!cleanPhone || !/^(0|\+84)[3|5|7|8|9][0-9]{8}$/.test(cleanPhone)) {
+        onShowToast('Số điện thoại không hợp lệ', 'Vui lòng nhập số điện thoại người nhận hợp lệ (10 số).', 'warning');
+        return;
+      }
+      if (!shippingAddress.trim() || shippingAddress.trim().length < 6) {
+        onShowToast('Thiếu địa chỉ nhận hàng', 'Vui lòng nhập địa chỉ giao hàng chi tiết (Số nhà, đường, phường, quận, tỉnh).', 'warning');
+        return;
+      }
+      saveShippingCache(shippingName.trim(), shippingPhone.trim(), shippingAddress.trim());
     }
 
     const activeKey = idempotencyKey || (
@@ -799,7 +875,22 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
     setIsProcessing(true);
 
     try {
-      const orderPromise = dataService.createOrder(effectiveTargetId, safeQty, activeKey, { expectedPrice: totalPrice });
+      const orderPromise = dataService.createOrder(effectiveTargetId, safeQty, activeKey, {
+        expectedPrice: totalPrice,
+        orderType: isPhysical ? 'physical' : 'digital',
+        paymentMethod: 'wallet',
+        shippingInfo: isPhysical ? {
+          name: shippingName.trim(),
+          phone: shippingPhone.trim(),
+          address: shippingAddress.trim(),
+          note: shippingNote.trim(),
+        } : undefined,
+        variantInfo: selectedPackage ? {
+          id: selectedPackage.id,
+          name: selectedPackage.name,
+        } : undefined,
+        shippingFee: isPhysical ? shippingFee : 0,
+      });
       const timeoutPromise = new Promise<{ success: boolean; message: string }>((_, reject) =>
         setTimeout(() => reject(new Error('Thời gian phản hồi máy chủ vượt quá 15 giây. Vui lòng kiểm tra lại danh sách mã đã nhận hoặc thử lại.')), 15000)
       );
@@ -851,7 +942,11 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
           origin: { y: 0.6 },
           colors: ['#6366F1', '#10B981', '#F59E0B'],
         });
-        onShowToast('Thanh toán thành công!', `Đã giao ${safeQty} mã quà tặng tức thì.`, 'success');
+        onShowToast(
+          isPhysical ? 'Đặt hàng thành công!' : 'Thanh toán thành công!',
+          isPhysical ? 'Đơn hàng đã được lưu và đang chuẩn bị giao đến bạn.' : `Đã giao ${safeQty} mã quà tặng tức thì.`,
+          'success'
+        );
       } else {
         if (res.message && res.message.includes('Phiên đăng nhập') && onOpenAuth) {
           onOpenAuth();
@@ -1066,69 +1161,132 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
             /* Order Success View */
             <div className="text-center py-3 space-y-4 animate-scale-in">
               <div className="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center justify-center mx-auto shadow-glow-emerald">
-                <CheckCircle2 className="w-8 h-8" />
+                {completedOrder.order_type === 'physical' ? (
+                  <Truck className="w-8 h-8" />
+                ) : (
+                  <CheckCircle2 className="w-8 h-8" />
+                )}
               </div>
 
               <div>
                 <h3 className="font-heading font-extrabold text-xl text-foreground">
-                  Giao Hàng Thành Công!
+                  {completedOrder.order_type === 'physical' ? 'Đặt Hàng Thành Công!' : 'Giao Hàng Thành Công!'}
                 </h3>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Mã đơn: <strong className="text-foreground font-mono">{completedOrder.id}</strong> • Số lượng: <strong className="text-emerald-400">{deliveredLines.length} mã</strong>
+                  Mã đơn: <strong className="text-foreground font-mono">{completedOrder.id}</strong> • {completedOrder.order_type === 'physical' ? (
+                    <span className="text-emerald-400 font-semibold">Đang chuẩn bị hàng & đóng gói bưu phẩm</span>
+                  ) : (
+                    <>Số lượng: <strong className="text-emerald-400">{deliveredLines.length} mã</strong></>
+                  )}
                 </p>
               </div>
 
-              {/* Code List Box */}
-              <div className="p-3 sm:p-4 rounded-2xl bg-muted/70 border border-border space-y-2.5 text-left">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground font-semibold">
-                    Danh Sách Mã Code Ingame:
-                  </span>
-                  {deliveredLines.length > 1 && (
-                    <button
-                      onClick={handleCopyAllCodes}
-                      className="px-2.5 py-1 rounded-lg bg-secondary hover:bg-secondary/90 text-white text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1"
-                    >
-                      {copiedAll ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                      <span>{copiedAll ? 'Đã sao chép tất cả' : 'Sao chép tất cả'}</span>
-                    </button>
-                  )}
-                </div>
+              {completedOrder.order_type === 'physical' ? (
+                /* Physical Shipping Summary Box */
+                <div className="p-4 rounded-2xl bg-muted/70 border border-border space-y-3 text-left text-xs">
+                  <div className="flex items-center gap-2 pb-2 border-b border-border/80">
+                    <Truck className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span className="font-bold text-foreground">Thông Tin Giao Nhận Toàn Quốc</span>
+                  </div>
 
-                <div className="space-y-2 sm:max-h-48 sm:overflow-y-auto pr-1">
-                  {deliveredLines.map((codeItem: string, idx: number) => (
-                    <div
-                      key={idx}
-                      className="flex items-center justify-between gap-2 bg-card p-2.5 sm:p-3 rounded-xl border border-border"
-                    >
-                      <div className="min-w-0 flex-1">
-                        {deliveredLines.length > 1 && (
-                          <span className="text-[10px] text-muted-foreground font-mono block">#{idx + 1}</span>
+                  <div className="space-y-2">
+                    <div className="flex items-start gap-2">
+                      <User className="w-3.5 h-3.5 text-muted-foreground shrink-0 mt-0.5" />
+                      <div>
+                        <span className="text-muted-foreground">Người nhận: </span>
+                        <strong className="text-foreground font-semibold">{completedOrder.shipping_name || user?.displayName || user?.username}</strong>
+                        {completedOrder.shipping_phone && (
+                          <span className="text-muted-foreground ml-2 font-mono">({completedOrder.shipping_phone})</span>
                         )}
-                        <span className="font-mono font-bold text-xs sm:text-sm text-primary-light break-all block">
-                          {codeItem}
-                        </span>
                       </div>
-                      <button
-                        onClick={() => handleCopySingleCode(codeItem, idx)}
-                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-white text-xs font-bold transition-all cursor-pointer shrink-0"
-                      >
-                        {copiedCodeIdx === idx ? (
-                          <>
-                            <Check className="w-3 h-3" />
-                            <span className="hidden xs:inline">Đã chép</span>
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="w-3 h-3" />
-                            <span className="hidden xs:inline">Sao chép</span>
-                          </>
-                        )}
-                      </button>
                     </div>
-                  ))}
+
+                    <div className="flex items-start gap-2">
+                      <MapPin className="w-3.5 h-3.5 text-rose-400 shrink-0 mt-0.5" />
+                      <div>
+                        <span className="text-muted-foreground">Địa chỉ nhận hàng: </span>
+                        <span className="text-foreground font-medium">{completedOrder.shipping_address || 'Địa chỉ tiêu chuẩn'}</span>
+                      </div>
+                    </div>
+
+                    {completedOrder.shipping_note && (
+                      <div className="flex items-start gap-2">
+                        <FileText className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
+                        <div>
+                          <span className="text-muted-foreground">Ghi chú bưu tá: </span>
+                          <span className="text-amber-300 italic">{completedOrder.shipping_note}</span>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between pt-2 border-t border-border/80 text-[11px]">
+                      <span className="text-muted-foreground">Cước phí vận chuyển:</span>
+                      <span className="font-semibold text-emerald-400">
+                        {completedOrder.shipping_fee === 0 ? 'Miễn phí toàn quốc (0đ)' : `${completedOrder.shipping_fee?.toLocaleString('vi-VN')} ₫`}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="text-muted-foreground">Tổng tiền thanh toán:</span>
+                      <span className="font-bold font-mono text-emerald-400 text-sm">
+                        {formatCore(completedOrder.amount)}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                /* Code List Box */
+                <div className="p-3 sm:p-4 rounded-2xl bg-muted/70 border border-border space-y-2.5 text-left">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground font-semibold">
+                      Danh Sách Mã Code Ingame:
+                    </span>
+                    {deliveredLines.length > 1 && (
+                      <button
+                        onClick={handleCopyAllCodes}
+                        className="px-2.5 py-1 rounded-lg bg-secondary hover:bg-secondary/90 text-white text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1"
+                      >
+                        {copiedAll ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                        <span>{copiedAll ? 'Đã sao chép tất cả' : 'Sao chép tất cả'}</span>
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="space-y-2 sm:max-h-48 sm:overflow-y-auto pr-1">
+                    {deliveredLines.map((codeItem: string, idx: number) => (
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between gap-2 bg-card p-2.5 sm:p-3 rounded-xl border border-border"
+                      >
+                        <div className="min-w-0 flex-1">
+                          {deliveredLines.length > 1 && (
+                            <span className="text-[10px] text-muted-foreground font-mono block">#{idx + 1}</span>
+                          )}
+                          <span className="font-mono font-bold text-xs sm:text-sm text-primary-light break-all block">
+                            {codeItem}
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => handleCopySingleCode(codeItem, idx)}
+                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-white text-xs font-bold transition-all cursor-pointer shrink-0"
+                        >
+                          {copiedCodeIdx === idx ? (
+                            <>
+                              <Check className="w-3 h-3" />
+                              <span className="hidden xs:inline">Đã chép</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-3 h-3" />
+                              <span className="hidden xs:inline">Sao chép</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Guide link if configured */}
               <GuideLinksBanner
@@ -1352,7 +1510,103 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
                 </div>
               )}
 
-                            {/* Payment Method Selector (Chỉ hiện khi đơn hàng >= ngưỡng minQrAmount, mặc định 2.000) */}
+              {/* Khối Nhập Thông Tin Nhận Hàng Toàn Quốc (Khi là hàng vật lý) */}
+              {isPhysical && (
+                <div className="p-4 rounded-2xl bg-card border border-border space-y-3 animate-in fade-in">
+                  <div className="flex items-center justify-between pb-2 border-b border-border/80">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 rounded-lg bg-emerald-500/15 text-emerald-400">
+                        <Truck className="w-4 h-4" />
+                      </div>
+                      <span className="text-xs font-bold text-foreground uppercase tracking-wider">
+                        Thông Tin Nhận Hàng Toàn Quốc
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                      🚚 Giao Tận Nơi
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="text-[11px] font-semibold text-muted-foreground block mb-1">
+                        Họ và tên người nhận <span className="text-rose-400">*</span>
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={shippingName}
+                          onChange={(e) => setShippingName(e.target.value)}
+                          placeholder="Ví dụ: Nguyễn Văn A"
+                          className="w-full px-3 py-2 pl-8 rounded-xl bg-muted/40 border border-border text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-primary"
+                        />
+                        <User className="w-3.5 h-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-semibold text-muted-foreground block mb-1">
+                        Số điện thoại nhận hàng <span className="text-rose-400">*</span>
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="tel"
+                          value={shippingPhone}
+                          onChange={(e) => setShippingPhone(e.target.value)}
+                          placeholder="Ví dụ: 0987654321"
+                          className="w-full px-3 py-2 pl-8 rounded-xl bg-muted/40 border border-border text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-primary"
+                        />
+                        <Phone className="w-3.5 h-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-semibold text-muted-foreground block mb-1">
+                      Địa chỉ nhận hàng chi tiết <span className="text-rose-400">*</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={shippingAddress}
+                        onChange={(e) => setShippingAddress(e.target.value)}
+                        placeholder="Số nhà, ngõ/đường, Phường/Xã, Quận/Huyện, Tỉnh/Thành phố"
+                        className="w-full px-3 py-2 pl-8 rounded-xl bg-muted/40 border border-border text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-primary"
+                      />
+                      <MapPin className="w-3.5 h-3.5 text-rose-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-semibold text-muted-foreground block mb-1">
+                      Ghi chú cho shipper (Không bắt buộc)
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={shippingNote}
+                        onChange={(e) => setShippingNote(e.target.value)}
+                        placeholder="Ví dụ: Giao giờ hành chính, gọi trước khi đến..."
+                        className="w-full px-3 py-2 pl-8 rounded-xl bg-muted/40 border border-border text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-primary"
+                      />
+                      <FileText className="w-3.5 h-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    </div>
+                  </div>
+
+                  {/* Phí vận chuyển Badge */}
+                  <div className="p-2.5 rounded-xl bg-muted/40 border border-border flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground flex items-center gap-1.5">
+                      <Truck className="w-3.5 h-3.5 text-emerald-400" />
+                      Phí vận chuyển bưu điện:
+                    </span>
+                    <span className="font-bold text-emerald-400">
+                      {shippingFee === 0 ? 'Miễn phí toàn quốc (0đ)' : `+${shippingFee.toLocaleString('vi-VN')} ₫`}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Payment Method Selector (Chỉ hiện khi đơn hàng >= ngưỡng minQrAmount, mặc định 2.000) */}
               {isQrAvailable && (
                 <div className="space-y-1.5">
                   <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block">
@@ -1818,10 +2072,27 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
                     </div>
                   )}
 
+                  {isPhysical && shippingFee > 0 && (
+                    <div className="p-2.5 rounded-xl bg-muted/30 border border-border flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground">Tiền hàng ({safeQty} món):</span>
+                      <span className="font-mono font-semibold text-foreground">{formatCore(totalPrice)}</span>
+                    </div>
+                  )}
+                  {isPhysical && (
+                    <div className="p-2.5 rounded-xl bg-muted/30 border border-border flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground flex items-center gap-1">
+                        <Truck className="w-3.5 h-3.5 text-emerald-400" /> Cước vận chuyển:
+                      </span>
+                      <span className="font-mono font-semibold text-emerald-400">
+                        {shippingFee === 0 ? 'Miễn phí (0đ)' : formatCore(shippingFee)}
+                      </span>
+                    </div>
+                  )}
+
                   <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between text-xs">
                     <span className="font-bold text-foreground">Tổng thanh toán:</span>
                     <span className="font-display font-black text-base text-emerald-400">
-                      {formatCore(totalPrice)}
+                      {formatCore(finalGrandTotal)}
                     </span>
                   </div>
                 </div>
@@ -1843,9 +2114,9 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
                     <div className="flex items-start gap-2">
                       <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                       <div>
-                        <p className="font-bold">Số Dư Core Không Đủ</p>
+                        <p className="font-bold">Số Dư Ví Không Đủ</p>
                         <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
-                          Cần <strong className="text-foreground font-bold">{formatCore(totalPrice)}</strong>, ví hiện có <strong className="text-foreground font-bold">{formatCore(userBalance)}</strong>. Còn thiếu <strong className="text-amber-400 font-bold">{formatCore(totalPrice - userBalance)}</strong>.
+                          Cần <strong className="text-foreground font-bold">{formatCore(finalGrandTotal)}</strong>, ví hiện có <strong className="text-foreground font-bold">{formatCore(userBalance)}</strong>. Còn thiếu <strong className="text-amber-400 font-bold">{formatCore(finalGrandTotal - userBalance)}</strong>.
                         </p>
                       </div>
                     </div>
@@ -1854,7 +2125,7 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
                       className="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:opacity-95 text-slate-950 font-bold text-xs transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-sm"
                     >
                       <PlusCircle className="w-4 h-4" />
-                      <span>Nạp Thêm Core Ngay</span>
+                      <span>Nạp Thêm Tiền Ngay</span>
                     </button>
                   </div>
                 ) : (
@@ -1864,7 +2135,7 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
                       <span>Số dư ví đủ để thanh toán</span>
                     </div>
                     <span className="text-[11px] text-muted-foreground font-mono">
-                      Sau mua còn: {formatCore(userBalance - totalPrice)}
+                      Sau mua còn: {formatCore(userBalance - finalGrandTotal)}
                     </span>
                   </div>
                 )}
@@ -1877,8 +2148,12 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
                   <span>Bảo hành hoàn tiền 100%</span>
                 </div>
                 <div className="p-2.5 rounded-xl bg-muted/30 border border-border flex items-center gap-1.5">
-                  <Zap className="w-3.5 h-3.5 text-secondary shrink-0" />
-                  <span>Giao mã tự động ngay</span>
+                  {isPhysical ? (
+                    <Truck className="w-3.5 h-3.5 text-secondary shrink-0" />
+                  ) : (
+                    <Zap className="w-3.5 h-3.5 text-secondary shrink-0" />
+                  )}
+                  <span>{isPhysical ? 'Giao hàng tận nơi toàn quốc' : 'Giao mã tự động ngay'}</span>
                 </div>
               </div>
 
@@ -1898,6 +2173,8 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
                   <PlusCircle className="w-4 h-4 text-slate-950" />
                 ) : isEscalating ? (
                   <Zap className="w-4 h-4 fill-slate-950 text-slate-950" />
+                ) : isPhysical ? (
+                  <Truck className="w-4 h-4 text-white" />
                 ) : (
                   <Sparkles className="w-4 h-4 text-amber-300" />
                 )}
@@ -1909,10 +2186,12 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
                     : !isPriceValid
                     ? 'Đang cập nhật giá...'
                     : !isBalanceEnough
-                    ? `Thiếu ${formatCore(totalPrice - userBalance)} • Nạp Core Ngay`
+                    ? `Thiếu ${formatCore(finalGrandTotal - userBalance)} • Nạp Tiền Ngay`
                     : isEscalating
-                    ? `Xác Nhận Mua Gói Nâng Giá • ${formatCore(totalPrice)}`
-                    : `Xác Nhận Mua ${safeQty > 1 ? `(${safeQty} Gói)` : ''} • ${formatCore(totalPrice)}`}
+                    ? `Xác Nhận Mua Gói Nâng Giá • ${formatCore(finalGrandTotal)}`
+                    : isPhysical
+                    ? `Xác Nhận Đặt Hàng & Giao Toàn Quốc • ${formatCore(finalGrandTotal)}`
+                    : `Xác Nhận Mua ${safeQty > 1 ? `(${safeQty} Gói)` : ''} • ${formatCore(finalGrandTotal)}`}
                 </span>
               </button>
                 </>

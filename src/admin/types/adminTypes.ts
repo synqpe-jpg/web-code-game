@@ -177,10 +177,22 @@ export interface AdminOrderRecord {
   buyerPhone?: string;
   productTitle: string;
   amount: number;
-  paymentMethod: 'WALLET' | 'SEPAY_BANK';
+  paymentMethod: 'WALLET' | 'SEPAY_BANK' | 'VIETQR' | string;
   deliveredCodes: string[];
-  status: 'PROCESSING' | 'COMPLETED' | 'CANCELLED' | 'REFUNDED';
+  status: 'PROCESSING' | 'COMPLETED' | 'CANCELLED' | 'REFUNDED' | 'SHIPPING' | 'DELIVERED' | string;
   createdAt: string;
+
+  // --- TRƯỜNG ĐA NGÀNH: GIAO NHẬN VẬN TẢI & THUỘC TÍNH SẢN PHẨM ---
+  orderType?: 'PHYSICAL' | 'DIGITAL' | string;
+  shippingName?: string;
+  shippingPhone?: string;
+  shippingAddress?: string;
+  shippingNote?: string;
+  trackingCode?: string;
+  carrier?: string;
+  variantName?: string;
+  variantAttributes?: Record<string, string>;
+  shippingFee?: number;
 }
 
 export interface SePayConfig {

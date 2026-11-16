@@ -10,6 +10,22 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-296: Quy Trình Đặt Hàng & Giao Nhận Linh Hoạt (Physical Shipping Info & Tracking vs Instant Digital Code Delivery) Tuân Thủ Tuyệt Đối Rule 9
+- **Triệu chứng & Rủi ro**:
+  - Khi sàn mở rộng sang hàng vật lý (quần áo, mỹ phẩm, công nghệ...), nếu dùng chung luồng đặt hàng của game code sẽ dẫn đến lỗi logic: hệ thống đòi hỏi mã thẻ cào từ kho `inventory_codes` và màn hình hoàn tất lại hiển thị mã code trống, người mua không có nơi nhập địa chỉ giao hàng và chủ shop không có thông tin người nhận hay mã vận đơn để gửi hàng.
+  - Bảng quản trị đơn hàng nếu hiển thị thêm địa chỉ giao hàng dài và mã vận đơn có nguy cơ bị tràn ngang (horizontal overflow) đẩy nút thao tác ra ngoài màn hình vi phạm Rule 9.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Phân loại rõ ràng `order_type: 'physical' | 'digital'`. Với hàng vật lý: thu thập đầy đủ Họ tên, SĐT, Địa chỉ chi tiết và Ghi chú giao hàng trong Modal Checkout, tự động ghi nhớ vào `localStorage.getItem('wcg_shipping_info')`.
+  - Màn hình hoàn tất của hàng vật lý hiển thị icon xe tải 🚚 "Đặt Hàng Thành Công! Đang Chuẩn Bị Hàng & Đóng Gói" thay vì hiển thị mã code.
+  - Áp dụng Rule 9 tuyệt đối trong `OrdersModule.tsx`: Bảng quản trị dùng `table-fixed w-full`, địa chỉ giao hàng được cắt tỉa bằng `truncate` kèm `title` hiển thị tooltip khi hover. Modal Cập nhật vận đơn cho phép nhập Hãng vận chuyển (GHTK, GHN, Viettel Post...) và Mã vận đơn `tracking_code`, chuyển trạng thái đơn sang `SHIPPING` hoặc `DELIVERED` linh hoạt.
+
+### ISSUE-295: Chuẩn Hóa Cấu Trúc Sản Phẩm Đa Ngành & Kho Hàng Vật Lý / Kỹ Thuật Số Bảo Toàn Tương Thích Ngược
+- **Triệu chứng & Rủi ro**:
+  - Khi thêm các trường thuộc tính mới (màu sắc, kích thước, thương hiệu, xuất xứ), nếu thay đổi cấu trúc `packages` sẽ làm gãy các sản phẩm game code và tiện ích hiện có.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Sử dụng adapter `getProductPackages` làm cầu nối tương thích ngược 100%. Nếu sản phẩm chưa có `variants`, hệ thống tự động suy diễn từ `packages` truyền thống.
+  - Toàn bộ modal chi tiết và modal quản trị sản phẩm tuân thủ Rule 9 (Single-Screen First).
+
 ### ISSUE-293: Thiết Kế Bảng Quản Lý Danh Mục Đa Ngành Không Tràn Ngang & Tự Động Phân Giải Matcher Cho Sản Phẩm Tĩnh
 - **Triệu chứng & Rủi ro**:
   - Khi người dùng thêm nhiều danh mục với tên dài và danh sách từ khóa lọc phức tạp, bảng quản lý trong Admin có thể bị tràn ngang (horizontal overflow), đẩy cột thao tác Sửa/Xóa ra khỏi màn hình vi phạm Rule 9.
