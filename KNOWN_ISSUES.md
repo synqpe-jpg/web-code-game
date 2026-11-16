@@ -14,11 +14,14 @@
 - **Triệu chứng & Rủi ro**:
   - Khi người dùng thêm nhiều danh mục với tên dài và danh sách từ khóa lọc phức tạp, bảng quản lý trong Admin có thể bị tràn ngang (horizontal overflow), đẩy cột thao tác Sửa/Xóa ra khỏi màn hình vi phạm Rule 9.
   - Khi chuyển sang ngành hàng mới (Thời trang, Mỹ phẩm), nếu danh mục dùng hàm match cứng kiểu regex cũ (`/kiếm hiệp/i`) sẽ gây lỗi hoặc không lọc được bất kỳ sản phẩm nào.
+  - Khi mở Modal Bán Web White-Label (`ShopeeWhiteLabelModal.tsx`), người dùng bị crash giao diện bởi React ErrorBoundary với lỗi `ReferenceError: INDUSTRY_PRESETS is not defined`.
 - **Nguyên nhân gốc rễ**:
   - Cấu trúc `MAIN_GAME_CATEGORIES` cũ dùng hàm `match: (c: string) => /.../` không thể serialize thành JSON để lưu vào CSDL Cloudflare D1.
+  - Trong `ShopeeWhiteLabelModal.tsx`, câu lệnh import từ `../../data/industryPresets` chỉ import `INDUSTRY_PRESETS_LIST, getIndustryPreset, getDefaultCategoriesConfig` mà thiếu `INDUSTRY_PRESETS`, dẫn đến khi JSX gọi `{INDUSTRY_PRESETS[selectedPreset]?.name}` thì ném ngoại lệ Runtime lúc click mở modal.
 - **Giải pháp chuẩn đã kiểm chứng**:
   - Lưu danh mục dạng mảng chuỗi `matchKeywords: string[]` (ví dụ `['áo', 'polo', 'thun']`), vừa serialize lưu JSON 100% vào D1, vừa lọc sản phẩm linh hoạt trên cả `name`, `category`, `publisher` và `description`.
   - Áp dụng nghiêm ngặt Rule 9: thẻ `<table>` sử dụng `table-fixed w-full` và phân chia chính xác tỷ lệ cột `12% / 28% / 22% / 24% / 14%` (tổng 100%), cắt tỉa chuỗi dài bằng `truncate` kèm `title`.
+  - Import đầy đủ cả đối tượng từ điển `INDUSTRY_PRESETS` lẫn danh sách mảng `INDUSTRY_PRESETS_LIST` trong `ShopeeWhiteLabelModal.tsx`. Kiểm chứng bằng Browser Subagent mở modal và tương tác chọn preset thực tế.
 
 ### ISSUE-292: Thiết Kế Hệ Thống Đa Ngành (White-Label Branding, Dynamic Currency & Themes) Không Phá Vỡ Giao Diện Web Gốc
 - **Triệu chứng & Rủi ro**:

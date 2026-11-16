@@ -21,7 +21,7 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
      - Bộ lọc `filteredGames` lọc thông minh theo `matchKeywords` của danh mục đã chọn.
      - Thanh danh mục Category Bar và Footer Cột 2 tự động hiển thị theo danh mục và bảng màu sàn của ngành hàng đang active.
      - Từ khóa gợi ý dưới Search Bar tự động đổi theo ngành hàng.
-  4. **Tích Hợp Modal White-Label Bán Web (`ShopeeWhiteLabelModal.tsx`)**: Bổ sung bộ chọn nhanh 5 ngành hàng giúp khách hàng trải nghiệm thử (Live Demo) hoặc lưu trực tiếp vào D1 (`test_*`), sẵn sàng bàn giao trong 2 phút.
+  4. **Tích Hợp Modal White-Label Bán Web (`ShopeeWhiteLabelModal.tsx`)**: Bổ sung bộ chọn nhanh 5 ngành hàng giúp khách hàng trải nghiệm thử (Live Demo) hoặc lưu trực tiếp vào D1 (`test_*`), sẵn sàng bàn giao trong 2 phút. Khắc phục triệt để lỗi thiếu import INDUSTRY_PRESETS.
 - **Phạm vi file**: `src/types/game.ts`, `src/data/industryPresets.ts`, `src/services/dataService.ts`, `src/admin/services/adminDataService.ts`, `src/admin/modules/ContentCMSModule.tsx`, `src/components/shopee/ShopeeTestView.tsx`, `src/components/shopee/ShopeeWhiteLabelModal.tsx`.
 - **Kiểm thử**: Build Vite & Cloudflare Pages Edge Worker pass 100%, 0 test artifacts, audit sạch 100%.
 
