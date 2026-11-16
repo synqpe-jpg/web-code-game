@@ -617,7 +617,7 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToClient }) => {
         )}
 
         {currentTab === 'content' && (
-          <ContentCMSModule onShowToast={showToast} />
+          <ContentCMSModule onShowToast={showToast} onNavigate={(tab) => setCurrentTab(tab as any)} />
         )}
 
         {currentTab === 'floating-notification' && (

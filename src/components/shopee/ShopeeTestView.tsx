@@ -16,7 +16,7 @@ import { dataService } from '../../services/dataService';
 import { authService } from '../../services/authService';
 import { newsService } from '../../services/newsService';
 import { gameEventService } from '../../services/gameEventService';
-import { formatCore } from '../../utils/textUtils';
+import { formatCore, formatCurrencyVND } from '../../utils/textUtils';
 import { ShopeeGuaranteeModal } from './ShopeeGuaranteeModal';
 import { ShopeeSupportModal } from './ShopeeSupportModal';
 import { ShopeeWhiteLabelModal } from './ShopeeWhiteLabelModal';
@@ -98,6 +98,68 @@ const GAME_CANONICAL_ALIASES: Record<string, string> = {
   'where-winds-meet-mobile': 'yen-van-thap-luc-thanh',
   'where-winds-meet': 'yen-van-thap-luc-thanh',
   'loan-the-3q': 'loan-the-3q-than-ma-lenh-oeg',
+};
+
+export const THEME_ACCENTS: Record<string, {
+  name: string;
+  headerGradient: string;
+  subNavBg: string;
+  badgeBg: string;
+  textColor: string;
+  buttonBg: string;
+  lightBg: string;
+  border: string;
+}> = {
+  orange: {
+    name: 'Cam Shopee',
+    headerGradient: 'from-[#f53d2d] to-[#ee4d2d]',
+    subNavBg: 'bg-[#d73211]',
+    badgeBg: 'text-[#ee4d2d]',
+    textColor: 'text-[#ee4d2d]',
+    buttonBg: 'bg-[#ee4d2d]',
+    lightBg: 'bg-orange-50',
+    border: 'border-orange-200',
+  },
+  blue: {
+    name: 'Xanh Công Nghệ',
+    headerGradient: 'from-blue-600 to-indigo-600',
+    subNavBg: 'bg-blue-800',
+    badgeBg: 'text-blue-600',
+    textColor: 'text-blue-600',
+    buttonBg: 'bg-blue-600',
+    lightBg: 'bg-blue-50',
+    border: 'border-blue-200',
+  },
+  red: {
+    name: 'Đỏ Năng Động',
+    headerGradient: 'from-red-600 to-rose-600',
+    subNavBg: 'bg-rose-800',
+    badgeBg: 'text-rose-600',
+    textColor: 'text-rose-600',
+    buttonBg: 'bg-rose-600',
+    lightBg: 'bg-rose-50',
+    border: 'border-rose-200',
+  },
+  green: {
+    name: 'Xanh Lá Tươi Mát',
+    headerGradient: 'from-emerald-600 to-teal-600',
+    subNavBg: 'bg-emerald-800',
+    badgeBg: 'text-emerald-600',
+    textColor: 'text-emerald-600',
+    buttonBg: 'bg-emerald-600',
+    lightBg: 'bg-emerald-50',
+    border: 'border-emerald-200',
+  },
+  purple: {
+    name: 'Tím Sang Trọng',
+    headerGradient: 'from-purple-600 to-indigo-700',
+    subNavBg: 'bg-purple-900',
+    badgeBg: 'text-purple-600',
+    textColor: 'text-purple-600',
+    buttonBg: 'bg-purple-600',
+    lightBg: 'bg-purple-50',
+    border: 'border-purple-200',
+  },
 };
 
 export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
@@ -200,12 +262,51 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
     onShowToast(res.isBookmarked ? 'Đã lưu vào tủ game theo dõi!' : 'Đã bỏ theo dõi game khỏi tủ!', res.isBookmarked ? 'success' : 'info');
   };
 
-  // White-Label Customizable Shop Brand
-  const [shopBrand, setShopBrand] = useState({
-    name: 'CodeGame Mall',
-    slogan: 'Kho Mã Giftcode & Tiện Ích Game Số 1 Việt Nam',
-    hotline: '0987.654.321'
+  // White-Label Customizable Shop Brand from CMS / DataService
+  const [shopBrand, setShopBrand] = useState(() => {
+    const b = dataService.getWebsiteBranding();
+    return {
+      name: b.siteTitle || 'CodeGame Mall',
+      slogan: b.portalSubtitle || 'Kho Mã Giftcode & Tiện Ích Game Số 1 Việt Nam',
+      hotline: b.hotline || '0987.654.321',
+      currencyMode: b.currencyMode || 'VND',
+      themeAccent: b.themeAccent || 'orange',
+      logoUrl: b.logoUrl || '',
+    };
   });
+
+  // Dynamic Theme Accent Color Palette
+  const currentAccent = useMemo(() => {
+    return THEME_ACCENTS[shopBrand.themeAccent] || THEME_ACCENTS.orange;
+  }, [shopBrand.themeAccent]);
+
+  // Format price dynamically according to active currencyMode (VND vs Core)
+  const formatPrice = (amount: number) => {
+    if (shopBrand.currencyMode === 'VND') {
+      return formatCurrencyVND(amount);
+    }
+    return formatCore(amount);
+  };
+
+  useEffect(() => {
+    const handleBrandingSync = () => {
+      const b = dataService.getWebsiteBranding();
+      setShopBrand({
+        name: b.siteTitle || 'CodeGame Mall',
+        slogan: b.portalSubtitle || 'Kho Mã Giftcode & Tiện Ích Game Số 1 Việt Nam',
+        hotline: b.hotline || '0987.654.321',
+        currencyMode: b.currencyMode || 'VND',
+        themeAccent: b.themeAccent || 'orange',
+        logoUrl: b.logoUrl || '',
+      });
+    };
+    window.addEventListener('wcg_admin_data_updated', handleBrandingSync);
+    window.addEventListener('storage', handleBrandingSync);
+    return () => {
+      window.removeEventListener('wcg_admin_data_updated', handleBrandingSync);
+      window.removeEventListener('storage', handleBrandingSync);
+    };
+  }, []);
 
   // Hero carousel slide state (3 slide thật sự có nút prev/next và tự chuyển slide)
   const [heroSlide, setHeroSlide] = useState<number>(0);
@@ -631,8 +732,8 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
   // Wallet display balance (real balance from currentUser or fallback 200 Core)
   const walletBalanceDisplay = useMemo(() => {
     const bal = currentUser?.wallet_balance ?? (currentUser as any)?.balance ?? 200;
-    return formatCore(bal);
-  }, [currentUser]);
+    return formatPrice(bal);
+  }, [currentUser, shopBrand.currencyMode]);
 
   return (
     <div className={`min-h-screen transition-colors duration-200 font-sans pb-16 ${isShopeeDark ? 'bg-[#0a0f1d] text-slate-100' : 'bg-[#f5f5f5] text-slate-800'}`}>
@@ -767,18 +868,22 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
       {/* 2. STICKY HEADER CONTAINER (Main Header + Sub-nav dính liền nhau) */}
       <div className="sticky top-[36px] z-40 shadow-md">
         {/* MAIN HEADER SHOPEE */}
-        <div className="bg-gradient-to-b from-[#f53d2d] to-[#ee4d2d] text-white pt-2.5 pb-3 px-4">
+        <div className={`bg-gradient-to-b ${currentAccent.headerGradient} text-white pt-2.5 pb-3 px-4 transition-colors duration-300`}>
         <div className="max-w-6xl mx-auto flex items-center justify-between gap-3 sm:gap-6">
           
-          {/* Logo Sàn Shopee Game (Dynamic White-Label Brand) */}
+          {/* Logo Sàn Shopee (Dynamic White-Label Brand) */}
           <div onClick={() => setSubView('home')} className="flex items-center gap-2 sm:gap-2.5 flex-shrink-0 cursor-pointer">
-            <div className="w-10 h-10 sm:w-11 sm:h-11 bg-white rounded-xl shadow-lg flex items-center justify-center text-[#ee4d2d] font-black text-xl sm:text-2xl tracking-tighter">
-              🎮
+            <div className={`w-10 h-10 sm:w-11 sm:h-11 bg-white rounded-xl shadow-lg flex items-center justify-center ${currentAccent.textColor} font-black text-xl sm:text-2xl tracking-tighter overflow-hidden`}>
+              {shopBrand.logoUrl && shopBrand.logoUrl !== '/logo.png' ? (
+                <img src={shopBrand.logoUrl} alt={shopBrand.name} className="w-full h-full object-contain p-1" />
+              ) : (
+                '🛍️'
+              )}
             </div>
             <div>
               <div className="font-extrabold text-base sm:text-lg tracking-tight leading-none text-white drop-shadow flex items-center gap-1.5">
                 <span>{shopBrand.name}</span>
-                <span className="bg-white text-[#ee4d2d] font-bold text-[9px] px-1.5 py-0.2 rounded uppercase">Mall</span>
+                <span className={`bg-white ${currentAccent.badgeBg} font-bold text-[9px] px-1.5 py-0.2 rounded uppercase`}>Mall</span>
               </div>
               <div className="text-[10px] text-white/80 font-medium leading-none mt-1 hidden sm:block">
                 {shopBrand.slogan}
@@ -805,7 +910,7 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
                 onClick={() => {
                   if (subView !== 'home') setSubView('home');
                 }}
-                className="bg-[#ee4d2d] hover:opacity-90 text-white px-4 sm:px-6 py-1.5 sm:py-2 rounded transition flex items-center justify-center flex-shrink-0 cursor-pointer"
+                className={`${currentAccent.buttonBg} hover:opacity-90 text-white px-4 sm:px-6 py-1.5 sm:py-2 rounded transition flex items-center justify-center flex-shrink-0 cursor-pointer`}
               >
                 <Search className="w-4 h-4" />
               </button>
@@ -826,7 +931,7 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
           <div onClick={onOpenCart} className="relative cursor-pointer group flex-shrink-0 pr-1">
             <div className="relative p-1.5 sm:p-2">
               <ShoppingCart className="w-7 h-7 sm:w-8 sm:h-8 text-white group-hover:scale-105 transition" />
-              <span className="absolute top-0 right-0 bg-white text-[#ee4d2d] font-bold text-[10px] sm:text-[11px] px-1.5 py-0.2 rounded-full border border-[#ee4d2d] shadow">
+              <span className={`absolute top-0 right-0 bg-white ${currentAccent.textColor} font-bold text-[10px] sm:text-[11px] px-1.5 py-0.2 rounded-full border shadow`}>
                 {cartCount}
               </span>
             </div>
@@ -836,7 +941,7 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
       </div>
 
       {/* 2.1. SUB-NAVIGATION BAR (Thanh Điều Hướng Toàn Diện Giữ Khách Ở Lại test1 Kèm 2 Mũi Tên Cuộn) */}
-      <div className="bg-[#d73211] text-white text-xs font-semibold px-2 sm:px-4 shadow-inner border-t border-red-700/40 sticky top-0 z-40">
+      <div className={`${currentAccent.subNavBg} text-white text-xs font-semibold px-2 sm:px-4 shadow-inner border-t border-black/20 sticky top-0 z-40 transition-colors duration-300`}>
         <div className="max-w-6xl mx-auto flex items-center gap-1 sm:gap-2 py-1.5">
           {/* Mũi tên cuộn trái */}
           <button
@@ -861,7 +966,7 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
           >
             <button
               onClick={() => setSubView('home')}
-              className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'home' ? 'bg-white text-[#ee4d2d] font-bold shadow-sm' : 'hover:bg-white/15 text-white/95'}`}
+              className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'home' ? `bg-white ${currentAccent.textColor} font-bold shadow-sm` : 'hover:bg-white/15 text-white/95'}`}
             >
               <Store className="w-3.5 h-3.5" />
               <span>Trang Chủ Sàn</span>
@@ -869,7 +974,7 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
 
             <button
               onClick={() => setSubView('news')}
-              className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'news' ? 'bg-white text-[#ee4d2d] font-bold shadow-sm' : 'hover:bg-white/15 text-white/95'}`}
+              className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'news' ? `bg-white ${currentAccent.textColor} font-bold shadow-sm` : 'hover:bg-white/15 text-white/95'}`}
             >
               <Newspaper className="w-3.5 h-3.5" />
               <span>Tin Tức Game ({newsCount})</span>
@@ -877,7 +982,7 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
 
             <button
               onClick={() => setSubView('events')}
-              className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'events' ? 'bg-white text-[#ee4d2d] font-bold shadow-sm' : 'hover:bg-white/15 text-white/95'}`}
+              className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'events' ? `bg-white ${currentAccent.textColor} font-bold shadow-sm` : 'hover:bg-white/15 text-white/95'}`}
             >
               <Calendar className="w-3.5 h-3.5" />
               <span>Sự Kiện Hot ({eventsCount})</span>
@@ -885,7 +990,7 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
 
             <button
               onClick={() => setSubView('today-codes')}
-              className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'today-codes' ? 'bg-white text-[#ee4d2d] font-bold shadow-sm' : 'hover:bg-white/15 text-white/95'}`}
+              className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'today-codes' ? `bg-white ${currentAccent.textColor} font-bold shadow-sm` : 'hover:bg-white/15 text-white/95'}`}
             >
               <Tag className="w-3.5 h-3.5" />
               <span>Mã Hôm Nay</span>
@@ -893,7 +998,7 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
 
             <button
               onClick={() => setSubView('upcoming')}
-              className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'upcoming' ? 'bg-white text-[#ee4d2d] font-bold shadow-sm' : 'hover:bg-white/15 text-white/95'}`}
+              className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'upcoming' ? `bg-white ${currentAccent.textColor} font-bold shadow-sm` : 'hover:bg-white/15 text-white/95'}`}
             >
               <Rocket className="w-3.5 h-3.5" />
               <span>Sắp Ra Mắt ({upcomingTotal})</span>
@@ -901,7 +1006,7 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
 
             <button
               onClick={() => setSubView('store')}
-              className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'store' ? 'bg-white text-[#ee4d2d] font-bold shadow-sm' : 'hover:bg-white/15 text-white/95'}`}
+              className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'store' ? `bg-white ${currentAccent.textColor} font-bold shadow-sm` : 'hover:bg-white/15 text-white/95'}`}
             >
               <ShoppingBag className="w-3.5 h-3.5" />
               <span>Cửa Hàng (10)</span>
@@ -909,7 +1014,7 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
 
             <button
               onClick={() => setSubView('seller')}
-              className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'seller' ? 'bg-white text-[#ee4d2d] font-bold shadow-sm' : 'hover:bg-white/15 text-white/95'}`}
+              className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'seller' ? `bg-white ${currentAccent.textColor} font-bold shadow-sm` : 'hover:bg-white/15 text-white/95'}`}
             >
               <Store className="w-3.5 h-3.5" />
               <span>Sàn Giao Dịch</span>
@@ -917,7 +1022,7 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
 
             <button
               onClick={() => setSubView('account')}
-              className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'account' ? 'bg-white text-[#ee4d2d] font-bold shadow-sm' : 'hover:bg-white/15 text-white/95'}`}
+              className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'account' ? `bg-white ${currentAccent.textColor} font-bold shadow-sm` : 'hover:bg-white/15 text-white/95'}`}
             >
               <User className="w-3.5 h-3.5" />
               <span>Tài Khoản & Ví</span>
@@ -925,7 +1030,7 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
 
             <button
               onClick={() => setSubView('missions')}
-              className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'missions' ? 'bg-white text-[#ee4d2d] font-bold shadow-sm' : 'hover:bg-white/15 text-white/95'}`}
+              className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'missions' ? `bg-white ${currentAccent.textColor} font-bold shadow-sm` : 'hover:bg-white/15 text-white/95'}`}
             >
               <Trophy className="w-3.5 h-3.5" />
               <span>Nhiệm Vụ</span>
@@ -933,7 +1038,7 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
 
             <button
               onClick={() => setSubView('telegram')}
-              className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'telegram' ? 'bg-white text-[#ee4d2d] font-bold shadow-sm' : 'hover:bg-white/15 text-white/95'}`}
+              className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'telegram' ? `bg-white ${currentAccent.textColor} font-bold shadow-sm` : 'hover:bg-white/15 text-white/95'}`}
             >
               <Send className="w-3.5 h-3.5" />
               <span>Telegram</span>
@@ -941,7 +1046,7 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
 
             <button
               onClick={() => setSubView('a-z')}
-              className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'a-z' ? 'bg-white text-[#ee4d2d] font-bold shadow-sm' : 'hover:bg-white/15 text-white/95'}`}
+              className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'a-z' ? `bg-white ${currentAccent.textColor} font-bold shadow-sm` : 'hover:bg-white/15 text-white/95'}`}
             >
               <List className="w-3.5 h-3.5" />
               <span>Mục Lục A-Z</span>
@@ -2121,14 +2226,14 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
                         <div className="flex items-baseline justify-between gap-1 flex-wrap">
                           {hasFirstOffer ? (
                             <div className="flex items-center gap-1">
-                              <span className="text-[#ee4d2d] font-bold text-xs">{formatCore(firstPrice)}</span>
+                              <span className="text-[#ee4d2d] font-bold text-xs">{formatPrice(firstPrice)}</span>
                               <span className="text-[9px] font-bold px-1 py-0.2 bg-rose-500/10 text-rose-500 rounded">Ưu đãi</span>
                             </div>
                           ) : (
-                            <div className="text-[#ee4d2d] font-bold text-xs">{formatCore(prod.current_price)}</div>
+                            <div className="text-[#ee4d2d] font-bold text-xs">{formatPrice(prod.current_price)}</div>
                           )}
                           {displayOriginalPrice > displayCurrentPrice && (
-                            <div className="text-[10px] text-slate-400 line-through font-mono">{formatCore(displayOriginalPrice)}</div>
+                            <div className="text-[10px] text-slate-400 line-through font-mono">{formatPrice(displayOriginalPrice)}</div>
                           )}
                         </div>
 
@@ -2583,10 +2688,20 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
       <ShopeeWhiteLabelModal
         isOpen={isWhiteLabelOpen}
         onClose={() => setIsWhiteLabelOpen(false)}
+        initialSettings={{
+          shopName: shopBrand.name,
+          shopSlogan: shopBrand.slogan,
+          hotline: shopBrand.hotline,
+          currencyMode: shopBrand.currencyMode,
+          themeAccent: shopBrand.themeAccent,
+        }}
         onApplyPreviewSettings={(st) => setShopBrand({
+          ...shopBrand,
           name: st.shopName,
           slogan: st.shopSlogan,
-          hotline: st.hotline
+          hotline: st.hotline,
+          currencyMode: st.currencyMode || 'VND',
+          themeAccent: st.themeAccent || 'orange',
         })}
         onShowToast={onShowToast}
       />

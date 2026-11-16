@@ -10,6 +10,17 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-292: Thiết Kế Hệ Thống Đa Ngành (White-Label Branding, Dynamic Currency & Themes) Không Phá Vỡ Giao Diện Web Gốc
+- **Triệu chứng & Rủi ro**:
+  - Khi mở rộng website sang mô hình thương mại điện tử đa ngành (thời trang, mỹ phẩm, khóa học, phần mềm...), nếu thay đổi cứng tiền tệ hoặc màu sắc sẽ làm hỏng trải nghiệm người dùng web gốc vốn chuyên về game code (`Core`).
+  - Nếu thiếu fallback an toàn, các thành phần như Header, Sub-navigation bar, nút tìm kiếm hoặc giỏ hàng có thể bị lệch màu, tương phản kém hoặc chữ chìm vào nền.
+- **Nguyên nhân gốc rễ**:
+  - Các thành phần giao diện trước đây dùng chuỗi class Tailwind tĩnh (`text-[#ee4d2d]`, `bg-[#d73211]`) và hardcode tiền tệ là `Core`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Xây dựng bảng màu tập trung `THEME_ACCENTS` chuẩn hóa 5 tông màu (Cam Shopee, Lam Công Nghệ, Đỏ Năng Động, Xanh Lá Tươi Mát, Tím Sang Trọng) chứa đầy đủ các thuộc tính: `headerGradient`, `subNavBg`, `badgeBg`, `textColor`, `buttonBg`, `lightBg`, `border`.
+  - Bổ sung hàm `formatPrice(amount)` tự động phân luồng: nếu `currencyMode === 'VND'` gọi `formatCurrencyVND(amount)` hiển thị `100.000 ₫`, nếu `currencyMode === 'CORE'` hiển thị theo điểm Core.
+  - Tự động kích hoạt cơ chế đồng bộ sự kiện `wcg_admin_data_updated` và `storage` giúp giao diện sàn cập nhật màu sắc và tiền tệ tức thì khi Quản trị viên lưu cài đặt.
+
 ### ISSUE-291: Bẫy Cloudflare Pages Mới Thiếu D1 Binding & Route Hash/PopState Override Trên Domain Con
 - **Triệu chứng & Rủi ro**:
   - Khi tạo dự án Pages mới qua CLI mà chưa bind CSDL D1 (`env.DB`), các API backend trả về HTTP 500 "D1 Database chưa được cấu hình".

@@ -7,6 +7,19 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-16]
 
+### 409. Triển Khai Bước 1: Bộ Nhận Diện Thương Hiệu Đa Ngành (White-Label Branding), Đơn Vị Tiền Tệ (VNĐ vs Core), Bảng Màu Sàn Động & Tích Hợp VietQR/SePay Trực Quan (16/11/2026)
+- **Bối cảnh**: Triển khai Bước 1 trong kế hoạch nâng cấp website thành nền tảng thương mại điện tử đa ngành (Universal / White-Label E-commerce) để bán hoặc cho thuê lại sàn cho các chủ shop / doanh nghiệp khác.
+- **Giải pháp thực hiện**:
+  1. **Mở rộng mô hình Branding**: Cập nhật `dataService.ts` và `adminDataService.ts` bổ sung các trường `hotline`, `currencyMode` ('VND' | 'CORE'), `themeAccent` ('orange' | 'blue' | 'red' | 'green' | 'purple'), và `extraData`.
+  2. **Nâng cấp Module Content CMS (Tab 9)**: Đổi tên tab thành `9. Nhận Diện Thương Hiệu & Bán Web (White-Label)`. Bổ sung giao diện thiết lập: Hotline/Zalo hỗ trợ, Đơn vị tiền tệ hiển thị (VNĐ cho thời trang/mỹ phẩm/đa ngành, Core cho web game/nạp ví), Bảng màu nhận diện 5 tông (Cam Shopee, Lam Công Nghệ, Đỏ Năng Động, Xanh Lá Tươi Mát, Tím Sang Trọng), và Thẻ kết nối cổng thanh toán tự động VietQR / SePay 0 giây kèm liên kết nhanh sang Tab SePay.
+  3. **Đồng bộ hiển thị trên Web Khách (`ShopeeTestView.tsx`)**:
+     - Bổ sung bảng hằng số `THEME_ACCENTS` hỗ trợ chuyển đổi màu sắc toàn diện từ Header, Logo Mall, Search Button, Sub-navigation bar, đến Giỏ hàng theo tông màu sàn đã chọn.
+     - Hàm `formatPrice` tự động hiển thị giá dạng `VNĐ` (ví dụ `100.000 ₫`) hoặc `Core` (ví dụ `2.000 Core`) linh hoạt theo cấu hình thương hiệu.
+     - Lắng nghe realtime các sự kiện đồng bộ `wcg_admin_data_updated` và `storage` để giao diện đổi màu và giá tức thì khi quản trị viên cập nhật.
+  4. **Nâng cấp Modal Giới Thiệu Bán Web White-Label (`ShopeeWhiteLabelModal.tsx`)**: Tích hợp các trường chọn tiền tệ và tông màu trực tiếp vào modal để khách hàng có thể bấm "Áp Dụng Thử (Xem Ngay)" hoặc "Lưu Vào Hệ Thống (D1)".
+- **Phạm vi file**: `src/services/dataService.ts`, `src/admin/services/adminDataService.ts`, `src/admin/modules/ContentCMSModule.tsx`, `src/admin/AdminApp.tsx`, `src/components/shopee/ShopeeTestView.tsx`, `src/components/shopee/ShopeeWhiteLabelModal.tsx`.
+- **Kiểm thử**: Build Vite & Cloudflare Pages Edge Worker pass 100%, 0 test artifacts, kiểm chứng thực tế trên môi trường live.
+
 ### 408. Hoàn Thiện Binding D1 Cloudflare Pages, Cố Định Route Sàn Shopee Tại Root và Nút Quay Về Web Khách Test (16/11/2026)
 - **Bối cảnh**: Sau khi deploy bản đầu tiên của 2 website test độc lập, browser agent kiểm tra và phát hiện: (1) CSDL D1 chưa được bind vào 2 project mới gây lỗi 500 khi gọi API backend, (2) Route root `/` trên `test-code-game-shop.pages.dev` bị `parseHash` lùi về tab Portal, (3) Nút "Quay về trang web khách" tại màn hình login Admin điều hướng về `/store` thay vì domain web khách test.
 - **Giải pháp thực hiện**:

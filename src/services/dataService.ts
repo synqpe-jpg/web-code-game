@@ -3933,6 +3933,10 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
     backgroundOpacity?: number;
     siteTitle?: string;
     portalSubtitle?: string;
+    hotline?: string;
+    currencyMode?: 'VND' | 'CORE';
+    themeAccent?: 'orange' | 'blue' | 'red' | 'green' | 'purple';
+    extraData?: any;
   } {
     const defaultBg =
       'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=1920&auto=format&fit=crop&q=80';
@@ -3987,6 +3991,10 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
             backgroundOpacity: branding?.extraData?.backgroundOpacity ?? 0.35,
             siteTitle: effectiveTitle,
             portalSubtitle: branding?.extraData?.portalSubtitle || 'Cổng Tra Cứu Giftcode #1',
+            hotline: branding?.extraData?.hotline || footer?.extraData?.supportHotline || '0987.654.321',
+            currencyMode: branding?.extraData?.currencyMode || 'VND',
+            themeAccent: branding?.extraData?.themeAccent || 'orange',
+            extraData: branding?.extraData || {},
           };
         }
       }
@@ -3999,6 +4007,10 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
       backgroundOpacity: 0.35,
       siteTitle: 'CodeGame.Shop',
       portalSubtitle: 'Cổng Tra Cứu Giftcode #1',
+      hotline: '0987.654.321',
+      currencyMode: 'VND',
+      themeAccent: 'orange',
+      extraData: {},
     };
   }
 

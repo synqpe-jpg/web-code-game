@@ -3182,6 +3182,10 @@ class AdminDataService {
     backgroundOpacity?: number;
     siteTitle?: string;
     portalSubtitle?: string;
+    hotline?: string;
+    currencyMode?: 'VND' | 'CORE';
+    themeAccent?: 'orange' | 'blue' | 'red' | 'green' | 'purple';
+    extraData?: any;
   } {
     const defaultBg =
       'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=1920&auto=format&fit=crop&q=80';
@@ -3222,6 +3226,10 @@ class AdminDataService {
         backgroundOpacity: item.extraData.backgroundOpacity ?? 0.35,
         siteTitle: effectiveTitle,
         portalSubtitle: item.extraData.portalSubtitle || 'Cổng Tra Cứu Giftcode #1',
+        hotline: item.extraData.hotline || footer?.extraData?.supportHotline || '0987.654.321',
+        currencyMode: item.extraData.currencyMode || 'VND',
+        themeAccent: item.extraData.themeAccent || 'orange',
+        extraData: item.extraData || {},
       };
     }
     return {
@@ -3232,6 +3240,10 @@ class AdminDataService {
       backgroundOpacity: 0.35,
       siteTitle: effectiveTitle,
       portalSubtitle: 'Cổng Tra Cứu Giftcode #1',
+      hotline: '0987.654.321',
+      currencyMode: 'VND',
+      themeAccent: 'orange',
+      extraData: {},
     };
   }
 

@@ -1,33 +1,91 @@
 import React, { useState } from 'react';
-import { Sparkles, X, Check, Rocket, ShieldCheck, CreditCard, Send, ShoppingBag } from 'lucide-react';
+import { Sparkles, X, Check, Rocket, ShieldCheck, CreditCard, Send, ShoppingBag, Coins, Palette, Save } from 'lucide-react';
+import { dataService } from '../../services/dataService';
 
 interface ShopeeWhiteLabelModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onApplyPreviewSettings?: (settings: { shopName: string; shopSlogan: string; hotline: string }) => void;
+  initialSettings?: {
+    shopName: string;
+    shopSlogan: string;
+    hotline: string;
+    currencyMode?: 'VND' | 'CORE';
+    themeAccent?: string;
+  };
+  onApplyPreviewSettings?: (settings: {
+    shopName: string;
+    shopSlogan: string;
+    hotline: string;
+    currencyMode?: 'VND' | 'CORE';
+    themeAccent?: string;
+  }) => void;
   onShowToast: (msg: string, type?: 'success' | 'error' | 'info' | 'warning') => void;
 }
 
 export const ShopeeWhiteLabelModal: React.FC<ShopeeWhiteLabelModalProps> = ({
   isOpen,
   onClose,
+  initialSettings,
   onApplyPreviewSettings,
   onShowToast
 }) => {
-  const [shopName, setShopName] = useState('Shop Acc Nam Gaming');
-  const [shopSlogan, setShopSlogan] = useState('Sàn Tiện Ích & Acc Game Uy Tín #1');
+  const [shopName, setShopName] = useState(initialSettings?.shopName || 'Shop Thời Trang & Phụ Kiện Nam');
+  const [shopSlogan, setShopSlogan] = useState(initialSettings?.shopSlogan || 'Sàn Mua Sắm Tiện Ích & Uy Tín #1');
   const [bankAccount, setBankAccount] = useState('19036789999 - Techcombank (NGUYEN VAN NAM)');
-  const [hotline, setHotline] = useState('0988.888.999');
+  const [hotline, setHotline] = useState(initialSettings?.hotline || '0988.888.999');
+  const [currencyMode, setCurrencyMode] = useState<'VND' | 'CORE'>(initialSettings?.currencyMode || 'VND');
+  const [themeAccent, setThemeAccent] = useState<string>(initialSettings?.themeAccent || 'orange');
   const [selectedPlan, setSelectedPlan] = useState<'starter' | 'pro'>('starter');
+  const [isSaving, setIsSaving] = useState(false);
+
+  React.useEffect(() => {
+    if (initialSettings) {
+      if (initialSettings.shopName) setShopName(initialSettings.shopName);
+      if (initialSettings.shopSlogan) setShopSlogan(initialSettings.shopSlogan);
+      if (initialSettings.hotline) setHotline(initialSettings.hotline);
+      if (initialSettings.currencyMode) setCurrencyMode(initialSettings.currencyMode);
+      if (initialSettings.themeAccent) setThemeAccent(initialSettings.themeAccent);
+    }
+  }, [initialSettings, isOpen]);
 
   if (!isOpen) return null;
 
   const handleApplyPreview = (e: React.FormEvent) => {
     e.preventDefault();
     if (onApplyPreviewSettings) {
-      onApplyPreviewSettings({ shopName, shopSlogan, hotline });
+      onApplyPreviewSettings({ shopName, shopSlogan, hotline, currencyMode, themeAccent });
     }
     onShowToast(`Đã áp dụng xem trước thương hiệu "${shopName}" trên sàn!`, 'success');
+  };
+
+  const handleSaveToSystem = async () => {
+    setIsSaving(true);
+    try {
+      const current = dataService.getWebsiteBranding();
+      dataService.saveContentItem({
+        key: 'website_branding',
+        title: shopName.trim() || 'CodeGame Mall',
+        content: 'Thiết lập nhận diện thương hiệu, logo, avatar, đơn vị tiền tệ và bảng màu website.',
+        isActive: true,
+        type: 'BRANDING',
+        extraData: {
+          ...current.extraData,
+          portalSubtitle: shopSlogan.trim(),
+          hotline: hotline.trim(),
+          currencyMode,
+          themeAccent,
+        },
+      });
+      if (onApplyPreviewSettings) {
+        onApplyPreviewSettings({ shopName, shopSlogan, hotline, currencyMode, themeAccent });
+      }
+      onShowToast(`Đã lưu thành công thương hiệu "${shopName}" vào hệ thống D1!`, 'success');
+      onClose();
+    } catch (e: any) {
+      onShowToast('Lỗi lưu cấu hình: ' + (e?.message || ''), 'error');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -111,13 +169,85 @@ export const ShopeeWhiteLabelModal: React.FC<ShopeeWhiteLabelModalProps> = ({
                 />
               </div>
 
-              <div className="sm:col-span-2 flex justify-end pt-1">
+              {/* Đơn vị tiền tệ */}
+              <div>
+                <label className="font-semibold block mb-1 flex items-center gap-1.5">
+                  <Coins className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Đơn Vị Tiền Tệ Hiển Thị:</span>
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setCurrencyMode('VND')}
+                    className={`px-3 py-2 rounded-lg border text-left flex items-center gap-2 transition cursor-pointer ${
+                      currencyMode === 'VND'
+                        ? 'border-[#ee4d2d] bg-orange-50 dark:bg-orange-950/40 text-[#ee4d2d] font-bold'
+                        : 'border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    <span>💵 VNĐ (đ)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCurrencyMode('CORE')}
+                    className={`px-3 py-2 rounded-lg border text-left flex items-center gap-2 transition cursor-pointer ${
+                      currencyMode === 'CORE'
+                        ? 'border-[#ee4d2d] bg-orange-50 dark:bg-orange-950/40 text-[#ee4d2d] font-bold'
+                        : 'border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    <span>💎 Core Point</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Tông màu nhận diện */}
+              <div>
+                <label className="font-semibold block mb-1 flex items-center gap-1.5">
+                  <Palette className="w-3.5 h-3.5 text-purple-500" />
+                  <span>Tông Màu Nhận Diện Sàn:</span>
+                </label>
+                <div className="grid grid-cols-5 gap-1.5">
+                  {[
+                    { id: 'orange', name: 'Cam', bg: 'bg-[#ee4d2d]' },
+                    { id: 'blue', name: 'Lam', bg: 'bg-blue-600' },
+                    { id: 'red', name: 'Đỏ', bg: 'bg-rose-600' },
+                    { id: 'green', name: 'Lá', bg: 'bg-emerald-600' },
+                    { id: 'purple', name: 'Tím', bg: 'bg-purple-600' },
+                  ].map((th) => (
+                    <button
+                      key={th.id}
+                      type="button"
+                      onClick={() => setThemeAccent(th.id)}
+                      className={`p-1.5 rounded-lg border flex flex-col items-center gap-1 transition cursor-pointer text-center ${
+                        themeAccent === th.id
+                          ? 'border-[#ee4d2d] ring-2 ring-orange-400 bg-orange-50/50 dark:bg-orange-950/20 font-bold'
+                          : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800'
+                      }`}
+                    >
+                      <div className={`w-4 h-4 rounded-full ${th.bg} shadow-xs`} />
+                      <span className="text-[10px] leading-tight truncate w-full">{th.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="sm:col-span-2 flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-orange-100 dark:border-orange-900/30">
                 <button
                   type="submit"
-                  className="bg-[#ee4d2d] hover:bg-orange-600 text-white font-bold px-4 py-2 rounded-lg shadow-sm transition active:scale-95 cursor-pointer flex items-center gap-1.5"
+                  className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold px-4 py-2 rounded-lg transition active:scale-95 cursor-pointer flex items-center gap-1.5 text-xs"
                 >
-                  <Check className="w-3.5 h-3.5" />
-                  <span>Áp Dụng Thử Ngay Lên Giao Diện Web</span>
+                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Áp Dụng Thử (Xem Ngay)</span>
+                </button>
+                <button
+                  type="button"
+                  disabled={isSaving}
+                  onClick={handleSaveToSystem}
+                  className="bg-[#ee4d2d] hover:bg-orange-600 text-white font-bold px-4 py-2 rounded-lg shadow-sm transition active:scale-95 cursor-pointer flex items-center gap-1.5 text-xs disabled:opacity-50"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  <span>{isSaving ? 'Đang Lưu...' : 'Lưu Vào Hệ Thống (D1)'}</span>
                 </button>
               </div>
             </form>
