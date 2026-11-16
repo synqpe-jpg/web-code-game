@@ -210,6 +210,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
   try {
     const url = new URL(request.url);
+    const host = url.hostname.toLowerCase();
+    const isTestTenant = host.includes('test-code-game-shop') || host.includes('admin-test-code-game-shop') || request.headers.get('x-tenant-id') === 'test';
     const specificKey = url.searchParams.get('key');
     const authResult = await isAuthorized(request, env);
     const authorized = authResult.authorized;
@@ -333,7 +335,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           else if (specificKey === 'wcg_admin_members_v4') val = await loadAllMembersD1(env.DB, !authorized);
           else {
             const isFresh = url.searchParams.get('fresh') === '1' || url.searchParams.has('_t') || specificKey === 'wcg_news_articles_v1';
-            val = await getSettingD1(env.DB, specificKey, null, isFresh);
+            const effectiveKey = (isTestTenant && !specificKey.startsWith('test_')) ? ('test_' + specificKey) : specificKey;
+            val = await getSettingD1(env.DB, effectiveKey, null, isFresh);
           }
         } catch {}
       }
@@ -1696,10 +1699,14 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       );
     }
 
+    const url = new URL(request.url);
+    const host = url.hostname.toLowerCase();
+    const isTestTenant = host.includes('admin-test-code-game-shop') || host.includes('test-code-game-shop') || request.headers.get('x-tenant-id') === 'test';
+
     // FAST PATH: Atomic single-key settings update (e.g. wcg_admin_games_v5, wcg_admin_custom_free_codes_v1)
     // Avoids heavy full-table scans, schema upgrades and race conditions when only updating a specific configuration
     if (body.key && body.data !== undefined && env.DB && !body.fullSync && !body.isFullState && !body.action) {
-      const vKey = body.key;
+      const vKey = (isTestTenant && !body.key.startsWith('test_')) ? ('test_' + body.key) : body.key;
       if (vKey === 'wcg_admin_games_v5' && Array.isArray(body.data)) {
         await setSettingD1(env.DB, 'wcg_admin_games_v5', body.data);
         invalidateSettingMemoryCache('wcg_admin_games_v5');

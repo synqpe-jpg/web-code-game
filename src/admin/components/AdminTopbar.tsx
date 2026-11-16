@@ -133,14 +133,22 @@ export const AdminTopbar: React.FC<AdminTopbarProps> = ({
           <Menu className="h-5 w-5" />
         </button>
 
-        <div className="min-w-0">
-          <h2 className="text-sm font-bold text-slate-900 dark:text-white sm:text-base truncate max-w-[130px] xs:max-w-[190px] sm:max-w-none">
-            <span className="sm:hidden">{shortTabTitles[currentTab] || meta.title}</span>
-            <span className="hidden sm:inline">{meta.title}</span>
-          </h2>
-          <p className="hidden text-xs text-slate-500 dark:text-slate-400 md:block truncate">
-            {meta.subtitle}
-          </p>
+        <div className="min-w-0 flex items-center gap-2">
+          <div className="min-w-0">
+            <h2 className="text-sm font-bold text-slate-900 dark:text-white sm:text-base truncate max-w-[130px] xs:max-w-[190px] sm:max-w-none">
+              <span className="sm:hidden">{shortTabTitles[currentTab] || meta.title}</span>
+              <span className="hidden sm:inline">{meta.title}</span>
+            </h2>
+            <p className="hidden text-xs text-slate-500 dark:text-slate-400 md:block truncate">
+              {meta.subtitle}
+            </p>
+          </div>
+          {typeof window !== 'undefined' && window.location.hostname.includes('test') && (
+            <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-extrabold rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30 shadow-sm shrink-0">
+              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+              QUẢN TRỊ BẢN TEST (ĐỘC LẬP)
+            </span>
+          )}
         </div>
       </div>
 

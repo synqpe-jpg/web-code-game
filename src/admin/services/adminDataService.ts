@@ -1019,6 +1019,7 @@ class AdminDataService {
 
     const ADMIN_SYNC_KEY = 'b4e08494bf1c3fd6a0c965dd2411780c60513f7f87001bc955d7496331b2faef';
     const isDedicatedAdmin = typeof window !== 'undefined' && window.location.hostname.includes('admin-code-game-shop');
+    const isTestAdmin = typeof window !== 'undefined' && window.location.hostname.includes('admin-test-code-game-shop');
     const isAdminUser = typeof window !== 'undefined' && (
       localStorage.getItem('wcg_admin_authenticated') === 'true' ||
       sessionStorage.getItem('wcg_admin_authenticated') === 'true' ||
@@ -1026,14 +1027,14 @@ class AdminDataService {
       this.currentAdmin?.role === 'ADMIN'
     );
 
-    if (!syncKey && (isDedicatedAdmin || isAdminUser)) {
+    if (!syncKey && (isDedicatedAdmin || isTestAdmin || isAdminUser)) {
       syncKey = ADMIN_SYNC_KEY;
       try {
         localStorage.setItem('wcg_admin_sync_key', ADMIN_SYNC_KEY);
       } catch {}
     }
 
-    if (!token && (isDedicatedAdmin || isAdminUser)) {
+    if (!token && (isDedicatedAdmin || isTestAdmin || isAdminUser)) {
       token = ADMIN_SYNC_KEY;
     }
 
@@ -1042,6 +1043,9 @@ class AdminDataService {
       'X-Forwarded-Sync': '1',
       'X-Sync-Key': syncKey || ADMIN_SYNC_KEY,
     };
+    if (isTestAdmin) {
+      headers['X-Tenant-Id'] = 'test';
+    }
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     } else {
@@ -1053,10 +1057,13 @@ class AdminDataService {
   private async syncToCloudflareKV(key: string, data: any) {
     const currentHost = typeof window !== 'undefined' ? window.location.hostname : '';
     const isLocalhost = currentHost === 'localhost' || currentHost === '127.0.0.1';
+    const isTestAdmin = typeof window !== 'undefined' && currentHost.includes('admin-test-code-game-shop');
 
-    const endpoints = isLocalhost
-      ? ['https://admin-code-game-shop.pages.dev/api/sync', 'https://codegame.shop/api/sync', 'https://web-code-game.pages.dev/api/sync', '/api/sync']
-      : ['/api/sync', 'https://admin-code-game-shop.pages.dev/api/sync', 'https://codegame.shop/api/sync', 'https://web-code-game.pages.dev/api/sync'];
+    const endpoints = isTestAdmin
+      ? ['/api/sync']
+      : (isLocalhost
+          ? ['https://admin-code-game-shop.pages.dev/api/sync', 'https://codegame.shop/api/sync', 'https://web-code-game.pages.dev/api/sync', '/api/sync']
+          : ['/api/sync', 'https://admin-code-game-shop.pages.dev/api/sync', 'https://codegame.shop/api/sync', 'https://web-code-game.pages.dev/api/sync']);
 
     try {
       const headers = this.getAuthHeaders();
@@ -1084,10 +1091,13 @@ class AdminDataService {
     const listToSave = customList || this.giveaways;
     const currentHost = typeof window !== 'undefined' ? window.location.hostname : '';
     const isLocalhost = currentHost === 'localhost' || currentHost === '127.0.0.1';
+    const isTestAdmin = typeof window !== 'undefined' && currentHost.includes('admin-test-code-game-shop');
 
-    const endpoints = isLocalhost
-      ? ['https://admin-code-game-shop.pages.dev/api/sync', 'https://codegame.shop/api/sync', 'https://web-code-game.pages.dev/api/sync', '/api/sync']
-      : ['/api/sync', 'https://admin-code-game-shop.pages.dev/api/sync', 'https://codegame.shop/api/sync', 'https://web-code-game.pages.dev/api/sync'];
+    const endpoints = isTestAdmin
+      ? ['/api/sync']
+      : (isLocalhost
+          ? ['https://admin-code-game-shop.pages.dev/api/sync', 'https://codegame.shop/api/sync', 'https://web-code-game.pages.dev/api/sync', '/api/sync']
+          : ['/api/sync', 'https://admin-code-game-shop.pages.dev/api/sync', 'https://codegame.shop/api/sync', 'https://web-code-game.pages.dev/api/sync']);
 
     try {
       const headers = this.getAuthHeaders();
@@ -1104,8 +1114,8 @@ class AdminDataService {
             crossOriginSync.setItem(this.KEYS.GIVEAWAYS, listToSave);
             this.broadcastSync('GIVEAWAYS_UPDATED');
 
-            // Asynchronously notify client domain to purge edge isolate caches
-            if (!currentHost.includes('codegame.shop')) {
+            // Asynchronously notify client domain to purge edge isolate caches (only for production)
+            if (!currentHost.includes('codegame.shop') && !isTestAdmin) {
               fetch('https://codegame.shop/api/sync', { method: 'POST', headers, body }).catch(() => {});
             }
 

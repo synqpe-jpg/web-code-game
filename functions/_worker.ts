@@ -285,7 +285,7 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
     }
 
     // Dedicated Admin Domain & Route: redirect root to /admin, and serve /admin/index.html
-    const isAdminHost = url.hostname.includes('admin-code-game-shop') || url.hostname.startsWith('admin.');
+    const isAdminHost = url.hostname.includes('admin-code-game-shop') || url.hostname.includes('admin-test-code-game-shop') || url.hostname.startsWith('admin.');
     if (isAdminHost && (pathname === '/' || pathname === '')) {
       const adminRedirect = new URL('/admin', request.url);
       return Response.redirect(adminRedirect.toString(), 302);

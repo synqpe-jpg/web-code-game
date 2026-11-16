@@ -441,6 +441,14 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToClient }) => {
     if (onBackToClient) {
       onBackToClient();
     } else {
+      const isTestAdmin = typeof window !== 'undefined' && window.location.hostname.includes('admin-test-code-game-shop');
+      if (isTestAdmin) {
+        const newWin = window.open('https://test-code-game-shop.pages.dev', '_blank');
+        if (!newWin || newWin.closed || typeof newWin.closed === 'undefined') {
+          window.location.href = 'https://test-code-game-shop.pages.dev';
+        }
+        return;
+      }
       const isDedicatedAdmin = typeof window !== 'undefined' && window.location.hostname.includes('admin-code-game-shop');
       if (isDedicatedAdmin) {
         const newWin = window.open('https://codegame.shop', '_blank');

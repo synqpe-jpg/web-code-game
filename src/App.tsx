@@ -98,10 +98,16 @@ export const App: React.FC = () => {
       const path = window.location.pathname.toLowerCase();
 
       // 1. If on dedicated admin domain or admin hash/route -> Open AdminApp directly
-      const isAdminDomain = host.includes('admin-code-game-shop') || host.startsWith('admin.');
+      const isAdminDomain = host.includes('admin-code-game-shop') || host.includes('admin-test-code-game-shop') || host.startsWith('admin.');
       const isAdminHash = ADMIN_HASH_PREFIXES.some((p) => hash.startsWith(p));
       if (isAdminDomain || path.startsWith('/admin') || isAdminHash) {
         return 'admin';
+      }
+
+      // 2. If on dedicated test client domain -> Default to shopee-test as homepage!
+      const isTestClientDomain = host.includes('test-code-game-shop') || host.includes('test-shopee');
+      if (isTestClientDomain && (path === '/' || path === '' || hash === '' || hash === '#')) {
+        return 'shopee-test';
       }
 
       if (hash.includes('test1') || path === '/test1' || path.startsWith('/test1/')) return 'shopee-test';
@@ -859,10 +865,12 @@ export const App: React.FC = () => {
       const codeCount = isYenVan ? 579 : (isWwmPc ? 22 : (selectedGame.codes_count || selectedGame.active_codes_count || selectedGame.codes?.length || 0));
       const countSuffix = codeCount > 0 ? `Nhận ${codeCount} Mã Code ` : '';
       document.title = `Giftcode ${selectedGame.name || selectedGame.slug} Mới Nhất 2026 - ${countSuffix}| CodeGame.shop`;
-      const inTest1 = currentTab === 'shopee-test' || (typeof window !== 'undefined' && window.location.pathname.startsWith('/test1'));
+      const isTestClientDomain = typeof window !== 'undefined' && (window.location.hostname.includes('test-code-game-shop') || window.location.hostname.includes('test-shopee'));
+      const inTest1 = currentTab === 'shopee-test' || (typeof window !== 'undefined' && window.location.pathname.startsWith('/test1')) || isTestClientDomain;
       if (inTest1) {
-        if (window.location.pathname !== `/test1/game/${selectedGame.slug}`) {
-          window.history.replaceState(null, '', `/test1/game/${selectedGame.slug}`);
+        const targetPath = isTestClientDomain ? `/game/${selectedGame.slug}` : `/test1/game/${selectedGame.slug}`;
+        if (window.location.pathname !== targetPath) {
+          window.history.replaceState(null, '', targetPath);
         }
       } else if (window.location.pathname !== `/game/${selectedGame.slug}`) {
         window.history.replaceState(null, '', `/game/${selectedGame.slug}`);
@@ -871,12 +879,17 @@ export const App: React.FC = () => {
       // Do not wipe pathname if initial deep-link routing is still parsing
       if (!isInitialLoadDone) return;
 
-      const inTest1 = currentTab === 'shopee-test' || (typeof window !== 'undefined' && window.location.pathname.startsWith('/test1'));
+      const isTestClientDomain = typeof window !== 'undefined' && (window.location.hostname.includes('test-code-game-shop') || window.location.hostname.includes('test-shopee'));
+      const inTest1 = currentTab === 'shopee-test' || (typeof window !== 'undefined' && window.location.pathname.startsWith('/test1')) || isTestClientDomain;
       if (inTest1) {
-        if (window.location.pathname.startsWith('/test1/game/') || window.location.pathname.startsWith('/test1/g/')) {
+        if (window.location.pathname.startsWith('/test1/game/') || window.location.pathname.startsWith('/test1/g/') || (isTestClientDomain && window.location.pathname.startsWith('/game/'))) {
           return;
         }
-        if (window.location.pathname !== '/test1' || window.location.hash) {
+        if (isTestClientDomain) {
+          if (window.location.pathname !== '/' || window.location.hash) {
+            window.history.replaceState(null, '', '/');
+          }
+        } else if (window.location.pathname !== '/test1' || window.location.hash) {
           window.history.replaceState(null, '', '/test1');
         }
       } else if (window.location.pathname.startsWith('/game/') || window.location.pathname.startsWith('/g/')) {
@@ -957,10 +970,19 @@ export const App: React.FC = () => {
           window.history.replaceState(null, '', `/gian-hang/${currentStoreSlug}`);
         }
       } else if (currentTab === 'shopee-test') {
-        document.title = 'Giao Diện Thử Nghiệm Phong Cách Shopee Game (Test 1) | CodeGame.shop';
-        const isDeepLink = window.location.pathname.startsWith('/test1/game/') || window.location.pathname.startsWith('/test1/g/');
-        if (!isDeepLink && (window.location.pathname !== '/test1' || window.location.hash)) {
-          window.history.replaceState(null, '', '/test1');
+        const isTestClientDomain = typeof window !== 'undefined' && (window.location.hostname.includes('test-code-game-shop') || window.location.hostname.includes('test-shopee'));
+        document.title = isTestClientDomain
+          ? 'Sàn Thương Mại Điện Tử & Tiện Ích Game | Bản Mẫu Trực Tuyến'
+          : 'Giao Diện Thử Nghiệm Phong Cách Shopee Game (Test 1) | CodeGame.shop';
+        const isDeepLink = window.location.pathname.startsWith('/test1/game/') || window.location.pathname.startsWith('/test1/g/') || (isTestClientDomain && window.location.pathname.startsWith('/game/'));
+        if (!isDeepLink) {
+          if (isTestClientDomain) {
+            if (window.location.pathname !== '/' || window.location.hash) {
+              window.history.replaceState(null, '', '/');
+            }
+          } else if (window.location.pathname !== '/test1' || window.location.hash) {
+            window.history.replaceState(null, '', '/test1');
+          }
         }
       } else {
         document.title = 'CodeGame.shop - Cổng Tra Cứu Giftcode & Game Bản Quyền Hàng Đầu';

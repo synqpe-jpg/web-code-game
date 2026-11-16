@@ -3071,6 +3071,14 @@ export async function getSettingD1<T = any>(
   } catch (err: any) {
     console.warn('[getSettingD1 error]', key, err?.message);
   }
+
+  // Multi-tenant Shadowing: if this was a test tenant key (e.g. test_wcg_admin_banners) and not yet customized,
+  // fall back to reading the production base key so the test site inherits the live catalog seamlessly!
+  if (key.startsWith('test_')) {
+    const baseKey = key.slice(5);
+    return getSettingD1<T>(db, baseKey, defaultValue, bypassCache);
+  }
+
   const finalVal = fallback !== null ? fallback : defaultValue;
   if (finalVal !== null) {
     settingMemoryCache.set(key, { val: finalVal, cachedAt: Date.now() });

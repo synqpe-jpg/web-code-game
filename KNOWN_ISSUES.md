@@ -10,6 +10,17 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-290: Bẫy Tách Web Test Dùng Chung Database Làm Nhiễm Bẩn Dữ Liệu Sản Xuất & Cách Khắc Phục Bằng Tenant Shadowing
+- **Triệu chứng & Rủi ro**:
+  - Khi tách web test thành 1 trang riêng cho khách hàng thuê / mua dùng thử, nếu trang Admin Test ghi thẳng vào các khóa cài đặt chung của CSDL (wcg_admin_banners, wcg_admin_marketing_v4, wcg_admin_store_products_v4), các thao tác thử nghiệm của khách test sẽ ngay lập tức làm biến dạng giao diện và giá bán của Web Gốc codegame.shop.
+- **Nguyên nhân gốc rễ**:
+  - Không có cơ chế phân biệt Tenant/Scope giữa Web Gốc và Web Test, dẫn đến các lệnh đồng bộ dữ liệu (/api/sync) ghi đè lên cùng 1 bản ghi trong bảng system_settings.
+- **Giải pháp chuẩn đã kiểm chứng (Tenant Shadowing)**:
+  - Sử dụng mô hình Copy-on-Write (CoW):
+    1. Khi đọc: Nếu khóa mang tiền tố 	est_<key> chưa có trong DB, tự động fallback đọc từ <key> gốc để Web Test thừa hưởng kho dữ liệu sống động.
+    2. Khi ghi: Mọi thao tác lưu từ Admin Test được tự động gắn tiền tố 	est_<key>, lưu độc lập hoàn toàn và không bao giờ chạm vào khóa gốc.
+    3. Cô lập kênh đồng bộ: Chặn Admin Test bắn webhook hoặc fetch chéo sang domain Web Gốc.
+
 ### ISSUE-289: Bẫy Hàm isCodeExpired Bỏ Qua Trạng Thái Active Từ SQLite D1 & Đánh Dấu Hết Hạn Dựa Trên Ngày Cũ
 - **Triệu chứng & Rủi ro**:
   - Modal chi tiết Where Winds Meet hiển thị 565 mã còn hạn / 55 mã hết hạn thay vì 579 mã còn hạn / 41 mã hết hạn chuẩn D1.

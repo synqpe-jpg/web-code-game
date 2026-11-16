@@ -7,6 +7,27 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-16]
 
+### 407. Tách Rời 2 Trang Web Mới: Web Khách Test (Shopee Style) & Web Quản Trị Admin Test Độc Lập Hoàn Toàn Với Web Gốc (16/11/2026)
+- **Bối cảnh**: Người dùng yêu cầu tạo 2 trang web mới độc lập nhằm phục vụ mục đích bán hoặc cho thuê nền tảng thương mại điện tử đa ngành / phong cách Shopee:
+  1. Web Khách Test: Hiển thị giao diện sàn Shopee làm Trang Chủ mặc định (/), kế thừa toàn bộ danh mục sản phẩm từ Web Gốc.
+  2. Web Admin Test: Trang quản trị y hệt Web Gốc nhưng được cách ly tuyệt đối, chỉ điều khiển và tác động lên Web Test, không làm thay đổi Web Gốc.
+- **Giải pháp kỹ thuật (Phương Án 1 - Multi-Tenant Shadowing & Dedicated Pages Projects)**:
+  1. **Khởi tạo 2 dự án Cloudflare Pages độc lập**:
+     - Web Khách Test: https://test-code-game-shop.pages.dev
+     - Web Admin Test: https://admin-test-code-game-shop.pages.dev
+  2. **Định tuyến Frontend động theo Domain**:
+     - Khi truy cập 	est-code-game-shop.pages.dev: Tự động nhận diện host và phục vụ giao diện sàn Shopee ngay tại root /, giữ đường dẫn sạch / và /game/:slug.
+     - Khi truy cập dmin-test-code-game-shop.pages.dev: Tự động nhận diện host admin, chuyển hướng vào /admin và hiển thị huy hiệu [QUẢN TRỊ BẢN TEST (ĐỘC LẬP)] trên thanh Topbar.
+  3. **Cơ chế Phân Tách Dữ Liệu An Toàn Tuyệt Đối (Copy-on-Write Tenant Shadowing)**:
+     - Trong unctions/services/d1_service.ts: getSettingD1 hỗ trợ tiền tố tenant 	est_. Nếu bản ghi test chưa được chỉnh sửa, hệ thống tự động kế thừa (fallback) dữ liệu live từ Web Gốc để bản test luôn có sẵn kho sản phẩm phong phú.
+     - Khi Admin Test thực hiện lưu / sửa / xóa: Mọi ghi nhận lưu vào tiền tố 	est_*, cách ly 100% với các khóa cấu hình sản xuất của codegame.shop.
+     - Trong src/admin/services/adminDataService.ts: Tự động gắn header X-Tenant-Id: test và cô lập các endpoint đồng bộ, chỉ gửi request nội bộ đến domain test, không phát tín hiệu sang Web Gốc.
+  4. **Quy trình triển khai**: Bổ sung các lệnh 
+pm run deploy:test, 
+pm run deploy:admin:test, 
+pm run deploy:test:all vào package.json.
+- **Phạm vi file**: unctions/services/d1_service.ts, unctions/api/sync.ts, unctions/_worker.ts, src/App.tsx, src/admin/AdminApp.tsx, src/admin/components/AdminTopbar.tsx, src/admin/services/adminDataService.ts, package.json.
+
 ### 406. Đồng Bộ Dứt Điểm Bộ Đếm Mã Where Winds Meet Chuẩn D1 (579 Còn Hạn / 41 Hết Hạn / 620 Tổng) & Chuẩn Hóa Tiêu Đề Giveaway Dị Giới Sinh Tồn (16/11/2026)
 - **Bối cảnh**: Trình duyệt kiểm tra thấy modal Where Winds Meet Mobile hiển thị 565 còn hạn / 55 hết hạn thay vì 579 còn hạn / 41 hết hạn theo chuẩn D1. Đồng thời thẻ Giveaway thứ 5 trang 2 mang slug di-gioi-sinh-ton-oeg.
 - **Nguyên nhân gốc rễ**:
