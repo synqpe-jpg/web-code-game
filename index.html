@@ -18,6 +18,8 @@
     <script>
       (function() {
         var host = window.location.hostname.toLowerCase();
+        var pathname = window.location.pathname.toLowerCase();
+        var hash = window.location.hash.toLowerCase();
         if (host.includes('admin-code-game-shop') || host.startsWith('admin.')) {
           document.title = 'Quản Trị Hệ Thống | CodeGame.shop';
           if (window.location.pathname === '/' || window.location.pathname === '') {
@@ -25,10 +27,17 @@
             return;
           }
         }
-        var savedTheme = 'dark';
+        var isTest1 = pathname.startsWith('/test1') || hash.includes('test1');
+        var savedTheme = isTest1 ? 'light' : 'dark';
         try {
-          var t = localStorage.getItem('wcg_theme');
-          if (t === 'light') savedTheme = 'light';
+          if (isTest1) {
+            var st = localStorage.getItem('wcg_shopee_theme');
+            if (st === 'dark') savedTheme = 'dark';
+            else savedTheme = 'light';
+          } else {
+            var t = localStorage.getItem('wcg_theme');
+            if (t === 'light') savedTheme = 'light';
+          }
         } catch(e) {}
         var metaCs = document.querySelector('meta[name="color-scheme"]');
         if (savedTheme === 'light') {

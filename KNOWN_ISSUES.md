@@ -10,6 +10,26 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-288: Bẫy Trình Duyệt Lưu Disk Cache HTML Với max-age=120 Khiến Tab Mới Chạy Bản Bundle JS Cũ, Anti-FOUC Gây Flash Nền Tối Trên /test1 & Bẫy Gom Nhầm Bản PC Vào Mobile
+- **Triệu chứng & Rủi ro**:
+  1. *Lần tải đầu tiên chạy code cũ*: Mở tab mới tới deep link `/test1/game/:slug` bị tạm rút URL về `/test1`, modal mang nền tối navy, xuất hiện 2 link web gốc cũ; các lần tải sau lại bình thường.
+  2. *Lệch số mã Where Winds Meet*: A-Z, modal, tab title hiển thị 584 hoặc 642/587 do gộp 22 mã bản PC vào 620 mã bản Mobile.
+  3. *Canvas vòng quay may mắn trơn không slices*: Mảng `config.slices` là `[]` (truthy) khiến biểu thức `config.slices || DEFAULT_WHEEL_SLICES` giữ nguyên mảng 0 phần tử, không vẽ được lát cắt nào.
+- **Nguyên nhân gốc rễ**:
+  1. Header `Cache-Control: public, max-age=120` trên các file HTML làm trình duyệt bỏ qua Cloudflare và phục vụ thẳng HTML cũ từ disk cache trong 2 phút sau khi deploy bản mới.
+  2. Script inline Anti-FOUC trong thẻ `<head>` của `index.html` mặc định áp dụng class `dark` trước khi React khởi chạy.
+  3. Gom key `where-winds-meet` (PC, 22 mã) vào query và kết quả của `where-winds-meet-mobile` và `yen-van-thap-luc-thanh` (620 mã: 579 còn hạn, 41 hết hạn).
+  4. Container backdrop gán `onClick={onClose}` làm modal tự đóng khi chạm vào viền ngoài.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Đổi tất cả HTML document response sang `Cache-Control: public, max-age=0, must-revalidate, s-maxage=3600, stale-while-revalidate=86400`.
+  2. Nhận diện route `/test1` trong script Anti-FOUC tại `<head>` để gán class `light` và nền `#FFFFFF` ngay từ frame 0.
+  3. Tách biệt hoàn toàn `where-winds-meet` (PC) khỏi nhóm Mobile ở API, D1 query, dataService và UI.
+  4. Kiểm tra `(config.slices && config.slices.length > 0) ? config.slices : DEFAULT_WHEEL_SLICES` và gỡ `onClick={onClose}` khỏi backdrop.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không bao giờ đặt `max-age > 0` cho tài liệu HTML trên SPA vì sẽ khiến client cache lại JS bundle cũ.*
+  - ❌ *Không để script Anti-FOUC chỉ kiểm tra web gốc mà bỏ qua các route con có theme sáng như `/test1`.*
+  - ❌ *Không dùng `||` fallback khi mảng có thể là `[]` (truthy).*
+
 ### ISSUE-287: Bẫy 0-Byte Cache Poisoning Trên Cloudflare Worker Do Stream Đóng Sớm Khi Nhận Request HEAD & Bẫy Chờ Async State Deep Link Ở Frame 0
 - **Triệu chứng & Rủi ro**:
   1. *0-Byte Response trên Edge Cache*: Khi request HEAD tới URL `/test1/game/:slug` (hoặc curl `-I` / crawler), Cloudflare Cache API lưu một bản ghi rỗng 0 bytes. Các request GET thông thường sau đó trúng Cache HIT trả về nội dung trống 0 bytes khiến màn hình trắng tinh hoặc sập hiển thị.

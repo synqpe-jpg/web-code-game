@@ -1284,9 +1284,9 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
             g.name?.toLowerCase().replace(/[^a-z0-9]+/g, '_'),
             (slug === 'huyen-thoai-hai-tac' || slug === 'pirate-legends' || rawId === 'huyen-thoai-hai-tac' || rawId === 'pirate-legends') ? 'huyen-thoai-hai-tac' : '',
             (slug === 'huyen-thoai-hai-tac' || slug === 'pirate-legends' || rawId === 'huyen-thoai-hai-tac' || rawId === 'pirate-legends') ? 'pirate-legends' : '',
-            (slug === 'yen-van-thap-luc-thanh' || slug === 'where-winds-meet' || slug === 'where-winds-meet-mobile' || rawId === 'yen-van-thap-luc-thanh' || rawId === 'where-winds-meet' || rawId === 'where-winds-meet-mobile') ? 'yen-van-thap-luc-thanh' : '',
-            (slug === 'yen-van-thap-luc-thanh' || slug === 'where-winds-meet' || slug === 'where-winds-meet-mobile' || rawId === 'yen-van-thap-luc-thanh' || rawId === 'where-winds-meet' || rawId === 'where-winds-meet-mobile') ? 'where-winds-meet-mobile' : '',
-            (slug === 'yen-van-thap-luc-thanh' || slug === 'where-winds-meet' || slug === 'where-winds-meet-mobile' || rawId === 'yen-van-thap-luc-thanh' || rawId === 'where-winds-meet' || rawId === 'where-winds-meet-mobile') ? 'where-winds-meet' : '',
+            (slug === 'yen-van-thap-luc-thanh' || slug === 'where-winds-meet-mobile' || rawId === 'yen-van-thap-luc-thanh' || rawId === 'where-winds-meet-mobile') ? 'yen-van-thap-luc-thanh' : '',
+            (slug === 'yen-van-thap-luc-thanh' || slug === 'where-winds-meet-mobile' || rawId === 'yen-van-thap-luc-thanh' || rawId === 'where-winds-meet-mobile') ? 'where-winds-meet-mobile' : '',
+            (slug === 'where-winds-meet' || rawId === 'where-winds-meet') ? 'where-winds-meet' : '',
           ].filter(Boolean) as string[];
 
           const mergedMap = new Map<string, GiftCode>();
@@ -1861,16 +1861,16 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
       cleanSlug,
       rawId,
       cleanId,
-      cleanSlug.replace(/-mobile$/i, ''),
+      cleanSlug === 'where-winds-meet-mobile' ? '' : cleanSlug.replace(/-mobile$/i, ''),
       `${cleanSlug}-mobile`,
       cleanSlug.replace(/_/g, '-'),
       cleanName ? cleanName.replace(/[^a-z0-9]+/g, '-') : '',
       cleanName ? cleanName.replace(/[^a-z0-9]+/g, '_') : '',
       (cleanSlug === 'huyen-thoai-hai-tac' || cleanSlug === 'pirate-legends' || cleanId === 'huyen-thoai-hai-tac' || cleanId === 'pirate-legends') ? 'huyen-thoai-hai-tac' : '',
       (cleanSlug === 'huyen-thoai-hai-tac' || cleanSlug === 'pirate-legends' || cleanId === 'huyen-thoai-hai-tac' || cleanId === 'pirate-legends') ? 'pirate-legends' : '',
-      (cleanSlug === 'yen-van-thap-luc-thanh' || cleanSlug === 'where-winds-meet' || cleanSlug === 'where-winds-meet-mobile' || cleanId === 'yen-van-thap-luc-thanh' || cleanId === 'where-winds-meet' || cleanId === 'where-winds-meet-mobile') ? 'yen-van-thap-luc-thanh' : '',
-      (cleanSlug === 'yen-van-thap-luc-thanh' || cleanSlug === 'where-winds-meet' || cleanSlug === 'where-winds-meet-mobile' || cleanId === 'yen-van-thap-luc-thanh' || cleanId === 'where-winds-meet' || cleanId === 'where-winds-meet-mobile') ? 'where-winds-meet-mobile' : '',
-      (cleanSlug === 'yen-van-thap-luc-thanh' || cleanSlug === 'where-winds-meet' || cleanSlug === 'where-winds-meet-mobile' || cleanId === 'yen-van-thap-luc-thanh' || cleanId === 'where-winds-meet' || cleanId === 'where-winds-meet-mobile') ? 'where-winds-meet' : '',
+      (cleanSlug === 'yen-van-thap-luc-thanh' || cleanSlug === 'where-winds-meet-mobile' || cleanId === 'yen-van-thap-luc-thanh' || cleanId === 'where-winds-meet-mobile') ? 'yen-van-thap-luc-thanh' : '',
+      (cleanSlug === 'yen-van-thap-luc-thanh' || cleanSlug === 'where-winds-meet-mobile' || cleanId === 'yen-van-thap-luc-thanh' || cleanId === 'where-winds-meet-mobile') ? 'where-winds-meet-mobile' : '',
+      (cleanSlug === 'where-winds-meet' || cleanId === 'where-winds-meet') ? 'where-winds-meet' : '',
     ].filter(Boolean) as string[];
 
     const mergedMap = new Map<string, GiftCode>();

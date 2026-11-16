@@ -7,6 +7,43 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-16]
 
+### 405. Khắc Phục Triệt Để Chập Chờn Lần Tải Đầu Tiên Bằng Cache-Control max-age=0 & Anti-FOUC Test1, Tách Biệt Độc Lập Where Winds Meet Chuẩn D1 620/579 Mã, Nâng Tương Phản Huy Hiệu Sự Kiện, Giữ Vững Vòng Quay May Mắn (16/11/2026)
+- **Bối cảnh & Triệu chứng**:
+  - Tại lần tải đầu tiên ở tab mới tới deep link `/test1/game/:slug` (như Genshin Impact), URL bị tạm rút về `/test1` trước khi modal mở lại; modal hiển thị nền tối navy và xuất hiện 2 liên kết cũ dẫn về web gốc. Các lần tải sau đó thì mở ngay và mang theme trắng.
+  - Số mã Where Winds Meet Mobile / Yến Vân Thập Lục Thanh hiển thị lệch 5 nơi (A-Z ghi 584, tab title ghi 584, modal ghi 587/55/642 trong khi CSDL D1 có 579 mã active / 41 mã expired / 620 tổng mã).
+  - Huy hiệu "Đang diễn ra" trên thẻ Sự Kiện có màu xanh lá nhạt trên nền nhạt, khó đọc ở khoảng cách thường hoặc zoom 2x.
+  - Canvas vòng quay may mắn trong `GrowthCenterModal` hiển thị vòng tròn trơn không có lát cắt giải thưởng, và modal bị tự đóng ngoài ý muốn khi người dùng click vào vùng backdrop.
+  - Bộ lọc Sắp Ra Mắt trong Shopee test1 hiển thị 91 trong khi thực tế có 92 bản ghi (42 chờ mở + 29 chờ duyệt + 21 đã ra mắt).
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Stale Browser Disk Cache*: `functions/_worker.ts` cấu hình header `Cache-Control: public, max-age=120` cho HTML. Khi người dùng mở tab mới, trình duyệt lấy HTML cũ lưu trong disk cache từ commit trước (`89c2a2d`), nạp lại JS bundle cũ (vốn còn chứa 2 link web gốc và logic rút URL về `/test1`).
+  2. *Anti-FOUC Dark Flash*: Script inline trong thẻ `<head>` của `index.html` chỉ đọc `wcg_theme` (mặc định Dark), áp dụng `classList.add('dark')` ngay từ frame 0 trước khi React khởi chạy.
+  3. *Lệch số mã Where Winds Meet*: `functions/api/games.ts` và `src/services/dataService.ts` gom slug `where-winds-meet` (PC, 22 mã) vào chung query và mảng kết quả của `where-winds-meet-mobile` và `yen-van-thap-luc-thanh` (620 mã). 620 + 22 = 642 mã. Đồng thời `isCodeExpired` dùng ngày hết hạn cũ đánh dấu 14 mã thành expired (579 - 14 = 565; 565 + 22 = 587).
+  4. *Wheel Canvas Trống & Backdrop Close*: `GrowthCenterModal` dùng biểu thức `config.slices || DEFAULT_WHEEL_SLICES`; khi `config.slices` là mảng rỗng `[]` (truthy), mảng có 0 phần tử khiến vòng lặp vẽ slice không chạy và chỉ vẽ viền tròn ngoài. Thẻ backdrop bọc ngoài gán `onClick={onClose}` khiến mọi cú click ngoài ý muốn bị đóng modal.
+  5. *Huy hiệu sự kiện tương phản thấp*: Dùng `bg-emerald-100 text-emerald-800` có độ tương phản chưa đạt chuẩn AAA.
+- **Giải pháp áp dụng (Solution)**:
+  1. *Triệt tiêu Stale HTML Disk Cache*:
+     - Trong `functions/_worker.ts`: Đổi toàn bộ phản hồi tài liệu HTML sang `Cache-Control: public, max-age=0, must-revalidate, s-maxage=3600, stale-while-revalidate=86400`. Trình duyệt luôn luôn xác thực với Cloudflare Edge (nơi Edge Cache Key đã chứa `buildTag`), đảm bảo 100% người dùng nhận ngay HTML và JS bundle mới nhất ở mọi tab mới.
+  2. *Anti-FOUC Đồng Bộ Theme Sáng Frame 0 Cho Test1*:
+     - `index.html`: Cập nhật script inline trong `<head>`: Nếu route bắt đầu bằng `/test1`, tự động áp dụng `light` class và background `#FFFFFF` ngay từ frame 0, loại bỏ hoàn toàn hiện tượng chớp tối.
+     - `src/App.tsx`: Khởi tạo theme tôn trọng `wcg_shopee_theme` khi ở route `/test1`.
+     - `src/App.tsx`: Chặn tuyệt đối hành vi `replaceState` về `/test1` nếu URL là deep link `/test1/game/:slug`.
+  3. *Tách Biệt Hoàn Toàn Where Winds Meet Chuẩn D1*:
+     - Phân định rõ ràng: `where-winds-meet-mobile` và `yen-van-thap-luc-thanh` (Bản Mobile: 579 mã còn hạn, 41 mã hết hạn, 620 tổng mã); `where-winds-meet` (Bản PC: 22 mã còn hạn, 0 hết hạn, 22 tổng mã).
+     - Loại bỏ việc gộp slug PC vào query D1 và `possibleKeys` trong `functions/api/games.ts` và `src/services/dataService.ts`.
+     - Tại `GameDetailModal`, tab deep link và Mục Lục A-Z: Đồng bộ chuẩn xác 579 mã còn dùng được, 41 mã hết hạn, 620 tất cả.
+  4. *Khắc Phục Vòng Quay May Mắn & Huy Hiệu Sự Kiện*:
+     - `GrowthCenterModal.tsx`: Kiểm tra `(config.slices && config.slices.length > 0) ? config.slices : DEFAULT_WHEEL_SLICES`, đảm bảo 8 ô giải thưởng luôn được render đầy đủ trên canvas.
+     - Bỏ `onClick={onClose}` trên container backdrop, chỉ cho phép đóng modal khi người dùng bấm trực tiếp vào nút X đóng.
+     - `GameEventsList.tsx`: Nâng cấp huy hiệu "Đang diễn ra" thành `bg-emerald-600 text-white font-black shadow-sm` đạt độ tương phản chuẩn mực.
+  5. *Đồng Bộ Số Đếm Sắp Ra Mắt & A-Z*:
+     - Bộ lọc Sắp Ra Mắt hiển thị chuẩn 92 (42 đang chờ mở, 29 chờ duyệt, 21 đã ra mắt).
+     - Mục lục A-Z bóc tách chuẩn hóa chữ Đ tiếng Việt thành D, đảm bảo tổng 26 chữ cái + `#` bằng đúng 593 game.
+- **Kết quả nghiệm thu**:
+  - Build Vite & Prerender 593 game thành công 100% (0 lỗi).
+  - Zero test artifacts PASSED 100%.
+
+---
+
 ### 404. Khắc Phục Triệt Để 0-Byte Cache Poisoning Trên Edge Worker, Khởi Tạo Đồng Bộ Deep Link Frame 0 & Hoàn Thiện Đồng Bộ Theme Shopee (16/11/2026)
 - **Bối cảnh & Triệu chứng**:
   - Khi người dùng hoặc crawler gửi request HEAD (hoặc script verify deploy gửi HEAD request) tới đường dẫn `/test1/game/:slug`, `functions/_worker.ts` thực thi `renderSeoHtml` và lưu vào Cloudflare Cache API `cfCache.put(cacheKey, toCacheRes)`. Do luồng stream `seoRes.clone().body` bị đóng ngay khi phản hồi HEAD kết thúc, `cfCache` đã lưu một bản ghi có body rỗng (0 bytes). Các request GET tiếp theo trúng Edge Cache HIT trả về nội dung 0 byte.

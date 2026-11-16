@@ -325,6 +325,22 @@ export const App: React.FC = () => {
 
   // Initialize Theme
   useEffect(() => {
+    const isTest1 = typeof window !== 'undefined' && (window.location.pathname.startsWith('/test1') || window.location.hash.includes('test1'));
+    if (isTest1) {
+      const shopeeTheme = localStorage.getItem('wcg_shopee_theme');
+      const isDark = shopeeTheme === 'dark';
+      setIsDarkMode(isDark);
+      if (isDark) {
+        document.documentElement.classList.add('dark');
+        document.documentElement.classList.remove('light');
+        document.documentElement.style.colorScheme = 'dark';
+      } else {
+        document.documentElement.classList.remove('dark');
+        document.documentElement.classList.add('light');
+        document.documentElement.style.colorScheme = 'light';
+      }
+      return;
+    }
     const savedTheme = localStorage.getItem('wcg_theme');
     const metaCs = document.querySelector('meta[name="color-scheme"]');
     if (savedTheme === 'light') {
@@ -839,7 +855,8 @@ export const App: React.FC = () => {
 
     if (selectedGame && typeof selectedGame === 'object' && selectedGame.slug && selectedGame.slug !== 'undefined') {
       const isYenVan = selectedGame.slug === 'where-winds-meet-mobile' || selectedGame.slug === 'yen-van-thap-luc-thanh';
-      const codeCount = isYenVan ? 579 : (selectedGame.codes_count || selectedGame.active_codes_count || selectedGame.codes?.length || 0);
+      const isWwmPc = selectedGame.slug === 'where-winds-meet';
+      const codeCount = isYenVan ? 579 : (isWwmPc ? 22 : (selectedGame.codes_count || selectedGame.active_codes_count || selectedGame.codes?.length || 0));
       const countSuffix = codeCount > 0 ? `Nhận ${codeCount} Mã Code ` : '';
       document.title = `Giftcode ${selectedGame.name || selectedGame.slug} Mới Nhất 2026 - ${countSuffix}| CodeGame.shop`;
       const inTest1 = currentTab === 'shopee-test' || (typeof window !== 'undefined' && window.location.pathname.startsWith('/test1'));
@@ -941,7 +958,8 @@ export const App: React.FC = () => {
         }
       } else if (currentTab === 'shopee-test') {
         document.title = 'Giao Diện Thử Nghiệm Phong Cách Shopee Game (Test 1) | CodeGame.shop';
-        if (window.location.pathname !== '/test1' || window.location.hash) {
+        const isDeepLink = window.location.pathname.startsWith('/test1/game/') || window.location.pathname.startsWith('/test1/g/');
+        if (!isDeepLink && (window.location.pathname !== '/test1' || window.location.hash)) {
           window.history.replaceState(null, '', '/test1');
         }
       } else {

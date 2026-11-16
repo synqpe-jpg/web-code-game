@@ -1507,7 +1507,12 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
                                 {getGameDisplayName(g)}
                               </div>
                               <div className="text-[10px] text-slate-400 truncate">
-                                {g.codes_count || g.active_codes_count || 0} mã
+                                {(() => {
+                                  const s = (g.slug || '').toLowerCase();
+                                  if (s === 'where-winds-meet-mobile' || s === 'yen-van-thap-luc-thanh') return 579;
+                                  if (s === 'where-winds-meet') return 22;
+                                  return g.codes_count || g.active_codes_count || 0;
+                                })()} mã
                               </div>
                             </div>
                           </button>

@@ -1815,7 +1815,7 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
           const edgeDur = (performance.now() - reqStart).toFixed(1);
           const bodyText = await assetResponse.text();
           const baseHeaders = new Headers(assetResponse.headers);
-          baseHeaders.set('Cache-Control', 'public, max-age=120, s-maxage=3600, stale-while-revalidate=86400');
+          baseHeaders.set('Cache-Control', 'public, max-age=0, must-revalidate, s-maxage=3600, stale-while-revalidate=86400');
           baseHeaders.delete('Pragma');
           baseHeaders.delete('Expires');
 
@@ -1902,7 +1902,7 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
         if (cfCache && seoRes.status === 200 && seoHtml.length > 50 && ctx.waitUntil) {
           try {
             const toCacheHeaders = new Headers(seoRes.headers);
-            toCacheHeaders.set('Cache-Control', 'public, max-age=120, s-maxage=3600, stale-while-revalidate=86400');
+            toCacheHeaders.set('Cache-Control', 'public, max-age=0, must-revalidate, s-maxage=3600, stale-while-revalidate=86400');
             toCacheHeaders.set('cf-cache-status', 'HIT');
             toCacheHeaders.set('X-Edge-Cache', 'HIT');
             toCacheHeaders.set('X-Build-Id', buildTag);
@@ -2549,7 +2549,7 @@ async function renderSeoHtml(
     const assetRes = await env.ASSETS.fetch(new Request(assetUrl.toString()));
     if (assetRes.status === 200) {
       const headers = new Headers(assetRes.headers);
-      headers.set('Cache-Control', 'public, max-age=120, s-maxage=3600, stale-while-revalidate=86400');
+      headers.set('Cache-Control', 'public, max-age=0, must-revalidate, s-maxage=3600, stale-while-revalidate=86400');
       headers.set('Content-Type', 'text/html; charset=utf-8');
       headers.set('X-Content-Type-Options', 'nosniff');
       return new Response(assetRes.body, { status: 200, headers });
@@ -2558,7 +2558,7 @@ async function renderSeoHtml(
     const idxRes = await env.ASSETS.fetch(new Request(idxUrl.toString()));
     if (idxRes.status === 200) {
       const headers = new Headers(idxRes.headers);
-      headers.set('Cache-Control', 'public, max-age=120, s-maxage=3600, stale-while-revalidate=86400');
+      headers.set('Cache-Control', 'public, max-age=0, must-revalidate, s-maxage=3600, stale-while-revalidate=86400');
       headers.set('Content-Type', 'text/html; charset=utf-8');
       headers.set('X-Content-Type-Options', 'nosniff');
       return new Response(idxRes.body, { status: 200, headers });
@@ -3505,7 +3505,7 @@ async function renderSeoHtml(
     status: 200,
     headers: {
       'Content-Type': 'text/html; charset=utf-8',
-      'Cache-Control': 'public, max-age=120, s-maxage=3600, stale-while-revalidate=86400',
+      'Cache-Control': 'public, max-age=0, must-revalidate, s-maxage=3600, stale-while-revalidate=86400',
       'X-Content-Type-Options': 'nosniff',
     },
   });

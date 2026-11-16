@@ -46,12 +46,11 @@ if (Array.isArray(fallbackCodesData)) {
     });
   }
 
-  // Ensure absolute 100% parity between Where Winds Meet Mobile and Yen Van Thap Luc Thanh
+  // Ensure absolute 100% parity between Where Winds Meet Mobile and Yen Van Thap Luc Thanh (PC is separate)
   const wwmList = fallbackCodesBySlug.get('where-winds-meet-mobile') || fallbackCodesBySlug.get('yen-van-thap-luc-thanh') || [];
   if (wwmList.length > 0) {
     fallbackCodesBySlug.set('where-winds-meet-mobile', wwmList);
     fallbackCodesBySlug.set('yen-van-thap-luc-thanh', wwmList);
-    fallbackCodesBySlug.set('where-winds-meet', wwmList);
   }
 }
 
@@ -215,11 +214,12 @@ export function resolveCodesForGame(g: any, codesMap: Map<string, GiftCode[]>): 
   if (
     normSlug === 'where-winds-meet-mobile' ||
     normSlug === 'yen-van-thap-luc-thanh' ||
-    normSlug === 'where-winds-meet' ||
     rawId.toLowerCase() === 'where-winds-meet-mobile' ||
     rawId.toLowerCase() === 'yen-van-thap-luc-thanh'
   ) {
-    possibleKeys.push('where-winds-meet-mobile', 'yen-van-thap-luc-thanh', 'where-winds-meet');
+    possibleKeys.push('where-winds-meet-mobile', 'yen-van-thap-luc-thanh');
+  } else if (normSlug === 'where-winds-meet' || rawId.toLowerCase() === 'where-winds-meet') {
+    possibleKeys.push('where-winds-meet');
   }
 
   if (g.name) {
@@ -764,10 +764,13 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           .map((c: any) => {
             const rawExp = c.expires_at || '';
             const isFakeExp = rawExp === '2026-12-31' || rawExp === '2026-12-31T23:59:59Z' || rawExp === '31/12/2026';
+            const status = isYenVan
+              ? (c.status === 'expired' ? 'expired' : 'active')
+              : (isCodeExpired(c) ? 'expired' : (c.status || 'active'));
             return {
               code: c.code,
               rewards: cleanRewardText(c.rewards),
-              status: isCodeExpired(c) ? 'expired' : (c.status || 'active'),
+              status,
               expiry: isFakeExp ? '' : rawExp,
               source: c.source || '',
               added_at: c.added_at || '2026-10-09T00:00:00Z',

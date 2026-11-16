@@ -111,7 +111,7 @@ export const GrowthCenterModal: React.FC<GrowthCenterModalProps> = ({
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      const slices = config.slices || DEFAULT_WHEEL_SLICES;
+      const slices = (config.slices && config.slices.length > 0) ? config.slices : DEFAULT_WHEEL_SLICES;
       const numSlices = slices.length;
       const arcSize = (2 * Math.PI) / numSlices;
       const radius = canvas.width / 2;
@@ -325,7 +325,6 @@ export const GrowthCenterModal: React.FC<GrowthCenterModalProps> = ({
   return createPortal(
     <div
       className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md overflow-hidden animate-fade-in"
-      onClick={onClose}
     >
       <div
         className="relative w-full max-w-2xl bg-card border-t sm:border border-border/90 rounded-t-[32px] sm:rounded-3xl p-4 sm:p-6 shadow-2xl animate-scale-in max-h-[92dvh] sm:max-h-[90vh] overflow-y-auto touch-pan-y pb-[max(env(safe-area-inset-bottom,0px),1.5rem)]"
