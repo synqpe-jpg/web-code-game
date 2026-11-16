@@ -197,8 +197,8 @@ export const GameEventsList: React.FC<GameEventsListProps> = ({
     switch (timeStatus) {
       case 'HAPPENING':
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-black shadow-xs">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-600/40 text-emerald-800 dark:text-emerald-300 text-xs font-black shadow-xs">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
             <span>Đang diễn ra</span>
           </span>
         );

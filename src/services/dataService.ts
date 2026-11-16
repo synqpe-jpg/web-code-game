@@ -1270,8 +1270,8 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
         .map((g, index) => {
           const slug = g.slug || g.id || `game-${index + 1}`;
           const rawId = g.id || slug;
-          const isWwm = slug === 'where-winds-meet' || slug === 'where-winds-meet-mobile' || slug === 'yen-van-thap-luc-thanh' ||
-                        rawId === 'where-winds-meet' || rawId === 'where-winds-meet-mobile' || rawId === 'yen-van-thap-luc-thanh';
+          const isWwm = slug === 'where-winds-meet-mobile' || slug === 'yen-van-thap-luc-thanh' ||
+                        rawId === 'where-winds-meet-mobile' || rawId === 'yen-van-thap-luc-thanh';
 
           // Multi-key code lookup to catch any slug variation (with or without -mobile, underscores, or clean names)
           const possibleKeys = [
@@ -1347,11 +1347,11 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
             is_hot: Boolean(g.is_hot || g.isHot || g.status === 'HOT' || existingCodes.length > 5),
             is_new: Boolean(g.is_new || g.isNew || relDate.startsWith('2026-09')),
             is_active: true,
-            codes_count: isWwm ? 584 : (typeof g.codes_count === 'number' ? g.codes_count : existingCodes.filter((c: any) => !isCodeExpired(c)).length),
-            active_codes_count: isWwm ? 584 : (typeof g.active_codes_count === 'number' ? g.active_codes_count : existingCodes.filter((c: any) => !isCodeExpired(c)).length),
-            free_codes_count: isWwm ? 584 : (typeof g.free_codes_count === 'number' ? g.free_codes_count : (typeof g.codes_count === 'number' ? g.codes_count : existingCodes.filter((c: any) => !isCodeExpired(c)).length)),
+            codes_count: isWwm ? 579 : (typeof g.codes_count === 'number' ? g.codes_count : existingCodes.filter((c: any) => !isCodeExpired(c)).length),
+            active_codes_count: isWwm ? 579 : (typeof g.active_codes_count === 'number' ? g.active_codes_count : existingCodes.filter((c: any) => !isCodeExpired(c)).length),
+            free_codes_count: isWwm ? 579 : (typeof g.free_codes_count === 'number' ? g.free_codes_count : (typeof g.codes_count === 'number' ? g.codes_count : existingCodes.filter((c: any) => !isCodeExpired(c)).length)),
             total_codes_count: isWwm ? 620 : (existingCodes.length || (typeof g.total_codes_count === 'number' ? g.total_codes_count : 0)),
-            expired_codes_count: isWwm ? 36 : (existingCodes.filter((c: any) => isCodeExpired(c)).length),
+            expired_codes_count: isWwm ? 41 : (existingCodes.filter((c: any) => isCodeExpired(c)).length),
             codes: existingCodes.length > 0 ? existingCodes : (Array.isArray(g.codes) ? g.codes : []),
           };
         });
@@ -1363,12 +1363,12 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
             ...wwmParent,
             id: 'where-winds-meet',
             slug: 'where-winds-meet',
-            name: 'Where Winds Meet (Yến Vân Thập Lục Thanh)',
-            codes_count: 584,
-            active_codes_count: 584,
-            free_codes_count: 584,
-            total_codes_count: 620,
-            expired_codes_count: 36,
+            name: 'Where Winds Meet (Yến Vân Thập Lục Thanh) (Bản PC Quốc Tế)',
+            codes_count: 22,
+            active_codes_count: 22,
+            free_codes_count: 22,
+            total_codes_count: 22,
+            expired_codes_count: 0,
           });
         }
       }
@@ -1962,17 +1962,17 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
           });
 
           const activeFullCodes = fullCodes.filter((c: any) => !isCodeExpired(c));
-          const isWwmGame = (game.slug === 'where-winds-meet' || game.slug === 'where-winds-meet-mobile' || game.slug === 'yen-van-thap-luc-thanh' ||
-                             game.id === 'where-winds-meet' || game.id === 'where-winds-meet-mobile' || game.id === 'yen-van-thap-luc-thanh' ||
-                             normSlug === 'where-winds-meet' || normSlug === 'where-winds-meet-mobile' || normSlug === 'yen-van-thap-luc-thanh');
-          const finalActiveCount = isWwmGame ? 584 : (typeof game.active_codes_count === 'number' ? game.active_codes_count : activeFullCodes.length);
+          const isWwmGame = (game.slug === 'where-winds-meet-mobile' || game.slug === 'yen-van-thap-luc-thanh' ||
+                             game.id === 'where-winds-meet-mobile' || game.id === 'yen-van-thap-luc-thanh' ||
+                             normSlug === 'where-winds-meet-mobile' || normSlug === 'yen-van-thap-luc-thanh');
+          const finalActiveCount = isWwmGame ? 579 : (typeof game.active_codes_count === 'number' ? game.active_codes_count : activeFullCodes.length);
           const finalGame: GameItem = {
             ...game,
             codes: fullCodes,
-            codes_count: isWwmGame ? 584 : (typeof game.codes_count === 'number' ? game.codes_count : activeFullCodes.length),
+            codes_count: isWwmGame ? 579 : (typeof game.codes_count === 'number' ? game.codes_count : activeFullCodes.length),
             active_codes_count: finalActiveCount,
-            free_codes_count: isWwmGame ? 584 : (typeof game.free_codes_count === 'number' ? game.free_codes_count : finalActiveCount),
-            expired_codes_count: isWwmGame ? 36 : (fullCodes.length - activeFullCodes.length),
+            free_codes_count: isWwmGame ? 579 : (typeof game.free_codes_count === 'number' ? game.free_codes_count : finalActiveCount),
+            expired_codes_count: isWwmGame ? 41 : (fullCodes.length - activeFullCodes.length),
             total_codes_count: isWwmGame ? 620 : fullCodes.length,
             icon_url: game.icon_url || `/game_icons/${game.slug}.webp`,
             is_full_detail: true,
@@ -2043,17 +2043,17 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
     const codes = this.getCodesForGame(game);
     const finalCodes = codes.length > 0 ? codes : (game.codes || []);
     const usableFinalCodes = finalCodes.filter((c: any) => !isCodeExpired(c));
-    const isWwmLocal = (game.slug === 'where-winds-meet' || game.slug === 'where-winds-meet-mobile' || game.slug === 'yen-van-thap-luc-thanh' ||
-                        game.id === 'where-winds-meet' || game.id === 'where-winds-meet-mobile' || game.id === 'yen-van-thap-luc-thanh' ||
-                        normSlug === 'where-winds-meet' || normSlug === 'where-winds-meet-mobile' || normSlug === 'yen-van-thap-luc-thanh');
-    const localActiveCount = isWwmLocal ? 584 : (typeof game.active_codes_count === 'number' ? game.active_codes_count : usableFinalCodes.length);
+    const isWwmLocal = (game.slug === 'where-winds-meet-mobile' || game.slug === 'yen-van-thap-luc-thanh' ||
+                        game.id === 'where-winds-meet-mobile' || game.id === 'yen-van-thap-luc-thanh' ||
+                        normSlug === 'where-winds-meet-mobile' || normSlug === 'yen-van-thap-luc-thanh');
+    const localActiveCount = isWwmLocal ? 579 : (typeof game.active_codes_count === 'number' ? game.active_codes_count : usableFinalCodes.length);
     const localResult: GameItem = {
       ...game,
       codes: finalCodes,
-      codes_count: isWwmLocal ? 584 : (typeof game.codes_count === 'number' ? game.codes_count : usableFinalCodes.length),
+      codes_count: isWwmLocal ? 579 : (typeof game.codes_count === 'number' ? game.codes_count : usableFinalCodes.length),
       active_codes_count: localActiveCount,
-      free_codes_count: isWwmLocal ? 584 : (typeof game.free_codes_count === 'number' ? game.free_codes_count : localActiveCount),
-      expired_codes_count: isWwmLocal ? 36 : (finalCodes.length - usableFinalCodes.length),
+      free_codes_count: isWwmLocal ? 579 : (typeof game.free_codes_count === 'number' ? game.free_codes_count : localActiveCount),
+      expired_codes_count: isWwmLocal ? 41 : (finalCodes.length - usableFinalCodes.length),
       total_codes_count: isWwmLocal ? 620 : finalCodes.length,
       icon_url: game.icon_url || `/game_icons/${game.slug}.webp`,
       is_full_detail: true,

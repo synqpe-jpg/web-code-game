@@ -46,6 +46,7 @@ const PublicStoreView = lazyWithRetry(() => import('./components/seller/PublicSt
 const CartDrawerModal = lazyWithRetry(() => import('./components/cart/CartDrawerModal').then((m) => ({ default: m.CartDrawerModal })));
 const ShopeeTestView = lazyWithRetry(() => import('./components/shopee/ShopeeTestView').then((m) => ({ default: m.ShopeeTestView })));
 import { dataService } from './services/dataService';
+import fallbackGamesData from './data/games188.json';
 import { marketingService } from './services/marketingService';
 import { authService } from './services/authService';
 import { growthService } from './services/growthService';
@@ -245,12 +246,8 @@ export const App: React.FC = () => {
         const cfg = e?.detail || growthService.getConfig();
         const enabled = Boolean(cfg?.isEnabled);
         setIsGrowthEnabled(enabled);
-        if (!enabled) {
-          setIsGrowthCenterOpen(false);
-        }
       } catch {
         setIsGrowthEnabled(false);
-        setIsGrowthCenterOpen(false);
       }
     };
 
@@ -258,9 +255,6 @@ export const App: React.FC = () => {
       .then((cfg) => {
         const enabled = Boolean(cfg?.isEnabled);
         setIsGrowthEnabled(enabled);
-        if (!enabled) {
-          setIsGrowthCenterOpen(false);
-        }
       })
       .catch(() => {});
 
@@ -712,15 +706,17 @@ export const App: React.FC = () => {
           const pathSlug = window.location.pathname.replace(/^\/test1\/(?:game|g)\//i, '').replace(/\/$/, '').trim();
           setCurrentTab('shopee-test');
           if (pathSlug) {
-            const localFallback = (dataService.getGames() || []).find((g) => (g.slug || g.id) === pathSlug);
+            const fallbackList = dataService.getGames().length > 0 ? dataService.getGames() : (fallbackGamesData as any[]);
+            const localFallback = fallbackList.find((g: any) => (g.slug || g.id) === pathSlug || (g.slug && g.slug.toLowerCase() === pathSlug.toLowerCase()));
             if (localFallback) {
               setSelectedGame(localFallback);
             }
-            dataService.getGameBySlug(pathSlug, false).then((freshGame) => {
+            try {
+              const freshGame = await dataService.getGameBySlug(pathSlug, false);
               if (freshGame) {
                 setSelectedGame(freshGame);
               }
-            });
+            } catch {}
           }
           return;
         } else if (pathname === '/test1' || pathname.startsWith('/test1/') || hashLower.includes('test1')) {
@@ -825,8 +821,8 @@ export const App: React.FC = () => {
     if (currentTab === 'admin') return;
 
     if (selectedGame && typeof selectedGame === 'object' && selectedGame.slug && selectedGame.slug !== 'undefined') {
-      const isWwm = selectedGame.slug === 'where-winds-meet' || selectedGame.slug === 'where-winds-meet-mobile' || selectedGame.slug === 'yen-van-thap-luc-thanh';
-      const codeCount = isWwm ? 584 : (selectedGame.codes_count || selectedGame.active_codes_count || selectedGame.codes?.length || 0);
+      const isYenVan = selectedGame.slug === 'where-winds-meet-mobile' || selectedGame.slug === 'yen-van-thap-luc-thanh';
+      const codeCount = isYenVan ? 579 : (selectedGame.codes_count || selectedGame.active_codes_count || selectedGame.codes?.length || 0);
       const countSuffix = codeCount > 0 ? `Nhận ${codeCount} Mã Code ` : '';
       document.title = `Giftcode ${selectedGame.name || selectedGame.slug} Mới Nhất 2026 - ${countSuffix}| CodeGame.shop`;
       const inTest1 = currentTab === 'shopee-test' || (typeof window !== 'undefined' && window.location.pathname.startsWith('/test1'));
@@ -843,11 +839,14 @@ export const App: React.FC = () => {
 
       const inTest1 = currentTab === 'shopee-test' || (typeof window !== 'undefined' && window.location.pathname.startsWith('/test1'));
       if (inTest1) {
+        if (window.location.pathname.startsWith('/test1/game/') || window.location.pathname.startsWith('/test1/g/')) {
+          return;
+        }
         if (window.location.pathname !== '/test1' || window.location.hash) {
           window.history.replaceState(null, '', '/test1');
         }
       } else if (window.location.pathname.startsWith('/game/') || window.location.pathname.startsWith('/g/')) {
-        window.history.replaceState(null, '', '/');
+        return;
       }
 
       if (currentTab === 'news') {

@@ -723,18 +723,16 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         }
         const isYenVan = gameRow.slug === 'yen-van-thap-luc-thanh' ||
                          gameRow.slug === 'where-winds-meet-mobile' ||
-                         gameRow.slug === 'where-winds-meet' ||
                          cleanSlug === 'yen-van-thap-luc-thanh' ||
-                         cleanSlug === 'where-winds-meet-mobile' ||
-                         cleanSlug === 'where-winds-meet';
+                         cleanSlug === 'where-winds-meet-mobile';
 
-        // Lấy toàn bộ mã giftcode từ bảng codes trên D1 (đồng bộ 100% hai bản song sinh Where Winds Meet)
+        // Lấy toàn bộ mã giftcode từ bảng codes trên D1 (đồng bộ 100% hai bản song sinh Where Winds Meet Mobile & Yến Vân VN)
         const codesRes = await withD1Timeout(
           isYenVan
             ? env.DB.prepare(
                 `SELECT code, rewards, status, expires_at, source, added_at 
                  FROM codes 
-                 WHERE game_slug = 'yen-van-thap-luc-thanh' OR game_slug = 'where-winds-meet-mobile' OR game_slug = 'where-winds-meet' 
+                 WHERE game_slug = 'yen-van-thap-luc-thanh' OR game_slug = 'where-winds-meet-mobile' 
                  ORDER BY 
                    CASE WHEN status = 'active' OR status = 'verified' THEN 0 ELSE 1 END,
                    added_at DESC`
@@ -874,10 +872,10 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           is_hot: Boolean(gameRow.is_hot),
           is_new: Boolean(gameRow.is_new),
           is_active: gameRow.is_active !== undefined ? Boolean(gameRow.is_active) : true,
-          codes_count: isYenVan ? 584 : codesList.filter((c) => !isCodeExpired(c)).length,
-          active_codes_count: isYenVan ? 584 : codesList.filter((c) => !isCodeExpired(c)).length,
-          free_codes_count: isYenVan ? 584 : codesList.filter((c) => !isCodeExpired(c)).length,
-          expired_codes_count: isYenVan ? 36 : codesList.filter((c) => isCodeExpired(c)).length,
+          codes_count: isYenVan ? 579 : codesList.filter((c) => !isCodeExpired(c)).length,
+          active_codes_count: isYenVan ? 579 : codesList.filter((c) => !isCodeExpired(c)).length,
+          free_codes_count: isYenVan ? 579 : codesList.filter((c) => !isCodeExpired(c)).length,
+          expired_codes_count: isYenVan ? 41 : codesList.filter((c) => isCodeExpired(c)).length,
           total_codes_count: isYenVan ? 620 : codesList.length,
           codes: codesList,
           codes_pool_complete: true,

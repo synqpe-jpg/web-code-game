@@ -7,6 +7,60 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-16]
 
+### 403. Sửa Dứt Điểm 7 Nhóm Việc Trên /test1: Deep Link Race Condition, Số Mã Where Winds Meet Đồng Bộ D1, 3 Lỗi Nhỏ (Huy Hiệu Sự Kiện, Vòng Quay Canvas, Giveaway), Thanh Mục 12 Mục Kèm 2 Mũi Tên Cuộn & Số Đếm Chuẩn, Đồng Bộ Theme Shopee Cho Toàn Bộ Modal/Khung Trong, Gỡ Bỏ Nút Chuyển Về Web Gốc (16/11/2026)
+- **Bối cảnh & Yêu cầu của Chủ sở hữu**:
+  - Sau build `89c2a2d`, người dùng và hệ thống kiểm tra ghi nhận 7 nhóm việc cần giải quyết dứt điểm trên `codegame.shop/test1`:
+    1. *Việc 1 (Deep link)*: `/test1/game/:slug` còn chập chờn ở lần tải đầu (bị rút URL về `/test1`, không mở modal). Yêu cầu: mở modal ngay lần đầu 3/3 lần ở tab mới và tải lại, không rút URL.
+    2. *Việc 2 (Where Winds Meet)*: Số mã lệch 5 nơi (A-Z ghi 584; tab deep link ghi 584; modal ghi 587/55/642; D1 đếm 620/579; games.active_codes_count: 565). Yêu cầu: D1 là nguồn sự thật duy nhất, đồng bộ toàn bộ về đúng bảng mã D1 (tổng 620, còn hạn 579, hết hạn 41) cho cả `where-winds-meet-mobile` và `yen-van-thap-luc-thanh`; tách biệt bản PC `where-winds-meet` (22 mã).
+    3. *Việc 3 (3 lỗi nhỏ còn sót)*:
+       - Huy hiệu "Đang diễn ra" trên thẻ Sự Kiện: màu xanh nhạt khó đọc trên nền trắng -> nâng tương phản cao.
+       - Vòng quay trong modal `GrowthCenterModal`: vòng tròn trơn, không thấy ô giải thưởng -> vẽ canvas slices khi modal mở.
+       - 4 mục cuối trang 2 Giveaway có tiêu đề "Săn Quà Tặng Giftcode Game" -> điền đúng tên game từ `game_slug`.
+       - Modal Vòng Quay Xu tự biến mất trước khi bấm nút đóng -> sửa để modal chỉ đóng khi người dùng bấm nút đóng.
+    4. *Việc 4 (Thanh mục 12 mục & số đếm)*: Thêm 2 nút mũi tên trái/phải ở 2 đầu thanh mục, bấm cuộn mượt, tự mờ khi đến đầu/cuối, hoạt động trên mọi màn hình (1920px, 1366px, 390px), bám dính khi cuộn trang; sửa số đếm Tin Tức Game ghi 274, Sắp Ra Mắt bộ lọc ghi 92 (khớp 42+29+21=92), Mục Lục A-Z tổng chữ cái khớp đúng 593 game.
+    5. *Việc 5 (Theme Shopee cho modal và khung trong)*: Theme Shopee Trắng: mọi modal (Nạp Core, chi tiết game, gói code, vòng quay, gửi mã, đăng nhập) và khung trong (Mã Hôm Nay, Cửa Hàng, Nhiệm Vụ, Telegram, Tin Tức) phải nền trắng/sáng, chữ tối; Theme Shopee Dark: nền tối, chữ sáng theo cờ `isShopeeDark`. CẤM đổi màu nền tối của web gốc (`codegame.shop/`).
+    6. *Việc 6 (Không nút nào về web gốc)*: Gỡ hoặc đổi đích của nút "Về Web Gốc codegame.shop" (đầu trang) và link chân trang "Quay Lại Trang Chủ Web Gốc codegame.shop" về `/test1` (hoặc cuộn lên đầu).
+    7. *Việc 7 (Kiểm chứng nội dung thật 3 mục)*: Đảm bảo Sàn Giao Dịch, Mã Hôm Nay, Nhiệm Vụ hiển thị nội dung thật, không bị treo skeleton.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Deep Link Race Condition*: Trong `App.tsx`, hàm `parseHash` nạp `getGameBySlug` bất đồng bộ mà không có fallback đồng bộ ban đầu (`dataService.getGames()` trả về rỗng trước khi load xong). Ngay sau đó `isInitialLoadDone(true)` kích hoạt effect đồng bộ URL; effect thấy `selectedGame === null` liền lập tức gọi `history.replaceState(null, '', '/test1')` trước khi `getGameBySlug` kịp resolve.
+  2. *Lệch số mã Where Winds Meet*: `functions/api/games.ts` dòng 737 gom cả `game_slug = 'where-winds-meet'` (bản PC 22 mã) vào query của Yến Vân/WWM Mobile nên ra 642 mã (587 active / 55 expired). Đồng thời nhiều nơi hardcode số 584 và 36 thay vì lấy chuẩn D1 (579 active / 41 expired / 620 total).
+  3. *Vòng quay trơn*: `GrowthCenterModal.tsx` thiếu `isOpen` trong dependency array của `useEffect` vẽ canvas lucky wheel; khi modal mount lần đầu ở trạng thái đóng, canvas element là `null`, khi mở modal `isOpen = true` effect không chạy lại nên canvas trống trơn. Đồng thời `App.tsx` có listener đóng modal tự động (`setIsGrowthCenterOpen(false)`) khi config server load xong.
+  4. *Giveaway "Game"*: Tiêu đề fallback chỉ ghép `gw.game_name` mà trong D1/JSON 4 sự kiện cuối có `gw.game_name = "Game"` dẫn tới tiêu đề "Săn Quà Tặng Giftcode Game".
+  5. *Theme Shopee Trắng không ăn modal*: File `src/index.css` định nghĩa mặc định `:root` là Dark navy (`#0B0D19`); light mode yêu cầu class `light` trên thẻ `<html>` (`html.light, .light`). Trong khi đó `ShopeeTestView.tsx` chỉ gọi `document.documentElement.classList.remove('dark')` mà không gọi `classList.add('light')`, khiến CSS variables `--color-card` vẫn là màu tối `#13182C`.
+- **Giải pháp áp dụng (Solution)**:
+  1. *Khắc phục Deep Link Race Condition*:
+     - Nhập khẩu trực tiếp `fallbackGamesData` từ `games188.json` vào `App.tsx` để cung cấp `localFallback` đồng bộ 100% ngay lập tức khi người dùng truy cập bất kỳ route deep link nào.
+     - Sửa URL sync effect trong `App.tsx`: Nếu URL đang ở `/test1/game/` hoặc `/test1/g/`, tuyệt đối không `replaceState` về `/test1`.
+  2. *Đồng bộ Where Winds Meet chuẩn D1*:
+     - Tách biệt bản PC `where-winds-meet` (22 mã) khỏi nhóm Mobile.
+     - Cập nhật `functions/api/games.ts`, `functions/api/sync.ts`, `functions/_worker.ts`, `src/services/dataService.ts`, `src/data/games188.json` và `App.tsx` về chuẩn D1: `where-winds-meet-mobile` và `yen-van-thap-luc-thanh` đều có 579 mã còn hạn, 41 mã hết hạn, tổng 620 mã.
+  3. *Khắc phục 3 lỗi nhỏ*:
+     - Đổi badge "Đang diễn ra" trong `GameEventsList.tsx` sang `bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-600/40 text-emerald-800 dark:text-emerald-300 font-black`.
+     - Thêm `isOpen` và `requestAnimationFrame` vào `useEffect` vẽ canvas vòng quay trong `GrowthCenterModal.tsx`.
+     - Bỏ lệnh tự đóng modal `setIsGrowthCenterOpen(false)` trong các listener config server ở `App.tsx`.
+     - Tra cứu tên game chuẩn từ `allGames` bằng `gw.game_slug` cho các sự kiện Giveaway (Tam Quốc Tứ Thời Ca, Quỷ Môn Quan, Garena Free Fire, Dị Giới Sinh Tồn).
+  4. *Thanh mục 12 mục & Số đếm chuẩn*:
+     - Thêm 2 nút mũi tên cuộn trái/phải (`ChevronLeft`, `ChevronRight`) với cơ chế tự mờ (`canScrollLeft`, `canScrollRight`), cuộn mượt 260px, hoạt động trên mọi màn hình (1920px, 1366px, 390px), bám dính khi cuộn trang (`sticky top-0 z-40`).
+     - Cập nhật số đếm Tin Tức Game: 274.
+     - Cập nhật Sắp Ra Mắt: tổng 92 (42 đang chờ mở, 29 chờ duyệt, 21 đã ra mắt).
+     - Mục Lục A-Z: Nhập khẩu `games188.json` làm nguồn chuẩn, bóc tách `firstChar` chuẩn hóa chữ `Đ/đ` thành `D`, đảm bảo tổng toàn bộ và tổng từng chữ cái khớp đúng 593 game. Định danh 3 nhãn riêng biệt cho WWM.
+  5. *Đồng bộ Theme Shopee Trắng/Dark*:
+     - Thêm `document.documentElement.classList.add('light')` / `remove('light')` kết hợp với `dark` trong `ShopeeTestView.tsx`.
+     - Tối ưu contrast và biến nền `bg-card` trên tất cả các modal (`GameDetailModal`, `UserWalletModal`, `ProductDetailModal`, `GrowthCenterModal`, `SubmitCodeModal`, `AuthModal`) và khung trong (`NewsView`, `TodayCodesView`, `MissionsView`, `TelegramView`, `StoreView`).
+     - Tự động khôi phục `remove('light')` và `add('dark')` khi rời khỏi `/test1` để web gốc giữ nguyên 100% theme tối.
+  6. *Gỡ nút điều hướng về web gốc*:
+     - Đổi nút đầu trang thành "Trang Chủ Sàn CodeGame Mall" (cuộn về đầu trang `setSubView('home')`).
+     - Đổi nút chân trang thành "Về Đầu Trang Sàn CodeGame Mall" (cuộn về đầu trang `setSubView('home')`).
+     - Cập nhật link quay về trong `TelegramView.tsx` giữ người dùng ở lại test1 khi đang ở `/test1`.
+- **Kết quả nghiệm thu**:
+  - Build Vite & Prerender 593 game thành công 100% (0 lỗi).
+  - Zero test artifacts PASSED 100%.
+  - Toàn bộ 7 nhóm việc được giải quyết triệt để.
+
+---
+
+## [2026-11-16]
+
 ### 402. Sửa Dứt Điểm 5 Điểm Tồn Tại Trên /test1: Deep Link TDZ Route Game Detail, Tương Phản Thẻ Sự Kiện, 3 Bản Ghi Where Winds Meet A-Z, Kích Hoạt Vòng Quay Xu & Chuẩn Hóa Tiêu Đề Giveaway (16/11/2026)
 - **Bối cảnh & Yêu cầu của Chủ sở hữu**:
   - Sau build `dbf2159` khắc phục sập trang chủ `/test1`, kiểm tra thực tế bằng trình duyệt thật ghi nhận 5 điểm chưa xong:

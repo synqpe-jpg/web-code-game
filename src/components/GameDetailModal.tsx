@@ -893,7 +893,7 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
             )}
 
             {/* Bộ Lọc Tabs: Tất Cả / Còn Hạn / Hết Hạn thu gọn ngay cạnh Copy Tất Cả */}
-            <div className="inline-flex items-center gap-0.5 p-0.5 rounded-xl bg-slate-900/80 border border-border/70 shrink-0 shadow-inner">
+            <div className="inline-flex items-center gap-0.5 p-0.5 rounded-xl bg-slate-100 dark:bg-slate-900/80 border border-border/70 shrink-0 shadow-inner">
               <button
                 type="button"
                 onClick={() => setSelectedCodeTab('all')}

@@ -879,7 +879,7 @@ export const UserWalletModal: React.FC<UserWalletModalProps> = ({
                             </div>
 
                             {noteText && (
-                              <div className="text-[10px] bg-card/60 px-2 py-1 rounded-lg border border-border/60 text-slate-300 font-mono truncate">
+                              <div className="text-[10px] bg-card/60 px-2 py-1 rounded-lg border border-border/60 text-slate-600 dark:text-slate-300 font-mono truncate">
                                 Nội dung CK: {noteText}
                               </div>
                             )}

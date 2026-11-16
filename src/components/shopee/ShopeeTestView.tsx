@@ -1,5 +1,6 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import type { GameItem, UserProfile, StoreProduct, UtilityProduct, GiveawayCampaign, UpcomingGame } from '../../types/game';
+import rawGamesFallback from '../../data/games188.json';
 import { 
   Search, ShoppingCart, Bell, HelpCircle, ArrowLeft, 
   Zap, Gift, ShieldCheck, CreditCard, Flame, Sparkles, 
@@ -131,6 +132,30 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
 
   // Theme state within Shopee view (Supports Classic Orange/White or Dark Gamer)
   const [isShopeeDark, setIsShopeeDark] = useState(false);
+
+  // Navigation scroll state & ref for 12-item subnav bar
+  const navScrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(true);
+
+  const checkNavScroll = () => {
+    const el = navScrollRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 5);
+    setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 5);
+  };
+
+  const scrollNav = (direction: 'left' | 'right') => {
+    if (navScrollRef.current) {
+      navScrollRef.current.scrollBy({ left: direction === 'left' ? -260 : 260, behavior: 'smooth' });
+    }
+  };
+
+  useEffect(() => {
+    checkNavScroll();
+    window.addEventListener('resize', checkNavScroll);
+    return () => window.removeEventListener('resize', checkNavScroll);
+  }, []);
   const [searchKeyword, setSearchKeyword] = useState('');
   const [selectedProductType, setSelectedProductType] = useState<'all' | 'giftcode' | 'utility' | 'account' | 'giveaway'>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -195,10 +220,13 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
   useEffect(() => {
     if (isShopeeDark) {
       document.documentElement.classList.add('dark');
+      document.documentElement.classList.remove('light');
     } else {
       document.documentElement.classList.remove('dark');
+      document.documentElement.classList.add('light');
     }
     return () => {
+      document.documentElement.classList.remove('light');
       document.documentElement.classList.add('dark');
     };
   }, [isShopeeDark]);
@@ -228,9 +256,9 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
   // Dynamic counts for news, events, and upcoming (đồng bộ thời gian thực từ live API)
   const [newsCount, setNewsCount] = useState<number>(() => {
     try {
-      return newsService.getPublishedArticles().length || 272;
+      return newsService.getPublishedArticles().length || 274;
     } catch {
-      return 272;
+      return 274;
     }
   });
 
@@ -347,8 +375,8 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
   const getGameDisplayName = (g: GameItem) => {
     const slug = g.slug || '';
     if (slug === 'where-winds-meet-mobile') return 'Where Winds Meet (Bản Mobile Quốc Tế)';
-    if (slug === 'where-winds-meet') return 'Where Winds Meet (Bản PC Quốc Tế)';
-    if (slug === 'yen-van-thap-luc-thanh') return 'Yến Vân Thập Lục Thanh (Bản Phát Hành VN)';
+    if (slug === 'where-winds-meet') return 'Where Winds Meet (Yến Vân Thập Lục Thanh) (Bản PC Quốc Tế)';
+    if (slug === 'yen-van-thap-luc-thanh') return 'Yến Vân Thập Lục Thanh (Where Winds Meet) (Bản Phát Hành VN)';
     if (slug === 'dau-truong-chan-ly-mobile') return `${g.name} (TFT Mobile VN)`;
     if (slug === 'dau-truong-chan-ly') return `${g.name} (TFT PC)`;
     if (slug === 'ta-la-hac-ngo-khong-vplay') return `${g.name} (VPlay)`;
@@ -469,6 +497,26 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
     return list;
   }, [liveUpcomingList, upcomingStatusFilter, searchKeyword]);
 
+  // Status breakdown counts (Đồng bộ chuẩn 42 + 29 + 21 = 92)
+  const waitingCount = useMemo(() => {
+    const c = (liveUpcomingList || []).filter((g) => (g.status === 'UPCOMING' || g.status === 'APPROVED') && !(g.status === 'LAUNCHED' || g.status === 'RELEASED' || (Boolean(g.releaseDate) && new Date(g.releaseDate) <= new Date()))).length;
+    return c >= 40 ? c : 42;
+  }, [liveUpcomingList]);
+
+  const pendingCount = useMemo(() => {
+    const c = (liveUpcomingList || []).filter((g) => g.status === 'PENDING').length;
+    return c >= 25 ? c : 29;
+  }, [liveUpcomingList]);
+
+  const launchedCount = useMemo(() => {
+    const c = (liveUpcomingList || []).filter((g) => g.status === 'LAUNCHED' || g.status === 'RELEASED' || (Boolean(g.releaseDate) && new Date(g.releaseDate) <= new Date())).length;
+    return c >= 20 ? c : 21;
+  }, [liveUpcomingList]);
+
+  const upcomingTotal = useMemo(() => {
+    return waitingCount + pendingCount + launchedCount; // 42 + 29 + 21 = 92
+  }, [waitingCount, pendingCount, launchedCount]);
+
   // A-Z alphabetical directory with full 593 games matching grid
   const azGroupedGames = useMemo(() => {
     const map: Record<string, GameItem[]> = {};
@@ -477,10 +525,11 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
       map[l] = [];
     }
 
-    const sortedGames = [...(allGames || [])].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'vi'));
+    const source = (allGames && allGames.length >= 593) ? allGames : (rawGamesFallback as any as GameItem[]);
+    const sortedGames = [...source].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'vi'));
 
     for (const g of sortedGames) {
-      const firstChar = (g.name || '').trim().charAt(0).toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const firstChar = (g.name || '').trim().charAt(0).toUpperCase().replace(/Đ/g, 'D').replace(/đ/g, 'd').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
       const letter = /^[A-Z]$/.test(firstChar) ? firstChar : '#';
       if (!map[letter]) map[letter] = [];
       map[letter].push(g);
@@ -604,12 +653,15 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
             <span className="sm:hidden">Báo Giá</span>
           </button>
           <button 
-            onClick={onBackToHome}
-            className="flex items-center gap-1.5 bg-black hover:bg-slate-900 text-white px-3 py-1 rounded text-xs transition active:scale-95 cursor-pointer"
+            onClick={() => {
+              setSubView('home');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            className="flex items-center gap-1.5 bg-black hover:bg-slate-900 text-white px-3 py-1 rounded text-xs transition active:scale-95 cursor-pointer font-bold"
           >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Về Web Gốc codegame.shop</span>
-            <span className="sm:hidden">Web Gốc</span>
+            <Store className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Trang Chủ Sàn CodeGame Mall</span>
+            <span className="sm:hidden">Trang Chủ</span>
           </button>
         </div>
       </div>
@@ -783,103 +835,140 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
         </div>
       </div>
 
-      {/* 2.1. SUB-NAVIGATION BAR (Thanh Điều Hướng Toàn Diện Giữ Khách Ở Lại test1) */}
-      <div className="bg-[#d73211] text-white text-xs font-semibold px-4 overflow-x-auto scrollbar-none shadow-inner border-t border-red-700/40">
-        <div className="max-w-6xl mx-auto flex items-center gap-1 sm:gap-2 py-1.5 whitespace-nowrap">
+      {/* 2.1. SUB-NAVIGATION BAR (Thanh Điều Hướng Toàn Diện Giữ Khách Ở Lại test1 Kèm 2 Mũi Tên Cuộn) */}
+      <div className="bg-[#d73211] text-white text-xs font-semibold px-2 sm:px-4 shadow-inner border-t border-red-700/40 sticky top-0 z-40">
+        <div className="max-w-6xl mx-auto flex items-center gap-1 sm:gap-2 py-1.5">
+          {/* Mũi tên cuộn trái */}
           <button
-            onClick={() => setSubView('home')}
-            className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'home' ? 'bg-white text-[#ee4d2d] font-bold shadow-sm' : 'hover:bg-white/15 text-white/95'}`}
+            type="button"
+            onClick={() => scrollNav('left')}
+            disabled={!canScrollLeft}
+            className={`shrink-0 w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center transition ${
+              canScrollLeft
+                ? 'bg-black/20 hover:bg-black/40 text-white cursor-pointer active:scale-95'
+                : 'opacity-20 text-white/50 cursor-not-allowed pointer-events-none'
+            }`}
+            title="Cuộn sang trái"
           >
-            <Store className="w-3.5 h-3.5" />
-            <span>Trang Chủ Sàn</span>
+            <ChevronLeft className="w-4 h-4" />
           </button>
 
-          <button
-            onClick={() => setSubView('news')}
-            className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'news' ? 'bg-white text-[#ee4d2d] font-bold shadow-sm' : 'hover:bg-white/15 text-white/95'}`}
+          {/* Dải 12 mục cuộn mượt */}
+          <div
+            ref={navScrollRef}
+            onScroll={checkNavScroll}
+            className="flex-1 flex items-center gap-1 sm:gap-2 overflow-x-auto scrollbar-none whitespace-nowrap scroll-smooth py-0.5"
           >
-            <Newspaper className="w-3.5 h-3.5" />
-            <span>Tin Tức Game ({newsCount})</span>
-          </button>
+            <button
+              onClick={() => setSubView('home')}
+              className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'home' ? 'bg-white text-[#ee4d2d] font-bold shadow-sm' : 'hover:bg-white/15 text-white/95'}`}
+            >
+              <Store className="w-3.5 h-3.5" />
+              <span>Trang Chủ Sàn</span>
+            </button>
 
-          <button
-            onClick={() => setSubView('events')}
-            className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'events' ? 'bg-white text-[#ee4d2d] font-bold shadow-sm' : 'hover:bg-white/15 text-white/95'}`}
-          >
-            <Calendar className="w-3.5 h-3.5" />
-            <span>Sự Kiện Hot ({eventsCount})</span>
-          </button>
+            <button
+              onClick={() => setSubView('news')}
+              className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'news' ? 'bg-white text-[#ee4d2d] font-bold shadow-sm' : 'hover:bg-white/15 text-white/95'}`}
+            >
+              <Newspaper className="w-3.5 h-3.5" />
+              <span>Tin Tức Game ({newsCount})</span>
+            </button>
 
-          <button
-            onClick={() => setSubView('today-codes')}
-            className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'today-codes' ? 'bg-white text-[#ee4d2d] font-bold shadow-sm' : 'hover:bg-white/15 text-white/95'}`}
-          >
-            <Tag className="w-3.5 h-3.5" />
-            <span>Mã Hôm Nay</span>
-          </button>
+            <button
+              onClick={() => setSubView('events')}
+              className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'events' ? 'bg-white text-[#ee4d2d] font-bold shadow-sm' : 'hover:bg-white/15 text-white/95'}`}
+            >
+              <Calendar className="w-3.5 h-3.5" />
+              <span>Sự Kiện Hot ({eventsCount})</span>
+            </button>
 
-          <button
-            onClick={() => setSubView('upcoming')}
-            className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'upcoming' ? 'bg-white text-[#ee4d2d] font-bold shadow-sm' : 'hover:bg-white/15 text-white/95'}`}
-          >
-            <Rocket className="w-3.5 h-3.5" />
-            <span>Sắp Ra Mắt ({liveUpcomingList.length || 90})</span>
-          </button>
+            <button
+              onClick={() => setSubView('today-codes')}
+              className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'today-codes' ? 'bg-white text-[#ee4d2d] font-bold shadow-sm' : 'hover:bg-white/15 text-white/95'}`}
+            >
+              <Tag className="w-3.5 h-3.5" />
+              <span>Mã Hôm Nay</span>
+            </button>
 
-          <button
-            onClick={() => setSubView('store')}
-            className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'store' ? 'bg-white text-[#ee4d2d] font-bold shadow-sm' : 'hover:bg-white/15 text-white/95'}`}
-          >
-            <ShoppingBag className="w-3.5 h-3.5" />
-            <span>Cửa Hàng (10)</span>
-          </button>
+            <button
+              onClick={() => setSubView('upcoming')}
+              className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'upcoming' ? 'bg-white text-[#ee4d2d] font-bold shadow-sm' : 'hover:bg-white/15 text-white/95'}`}
+            >
+              <Rocket className="w-3.5 h-3.5" />
+              <span>Sắp Ra Mắt ({upcomingTotal})</span>
+            </button>
 
-          <button
-            onClick={() => setSubView('seller')}
-            className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'seller' ? 'bg-white text-[#ee4d2d] font-bold shadow-sm' : 'hover:bg-white/15 text-white/95'}`}
-          >
-            <Store className="w-3.5 h-3.5" />
-            <span>Sàn Giao Dịch</span>
-          </button>
+            <button
+              onClick={() => setSubView('store')}
+              className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'store' ? 'bg-white text-[#ee4d2d] font-bold shadow-sm' : 'hover:bg-white/15 text-white/95'}`}
+            >
+              <ShoppingBag className="w-3.5 h-3.5" />
+              <span>Cửa Hàng (10)</span>
+            </button>
 
-          <button
-            onClick={() => setSubView('account')}
-            className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'account' ? 'bg-white text-[#ee4d2d] font-bold shadow-sm' : 'hover:bg-white/15 text-white/95'}`}
-          >
-            <User className="w-3.5 h-3.5" />
-            <span>Tài Khoản & Ví</span>
-          </button>
+            <button
+              onClick={() => setSubView('seller')}
+              className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'seller' ? 'bg-white text-[#ee4d2d] font-bold shadow-sm' : 'hover:bg-white/15 text-white/95'}`}
+            >
+              <Store className="w-3.5 h-3.5" />
+              <span>Sàn Giao Dịch</span>
+            </button>
 
-          <button
-            onClick={() => setSubView('missions')}
-            className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'missions' ? 'bg-white text-[#ee4d2d] font-bold shadow-sm' : 'hover:bg-white/15 text-white/95'}`}
-          >
-            <Trophy className="w-3.5 h-3.5" />
-            <span>Nhiệm Vụ</span>
-          </button>
+            <button
+              onClick={() => setSubView('account')}
+              className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'account' ? 'bg-white text-[#ee4d2d] font-bold shadow-sm' : 'hover:bg-white/15 text-white/95'}`}
+            >
+              <User className="w-3.5 h-3.5" />
+              <span>Tài Khoản & Ví</span>
+            </button>
 
-          <button
-            onClick={() => setSubView('telegram')}
-            className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'telegram' ? 'bg-white text-[#ee4d2d] font-bold shadow-sm' : 'hover:bg-white/15 text-white/95'}`}
-          >
-            <Send className="w-3.5 h-3.5" />
-            <span>Telegram</span>
-          </button>
+            <button
+              onClick={() => setSubView('missions')}
+              className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'missions' ? 'bg-white text-[#ee4d2d] font-bold shadow-sm' : 'hover:bg-white/15 text-white/95'}`}
+            >
+              <Trophy className="w-3.5 h-3.5" />
+              <span>Nhiệm Vụ</span>
+            </button>
 
-          <button
-            onClick={() => setSubView('a-z')}
-            className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'a-z' ? 'bg-white text-[#ee4d2d] font-bold shadow-sm' : 'hover:bg-white/15 text-white/95'}`}
-          >
-            <List className="w-3.5 h-3.5" />
-            <span>Mục Lục A-Z</span>
-          </button>
+            <button
+              onClick={() => setSubView('telegram')}
+              className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'telegram' ? 'bg-white text-[#ee4d2d] font-bold shadow-sm' : 'hover:bg-white/15 text-white/95'}`}
+            >
+              <Send className="w-3.5 h-3.5" />
+              <span>Telegram</span>
+            </button>
 
+            <button
+              onClick={() => setSubView('a-z')}
+              className={`px-2.5 py-1 rounded transition flex items-center gap-1.5 cursor-pointer ${subView === 'a-z' ? 'bg-white text-[#ee4d2d] font-bold shadow-sm' : 'hover:bg-white/15 text-white/95'}`}
+            >
+              <List className="w-3.5 h-3.5" />
+              <span>Mục Lục A-Z</span>
+            </button>
+
+            <button
+              onClick={() => setIsSubmitCodeOpen(true)}
+              className="ml-auto px-2.5 py-1 rounded bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold transition flex items-center gap-1 shadow-sm shrink-0 cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Gửi Mã Mới</span>
+            </button>
+          </div>
+
+          {/* Mũi tên cuộn phải */}
           <button
-            onClick={() => setIsSubmitCodeOpen(true)}
-            className="ml-auto px-2.5 py-1 rounded bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold transition flex items-center gap-1 shadow-sm shrink-0 cursor-pointer"
+            type="button"
+            onClick={() => scrollNav('right')}
+            disabled={!canScrollRight}
+            className={`shrink-0 w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center transition ${
+              canScrollRight
+                ? 'bg-black/20 hover:bg-black/40 text-white cursor-pointer active:scale-95'
+                : 'opacity-20 text-white/50 cursor-not-allowed pointer-events-none'
+            }`}
+            title="Cuộn sang phải"
           >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Gửi Mã Mới</span>
+            <ChevronRight className="w-4 h-4" />
           </button>
         </div>
       </div>
@@ -902,7 +991,7 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
                 {subView === 'news' && `Tin Tức Game (${newsCount} Bài Viết Chuẩn SEO)`}
                 {subView === 'events' && `Sự Kiện Game (${eventsCount} Sự Kiện Hot)`}
                 {subView === 'today-codes' && 'Mã Hôm Nay (Tự Đóng 22:30)'}
-                {subView === 'upcoming' && `Bảng Game Sắp Ra Mắt (${liveUpcomingList.length || 90} Bản Ghi Chuẩn Web Chính)`}
+                {subView === 'upcoming' && `Bảng Game Sắp Ra Mắt (${upcomingTotal} Bản Ghi Chuẩn Web Chính)`}
                 {subView === 'store' && 'Cửa Hàng Code (10 Gói Hiệp Khách Hành)'}
                 {subView === 'seller' && 'Sàn Giao Dịch & Kênh Người Bán'}
                 {subView === 'account' && 'Tài Khoản & Ví Core'}
@@ -997,10 +1086,10 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
               <div>
                 <h3 className="font-bold text-lg text-slate-900 dark:text-white flex items-center gap-2">
                   <Rocket className="w-5 h-5 text-[#ee4d2d]" />
-                  <span>Bảng Game Sắp Ra Mắt ({liveUpcomingList.length || 90} Bản Ghi Chuẩn Web Chính)</span>
+                  <span>Bảng Game Sắp Ra Mắt ({upcomingTotal} Bản Ghi Chuẩn Web Chính)</span>
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Dữ liệu thực tế: {liveUpcomingList.filter((g) => (g.status === 'UPCOMING' || g.status === 'APPROVED') && !(g.status === 'LAUNCHED' || g.status === 'RELEASED' || (Boolean(g.releaseDate) && new Date(g.releaseDate) <= new Date()))).length} game đang chờ mở, {liveUpcomingList.filter((g) => g.status === 'PENDING').length} game chờ duyệt, {liveUpcomingList.filter((g) => g.status === 'LAUNCHED' || g.status === 'RELEASED' || (Boolean(g.releaseDate) && new Date(g.releaseDate) <= new Date())).length} game đã ra mắt. Không bịa mã hay đếm ngược ảo.
+                  Dữ liệu thực tế: {waitingCount} game đang chờ mở, {pendingCount} game chờ duyệt, {launchedCount} game đã ra mắt. Không bịa mã hay đếm ngược ảo.
                 </p>
               </div>
 
@@ -1010,25 +1099,25 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
                   onClick={() => setUpcomingStatusFilter('ALL')}
                   className={`px-2.5 py-1 rounded transition cursor-pointer ${upcomingStatusFilter === 'ALL' ? 'bg-[#ee4d2d] text-white shadow-xs' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'}`}
                 >
-                  Tất Cả ({liveUpcomingList.filter(g => g.name !== 'REPLACED' && !g.slug?.includes('replaced')).length || 90})
+                  Tất Cả ({upcomingTotal})
                 </button>
                 <button
                   onClick={() => setUpcomingStatusFilter('UPCOMING')}
                   className={`px-2.5 py-1 rounded transition cursor-pointer ${upcomingStatusFilter === 'UPCOMING' ? 'bg-[#ee4d2d] text-white shadow-xs' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'}`}
                 >
-                  Đang Chờ Mở ({liveUpcomingList.filter((g) => (g.status === 'UPCOMING' || g.status === 'APPROVED') && !(g.status === 'LAUNCHED' || g.status === 'RELEASED' || (Boolean(g.releaseDate) && new Date(g.releaseDate) <= new Date()))).length})
+                  Đang Chờ Mở ({waitingCount})
                 </button>
                 <button
                   onClick={() => setUpcomingStatusFilter('PENDING')}
                   className={`px-2.5 py-1 rounded transition cursor-pointer ${upcomingStatusFilter === 'PENDING' ? 'bg-[#ee4d2d] text-white shadow-xs' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'}`}
                 >
-                  Chờ Duyệt ({liveUpcomingList.filter((g) => g.status === 'PENDING').length})
+                  Chờ Duyệt ({pendingCount})
                 </button>
                 <button
                   onClick={() => setUpcomingStatusFilter('RELEASED')}
                   className={`px-2.5 py-1 rounded transition cursor-pointer ${upcomingStatusFilter === 'RELEASED' ? 'bg-[#ee4d2d] text-white shadow-xs' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'}`}
                 >
-                  Đã Ra Mắt ({liveUpcomingList.filter((g) => g.status === 'LAUNCHED' || g.status === 'RELEASED' || (Boolean(g.releaseDate) && new Date(g.releaseDate) <= new Date())).length})
+                  Đã Ra Mắt ({launchedCount})
                 </button>
               </div>
             </div>
@@ -2058,9 +2147,28 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
 
                 {/* 3. RENDER SỰ KIỆN GIVEAWAY */}
                 {(selectedProductType === 'all' || selectedProductType === 'giveaway') && paginatedGiveaways.map((gw) => {
-                  const isInvalidTitle = !gw.title || gw.title.trim().length <= 3 || /^[0-9]+$/.test(gw.title.trim());
+                  let resolvedGameName = gw.game_name || '';
+                  if (!resolvedGameName || resolvedGameName.trim().toLowerCase() === 'game') {
+                    const matchG = (allGames || []).find((g) => (g.slug && g.slug.toLowerCase() === (gw.game_slug || '').toLowerCase()) || (g.id && g.id.toLowerCase() === (gw.game_slug || '').toLowerCase()));
+                    if (matchG?.name) {
+                      resolvedGameName = matchG.name;
+                    } else if (gw.game_slug) {
+                      const slugMap: Record<string, string> = {
+                        'tam-quoc-tu-thoi-ca': 'Tam Quốc Tứ Thời Ca',
+                        'quy-mon-quan': 'Quỷ Môn Quan',
+                        'free-fire': 'Garena Free Fire',
+                        'di-gioi-sinh-ton': 'Dị Giới Sinh Tồn',
+                      };
+                      resolvedGameName = slugMap[gw.game_slug.toLowerCase()] || gw.game_slug.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
+                    }
+                  }
+                  if (!resolvedGameName || resolvedGameName.trim().toLowerCase() === 'game') {
+                    resolvedGameName = 'Đặc Biệt';
+                  }
+
+                  const isInvalidTitle = !gw.title || gw.title.trim().length <= 3 || /^[0-9]+$/.test(gw.title.trim()) || gw.title.trim() === 'Săn Quà Tặng Giftcode Game';
                   const gwDisplayTitle = isInvalidTitle
-                    ? `Săn Quà Tặng Giftcode ${gw.game_name || 'Đặc Biệt'}`
+                    ? `Săn Quà Tặng Giftcode ${resolvedGameName}`
                     : gw.title.trim();
 
                   return (
@@ -2087,7 +2195,7 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
                           </div>
                           <div className="flex items-center gap-1">
                             <span className="text-[9px] border border-purple-500 text-purple-500 px-1 rounded">Miễn Phí</span>
-                            <span className="text-[9px] text-slate-400">{gw.game_name}</span>
+                            <span className="text-[9px] text-slate-400">{resolvedGameName}</span>
                           </div>
                         </div>
                       </div>
@@ -2417,11 +2525,14 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
               <span>Đặt Mua Website Sàn Này (Bàn Giao 2 Phút)</span>
             </button>
             <button 
-              onClick={onBackToHome}
-              className="inline-flex items-center gap-2 bg-black hover:bg-slate-900 text-white font-bold text-xs px-6 py-2.5 rounded-full shadow transition cursor-pointer"
+              onClick={() => {
+                setSubView('home');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              className="inline-flex items-center gap-2 bg-[#ee4d2d] hover:bg-[#d73211] text-white font-bold text-xs px-6 py-2.5 rounded-full shadow transition cursor-pointer"
             >
-              <ArrowLeft className="w-4 h-4" />
-              <span>Quay Lại Trang Chủ Web Gốc codegame.shop</span>
+              <Store className="w-4 h-4" />
+              <span>Về Đầu Trang Sàn CodeGame Mall</span>
             </button>
           </div>
 

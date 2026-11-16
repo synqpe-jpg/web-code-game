@@ -632,7 +632,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
             {/* CỘT PHẢI (Right Column): Khối Chọn Gói & Thanh Toán Mẫu Chuẩn (Packages Selection) */}
             <div className="lg:col-span-5 space-y-4">
-              <div className="rounded-2xl border border-border/80 bg-slate-900/60 p-4 sm:p-5 shadow-xl space-y-4 sticky top-4">
+              <div className="rounded-2xl border border-border/80 bg-slate-50 dark:bg-slate-900/60 p-4 sm:p-5 shadow-xl space-y-4 sticky top-4">
                 {/* Header Gói Đã Chọn */}
                 <div className="pb-3 border-b border-border/70">
                   <div className="flex items-center gap-1.5 mb-1">
@@ -688,13 +688,13 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   </div>
 
                   {isSelectedEscalating && (
-                    <div className="mt-2.5 p-3 rounded-2xl bg-slate-900/90 border border-amber-500/30 space-y-2 text-xs">
+                    <div className="mt-2.5 p-3 rounded-2xl bg-amber-50 dark:bg-slate-900/90 border border-amber-500/30 space-y-2 text-xs">
                       <div className="flex items-center justify-between">
-                        <span className="flex items-center gap-1.5 font-bold text-amber-300">
-                          <Zap className="w-3.5 h-3.5 text-amber-400" />
+                        <span className="flex items-center gap-1.5 font-bold text-amber-700 dark:text-amber-300">
+                          <Zap className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
                           Lượt mua thứ {Number(selectedEscData.completed_count) + 1}
                         </span>
-                        <span className="text-[11px] font-mono text-amber-300 font-bold">
+                        <span className="text-[11px] font-mono text-amber-700 dark:text-amber-300 font-bold">
                           +{formatCore(selectedEscData.step)}/lượt
                         </span>
                       </div>
@@ -762,7 +762,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 </div>
 
                 {/* Khối Thông Tin Chi Tiết Gói Đang Chọn & Nút Mua Ngay Duy Nhất (Sticky Ghim trên Mobile & Desktop khi cuộn) */}
-                <div className="sticky top-0 z-20 bg-slate-900 -mx-4 px-4 py-3 sm:-mx-5 sm:px-5 border-y border-slate-700/80 shadow-2xl space-y-2.5 transition-all">
+                <div className="sticky top-0 z-20 bg-card -mx-4 px-4 py-3 sm:-mx-5 sm:px-5 border-y border-border shadow-2xl space-y-2.5 transition-all">
                   {/* Tiêu đề & Nút Xem thêm / Thu gọn */}
                   <div className="flex items-center justify-between gap-2">
                     <h4 className="font-heading font-bold text-xs text-foreground flex items-center gap-1.5">

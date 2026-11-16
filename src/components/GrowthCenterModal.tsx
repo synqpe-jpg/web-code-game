@@ -99,66 +99,76 @@ export const GrowthCenterModal: React.FC<GrowthCenterModalProps> = ({
 
   // Draw the lucky wheel on Canvas
   useEffect(() => {
-    if (!canvasRef.current || activeTab !== 'wheel') return;
+    if (!isOpen || activeTab !== 'wheel') return;
 
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    let animId: number;
+    const renderWheel = () => {
+      const canvas = canvasRef.current;
+      if (!canvas) {
+        animId = requestAnimationFrame(renderWheel);
+        return;
+      }
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
 
-    const slices = config.slices || DEFAULT_WHEEL_SLICES;
-    const numSlices = slices.length;
-    const arcSize = (2 * Math.PI) / numSlices;
-    const radius = canvas.width / 2;
+      const slices = config.slices || DEFAULT_WHEEL_SLICES;
+      const numSlices = slices.length;
+      const arcSize = (2 * Math.PI) / numSlices;
+      const radius = canvas.width / 2;
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    slices.forEach((slice, i) => {
-      const angle = i * arcSize;
+      slices.forEach((slice, i) => {
+        const angle = i * arcSize;
 
-      // Draw Slice wedge
+        // Draw Slice wedge
+        ctx.beginPath();
+        ctx.fillStyle = slice.color;
+        ctx.moveTo(radius, radius);
+        ctx.arc(radius, radius, radius - 6, angle, angle + arcSize);
+        ctx.lineTo(radius, radius);
+        ctx.fill();
+
+        // Border line
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#ffffff33';
+        ctx.stroke();
+
+        // Draw Text
+        ctx.save();
+        ctx.translate(radius, radius);
+        ctx.rotate(angle + arcSize / 2);
+        ctx.textAlign = 'right';
+        ctx.fillStyle = slice.textColor || '#FFFFFF';
+        ctx.font = 'bold 12px sans-serif';
+        ctx.shadowColor = 'rgba(0,0,0,0.6)';
+        ctx.shadowBlur = 4;
+        ctx.fillText(slice.label, radius - 24, 4);
+        ctx.restore();
+      });
+
+      // Draw Outer Rim
       ctx.beginPath();
-      ctx.fillStyle = slice.color;
-      ctx.moveTo(radius, radius);
-      ctx.arc(radius, radius, radius - 6, angle, angle + arcSize);
-      ctx.lineTo(radius, radius);
-      ctx.fill();
-
-      // Border line
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = '#ffffff33';
+      ctx.arc(radius, radius, radius - 3, 0, 2 * Math.PI);
+      ctx.lineWidth = 6;
+      ctx.strokeStyle = '#F59E0B';
       ctx.stroke();
 
-      // Draw Text
-      ctx.save();
-      ctx.translate(radius, radius);
-      ctx.rotate(angle + arcSize / 2);
-      ctx.textAlign = 'right';
-      ctx.fillStyle = slice.textColor || '#FFFFFF';
-      ctx.font = 'bold 12px sans-serif';
-      ctx.shadowColor = 'rgba(0,0,0,0.6)';
-      ctx.shadowBlur = 4;
-      ctx.fillText(slice.label, radius - 24, 4);
-      ctx.restore();
-    });
+      // Draw Decorative Bulbs
+      for (let i = 0; i < 16; i++) {
+        const bulbAngle = (i * 2 * Math.PI) / 16;
+        const bx = radius + (radius - 4) * Math.cos(bulbAngle);
+        const by = radius + (radius - 4) * Math.sin(bulbAngle);
+        ctx.beginPath();
+        ctx.arc(bx, by, 3, 0, 2 * Math.PI);
+        ctx.fillStyle = i % 2 === 0 ? '#FEF08A' : '#FFFFFF';
+        ctx.fill();
+      }
+    };
 
-    // Draw Outer Rim
-    ctx.beginPath();
-    ctx.arc(radius, radius, radius - 3, 0, 2 * Math.PI);
-    ctx.lineWidth = 6;
-    ctx.strokeStyle = '#F59E0B';
-    ctx.stroke();
-
-    // Draw Decorative Bulbs
-    for (let i = 0; i < 16; i++) {
-      const bulbAngle = (i * 2 * Math.PI) / 16;
-      const bx = radius + (radius - 4) * Math.cos(bulbAngle);
-      const by = radius + (radius - 4) * Math.sin(bulbAngle);
-      ctx.beginPath();
-      ctx.arc(bx, by, 3, 0, 2 * Math.PI);
-      ctx.fillStyle = i % 2 === 0 ? '#FEF08A' : '#FFFFFF';
-      ctx.fill();
-    }
-  }, [config.slices, activeTab]);
+    animId = requestAnimationFrame(renderWheel);
+    return () => cancelAnimationFrame(animId);
+  }, [config.slices, activeTab, isOpen]);
 
   if (!isOpen || typeof document === 'undefined') return null;
 

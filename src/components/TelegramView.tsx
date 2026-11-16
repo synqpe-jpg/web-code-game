@@ -130,15 +130,15 @@ export const TelegramView: React.FC<TelegramViewProps> = ({
         {/* 3 Trụ Cột Hoạt Động (Theo Mục 3.1) */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Cột 1: Nhóm Telegram */}
-          <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 sm:p-8 space-y-4 shadow-lg backdrop-blur-sm relative overflow-hidden">
+          <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 p-6 sm:p-8 space-y-4 shadow-lg backdrop-blur-sm relative overflow-hidden">
             <div className="w-12 h-12 rounded-2xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400">
               <Users className="w-6 h-6" />
             </div>
-            <h3 className="text-xl font-bold text-white">1. Nhóm Thảo Luận & Thông Báo Chung</h3>
-            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+            <h3 className="text-xl font-bold text-slate-900 dark:text-white">1. Nhóm Thảo Luận & Thông Báo Chung</h3>
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
               Kênh sinh hoạt chung dành cho toàn bộ thành viên. Nơi bot tự động đăng tải bài viết tổng hợp Giftcode vừa ra mắt, sự kiện game hấp dẫn và các đợt phát mã số lượng lớn.
             </p>
-            <ul className="space-y-2 text-xs sm:text-sm text-slate-400">
+            <ul className="space-y-2 text-xs sm:text-sm text-slate-600 dark:text-slate-400">
               <li className="flex items-start gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                 <span>Cập nhật mã quà tặng công khai đã kiểm chứng thực tế.</span>
@@ -155,15 +155,15 @@ export const TelegramView: React.FC<TelegramViewProps> = ({
           </div>
 
           {/* Cột 2: Bot Nhắn Tin Riêng */}
-          <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 sm:p-8 space-y-4 shadow-lg backdrop-blur-sm relative overflow-hidden">
+          <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 p-6 sm:p-8 space-y-4 shadow-lg backdrop-blur-sm relative overflow-hidden">
             <div className="w-12 h-12 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
               <Bell className="w-6 h-6" />
             </div>
-            <h3 className="text-xl font-bold text-white">2. Bot Nhắn Tin Riêng (Direct Message)</h3>
-            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+            <h3 className="text-xl font-bold text-slate-900 dark:text-white">2. Bot Nhắn Tin Riêng (Direct Message)</h3>
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
               Trợ lý cá nhân hóa giúp bạn không bỏ lỡ quà tặng của đúng những tựa game bạn đang chơi, không bị làm phiền bởi các game không liên quan.
             </p>
-            <ul className="space-y-2 text-xs sm:text-sm text-slate-400">
+            <ul className="space-y-2 text-xs sm:text-sm text-slate-600 dark:text-slate-400">
               <li className="flex items-start gap-2">
                 <CheckCircle2 className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
                 <span>Nhận thông báo riêng khi tựa game bạn theo dõi có mã mới.</span>
@@ -181,54 +181,61 @@ export const TelegramView: React.FC<TelegramViewProps> = ({
         </div>
 
         {/* Cột 3: Bảng Hướng Dẫn Lệnh Bot */}
-        <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 sm:p-8 space-y-6 shadow-lg backdrop-blur-sm">
+        <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 p-6 sm:p-8 space-y-6 shadow-lg backdrop-blur-sm">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
               <Terminal className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-white">3. Bảng Lệnh Thao Tác Với Bot</h3>
-              <p className="text-xs text-slate-400">Bạn có thể gửi các lệnh sau trực tiếp cho Bot trong khung chat Telegram</p>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">3. Bảng Lệnh Thao Tác Với Bot</h3>
+              <p className="text-xs text-slate-600 dark:text-slate-400">Bạn có thể gửi các lệnh sau trực tiếp cho Bot trong khung chat Telegram</p>
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800/80 space-y-1">
-              <div className="font-mono text-sm font-bold text-sky-400">/theodoi &lt;slug-game&gt;</div>
-              <div className="text-xs text-slate-300">Đăng ký nhận thông báo riêng cho 1 tựa game.</div>
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800/80 space-y-1">
+              <div className="font-mono text-sm font-bold text-sky-500 dark:text-sky-400">/theodoi &lt;slug-game&gt;</div>
+              <div className="text-xs text-slate-700 dark:text-slate-300">Đăng ký nhận thông báo riêng cho 1 tựa game.</div>
               <div className="text-[11px] text-slate-500 font-mono">Ví dụ: /theodoi genshin-impact</div>
             </div>
 
-            <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800/80 space-y-1">
-              <div className="font-mono text-sm font-bold text-sky-400">/huytheodoi &lt;slug-game&gt;</div>
-              <div className="text-xs text-slate-300">Bỏ theo dõi và ngừng nhận tin về tựa game đó.</div>
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800/80 space-y-1">
+              <div className="font-mono text-sm font-bold text-sky-500 dark:text-sky-400">/huytheodoi &lt;slug-game&gt;</div>
+              <div className="text-xs text-slate-700 dark:text-slate-300">Bỏ theo dõi và ngừng nhận tin về tựa game đó.</div>
               <div className="text-[11px] text-slate-500 font-mono">Ví dụ: /huytheodoi genshin-impact</div>
             </div>
 
-            <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800/80 space-y-1">
-              <div className="font-mono text-sm font-bold text-sky-400">/danhsach</div>
-              <div className="text-xs text-slate-300">Xem toàn bộ danh sách các tựa game bạn đang theo dõi.</div>
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800/80 space-y-1">
+              <div className="font-mono text-sm font-bold text-sky-500 dark:text-sky-400">/danhsach</div>
+              <div className="text-xs text-slate-700 dark:text-slate-300">Xem toàn bộ danh sách các tựa game bạn đang theo dõi.</div>
             </div>
 
-            <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800/80 space-y-1">
-              <div className="font-mono text-sm font-bold text-sky-400">/dung</div>
-              <div className="text-xs text-slate-300">Dừng toàn bộ thông báo riêng từ bot ngay lập tức.</div>
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800/80 space-y-1">
+              <div className="font-mono text-sm font-bold text-sky-500 dark:text-sky-400">/dung</div>
+              <div className="text-xs text-slate-700 dark:text-slate-300">Dừng toàn bộ thông báo riêng từ bot ngay lập tức.</div>
             </div>
           </div>
         </div>
 
         {/* Chân Trang Cam Kết Bảo Mật */}
-        <div className="p-5 rounded-2xl bg-slate-900/40 border border-slate-800 flex items-center justify-between text-xs text-slate-400">
+        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs text-slate-600 dark:text-slate-400">
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
             <span>CodeGame.Shop cam kết bảo mật thông tin tài khoản và không gửi tin nhắn rác.</span>
           </div>
-          <a
-            href="/"
-            className="text-sky-400 hover:text-sky-300 font-bold transition-colors shrink-0"
+          <button
+            type="button"
+            onClick={() => {
+              if (typeof window !== 'undefined' && window.location.pathname.startsWith('/test1')) {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              } else {
+                window.location.href = '/';
+              }
+            }}
+            className="text-sky-500 dark:text-sky-400 hover:text-sky-600 dark:hover:text-sky-300 font-bold transition-colors shrink-0 cursor-pointer"
           >
             Quay Về Trang Chủ →
-          </a>
+          </button>
         </div>
       </div>
     </div>

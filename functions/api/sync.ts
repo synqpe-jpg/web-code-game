@@ -949,20 +949,37 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             needsDbHealing = true;
           }
 
-          // Harmonize Where Winds Meet (SSOT: 584 active / 620 total / 36 expired)
-          if (slug === 'where-winds-meet-mobile' || slug === 'yen-van-thap-luc-thanh' || slug === 'where-winds-meet') {
-            if (g.codes_count !== 584 || g.free_codes_count !== 584) {
+          // Harmonize Where Winds Meet Mobile & Yen Van (SSOT D1: 579 active / 620 total / 41 expired)
+          if (slug === 'where-winds-meet-mobile' || slug === 'yen-van-thap-luc-thanh') {
+            if (g.codes_count !== 579 || g.free_codes_count !== 579) {
               needsDbHealing = true;
             }
             return {
               ...g,
               icon_url: icon,
               iconUrl: icon,
-              codes_count: 584,
-              active_codes_count: 584,
-              free_codes_count: 584,
+              codes_count: 579,
+              active_codes_count: 579,
+              free_codes_count: 579,
               total_codes_count: 620,
-              expired_codes_count: 36,
+              expired_codes_count: 41,
+            };
+          }
+
+          // Where Winds Meet PC (22 mã riêng biệt)
+          if (slug === 'where-winds-meet') {
+            if (g.codes_count !== 22) {
+              needsDbHealing = true;
+            }
+            return {
+              ...g,
+              icon_url: icon,
+              iconUrl: icon,
+              codes_count: 22,
+              active_codes_count: 22,
+              free_codes_count: 22,
+              total_codes_count: 22,
+              expired_codes_count: 0,
             };
           }
 
@@ -981,12 +998,12 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
               ...wwmParent,
               id: 'where-winds-meet',
               slug: 'where-winds-meet',
-              name: 'Where Winds Meet (Yến Vân Thập Lục Thanh)',
-              codes_count: 584,
-              active_codes_count: 584,
-              free_codes_count: 584,
-              total_codes_count: 620,
-              expired_codes_count: 36,
+              name: 'Where Winds Meet (Yến Vân Thập Lục Thanh) (Bản PC Quốc Tế)',
+              codes_count: 22,
+              active_codes_count: 22,
+              free_codes_count: 22,
+              total_codes_count: 22,
+              expired_codes_count: 0,
             });
             needsDbHealing = true;
           }

@@ -10,6 +10,28 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-286: Bẫy Race Condition Trên URL Sync Effect Khiến Deep Link Bị Reset URL, Lệch Thống Kê Mã Code Do Gom Nhầm Bản PC Vào Mobile & Thiếu Class Light Trên Thẻ HTML Khi Chuyển Theme Sáng
+- **Triệu chứng & Rủi ro**:
+  1. *Deep Link Bị Reset*: Truy cập liên kết trực tiếp `/test1/game/:slug` ở lần tải đầu tiên (fresh page load) bị effect đồng bộ URL tự động đè lại về `/test1` trước khi dữ liệu game kịp nạp xong, làm đóng modal hoặc không hiển thị game.
+  2. *Lệch Số Mã Code*: Số mã Where Winds Meet hiển thị không thống nhất trên 5 vị trí (A-Z, modal, tab title, API, D1) do gom nhầm 22 mã của bản PC vào 620 mã của bản Mobile.
+  3. *Canvas Vòng Quay Không Hiển Thị Slices*: Modal vòng quay mở lên chỉ thấy vòng tròn trơn, không hiển thị các ô giải thưởng do `useEffect` vẽ canvas thiếu cờ `isOpen` trong dependency array.
+  4. *Theme Trắng Không Áp Dụng Được Cho Modal*: Chuyển sang theme Shopee Trắng nhưng các modal (Nạp Ví, Chi Tiết Game, Đăng Nhập...) vẫn mang nền xanh đen do CSS `:root` mặc định là Dark, chỉ kích hoạt Light khi có class `light` trên thẻ `<html>` nhưng code chỉ gọi `remove('dark')`.
+- **Nguyên nhân gốc rễ**:
+  1. Trong `App.tsx`, hàm `parseHash` nạp `getGameBySlug` bất đồng bộ mà không có fallback đồng bộ ban đầu (`dataService.getGames()` trả về rỗng trước khi load xong). Ngay sau đó `isInitialLoadDone(true)` kích hoạt effect đồng bộ URL; effect thấy `selectedGame === null` liền lập tức gọi `history.replaceState(null, '', '/test1')`.
+  2. File `functions/api/games.ts` truy vấn `game_slug = 'where-winds-meet'` trong cùng query của Yến Vân Mobile, làm tổng mã vọt lên 642 thay vì 620.
+  3. `GrowthCenterModal.tsx` trả về `null` khi đóng; khi mở ra `canvasRef.current` mới xuất hiện nhưng effect không re-trigger vì không theo dõi `isOpen`.
+  4. `src/index.css` định nghĩa `:root.light, html.light, .light` cho màu sáng, việc chỉ xóa `dark` mà không thêm `light` để lại biến CSS `--color-card` ở giá trị mặc định tối.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Nhập khẩu trực tiếp `fallbackGamesData` từ `games188.json` để cung cấp fallback đồng bộ ngay lập tức cho `selectedGame`.
+  2. Chặn tuyệt đối hành vi `replaceState` về `/test1` trong effect đồng bộ URL nếu `window.location.pathname.startsWith('/test1/game/')`.
+  3. Tách biệt bản PC (22 mã) khỏi nhóm Mobile (620 mã, 579 còn hạn, 41 hết hạn) ở toàn bộ các tầng API, D1 query, sync, static JSON và UI.
+  4. Bổ sung `isOpen` và `requestAnimationFrame` vào effect vẽ canvas vòng quay may mắn.
+  5. Đồng bộ cả 2 class: `classList.add('light')` + `classList.remove('dark')` khi bật theme sáng, và đảo ngược lại khi bật theme tối hoặc unmount.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không xóa slug game trên URL thanh địa chỉ khi game đang trong quá trình nạp.*
+  - ❌ *Không gom bản PC vào query của bản Mobile khi hai bản có kho mã riêng biệt.*
+  - ❌ *Không chỉ xóa class `dark` mà quên thêm class `light` trên thẻ `<html>` khi cấu trúc CSS dùng `:root` mặc định là Dark.*
+
 ### ISSUE-285: Bẫy Temporal Dead Zone (TDZ) Trên Route Chi Tiết Game Khi Component Truy Cập Biến useMemo Trước Dòng Khởi Tạo & Bẫy Deep Link Bị Reset URL Về Trang Chủ
 - **Triệu chứng & Rủi ro**:
   1. *Lỗi ReferenceError minified*: Deep link `/test1/game/:slug` (hoặc mở modal chi tiết game) lần đầu bị sập error boundary với mã lỗi: `Cannot access 'M' before initialization`.

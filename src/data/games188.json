@@ -578,7 +578,7 @@
     "is_new": false,
     "is_active": true,
     "codes_count": 579,
-    "free_codes_count": 584,
+    "free_codes_count": 579,
     "source": "Phần thưởng từ nhà phát hành",
     "updated_at": "2026-10-09T15:49:31.856Z",
     "google_play_url": "https://play.google.com/store/apps/details?id=com.netease.yyvn",
@@ -591,7 +591,7 @@
     "iconUrl": "/game_icons/yen-van-thap-luc-thanh.webp",
     "active_codes_count": 579,
     "total_codes_count": 620,
-    "expired_codes_count": 36
+    "expired_codes_count": 41
   },
   {
     "id": "3q-dao-dao-dao",
@@ -2831,8 +2831,8 @@
     "is_hot": true,
     "is_new": false,
     "is_active": true,
-    "codes_count": 565,
-    "free_codes_count": 584,
+    "codes_count": 579,
+    "free_codes_count": 579,
     "source": "Phần thưởng từ nhà phát hành",
     "updated_at": "2026-10-09T15:49:31.997Z",
     "google_play_url": "https://play.google.com/store/apps/details?id=com.netease.yyvn",
@@ -2843,9 +2843,9 @@
     "ios_bundle_id": "com.netease.yyslsvn",
     "download_pc": "https://www.wherewindsmeetgame.com/",
     "iconUrl": "/game_icons/where-winds-meet-mobile.webp",
-    "active_codes_count": 565,
+    "active_codes_count": 579,
     "total_codes_count": 620,
-    "expired_codes_count": 36
+    "expired_codes_count": 41
   },
   {
     "id": "outerplane",
@@ -19722,7 +19722,7 @@
     "is_new": false,
     "is_active": true,
     "codes_count": 22,
-    "free_codes_count": 584,
+    "free_codes_count": 22,
     "source": "Phần thưởng từ nhà phát hành",
     "updated_at": "2026-10-09T15:49:31.997Z",
     "google_play_url": "https://play.google.com/store/apps/details?id=com.netease.yyvn",
@@ -19735,7 +19735,7 @@
     "iconUrl": "/game_icons/where-winds-meet-mobile.webp",
     "active_codes_count": 22,
     "total_codes_count": 22,
-    "expired_codes_count": 36
+    "expired_codes_count": 0
   },
   {
     "id": "idle-heroes-ky-nguyen-anh-hung",
