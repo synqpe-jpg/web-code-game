@@ -467,6 +467,20 @@ CREATE TABLE IF NOT EXISTS wcg_virtual_events (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_wcg_virtual_events_created ON wcg_virtual_events(created_at DESC);
+
+CREATE TABLE IF NOT EXISTS translations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  object_type TEXT NOT NULL,
+  object_id TEXT NOT NULL,
+  field TEXT NOT NULL,
+  language TEXT NOT NULL,
+  content TEXT NOT NULL,
+  reviewer TEXT,
+  status TEXT DEFAULT 'approved',
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(object_type, object_id, field, language)
+);
+CREATE INDEX IF NOT EXISTS idx_translations_lookup ON translations(object_type, object_id, language);
 `;
 
 export const INITIAL_DATA_SQL = `
@@ -5641,6 +5655,80 @@ export async function recordSepayExceptionD1(db: D1Database, params: {
     console.warn('[recordSepayExceptionD1 error]', e);
   }
 }
+
+/**
+ * Lấy danh sách bản dịch nội dung từ Cloudflare D1
+ */
+export async function getTranslationsD1(
+  db: D1Database,
+  language?: string,
+  objectType?: string
+): Promise<any[]> {
+  try {
+    let query = 'SELECT * FROM translations WHERE 1=1';
+    const bindings: any[] = [];
+
+    if (language) {
+      query += ' AND language = ?';
+      bindings.push(language);
+    }
+    if (objectType) {
+      query += ' AND object_type = ?';
+      bindings.push(objectType);
+    }
+
+    query += ' ORDER BY updated_at DESC';
+    const stmt = db.prepare(query);
+    const { results } = await (bindings.length > 0 ? stmt.bind(...bindings) : stmt).all();
+    return results || [];
+  } catch (e) {
+    console.warn('[getTranslationsD1 error]', e);
+    return [];
+  }
+}
+
+/**
+ * Lưu hoặc cập nhật bản dịch nội dung trong Cloudflare D1
+ */
+export async function saveTranslationD1(
+  db: D1Database,
+  translation: {
+    object_type: string;
+    object_id: string;
+    field: string;
+    language: string;
+    content: string;
+    reviewer?: string;
+    status?: string;
+  }
+): Promise<{ success: boolean; id?: number; error?: string }> {
+  const { object_type, object_id, field, language, content, reviewer, status } = translation;
+
+  try {
+    await db.prepare(`
+      INSERT INTO translations (object_type, object_id, field, language, content, reviewer, status, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+      ON CONFLICT(object_type, object_id, field, language) DO UPDATE SET
+        content = excluded.content,
+        reviewer = excluded.reviewer,
+        status = excluded.status,
+        updated_at = datetime('now')
+    `).bind(
+      object_type,
+      object_id,
+      field,
+      language,
+      content,
+      reviewer || null,
+      status || 'approved'
+    ).run();
+
+    return { success: true };
+  } catch (e: any) {
+    return { success: false, error: e?.message || 'Database error' };
+  }
+}
+
 
 
 

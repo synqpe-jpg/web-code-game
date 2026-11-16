@@ -346,6 +346,9 @@ export const Header: React.FC<HeaderProps> = ({
               </button>
             )}
 
+            {/* Language Selector (Always Visible in Header) */}
+            <LanguageSelector variant="compact" />
+
             {/* Bookmark Button (Desktop & Mobile) - Chỉ hiển thị cho khách vãng lai chưa đăng nhập */}
             {!currentUser && (
               <button

@@ -22,6 +22,8 @@ import { cartService, type CartItem, type StoreCartGroup } from '../../services/
 import { dataService } from '../../services/dataService';
 import type { UserProfile } from '../../types/game';
 import { formatCore } from '../../utils/textUtils';
+import { useLanguage } from '../../context/LanguageContext';
+import { formatCurrency } from '../../utils/formatUtils';
 import QRCode from 'qrcode';
 
 interface CartDrawerModalProps {
@@ -43,6 +45,7 @@ export const CartDrawerModal: React.FC<CartDrawerModalProps> = ({
   onOpenReceivedCodes,
   onNavigateStore,
 }) => {
+  const { t, language } = useLanguage();
   const [cartItems, setCartItems] = useState<CartItem[]>(() => cartService.getCart());
   const [groupedStores, setGroupedStores] = useState<StoreCartGroup[]>(() => cartService.getGroupedBySeller());
   const [totalCore, setTotalCore] = useState<number>(() => cartService.getCartTotal());
@@ -312,17 +315,19 @@ export const CartDrawerModal: React.FC<CartDrawerModalProps> = ({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-base font-bold text-foreground">Giỏ Hàng Đa Gian Hàng</h3>
+                <h3 className="text-base font-bold text-foreground">
+                  {t.cart?.multiStoreTitle || (language === 'en' ? 'Multi-Store Cart' : 'Giỏ Hàng Đa Gian Hàng')}
+                </h3>
                 {cartItems.length > 0 && !activeParentOrder && (
                   <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-primary/20 text-primary">
-                    {cartItems.length} món
+                    {cartItems.length} {language === 'en' ? 'items' : 'món'}
                   </span>
                 )}
               </div>
               <p className="text-[11px] text-muted-foreground">
                 {!activeParentOrder
-                  ? 'Gom đơn từ nhiều gian hàng, thanh toán tự động 1 chạm'
-                  : `Mã đơn tổng: ${activeParentOrder.parent_order_code || activeParentOrder.id}`}
+                  ? (language === 'en' ? 'Combined checkout from multiple stores with 1-click' : 'Gom đơn từ nhiều gian hàng, thanh toán tự động 1 chạm')
+                  : `${language === 'en' ? 'Master Order Code: ' : 'Mã đơn tổng: '}${activeParentOrder.parent_order_code || activeParentOrder.id}`}
               </p>
             </div>
           </div>
@@ -332,9 +337,9 @@ export const CartDrawerModal: React.FC<CartDrawerModalProps> = ({
               <button
                 onClick={handleClearCart}
                 className="text-[11px] font-semibold text-muted-foreground hover:text-destructive px-2 py-1 rounded-lg hover:bg-destructive/10 transition-colors"
-                title="Xóa toàn bộ giỏ hàng"
+                title={language === 'en' ? 'Clear whole cart' : 'Xóa toàn bộ giỏ hàng'}
               >
-                Xóa tất cả
+                {t.cart?.clearAll || (language === 'en' ? 'Clear all' : 'Xóa tất cả')}
               </button>
             )}
             <button
@@ -684,16 +689,18 @@ export const CartDrawerModal: React.FC<CartDrawerModalProps> = ({
                     <ShoppingCart className="w-7 h-7" />
                   </div>
                   <div>
-                    <h4 className="text-sm font-bold text-foreground">Giỏ hàng của bạn đang trống</h4>
+                    <h4 className="text-sm font-bold text-foreground">
+                      {t.cart?.empty || (language === 'en' ? 'Your cart is empty' : 'Giỏ hàng của bạn đang trống')}
+                    </h4>
                     <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
-                      Hãy ghé thăm các gian hàng của người bán uy tín để chọn gói giftcode và tiện ích game bạn yêu thích.
+                      {t.cart?.emptyDesc || (language === 'en' ? 'Explore verified stores to find your favorite giftcodes and utilities.' : 'Hãy ghé thăm các gian hàng của người bán uy tín để chọn gói giftcode và tiện ích game bạn yêu thích.')}
                     </p>
                   </div>
                   <button
                     onClick={onClose}
-                    className="mt-2 px-5 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:opacity-95 shadow-sm transition-all"
+                    className="mt-2 px-5 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:opacity-95 shadow-sm transition-all cursor-pointer"
                   >
-                    Khám Phá Gian Hàng
+                    {language === 'en' ? 'Explore Stores' : 'Khám Phá Gian Hàng'}
                   </button>
                 </div>
               ) : (
@@ -809,7 +816,9 @@ export const CartDrawerModal: React.FC<CartDrawerModalProps> = ({
             )}
 
             <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">Tổng ({cartItems.length} sản phẩm):</span>
+              <span className="text-muted-foreground">
+                {language === 'en' ? `Total (${cartItems.length} items):` : `Tổng (${cartItems.length} sản phẩm):`}
+              </span>
               <div className="text-right">
                 <span className="font-mono text-base font-black text-primary">
                   {totalCore.toLocaleString()} Core
@@ -820,7 +829,7 @@ export const CartDrawerModal: React.FC<CartDrawerModalProps> = ({
 
             {currentUser && (
               <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-                <span>Số dư ví của bạn:</span>
+                <span>{language === 'en' ? 'Your wallet balance:' : 'Số dư ví của bạn:'}</span>
                 <span className="font-semibold text-foreground">{userBalance.toLocaleString()} Core</span>
               </div>
             )}
@@ -828,15 +837,15 @@ export const CartDrawerModal: React.FC<CartDrawerModalProps> = ({
             <button
               disabled={isSubmitting}
               onClick={handleCreateOrder}
-              className="w-full py-3 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:opacity-95 shadow-md shadow-primary/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+              className="w-full py-3 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:opacity-95 shadow-md shadow-primary/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
             >
               {isSubmitting ? (
                 <>
-                  <RefreshCw className="w-4 h-4 animate-spin" /> Đang tạo đơn hàng...
+                  <RefreshCw className="w-4 h-4 animate-spin" /> {language === 'en' ? 'Creating order...' : 'Đang tạo đơn hàng...'}
                 </>
               ) : (
                 <>
-                  <CreditCard className="w-4 h-4" /> Tiến Hành Đặt Hàng ({totalCore.toLocaleString()} Core)
+                  <CreditCard className="w-4 h-4" /> {language === 'en' ? `Proceed to Checkout (${totalCore.toLocaleString()} Core)` : `Tiến Hành Đặt Hàng (${totalCore.toLocaleString()} Core)`}
                 </>
               )}
             </button>

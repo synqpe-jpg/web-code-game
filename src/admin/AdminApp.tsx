@@ -35,6 +35,7 @@ import { ApiKeysModule } from './modules/ApiKeysModule';
 import { TelegramModule } from './modules/TelegramModule';
 import { SellerModerationModule } from './modules/SellerModerationModule';
 import { PlatformLeadsModule } from './modules/PlatformLeadsModule';
+import { TranslationsModule } from './modules/TranslationsModule';
 import { MarketingNotificationToast } from '../components/MarketingNotificationToast';
 
 interface AdminAppProps {
@@ -69,6 +70,7 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToClient }) => {
       'orders',
       'marketplace',
       'platform-leads',
+      'translations',
       'first-purchase',
       'sepay',
       'content',
@@ -355,6 +357,7 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToClient }) => {
         'orders',
       'marketplace',
       'platform-leads',
+      'translations',
       'first-purchase',
         'sepay',
         'content',
@@ -617,6 +620,10 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToClient }) => {
 
         {currentTab === 'platform-leads' && (
           <PlatformLeadsModule onShowToast={showToast} />
+        )}
+
+        {currentTab === 'translations' && (
+          <TranslationsModule onShowToast={showToast} />
         )}
 
         {currentTab === 'sepay' && (

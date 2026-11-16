@@ -7,6 +7,39 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-16]
 
+### 414. Đa Ngôn Ngữ Cho Web Test Đa Ngành, Đợt 1: Tiếng Việt + Tiếng Anh (Universal Multi-Language i18n Architecture) (16/11/2026)
+- **Bối cảnh**: Triển khai hệ thống đa ngôn ngữ toàn diện đợt 1 cho Web Test (`test-code-game-shop.pages.dev`) và Web Quản Trị (`admin-test-code-game-shop.pages.dev`). Mục tiêu xây dựng khung đa ngôn ngữ chuẩn mực ngay trong đợt tái thiết lập, dịch chuẩn 100% hai ngôn ngữ đầu tiên (Tiếng Việt và Tiếng Anh), đồng thời sẵn sàng kích hoạt thêm 8 ngôn ngữ tiếp theo (`th`, `zh`, `ja`, `ko`, `id`, `ms`, `ph`, `fr`) sau này chỉ bằng 1 file từ điển JSON và 1 dòng cấu hình mà không phải sửa lại component.
+- **Giải pháp thực hiện**:
+  1. **Khung i18n Chuẩn Mực & Không Còn Hardcode Text (`src/i18n/config.ts`, `src/locales/vi.json`, `src/locales/en.json`, `src/locales/th.json`)**:
+     - Tách toàn bộ chuỗi giao diện ra file từ điển riêng biệt với đầy đủ các section: `nav`, `header`, `hero`, `search`, `filter`, `gameCard`, `modal`, `giveaways`, `store`, `cart`, `checkout`, `orders`, `solutions`, `admin`, `footer`, `common`.
+     - `src/locales/vi.json` và `src/locales/en.json` đồng bộ 100% key. Thêm file mẫu `src/locales/th.json` để kiểm chứng tiêu chí thêm ngôn ngữ thứ 3 mà không sửa component.
+  2. **LanguageContext & Cơ Chế Fallback An Toàn Tuyệt Đối (`src/context/LanguageContext.tsx`)**:
+     - Phát triển Proxy `t` hỗ trợ cả 2 phong cách truy cập: `t('nav.home')` và `t.nav.home`.
+     - Fallback thông minh: Khi thiếu bản dịch tiếng Anh, hệ thống tự động trả về bản tiếng Việt gốc, tuyệt đối không hiện ô trống, undefined hay mã code lẫn lộn.
+     - Phát hiện ngôn ngữ: Ưu tiên lựa chọn tay trong `localStorage` -> URL prefix (`/en/`, `/vi/`) -> `navigator.language` -> Mặc định là Tiếng Việt (`vi`). Không làm gãy bất kỳ đường dẫn cũ nào.
+  3. **Bộ Chọn Ngôn Ngữ Trực Quan & Nổi Bật (`src/components/LanguageSelector.tsx`)**:
+     - Hỗ trợ các variant: `header` (cạnh giỏ hàng trên Web Khách), `compact`, `pill`, `footer` và `admin` (trên topbar Quản trị).
+     - Luôn thấy được trên Header cả Web Khách và Web Quản Trị.
+  4. **Định Dạng Tiền Tệ & Ngày Giờ Chuẩn Quốc Tế (`src/utils/formatUtils.ts`)**:
+     - Tiền tệ: Luôn giữ nguyên VND (không đổi sang USD, không đổi giá): Tiếng Việt hiển thị `20.000đ`, Tiếng Anh hiển thị `VND 20,000`.
+     - Ngày giờ: Giữ nguyên múi giờ Việt Nam (GMT+7 / Asia/Ho_Chi_Minh), hiển thị kèm nhãn `(GMT+7)` rõ ràng khi ở giao diện Tiếng Anh.
+  5. **Bảng Dịch Nội Dung Động D1 & Service Quản Lý (`translations`, `d1_service.ts`, `contentTranslationService.ts`)**:
+     - Cấu trúc bảng `translations`: `(object_type, object_id, field, language, content, reviewer, status, updated_at)`.
+     - Không nhân bản bản ghi sản phẩm trong D1: 1 sản phẩm chỉ có 1 bản ghi gốc tiếng Việt, các ngôn ngữ khác lưu qua bảng `translations`.
+     - Hướng dẫn nhập code (`object_type = 'instruction'`) và tên ngành hàng/sản phẩm có bộ bản dịch mẫu tiếng Anh đã qua kiểm duyệt tay.
+  6. **SEO Theo Ngôn Ngữ Chuẩn Google (`src/components/seo/LanguageSeoHead.tsx`)**:
+     - Tự động chèn thẻ `canonical`, `meta title/description` đã dịch, và các thẻ `link rel="alternate"` hreflang: `vi`, `en`, `x-default`.
+  7. **Module Quản Lý Bản Dịch Admin Chuẩn Rule 9 Single-Screen First (`src/admin/modules/TranslationsModule.tsx`)**:
+     - Bảng quản trị `table-fixed w-full` chia cột chính xác 100% (22% / 28% / 28% / 10% / 12%), không tràn ngang.
+     - Lọc theo loại đối tượng, tìm kiếm từ khóa, thấy rõ trường đã duyệt (`approved`), bản nháp (`draft`) và trường chưa dịch.
+     - Modal kiểm duyệt tay và chỉnh sửa bản dịch nội dung.
+  8. **Đồng Bộ Giao Diện Web Khách & Quản Trị**:
+     - Chuyển đổi song ngữ toàn bộ: `Header.tsx`, `ShopeeTestView.tsx`, `ProductCheckoutModal.tsx`, `CartDrawerModal.tsx`, `PlatformSolutionsView.tsx`, `AdminTopbar.tsx`, `AdminSidebar.tsx`.
+- **Kiểm thử**:
+  - `npm run build`: Compile TypeScript và Vite thành công 100%, Cloudflare Worker bundle 18.8mb.
+  - `node scripts/audit_zero_test_artifacts.cjs`: 100% sạch, 0 test artifacts.
+  - Tuân thủ 100% Rule 6, Rule 7, Rule 8 và Rule 9.
+
 ### 413. Triển Khai Bước 5: Trang Giới Thiệu Giải Pháp & Giao Diện Bán / Cho Thuê Sàn Chuyên Nghiệp (Platform Solutions Landing Page & Tenant Leads Management) (16/11/2026)
 - **Bối cảnh**: Triển khai Bước 5 trong lộ trình biến hệ thống thành nền tảng thương mại điện tử đa ngành toàn diện (bán đứt mã nguồn trọn gói hoặc cho thuê sàn SaaS cho mọi đối tác/chủ shop). Cần có trang Landing Page giới thiệu giải pháp chuyên nghiệp, bảng giá minh bạch, bộ demo 5 ngành hàng, form thu thập hồ sơ khách hàng quan tâm (Tenant Leads) và module quản trị hồ sơ đăng ký trong trang Admin tuân thủ tuyệt đối Rule 9.
 - **Giải pháp thực hiện**:

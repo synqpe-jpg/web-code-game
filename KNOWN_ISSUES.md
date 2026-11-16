@@ -10,6 +10,20 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-298: Kiến Trúc Đa Ngôn Ngữ Chuẩn Mực (i18n Architecture) & Quản Trị Bản Dịch Nội Dung Động (Translations) Chuẩn Single-Screen First (Rule 9)
+- **Triệu chứng & Rủi ro**:
+  - Khi tách chữ ra file JSON dịch giao diện, nếu một số component dùng key không tồn tại hoặc component thiếu fallback có thể gây crash trang trắng (`TypeError: Cannot read properties of undefined`) hoặc hiển thị key code thô (ví dụ `nav.store_unknown`).
+  - Tự ý đổi tiền tệ sang USD hoặc đổi tỷ giá khi chuyển sang tiếng Anh làm sai lệch số dư ví và giá sản phẩm.
+  - Tự ý nhân bản bản ghi sản phẩm cho mỗi ngôn ngữ trong CSDL D1 sẽ làm phân mảnh kho hàng, sai lệch tồn kho và gãy tính đồng bộ 1 - 1.
+  - Bảng quản trị bản dịch trong Admin chứa các đoạn văn bản dài (nội dung tiếng Việt gốc, nội dung tiếng Anh dịch, hướng dẫn nhập code) rất dễ gây tràn ngang nếu không áp dụng Rule 9.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Dùng Proxy Proxy và hàm `getNestedValue` trong `LanguageContext.tsx`: nếu key không tồn tại trong từ điển tiếng Anh (`en.json`), hệ thống tự động fallback về từ điển tiếng Việt (`vi.json`), và nếu vẫn không có thì trả về fallback string hoặc key an toàn.
+  - Tiền tệ: Tuyệt đối giữ nguyên VND. Hàm `formatCurrency` format chuẩn: tiếng Việt là `20.000đ`, tiếng Anh là `VND 20,000`. Không đổi sang USD.
+  - Múi giờ: Hạn mã và sự kiện luôn giữ múi giờ Việt Nam (GMT+7), hiển thị rõ `(GMT+7)` trong bản tiếng Anh.
+  - CSDL D1: 1 sản phẩm chỉ có 1 bản ghi gốc trong bảng sản phẩm, bản dịch các ngôn ngữ khác lưu tại bảng `translations` qua bộ khóa `(object_type, object_id, field, language)`.
+  - Hướng dẫn nhập code (`object_type = 'instruction'`) bắt buộc phải kiểm duyệt tay (`reviewer` & `status = 'approved'`) trước khi hiển thị cho người chơi quốc tế.
+  - Tuân thủ nghiêm ngặt Rule 9: Module quản trị bản dịch `TranslationsModule.tsx` dùng `table-fixed w-full`, chia cột 22% / 28% / 28% / 10% / 12% (tổng đúng 100%), văn bản dài dùng `truncate` kèm `title` hiển thị tooltip.
+
 ### ISSUE-297: Landing Page Bán/Thuê Sàn E-Commerce & Quản Trị Hồ Sơ Khách Hàng (Leads) Chuẩn Single-Screen First (Rule 9)
 - **Triệu chứng & Rủi ro**:
   - Khi triển khai tính năng bán đứt hoặc cho thuê sàn (SaaS multi-tenant / tenant leads), việc lưu hồ sơ khách hàng chứa nhiều trường thông tin dài (tên khách hàng, SĐT, email, tên shop, ngành hàng, tên miền dự kiến, ngân sách, ghi chú, trạng thái đàm phán, ghi chú nội bộ) rất dễ làm bảng quản trị bị tràn ngang làm mất nút gọi/sửa/xóa ở mép phải màn hình laptop 1366x768 (vi phạm Rule 9).

@@ -15,6 +15,7 @@ import { ArrowUp } from 'lucide-react';
 import { Footer } from './components/Footer';
 import { ToastContainer, type ToastMessage } from './components/Toast';
 import { GameGridSkeleton } from './components/GameCardSkeleton';
+import { LanguageSeoHead } from './components/seo/LanguageSeoHead';
 
 // P4: Code Splitting & Lazy Loaded Views / Modals with auto-recovery on stale deployment chunks
 const FloatingAnnouncement = lazyWithRetry(() => import('./components/FloatingAnnouncement').then((m) => ({ default: m.FloatingAnnouncement })));
@@ -1869,6 +1870,9 @@ export const App: React.FC = () => {
 
       {/* Main App Content (relative z-10) */}
       <div className="relative z-10 flex-1 flex flex-col w-full max-w-full">
+        {/* Dynamic SEO hreflang, canonical & Meta Title / Description */}
+        <LanguageSeoHead />
+
         {/* Dynamic Announcement Banner from Admin CMS */}
         {currentTab !== 'shopee-test' && currentTab !== 'platform-solutions' && <AnnouncementBar />}
 

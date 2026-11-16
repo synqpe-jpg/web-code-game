@@ -14,6 +14,8 @@ import {
 import { AdminUser } from '../types/adminTypes';
 import { AdminModuleTab } from './AdminSidebar';
 import { adminDataService } from '../services/adminDataService';
+import { LanguageSelector } from '../../components/LanguageSelector';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface AdminTopbarProps {
   currentTab: AdminModuleTab;
@@ -52,6 +54,36 @@ const tabTitles: Record<AdminModuleTab, { title: string; subtitle: string }> = {
   'api-keys': { title: 'Quản Lý Khóa API & Phân Quyền', subtitle: 'Cấp quyền chi tiết cho AI tự động (Pine AI), bot cào tin tức và đối tác tích hợp ngoài' },
   'security-logs': { title: 'Nhật Ký Bảo Mật & Audit Log', subtitle: 'Lưu vết không thể chỉnh sửa mọi hành vi quản trị trong hệ thống' },
   profile: { title: 'Thông Tin Tài Khoản & Bảo Mật', subtitle: 'Cập nhật hồ sơ cá nhân, đổi mật khẩu và xác thực 2 lớp (2FA)' },
+  marketplace: { title: 'Sàn TMĐT & Gian Hàng Người Bán', subtitle: 'Quản lý người bán, sản phẩm đa ngành và xét duyệt đối tác' },
+  'platform-leads': { title: 'Khách Thuê / Mua Sàn (Leads)', subtitle: 'Quản lý hồ sơ đối tác đăng ký thuê sàn SaaS hoặc mua đứt mã nguồn trọn gói' },
+};
+
+const tabTitlesEn: Record<string, { title: string; subtitle: string }> = {
+  dashboard: { title: 'Dashboard Overview', subtitle: 'Monitor business KPIs, giftcode inventory, and system health' },
+  games: { title: 'Game Directory Management', subtitle: 'Manage game catalogs, banners, Google Play packages, and codes' },
+  news: { title: 'News & Articles Management', subtitle: 'Editorial, schedule publications, SEO articles, and game codes' },
+  crawler: { title: 'Crawler & Auto Sync', subtitle: 'Automated crawler & code synchronization engine' },
+  'free-codes': { title: 'Free Codes Management', subtitle: 'Public community giftcodes and copy tracking' },
+  giftcodes: { title: 'Giftcode Moderation', subtitle: 'Approve or reject community-submitted giftcodes' },
+  members: { title: 'Members & Roles Management', subtitle: 'User list, RBAC permissions, balances, and account statuses' },
+  wallet: { title: 'Wallet Ledger & Transactions', subtitle: 'Balance audit log, reconciliation, and safe manual adjustments' },
+  'private-codes': { title: 'VIP Codes & Giveaways', subtitle: 'Private email code distribution & giveaway campaign manager' },
+  'code-inventory': { title: 'Code Inventory & Store Bundles', subtitle: 'Manage stock codes, vouchers, and discounted store packages' },
+  utilities: { title: 'Utilities & External Services', subtitle: 'Manage digital tools, premium accounts, and utility licenses' },
+  missions: { title: 'Missions & Task Moderation', subtitle: 'User bounty missions, proof approval queue, and AI APIs' },
+  'event-scheduler': { title: 'Event Countdown Scheduler', subtitle: 'Schedule code drops, flash sales, and automated time gates' },
+  'email-notifications': { title: 'Email & Customer Notifications', subtitle: 'Manage subscriber lists and broadcast email alerts' },
+  orders: { title: 'Orders & Fulfillment', subtitle: 'Track automated digital delivery & nationwide courier shipping' },
+  marketplace: { title: 'E-Commerce Marketplace', subtitle: 'Merchant moderation, multi-industry products, and vendor payouts' },
+  'platform-leads': { title: 'Platform SaaS Leads & Inquiries', subtitle: 'Manage tenant leads interested in renting SaaS or buying full source code' },
+  sepay: { title: 'SePay Automated Gateway', subtitle: 'Webhook configuration, bank reconciliation, and API testing' },
+  content: { title: 'Website Content CMS', subtitle: 'Popup banners, hero carousels, terms of service, and privacy policies' },
+  'floating-notification': { title: 'Floating Notification Widget', subtitle: 'Configure client popup triggers, corner positions, and CTA buttons' },
+  marketing: { title: 'Marketing & FOMO Engine', subtitle: 'Live purchase popups, event badges, and sales triggers' },
+  growth: { title: 'Growth & Referral Center', subtitle: 'Referral campaigns, lucky wheel, and reward missions' },
+  'api-keys': { title: 'API Keys & Scopes', subtitle: 'Granular permissions for AI agents, crawler bots, and third-party partners' },
+  'security-logs': { title: 'Security Audit Logs', subtitle: 'Immutable tamper-proof logs of administrative actions' },
+  profile: { title: 'Admin Account & Security', subtitle: 'Update personal credentials, password, and two-factor auth' },
 };
 
 const shortTabTitles: Record<AdminModuleTab, string> = {
@@ -92,6 +124,7 @@ export const AdminTopbar: React.FC<AdminTopbarProps> = ({
   onQuickAction,
   pendingCount = 0,
 }) => {
+  const { language } = useLanguage();
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isQuickActionOpen, setIsQuickActionOpen] = useState(false);
@@ -119,7 +152,8 @@ export const AdminTopbar: React.FC<AdminTopbarProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const meta = tabTitles[currentTab] || { title: 'Quản Trị Hệ Thống', subtitle: 'Hệ thống quản lý CodeGame' };
+  const activeTabTitles = language === 'en' ? tabTitlesEn : tabTitles;
+  const meta = activeTabTitles[currentTab] || (language === 'en' ? { title: 'System Administration', subtitle: 'CodeGame Management System' } : { title: 'Quản Trị Hệ Thống', subtitle: 'Hệ thống quản lý CodeGame' });
 
   return (
     <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-slate-200 bg-white/80 px-3.5 sm:px-6 backdrop-blur-md dark:border-slate-800 dark:bg-slate-900/80">
@@ -244,6 +278,9 @@ export const AdminTopbar: React.FC<AdminTopbarProps> = ({
             <span className="text-[11px]">↗</span>
           </button>
         )}
+
+        {/* Language Selector (Admin i18n switcher) */}
+        <LanguageSelector variant="admin" />
 
         {/* Theme Toggle */}
         <button

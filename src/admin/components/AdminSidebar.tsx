@@ -55,6 +55,7 @@ export type AdminModuleTab =
   | 'orders'
   | 'marketplace'
   | 'platform-leads'
+  | 'translations'
   | 'first-purchase'
   | 'sepay'
   | 'content'
@@ -142,6 +143,13 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
           id: 'content',
           label: 'Nội Dung Web',
           icon: Globe,
+        },
+        {
+          id: 'translations',
+          label: 'Quản Lý Bản Dịch (i18n)',
+          icon: Globe,
+          badge: 'VI+EN',
+          badgeColor: 'bg-cyan-500 text-neutral-950 font-bold',
         },
         {
           id: 'floating-notification',

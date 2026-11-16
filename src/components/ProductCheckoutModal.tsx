@@ -38,6 +38,7 @@ import { offerService } from '../services/offerService';
 import { generateVietQrEmvCo } from '../utils/vietQrUtils';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import { marketingService } from '../services/marketingService';
+import { useLanguage } from '../context/LanguageContext';
 import { formatCore } from '../utils/textUtils';
 import { GuideLinksBanner } from './GuideLinksBanner';
 
@@ -64,6 +65,9 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
   onOpenAuth,
   onOpenWallet,
 }) => {
+  const { language, t, formatCurrency, formatDateTime } = useLanguage();
+  const isEn = language === 'en';
+
   const liveProduct = product ? (dataService.getStoreProducts().find((p) => p.id === product.id) || product) : null;
   const [quantity, setQuantity] = useState<number>(initialQuantity || 1);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -1170,13 +1174,15 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
 
               <div>
                 <h3 className="font-heading font-extrabold text-xl text-foreground">
-                  {completedOrder.order_type === 'physical' ? 'Đặt Hàng Thành Công!' : 'Giao Hàng Thành Công!'}
+                  {completedOrder.order_type === 'physical'
+                    ? (isEn ? 'Order Placed Successfully!' : 'Đặt Hàng Thành Công!')
+                    : (isEn ? 'Payment Successful!' : 'Giao Hàng Thành Công!')}
                 </h3>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Mã đơn: <strong className="text-foreground font-mono">{completedOrder.id}</strong> • {completedOrder.order_type === 'physical' ? (
-                    <span className="text-emerald-400 font-semibold">Đang chuẩn bị hàng & đóng gói bưu phẩm</span>
+                  {isEn ? 'Order ID:' : 'Mã đơn:'} <strong className="text-foreground font-mono">{completedOrder.id}</strong> • {completedOrder.order_type === 'physical' ? (
+                    <span className="text-emerald-400 font-semibold">{isEn ? 'Packing & Courier Preparation in Progress' : 'Đang chuẩn bị hàng & đóng gói bưu phẩm'}</span>
                   ) : (
-                    <>Số lượng: <strong className="text-emerald-400">{deliveredLines.length} mã</strong></>
+                    <>{isEn ? 'Quantity:' : 'Số lượng:'} <strong className="text-emerald-400">{deliveredLines.length} {isEn ? 'codes' : 'mã'}</strong></>
                   )}
                 </p>
               </div>
@@ -1186,14 +1192,14 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
                 <div className="p-4 rounded-2xl bg-muted/70 border border-border space-y-3 text-left text-xs">
                   <div className="flex items-center gap-2 pb-2 border-b border-border/80">
                     <Truck className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <span className="font-bold text-foreground">Thông Tin Giao Nhận Toàn Quốc</span>
+                    <span className="font-bold text-foreground">{isEn ? 'Nationwide Shipping Summary' : 'Thông Tin Giao Nhận Toàn Quốc'}</span>
                   </div>
 
                   <div className="space-y-2">
                     <div className="flex items-start gap-2">
                       <User className="w-3.5 h-3.5 text-muted-foreground shrink-0 mt-0.5" />
                       <div>
-                        <span className="text-muted-foreground">Người nhận: </span>
+                        <span className="text-muted-foreground">{isEn ? 'Recipient: ' : 'Người nhận: '}</span>
                         <strong className="text-foreground font-semibold">{completedOrder.shipping_name || user?.displayName || user?.username}</strong>
                         {completedOrder.shipping_phone && (
                           <span className="text-muted-foreground ml-2 font-mono">({completedOrder.shipping_phone})</span>
@@ -1204,8 +1210,8 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
                     <div className="flex items-start gap-2">
                       <MapPin className="w-3.5 h-3.5 text-rose-400 shrink-0 mt-0.5" />
                       <div>
-                        <span className="text-muted-foreground">Địa chỉ nhận hàng: </span>
-                        <span className="text-foreground font-medium">{completedOrder.shipping_address || 'Địa chỉ tiêu chuẩn'}</span>
+                        <span className="text-muted-foreground">{isEn ? 'Shipping Address: ' : 'Địa chỉ nhận hàng: '}</span>
+                        <span className="text-foreground font-medium">{completedOrder.shipping_address || (isEn ? 'Standard Address' : 'Địa chỉ tiêu chuẩn')}</span>
                       </div>
                     </div>
 
@@ -1213,23 +1219,23 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
                       <div className="flex items-start gap-2">
                         <FileText className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
                         <div>
-                          <span className="text-muted-foreground">Ghi chú bưu tá: </span>
+                          <span className="text-muted-foreground">{isEn ? 'Delivery Note: ' : 'Ghi chú bưu tá: '}</span>
                           <span className="text-amber-300 italic">{completedOrder.shipping_note}</span>
                         </div>
                       </div>
                     )}
 
                     <div className="flex items-center justify-between pt-2 border-t border-border/80 text-[11px]">
-                      <span className="text-muted-foreground">Cước phí vận chuyển:</span>
+                      <span className="text-muted-foreground">{isEn ? 'Courier Fee:' : 'Cước phí vận chuyển:'}</span>
                       <span className="font-semibold text-emerald-400">
-                        {completedOrder.shipping_fee === 0 ? 'Miễn phí toàn quốc (0đ)' : `${completedOrder.shipping_fee?.toLocaleString('vi-VN')} ₫`}
+                        {completedOrder.shipping_fee === 0 ? (isEn ? 'Free Nationwide' : 'Miễn phí toàn quốc (0đ)') : formatCurrency(completedOrder.shipping_fee)}
                       </span>
                     </div>
 
                     <div className="flex items-center justify-between text-[11px]">
-                      <span className="text-muted-foreground">Tổng tiền thanh toán:</span>
+                      <span className="text-muted-foreground">{isEn ? 'Total Paid:' : 'Tổng tiền thanh toán:'}</span>
                       <span className="font-bold font-mono text-emerald-400 text-sm">
-                        {formatCore(completedOrder.amount)}
+                        {formatCurrency(completedOrder.amount)}
                       </span>
                     </div>
                   </div>
@@ -1519,25 +1525,25 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
                         <Truck className="w-4 h-4" />
                       </div>
                       <span className="text-xs font-bold text-foreground uppercase tracking-wider">
-                        Thông Tin Nhận Hàng Toàn Quốc
+                        {t.checkout?.shippingSectionTitle || 'Thông Tin Nhận Hàng Toàn Quốc'}
                       </span>
                     </div>
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                      🚚 Giao Tận Nơi
+                      {isEn ? '🚚 Courier Delivery' : '🚚 Giao Tận Nơi'}
                     </span>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     <div>
                       <label className="text-[11px] font-semibold text-muted-foreground block mb-1">
-                        Họ và tên người nhận <span className="text-rose-400">*</span>
+                        {t.checkout?.fullName || 'Họ và tên người nhận'} <span className="text-rose-400">*</span>
                       </label>
                       <div className="relative">
                         <input
                           type="text"
                           value={shippingName}
                           onChange={(e) => setShippingName(e.target.value)}
-                          placeholder="Ví dụ: Nguyễn Văn A"
+                          placeholder={t.checkout?.fullNamePlaceholder || 'Ví dụ: Nguyễn Văn A'}
                           className="w-full px-3 py-2 pl-8 rounded-xl bg-muted/40 border border-border text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-primary"
                         />
                         <User className="w-3.5 h-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -1546,14 +1552,14 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
 
                     <div>
                       <label className="text-[11px] font-semibold text-muted-foreground block mb-1">
-                        Số điện thoại nhận hàng <span className="text-rose-400">*</span>
+                        {t.checkout?.phone || 'Số điện thoại nhận hàng'} <span className="text-rose-400">*</span>
                       </label>
                       <div className="relative">
                         <input
                           type="tel"
                           value={shippingPhone}
                           onChange={(e) => setShippingPhone(e.target.value)}
-                          placeholder="Ví dụ: 0987654321"
+                          placeholder={t.checkout?.phonePlaceholder || 'Ví dụ: 0987654321'}
                           className="w-full px-3 py-2 pl-8 rounded-xl bg-muted/40 border border-border text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-primary"
                         />
                         <Phone className="w-3.5 h-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -1563,14 +1569,14 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
 
                   <div>
                     <label className="text-[11px] font-semibold text-muted-foreground block mb-1">
-                      Địa chỉ nhận hàng chi tiết <span className="text-rose-400">*</span>
+                      {t.checkout?.address || 'Địa chỉ nhận hàng chi tiết'} <span className="text-rose-400">*</span>
                     </label>
                     <div className="relative">
                       <input
                         type="text"
                         value={shippingAddress}
                         onChange={(e) => setShippingAddress(e.target.value)}
-                        placeholder="Số nhà, ngõ/đường, Phường/Xã, Quận/Huyện, Tỉnh/Thành phố"
+                        placeholder={t.checkout?.addressPlaceholder || 'Số nhà, ngõ/đường, Phường/Xã, Quận/Huyện, Tỉnh/Thành phố'}
                         className="w-full px-3 py-2 pl-8 rounded-xl bg-muted/40 border border-border text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-primary"
                       />
                       <MapPin className="w-3.5 h-3.5 text-rose-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -1579,14 +1585,14 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
 
                   <div>
                     <label className="text-[11px] font-semibold text-muted-foreground block mb-1">
-                      Ghi chú cho shipper (Không bắt buộc)
+                      {t.checkout?.note || 'Ghi chú cho shipper (Không bắt buộc)'}
                     </label>
                     <div className="relative">
                       <input
                         type="text"
                         value={shippingNote}
                         onChange={(e) => setShippingNote(e.target.value)}
-                        placeholder="Ví dụ: Giao giờ hành chính, gọi trước khi đến..."
+                        placeholder={t.checkout?.notePlaceholder || 'Ví dụ: Giao giờ hành chính, gọi trước khi đến...'}
                         className="w-full px-3 py-2 pl-8 rounded-xl bg-muted/40 border border-border text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-primary"
                       />
                       <FileText className="w-3.5 h-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -1597,10 +1603,10 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
                   <div className="p-2.5 rounded-xl bg-muted/40 border border-border flex items-center justify-between text-xs">
                     <span className="text-muted-foreground flex items-center gap-1.5">
                       <Truck className="w-3.5 h-3.5 text-emerald-400" />
-                      Phí vận chuyển bưu điện:
+                      {isEn ? 'Shipping Courier Fee:' : 'Phí vận chuyển bưu điện:'}
                     </span>
                     <span className="font-bold text-emerald-400">
-                      {shippingFee === 0 ? 'Miễn phí toàn quốc (0đ)' : `+${shippingFee.toLocaleString('vi-VN')} ₫`}
+                      {shippingFee === 0 ? (isEn ? 'Free Nationwide Shipping' : 'Miễn phí toàn quốc (0đ)') : `+${formatCurrency(shippingFee)}`}
                     </span>
                   </div>
                 </div>
@@ -2180,18 +2186,18 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
                 )}
                 <span>
                   {isProcessing
-                    ? 'Đang xử lý thanh toán...'
+                    ? (isEn ? 'Processing order...' : 'Đang xử lý thanh toán...')
                     : maxStock <= 0
-                    ? 'Sản phẩm tạm hết hàng'
+                    ? (isEn ? 'Temporarily out of stock' : 'Sản phẩm tạm hết hàng')
                     : !isPriceValid
-                    ? 'Đang cập nhật giá...'
+                    ? (isEn ? 'Updating price...' : 'Đang cập nhật giá...')
                     : !isBalanceEnough
-                    ? `Thiếu ${formatCore(finalGrandTotal - userBalance)} • Nạp Tiền Ngay`
+                    ? (isEn ? `Insufficient ${formatCurrency(finalGrandTotal - userBalance)} • Top-up Now` : `Thiếu ${formatCurrency(finalGrandTotal - userBalance)} • Nạp Tiền Ngay`)
                     : isEscalating
-                    ? `Xác Nhận Mua Gói Nâng Giá • ${formatCore(finalGrandTotal)}`
+                    ? (isEn ? `Confirm Tier Price • ${formatCurrency(finalGrandTotal)}` : `Xác Nhận Mua Gói Nâng Giá • ${formatCurrency(finalGrandTotal)}`)
                     : isPhysical
-                    ? `Xác Nhận Đặt Hàng & Giao Toàn Quốc • ${formatCore(finalGrandTotal)}`
-                    : `Xác Nhận Mua ${safeQty > 1 ? `(${safeQty} Gói)` : ''} • ${formatCore(finalGrandTotal)}`}
+                    ? (isEn ? `Confirm Order & Nationwide Shipping • ${formatCurrency(finalGrandTotal)}` : `Xác Nhận Đặt Hàng & Giao Toàn Quốc • ${formatCurrency(finalGrandTotal)}`)
+                    : (isEn ? `Confirm Payment ${safeQty > 1 ? `(${safeQty} Items)` : ''} • ${formatCurrency(finalGrandTotal)}` : `Xác Nhận Mua ${safeQty > 1 ? `(${safeQty} Gói)` : ''} • ${formatCurrency(finalGrandTotal)}`)}
                 </span>
               </button>
                 </>

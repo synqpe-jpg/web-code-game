@@ -29,6 +29,8 @@ import {
 } from 'lucide-react';
 import { dataService } from '../../services/dataService';
 import type { TenantLeadRecord } from '../../types/game';
+import { LanguageSelector } from '../LanguageSelector';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface PlatformSolutionsViewProps {
   onNavigateBack?: () => void;
@@ -39,6 +41,9 @@ export const PlatformSolutionsView: React.FC<PlatformSolutionsViewProps> = ({
   onNavigateBack,
   onOpenStoreDemo,
 }) => {
+  const { language, t } = useLanguage();
+  const isEn = language === 'en';
+
   // Form State
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
@@ -269,6 +274,7 @@ export const PlatformSolutionsView: React.FC<PlatformSolutionsViewProps> = ({
           </div>
 
           <div className="flex items-center gap-2 sm:gap-4">
+            <LanguageSelector variant="compact" />
             <a
               href="https://zalo.me/0988123456"
               target="_blank"
@@ -276,13 +282,13 @@ export const PlatformSolutionsView: React.FC<PlatformSolutionsViewProps> = ({
               className="px-3 py-1.5 rounded-lg bg-neutral-900 hover:bg-neutral-800 text-neutral-300 hover:text-white text-xs font-semibold flex items-center gap-1.5 border border-neutral-800 transition-colors"
             >
               <MessageCircle className="w-4 h-4 text-sky-400" />
-              <span className="hidden sm:inline">Chat Zalo 24/7</span>
+              <span className="hidden sm:inline">{isEn ? 'Support Zalo' : 'Chat Zalo 24/7'}</span>
             </a>
             <a
               href="#pricing-section"
               className="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-neutral-950 text-xs font-bold flex items-center gap-1.5 shadow-md shadow-amber-500/20 transition-all transform active:scale-95"
             >
-              <span>Xem Báo Giá</span>
+              <span>{isEn ? 'Pricing Plans' : 'Xem Báo Giá'}</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </a>
           </div>
@@ -297,21 +303,21 @@ export const PlatformSolutionsView: React.FC<PlatformSolutionsViewProps> = ({
         <div className="max-w-5xl mx-auto px-4 sm:px-6 text-center relative z-10">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-semibold mb-6 animate-pulse">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>NỀN TẢNG TMĐT ĐA NGÀNH SỐ 1 VIỆT NAM • THUÊ SÀN CHỈ TỪ 390K/THÁNG</span>
+            <span>{t.solutions?.badge || (isEn ? '#1 MULTI-INDUSTRY E-COMMERCE PLATFORM' : 'NỀN TẢNG TMĐT ĐA NGÀNH SỐ 1 VIỆT NAM')}</span>
           </div>
 
           <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-white tracking-tight leading-tight sm:leading-tight mb-6">
-            Sở Hữu Sàn TMĐT Đa Ngành Riêng
+            {t.solutions?.heroTitle || (isEn ? 'Own Your Multi-Industry E-Commerce Platform' : 'Sở Hữu Sàn TMĐT Đa Ngành Riêng')}
             <br />
             <span className="bg-gradient-to-r from-amber-400 via-orange-400 to-rose-400 bg-clip-text text-transparent">
-              Vận Hành 0đ Server • Khởi Chạy 2 Phút
+              {t.solutions?.heroSubtitle || (isEn ? '0 VND Server Cost • Launch in 2 Minutes' : 'Vận Hành 0đ Server • Khởi Chạy 2 Phút')}
             </span>
           </h1>
 
           <p className="text-neutral-300 text-sm sm:text-lg max-w-3xl mx-auto mb-8 font-normal leading-relaxed">
-            Giải pháp hoàn chỉnh biến mọi ý tưởng kinh doanh thành sàn thương mại điện tử chuyên nghiệp:
-            Bán song song <strong className="text-amber-400">Sản phẩm số giao 0s</strong> (giftcode, tài khoản, khóa học) &{' '}
-            <strong className="text-cyan-400">Hàng vật lý</strong> (thời trang, mỹ phẩm, công nghệ). Tích hợp sẵn VietQR tự động tiền về thẳng tài khoản, không giam vốn!
+            {t.solutions?.heroDesc || (isEn
+              ? 'The complete solution turning any business idea into a high-converting storefront: sell digital products with 0s delivery & physical goods with courier tracking. Built-in VietQR auto-verification directly to your personal bank account!'
+              : 'Giải pháp hoàn chỉnh biến mọi ý tưởng kinh doanh thành sàn thương mại điện tử chuyên nghiệp: Bán song song Sản phẩm số giao 0s (giftcode, tài khoản, khóa học) & Hàng vật lý (thời trang, mỹ phẩm, công nghệ). Tích hợp sẵn VietQR tự động tiền về thẳng tài khoản, không giam vốn!')}
           </p>
 
           <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 mb-12">
@@ -320,7 +326,7 @@ export const PlatformSolutionsView: React.FC<PlatformSolutionsViewProps> = ({
               className="px-6 py-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-neutral-950 font-black text-sm flex items-center gap-2 shadow-xl shadow-amber-500/25 transition-all transform hover:-translate-y-0.5 active:translate-y-0"
             >
               <Rocket className="w-4 h-4" />
-              <span>Đăng Ký Thuê / Mua Sàn Ngay</span>
+              <span>{t.solutions?.ctaRegister || (isEn ? 'Rent / Buy Platform Now' : 'Đăng Ký Thuê / Mua Sàn Ngay')}</span>
             </a>
 
             <button
@@ -334,27 +340,43 @@ export const PlatformSolutionsView: React.FC<PlatformSolutionsViewProps> = ({
               className="px-6 py-3.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-neutral-100 font-bold text-sm flex items-center gap-2 border border-neutral-700 transition-colors"
             >
               <ExternalLink className="w-4 h-4 text-cyan-400" />
-              <span>Trải Nghiệm Live Demo Sàn</span>
+              <span>{t.solutions?.ctaDemo || (isEn ? 'Explore Live Platform Demo' : 'Trải Nghiệm Live Demo Sàn')}</span>
             </button>
           </div>
 
           {/* Key Metric Highlights */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 max-w-4xl mx-auto">
             <div className="p-4 rounded-xl bg-neutral-900/60 border border-neutral-800/80 backdrop-blur-sm">
-              <div className="text-2xl sm:text-3xl font-black text-amber-400 mb-1">2 Phút</div>
-              <div className="text-xs text-neutral-400 font-medium">Bàn giao shop dùng ngay</div>
+              <div className="text-2xl sm:text-3xl font-black text-amber-400 mb-1">
+                {t.solutions?.statDeployTime || (isEn ? '2 Minutes' : '2 Phút')}
+              </div>
+              <div className="text-xs text-neutral-400 font-medium">
+                {t.solutions?.statDeployDesc || (isEn ? 'Ready to launch instantly' : 'Bàn giao shop dùng ngay')}
+              </div>
             </div>
             <div className="p-4 rounded-xl bg-neutral-900/60 border border-neutral-800/80 backdrop-blur-sm">
-              <div className="text-2xl sm:text-3xl font-black text-emerald-400 mb-1">0đ / Tháng</div>
-              <div className="text-xs text-neutral-400 font-medium">Phí duy trì máy chủ Cloudflare</div>
+              <div className="text-2xl sm:text-3xl font-black text-emerald-400 mb-1">
+                {t.solutions?.statHostingCost || (isEn ? '0 VND / Mo' : '0đ / Tháng')}
+              </div>
+              <div className="text-xs text-neutral-400 font-medium">
+                {t.solutions?.statHostingDesc || (isEn ? 'Cloudflare Edge serverless cost' : 'Phí duy trì máy chủ Cloudflare')}
+              </div>
             </div>
             <div className="p-4 rounded-xl bg-neutral-900/60 border border-neutral-800/80 backdrop-blur-sm">
-              <div className="text-2xl sm:text-3xl font-black text-cyan-400 mb-1">&lt; 100ms</div>
-              <div className="text-xs text-neutral-400 font-medium">Tốc độ tải trang Edge toàn cầu</div>
+              <div className="text-2xl sm:text-3xl font-black text-cyan-400 mb-1">
+                {t.solutions?.statSpeed || '< 100ms'}
+              </div>
+              <div className="text-xs text-neutral-400 font-medium">
+                {t.solutions?.statSpeedDesc || (isEn ? 'Global Edge response latency' : 'Tốc độ tải trang Edge toàn cầu')}
+              </div>
             </div>
             <div className="p-4 rounded-xl bg-neutral-900/60 border border-neutral-800/80 backdrop-blur-sm">
-              <div className="text-2xl sm:text-3xl font-black text-rose-400 mb-1">VietQR 0s</div>
-              <div className="text-xs text-neutral-400 font-medium">Tiền thẳng vào tài khoản của bạn</div>
+              <div className="text-2xl sm:text-3xl font-black text-rose-400 mb-1">
+                {t.solutions?.statPayment || 'VietQR 0s'}
+              </div>
+              <div className="text-xs text-neutral-400 font-medium">
+                {t.solutions?.statPaymentDesc || (isEn ? 'Direct bank settlement, zero escrow' : 'Tiền thẳng vào tài khoản của bạn')}
+              </div>
             </div>
           </div>
         </div>
