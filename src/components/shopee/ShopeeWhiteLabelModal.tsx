@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Sparkles, X, Check, Rocket, ShieldCheck, CreditCard, Send, ShoppingBag, Coins, Palette, Save, Layers } from 'lucide-react';
 import { dataService } from '../../services/dataService';
-import { INDUSTRY_PRESETS_LIST, getIndustryPreset, getDefaultCategoriesConfig } from '../../data/industryPresets';
+import { INDUSTRY_PRESETS, INDUSTRY_PRESETS_LIST, getIndustryPreset, getDefaultCategoriesConfig } from '../../data/industryPresets';
 
 interface ShopeeWhiteLabelModalProps {
   isOpen: boolean;
