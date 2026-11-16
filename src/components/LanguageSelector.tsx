@@ -57,7 +57,7 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
               title={lang.nativeName}
             >
               <span className="text-sm leading-none">{lang.flag}</span>
-              <span>{lang.nativeName}</span>
+              <span style={{ fontFamily: "'Noto Sans Thai', 'Leelawadee UI', 'Thonburi', 'Segoe UI', Tahoma, sans-serif" }}>{lang.nativeName}</span>
             </button>
           );
         })}
@@ -118,7 +118,7 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
                   <div className="flex items-center gap-2.5">
                     <span className="text-lg leading-none">{item.flag}</span>
                     <div className="flex flex-col">
-                      <span className="text-xs font-semibold leading-tight">{item.nativeName}</span>
+                      <span className="text-xs font-semibold leading-tight" style={{ fontFamily: "'Noto Sans Thai', 'Leelawadee UI', 'Thonburi', 'Segoe UI', Tahoma, sans-serif" }}>{item.nativeName}</span>
                       <span className="text-[10px] text-muted-foreground leading-tight">{item.label}</span>
                     </div>
                   </div>

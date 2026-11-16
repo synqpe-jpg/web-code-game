@@ -95,7 +95,7 @@ export const DEFAULT_WHEEL_SLICES: WheelSlice[] = [
 ];
 
 export const DEFAULT_GROWTH_CONFIG: GrowthConfig = {
-  isEnabled: false,
+  isEnabled: true,
 
   // 1. Gói Quà Tân Thủ
   welcomeBonusEnabled: false,

@@ -656,18 +656,22 @@ export const App: React.FC = () => {
           const pathSlug = window.location.pathname.replace(/^\/(?:game|g)\//i, '').replace(/\/$/, '').trim();
           if (pathSlug) {
             setCurrentTab('catalog');
-            const game = await dataService.getGameBySlug(pathSlug, false);
-            if (game) {
-              setSelectedGame(game);
-              setGames((prev) =>
-                prev.map((g) =>
-                  g.slug === game.slug || g.id === game.id
-                    ? { ...g, codes_count: game.codes_count, codes: (game.codes || []).slice(0, 3) }
-                    : g
-                )
-              );
-              return;
+            const localFallback = (dataService.getGames() || []).find((g) => (g.slug || g.id) === pathSlug);
+            if (localFallback) {
+              setSelectedGame(localFallback);
             }
+            dataService.getGameBySlug(pathSlug, false).then((freshGame) => {
+              if (freshGame) {
+                setSelectedGame(freshGame);
+                setGames((prev) =>
+                  prev.map((g) =>
+                    g.slug === freshGame.slug || g.id === freshGame.id
+                      ? { ...g, codes_count: freshGame.codes_count, codes: (freshGame.codes || []).slice(0, 3) }
+                      : g
+                  )
+                );
+              }
+            });
           }
         } else if (pathname === '/news' || pathname.startsWith('/news/')) {
           setCurrentTab('news');
@@ -2176,17 +2180,15 @@ export const App: React.FC = () => {
           onShowToast={showToast}
         />
 
-        {isGrowthEnabled && (
-          <GrowthCenterModal
-            isOpen={isGrowthCenterOpen}
-            onClose={() => setIsGrowthCenterOpen(false)}
-            currentUser={currentUser}
-            onOpenAuth={() => setIsAuthModalOpen(true)}
-            onOpenWallet={() => setIsWalletModalOpen(true)}
-            onShowToast={showToast}
-            initialTab={growthInitialTab}
-          />
-        )}
+        <GrowthCenterModal
+          isOpen={isGrowthCenterOpen}
+          onClose={() => setIsGrowthCenterOpen(false)}
+          currentUser={currentUser}
+          onOpenAuth={() => setIsAuthModalOpen(true)}
+          onOpenWallet={() => setIsWalletModalOpen(true)}
+          onShowToast={showToast}
+          initialTab={growthInitialTab}
+        />
 
         <AuthModal
           isOpen={isAuthModalOpen}

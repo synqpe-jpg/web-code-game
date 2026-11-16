@@ -197,9 +197,18 @@ export const EmailSubscriptionModal: React.FC<EmailSubscriptionModalProps> = ({
   });
 
   // Nếu người dùng đã theo dõi game: hiển thị danh sách code của game theo dõi
-  // Nếu chưa theo dõi: hiển thị các giftcode HOT mới nhất toàn sàn kèm gợi ý bấm Theo Dõi
+  // Nếu chưa theo dõi: hiển thị các giftcode HOT mới nhất toàn sàn (khử trùng lặp: mỗi game tối đa 1 thông báo tiêu biểu nhất)
   const isDisplayingFollowed = followedCodeList.length > 0;
-  const rawList = isDisplayingFollowed ? followedCodeList : fallbackHotList.slice(0, 20);
+  const deduplicatedFallbackHotList: CodeNotificationEntry[] = [];
+  const seenGameSlugs = new Set<string>();
+  for (const entry of fallbackHotList) {
+    const slugKey = (entry.gameSlug || entry.gameName || '').toLowerCase().trim();
+    if (!seenGameSlugs.has(slugKey)) {
+      seenGameSlugs.add(slugKey);
+      deduplicatedFallbackHotList.push(entry);
+    }
+  }
+  const rawList = isDisplayingFollowed ? followedCodeList : deduplicatedFallbackHotList.slice(0, 20);
 
   // Lọc theo tìm kiếm nhanh
   const displayCodes = rawList.filter((item) => {

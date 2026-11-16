@@ -178,9 +178,43 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
   // White-Label Customizable Shop Brand
   const [shopBrand, setShopBrand] = useState({
     name: 'CodeGame Mall',
-    slogan: 'Sàn TMĐT Tiện Ích & Code Game #1 Việt Nam',
+    slogan: 'Kho Mã Giftcode & Tiện Ích Game Số 1 Việt Nam',
     hotline: '0987.654.321'
   });
+
+  // Hero carousel slide state (3 slide thật sự có nút prev/next và tự chuyển slide)
+  const [heroSlide, setHeroSlide] = useState<number>(0);
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setHeroSlide((prev) => (prev + 1) % 3);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Đồng bộ theme Shopee với thẻ html toàn cục để mọi modal và subview hiển thị chuẩn màu
+  useEffect(() => {
+    if (isShopeeDark) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    return () => {
+      document.documentElement.classList.add('dark');
+    };
+  }, [isShopeeDark]);
+
+  // Tự động reset danh mục khi người dùng gõ từ khóa tìm kiếm mới
+  useEffect(() => {
+    if (searchKeyword.trim() !== '') {
+      setSelectedCategory('all');
+      setCurrentPage(1);
+    }
+  }, [searchKeyword]);
+
+  // Reset trang về 1 khi đổi tab sản phẩm
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedProductType]);
 
   // Shopping cart badge count
   const [cartCount, setCartCount] = useState<number>(() => {
@@ -243,49 +277,24 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
     return () => window.removeEventListener('wcg_cart_updated', handleCartUpdated);
   }, []);
 
-  // Countdown timer for Flash Sale
-  const [timeLeft, setTimeLeft] = useState({ hours: 2, minutes: 15, seconds: 48 });
+  // Countdown timer for Flash Sale (Khung giờ kết thúc cố định: cuối ngày 23:59:59 của ngày hiện tại - đếm xuống đơn điệu)
+  const calculateFlashSaleTimeLeft = () => {
+    const now = new Date();
+    const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59).getTime();
+    const diff = Math.max(0, Math.floor((endOfDay - now.getTime()) / 1000));
+    return {
+      hours: Math.floor(diff / 3600),
+      minutes: Math.floor((diff % 3600) / 60),
+      seconds: diff % 60,
+    };
+  };
+
+  const [timeLeft, setTimeLeft] = useState(calculateFlashSaleTimeLeft);
   useEffect(() => {
     const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev.seconds > 0) return { ...prev, seconds: prev.seconds - 1 };
-        if (prev.minutes > 0) return { ...prev, minutes: 59, seconds: 59 };
-        if (prev.hours > 0) return { hours: prev.hours - 1, minutes: 59, seconds: 59 };
-        return { hours: 2, minutes: 59, seconds: 59 };
-      });
+      setTimeLeft(calculateFlashSaleTimeLeft());
     }, 1000);
     return () => clearInterval(timer);
-  }, []);
-
-  // Simulated Realtime Social Proof Ticker (Shopee Live Notifications)
-  const [fomoNotice, setFomoNotice] = useState<{ text: string; time: string; icon: string } | null>({
-    text: 'Khách hàng 098*** vừa mua Thẻ Garena 50K',
-    time: 'Vừa xong',
-    icon: '💳'
-  });
-
-  useEffect(() => {
-    const fomoSamples = [
-      { text: 'Khách hàng 097*** vừa mua Thẻ Garena 100K', icon: '💳' },
-      { text: 'Khách hàng tuan*** vừa nhận mã Blox Fruits', icon: '🎁' },
-      { text: 'Khách hàng minh*** vừa mua Acc Liên Quân Trắng TT', icon: '🎮' },
-      { text: 'Khách hàng le*** vừa nạp 200 Core qua VietQR', icon: '⚡' },
-      { text: 'Khách hàng phuong*** vừa săn thành công Giftcode FC Online', icon: '🎁' },
-      { text: 'Khách hàng hung*** vừa mua Gói Nạp Kim Cương Free Fire', icon: '💎' },
-      { text: 'Khách hàng tran*** vừa nhận Code Genshin Impact 0đ', icon: '✨' },
-      { text: 'Khách hàng bao*** vừa mua Gói Code Hiệp Khách Hành 0s', icon: '📦' },
-    ];
-
-    let idx = 0;
-    const interval = setInterval(() => {
-      idx = (idx + 1) % fomoSamples.length;
-      setFomoNotice({
-        text: fomoSamples[idx].text,
-        time: 'Vừa xong',
-        icon: fomoSamples[idx].icon
-      });
-    }, 8000);
-    return () => clearInterval(interval);
   }, []);
 
   // Reset page when category or search changes
@@ -334,8 +343,37 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
     });
   }, [allGames, selectedCategory, searchKeyword, sortOrder]);
 
-  // Paginated games slice (24 items / page)
-  const totalPages = Math.max(1, Math.ceil(filteredGames.length / pageSize));
+  // Định danh chuẩn mực chống trùng tên trên cùng 1 bảng A-Z
+  const getGameDisplayName = (g: GameItem) => {
+    const slug = g.slug || '';
+    if (slug === 'where-winds-meet-mobile') return `${g.name} (Bản Mobile)`;
+    if (slug === 'where-winds-meet') return `${g.name} (Bản PC)`;
+    if (slug === 'yen-van-thap-luc-thanh') return `${g.name} (Yến Vân Thập Lục Thanh)`;
+    if (slug === 'dau-truong-chan-ly-mobile') return `${g.name} (TFT Mobile VN)`;
+    if (slug === 'dau-truong-chan-ly') return `${g.name} (TFT PC)`;
+    if (slug === 'ta-la-hac-ngo-khong-vplay') return `${g.name} (VPlay)`;
+    if (slug === 'ta-la-hac-ngo-khong') return `${g.name} (Bản Gốc)`;
+    if (slug === 'x-wukong-dai-chien-tam-gioi') return `${g.name} (Đại Chiến Tam Giới)`;
+    if (slug === 'x-wukong') return `${g.name} (Bản Alpha)`;
+    if (slug === 'seven-deadly-sins-grand-cross') return `${g.name} (Grand Cross)`;
+    if (slug === 'seven-deadly-sins-idle') return `${g.name} (Idle Adventure)`;
+    if (slug === 'tien-nghich-mobile') return `${g.name} (Bản Mobile)`;
+    if (slug === 'tien-nghich-tan-tinh-kiem') return `${g.name} (Tân Tình Kiếm)`;
+    if (slug === 'sword-x-staff') return `${g.name} (Boltray)`;
+    if (slug === 'kiem-va-phap-truong-funtap') return `${g.name} (Funtap)`;
+    return g.name;
+  };
+
+  // Paginated slices theo tab đang chọn
+  const activeTotalCount = useMemo(() => {
+    if (selectedProductType === 'giveaway') return filteredGiveaways.length;
+    if (selectedProductType === 'utility') return filteredUtilities.length;
+    if (selectedProductType === 'account') return filteredStoreProducts.length;
+    return filteredGames.length;
+  }, [selectedProductType, filteredGiveaways.length, filteredUtilities.length, filteredStoreProducts.length, filteredGames.length]);
+
+  const totalPages = Math.max(1, Math.ceil(activeTotalCount / pageSize));
+
   const paginatedGames = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
     return filteredGames.slice(start, start + pageSize);
@@ -354,6 +392,14 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
     return list;
   }, [storeProducts, searchKeyword]);
 
+  const paginatedStoreProducts = useMemo(() => {
+    if (selectedProductType !== 'account') {
+      return filteredStoreProducts.slice(0, 6);
+    }
+    const start = (currentPage - 1) * pageSize;
+    return filteredStoreProducts.slice(start, start + pageSize);
+  }, [filteredStoreProducts, selectedProductType, currentPage, pageSize]);
+
   // 3. Filter utility products (Cloud Phone, Gói nạp)
   const filteredUtilities = useMemo(() => {
     let list = utilities || [];
@@ -366,6 +412,14 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
     }
     return list;
   }, [utilities, searchKeyword]);
+
+  const paginatedUtilities = useMemo(() => {
+    if (selectedProductType !== 'utility') {
+      return filteredUtilities.slice(0, 6);
+    }
+    const start = (currentPage - 1) * pageSize;
+    return filteredUtilities.slice(start, start + pageSize);
+  }, [filteredUtilities, selectedProductType, currentPage, pageSize]);
 
   // 4. Filter giveaways
   const filteredGiveaways = useMemo(() => {
@@ -380,6 +434,14 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
     return list;
   }, [giveaways, searchKeyword]);
 
+  const paginatedGiveaways = useMemo(() => {
+    if (selectedProductType !== 'giveaway') {
+      return filteredGiveaways.slice(0, 6);
+    }
+    const start = (currentPage - 1) * pageSize;
+    return filteredGiveaways.slice(start, start + pageSize);
+  }, [filteredGiveaways, selectedProductType, currentPage, pageSize]);
+
   // Top flash sale items (đồng bộ từ khóa tìm kiếm)
   const flashSaleGames = useMemo(() => {
     let list = (allGames || []).filter((g) => (g.codes_count || g.active_codes_count || g.codes?.length || 0) > 0);
@@ -392,13 +454,13 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
 
   // Filter raw upcoming games (90 bản ghi thật đồng bộ từ web chính)
   const filteredUpcoming = useMemo(() => {
-    let list = liveUpcomingList || [];
+    let list = (liveUpcomingList || []).filter(g => g.name !== 'REPLACED' && !g.slug?.includes('replaced'));
     if (upcomingStatusFilter === 'UPCOMING') {
-      list = list.filter((g) => g.status === 'UPCOMING' || g.status === 'APPROVED');
+      list = list.filter((g) => (g.status === 'UPCOMING' || g.status === 'APPROVED') && !(g.status === 'LAUNCHED' || g.status === 'RELEASED' || (Boolean(g.releaseDate) && new Date(g.releaseDate) <= new Date())));
     } else if (upcomingStatusFilter === 'PENDING') {
       list = list.filter((g) => g.status === 'PENDING');
     } else if (upcomingStatusFilter === 'RELEASED') {
-      list = list.filter((g) => g.status === 'LAUNCHED' || g.status === 'RELEASED');
+      list = list.filter((g) => g.status === 'LAUNCHED' || g.status === 'RELEASED' || (Boolean(g.releaseDate) && new Date(g.releaseDate) <= new Date()));
     }
     if (searchKeyword.trim()) {
       const q = searchKeyword.toLowerCase();
@@ -650,8 +712,10 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
         </div>
       </div>
 
-      {/* 2. MAIN HEADER SHOPEE */}
-      <div className="bg-gradient-to-b from-[#f53d2d] to-[#ee4d2d] text-white pt-2.5 pb-3 px-4 sticky top-[36px] z-40 shadow-md">
+      {/* 2. STICKY HEADER CONTAINER (Main Header + Sub-nav dính liền nhau) */}
+      <div className="sticky top-[36px] z-40 shadow-md">
+        {/* MAIN HEADER SHOPEE */}
+        <div className="bg-gradient-to-b from-[#f53d2d] to-[#ee4d2d] text-white pt-2.5 pb-3 px-4">
         <div className="max-w-6xl mx-auto flex items-center justify-between gap-3 sm:gap-6">
           
           {/* Logo Sàn Shopee Game (Dynamic White-Label Brand) */}
@@ -720,7 +784,7 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
       </div>
 
       {/* 2.1. SUB-NAVIGATION BAR (Thanh Điều Hướng Toàn Diện Giữ Khách Ở Lại test1) */}
-      <div className="bg-[#d73211] text-white text-xs font-semibold px-4 overflow-x-auto scrollbar-none shadow-inner sticky top-[95px] sm:top-[103px] z-30">
+      <div className="bg-[#d73211] text-white text-xs font-semibold px-4 overflow-x-auto scrollbar-none shadow-inner border-t border-red-700/40">
         <div className="max-w-6xl mx-auto flex items-center gap-1 sm:gap-2 py-1.5 whitespace-nowrap">
           <button
             onClick={() => setSubView('home')}
@@ -818,6 +882,7 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
             <span>Gửi Mã Mới</span>
           </button>
         </div>
+      </div>
       </div>
 
       {/* 2.2. BREADCRUMB QUAY LẠI TRANG CHỦ SÀN (KHI ĐANG XEM SUBVIEW KHÁC) */}
@@ -935,7 +1000,7 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
                   <span>Bảng Game Sắp Ra Mắt ({liveUpcomingList.length || 90} Bản Ghi Chuẩn Web Chính)</span>
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Dữ liệu thực tế: {liveUpcomingList.filter((g) => g.status === 'UPCOMING' || g.status === 'APPROVED').length} game đang chờ mở, {liveUpcomingList.filter((g) => g.status === 'PENDING').length} game chờ duyệt, {liveUpcomingList.filter((g) => g.status === 'LAUNCHED' || g.status === 'RELEASED').length} game đã ra mắt. Không bịa mã hay đếm ngược ảo.
+                  Dữ liệu thực tế: {liveUpcomingList.filter((g) => (g.status === 'UPCOMING' || g.status === 'APPROVED') && !(g.status === 'LAUNCHED' || g.status === 'RELEASED' || (Boolean(g.releaseDate) && new Date(g.releaseDate) <= new Date()))).length} game đang chờ mở, {liveUpcomingList.filter((g) => g.status === 'PENDING').length} game chờ duyệt, {liveUpcomingList.filter((g) => g.status === 'LAUNCHED' || g.status === 'RELEASED' || (Boolean(g.releaseDate) && new Date(g.releaseDate) <= new Date())).length} game đã ra mắt. Không bịa mã hay đếm ngược ảo.
                 </p>
               </div>
 
@@ -945,13 +1010,13 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
                   onClick={() => setUpcomingStatusFilter('ALL')}
                   className={`px-2.5 py-1 rounded transition cursor-pointer ${upcomingStatusFilter === 'ALL' ? 'bg-[#ee4d2d] text-white shadow-xs' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'}`}
                 >
-                  Tất Cả ({liveUpcomingList.length || 90})
+                  Tất Cả ({liveUpcomingList.filter(g => g.name !== 'REPLACED' && !g.slug?.includes('replaced')).length || 90})
                 </button>
                 <button
                   onClick={() => setUpcomingStatusFilter('UPCOMING')}
                   className={`px-2.5 py-1 rounded transition cursor-pointer ${upcomingStatusFilter === 'UPCOMING' ? 'bg-[#ee4d2d] text-white shadow-xs' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'}`}
                 >
-                  Đang Chờ Mở ({liveUpcomingList.filter((g) => g.status === 'UPCOMING' || g.status === 'APPROVED').length})
+                  Đang Chờ Mở ({liveUpcomingList.filter((g) => (g.status === 'UPCOMING' || g.status === 'APPROVED') && !(g.status === 'LAUNCHED' || g.status === 'RELEASED' || (Boolean(g.releaseDate) && new Date(g.releaseDate) <= new Date()))).length})
                 </button>
                 <button
                   onClick={() => setUpcomingStatusFilter('PENDING')}
@@ -963,7 +1028,7 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
                   onClick={() => setUpcomingStatusFilter('RELEASED')}
                   className={`px-2.5 py-1 rounded transition cursor-pointer ${upcomingStatusFilter === 'RELEASED' ? 'bg-[#ee4d2d] text-white shadow-xs' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'}`}
                 >
-                  Đã Ra Mắt ({liveUpcomingList.filter((g) => g.status === 'LAUNCHED' || g.status === 'RELEASED').length})
+                  Đã Ra Mắt ({liveUpcomingList.filter((g) => g.status === 'LAUNCHED' || g.status === 'RELEASED' || (Boolean(g.releaseDate) && new Date(g.releaseDate) <= new Date())).length})
                 </button>
               </div>
             </div>
@@ -1001,9 +1066,19 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
                           <Calendar className="w-3.5 h-3.5 text-[#ee4d2d]" />
                           <span>{game.releaseDate ? game.releaseDate.split('T')[0] : 'Chưa rõ ngày ra mắt'}</span>
                         </div>
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600">
-                          {game.status === 'PENDING' ? 'Chờ Duyệt' : game.status === 'RELEASED' ? 'Đã Ra Mắt' : 'Sắp Mở Server'}
-                        </span>
+                        {(() => {
+                          const isLaunched = game.status === 'RELEASED' || game.status === 'LAUNCHED' || (Boolean(game.releaseDate) && new Date(game.releaseDate) <= new Date());
+                          const isPending = game.status === 'PENDING';
+                          return (
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                              isLaunched ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400' :
+                              isPending ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400' :
+                              'bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400'
+                            }`}>
+                              {isLaunched ? 'Đã Ra Mắt' : isPending ? 'Chờ Duyệt' : 'Sắp Mở Server'}
+                            </span>
+                          );
+                        })()}
                       </div>
 
                       {/* Expected codes: NO FAKE CODES */}
@@ -1286,7 +1361,7 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
               <div>
                 <h3 className="font-bold text-lg text-slate-900 dark:text-white flex items-center gap-2">
                   <List className="w-5 h-5 text-[#ee4d2d]" />
-                  <span>Mục Lục Toàn Bộ Tựa Game A-Z ({azCanonicalTotal} Game Có Giấy Phép)</span>
+                  <span>Mục Lục Toàn Bộ Tựa Game A-Z ({azCanonicalTotal} Tựa Game Chuẩn Hóa)</span>
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
                   Tra cứu nhanh chóng theo bảng chữ cái từ A đến Z toàn bộ {azCanonicalTotal} tựa game mobile và PC.
@@ -1339,8 +1414,8 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
                               {g.icon_url ? <img src={g.icon_url} alt={g.name} className="w-full h-full object-cover" /> : '🎮'}
                             </div>
                             <div className="min-w-0 flex-1">
-                              <div className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate group-hover:text-[#ee4d2d]">
-                                {g.name}
+                              <div className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate group-hover:text-[#ee4d2d]" title={getGameDisplayName(g)}>
+                                {getGameDisplayName(g)}
                               </div>
                               <div className="text-[10px] text-slate-400 truncate">
                                 {g.codes_count || g.active_codes_count || 0} mã
@@ -1416,29 +1491,109 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
 
             {/* 3.1. HERO BANNER GRID (2/3 + 1/3) */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
-              {/* Banner Chính Lớn */}
-              <div className="md:col-span-2 rounded-xl bg-gradient-to-r from-red-600 via-orange-500 to-amber-500 text-white p-5 sm:p-6 relative overflow-hidden flex flex-col justify-between min-h-[200px] sm:min-h-[220px] shadow-sm">
+              {/* Banner Chính Lớn - Dynamic Carousel 3 Slides */}
+              <div className="md:col-span-2 rounded-xl bg-gradient-to-r from-red-600 via-orange-500 to-amber-500 text-white p-5 sm:p-6 relative overflow-hidden flex flex-col justify-between min-h-[200px] sm:min-h-[220px] shadow-sm group">
+                {/* Nút lùi slide */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setHeroSlide((prev) => (prev - 1 + 3) % 3);
+                  }}
+                  className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/30 hover:bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition z-20 cursor-pointer"
+                  title="Slide trước"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+
+                {/* Nút tiến slide */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setHeroSlide((prev) => (prev + 1) % 3);
+                  }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/30 hover:bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition z-20 cursor-pointer"
+                  title="Slide kế tiếp"
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+
+                {/* Nội dung Slide theo heroSlide */}
                 <div className="z-10">
-                  <div className="inline-flex items-center gap-1.5 bg-white/20 px-2.5 py-1 rounded-full text-[10px] sm:text-xs font-bold uppercase tracking-wider mb-2">
-                    🔥 SIÊU HỘI SÀN GAME & GIFTCODE 0Đ
-                  </div>
-                  <h2 className="text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight">SĂN CODE & MUA TIỆN ÍCH GAME 0S</h2>
-                  <p className="text-xs sm:text-sm text-white/90 mt-1 max-w-md">Tổng hợp 593+ game ABEI • Thẻ game chiết khấu cao • Gói code Hiệp Khách Hành • Bảo chứng 168h</p>
+                  {heroSlide === 0 && (
+                    <>
+                      <div className="inline-flex items-center gap-1.5 bg-white/20 px-2.5 py-1 rounded-full text-[10px] sm:text-xs font-bold uppercase tracking-wider mb-2">
+                        🔥 SIÊU HỘI SÀN GAME & GIFTCODE 0Đ
+                      </div>
+                      <h2 className="text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight">SĂN CODE & MUA TIỆN ÍCH GAME 0S</h2>
+                      <p className="text-xs sm:text-sm text-white/90 mt-1 max-w-md">Kho 593 game có giấy phép ABEI • Thẻ game chiết khấu cao • Gói code Hiệp Khách Hành • Bảo chứng 168h</p>
+                    </>
+                  )}
+                  {heroSlide === 1 && (
+                    <>
+                      <div className="inline-flex items-center gap-1.5 bg-white/20 px-2.5 py-1 rounded-full text-[10px] sm:text-xs font-bold uppercase tracking-wider mb-2">
+                        🎉 VÒNG QUAY MAY MẮN TRÚNG CORE
+                      </div>
+                      <h2 className="text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight">VÒNG QUAY XU HẰNG NGÀY</h2>
+                      <p className="text-xs sm:text-sm text-white/90 mt-1 max-w-md">Nhận lượt quay may mắn mỗi ngày • Trúng ngay tới 1.000 Core, thẻ cào & quà tặng độc quyền</p>
+                    </>
+                  )}
+                  {heroSlide === 2 && (
+                    <>
+                      <div className="inline-flex items-center gap-1.5 bg-white/20 px-2.5 py-1 rounded-full text-[10px] sm:text-xs font-bold uppercase tracking-wider mb-2">
+                        🛡️ BẢO CHỨNG GIAO DỊCH 168H
+                      </div>
+                      <h2 className="text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight">MUA BÁN TIỆN ÍCH AN TOÀN 100%</h2>
+                      <p className="text-xs sm:text-sm text-white/90 mt-1 max-w-md">Cơ chế sàn ký quỹ thông minh • Đền bù x2 nếu mã lỗi • Đội ngũ CSKH hỗ trợ kỹ thuật 24/7</p>
+                    </>
+                  )}
                 </div>
+
                 <div className="z-10 flex items-center justify-between mt-4">
-                  <button 
-                    onClick={() => {
-                      const el = document.getElementById('shopee-products-grid');
-                      if (el) el.scrollIntoView({ behavior: 'smooth' });
-                    }}
-                    className="bg-white text-[#ee4d2d] font-bold px-4 sm:px-5 py-2 rounded shadow-md hover:bg-amber-50 text-xs transition cursor-pointer"
-                  >
-                    Khám Phá Kệ Hàng Ngay →
-                  </button>
+                  {heroSlide === 0 && (
+                    <button 
+                      onClick={() => {
+                        const el = document.getElementById('shopee-products-grid');
+                        if (el) el.scrollIntoView({ behavior: 'smooth' });
+                      }}
+                      className="bg-white text-[#ee4d2d] font-bold px-4 sm:px-5 py-2 rounded shadow-md hover:bg-amber-50 text-xs transition cursor-pointer"
+                    >
+                      Khám Phá Kệ Hàng Ngay →
+                    </button>
+                  )}
+                  {heroSlide === 1 && (
+                    <button 
+                      onClick={() => onOpenGrowth ? onOpenGrowth() : onShowToast('Mở Vòng Quay Xu May Mắn', 'info')}
+                      className="bg-white text-[#ee4d2d] font-bold px-4 sm:px-5 py-2 rounded shadow-md hover:bg-amber-50 text-xs transition cursor-pointer"
+                    >
+                      Quay Thưởng Ngay →
+                    </button>
+                  )}
+                  {heroSlide === 2 && (
+                    <button 
+                      onClick={() => setIsGuaranteeOpen(true)}
+                      className="bg-white text-[#ee4d2d] font-bold px-4 sm:px-5 py-2 rounded shadow-md hover:bg-amber-50 text-xs transition cursor-pointer"
+                    >
+                      Tìm Hiểu Thêm →
+                    </button>
+                  )}
+
+                  {/* Indicator Dots */}
                   <div className="flex items-center gap-1.5">
-                    <span className="w-3 h-1.5 bg-white rounded-full"></span>
-                    <span className="w-1.5 h-1.5 bg-white/50 rounded-full"></span>
-                    <span className="w-1.5 h-1.5 bg-white/50 rounded-full"></span>
+                    <button
+                      onClick={() => setHeroSlide(0)}
+                      className={`h-1.5 rounded-full transition-all cursor-pointer ${heroSlide === 0 ? 'w-4 bg-white' : 'w-1.5 bg-white/50'}`}
+                      aria-label="Slide 1"
+                    />
+                    <button
+                      onClick={() => setHeroSlide(1)}
+                      className={`h-1.5 rounded-full transition-all cursor-pointer ${heroSlide === 1 ? 'w-4 bg-white' : 'w-1.5 bg-white/50'}`}
+                      aria-label="Slide 2"
+                    />
+                    <button
+                      onClick={() => setHeroSlide(2)}
+                      className={`h-1.5 rounded-full transition-all cursor-pointer ${heroSlide === 2 ? 'w-4 bg-white' : 'w-1.5 bg-white/50'}`}
+                      aria-label="Slide 3"
+                    />
                   </div>
                 </div>
                 <div className="absolute -right-10 -bottom-10 w-60 h-60 bg-white/10 rounded-full blur-xl pointer-events-none"></div>
@@ -1564,12 +1719,17 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
             {/* 3.3. DANH MỤC GAME (6 Nhóm Danh Mục Chuẩn Web Chính + Bộ Sắp Xếp) */}
             <div className={`rounded-xl shadow-sm border ${isShopeeDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
               <div className="p-3 border-b border-slate-200/60 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <Compass className="w-4 h-4 text-[#ee4d2d]" />
                   <h3 className="text-sm font-bold uppercase tracking-wider text-[#ee4d2d]">
-                    6 CHUYÊN MỤC GAME CHUẨN (ABEI - G1)
+                    6 CHUYÊN MỤC GAME PHỔ BIẾN
                   </h3>
-                  <span className="text-xs text-slate-500">({filteredGames.length} / {allGames.length} game)</span>
+                  <span className="text-xs text-slate-500 font-medium">
+                    ({selectedCategory === 'all' ? `Tổng kho ${allGames.length} game` : `${filteredGames.length} game trong mục này / Kho ${allGames.length} game`})
+                  </span>
+                  <span className="text-[10px] text-slate-400 italic hidden md:inline">
+                    * 1 tựa game có thể thuộc nhiều chuyên mục phù hợp
+                  </span>
                 </div>
 
                 {/* Sắp xếp: Mới nhất, Nhiều mã nhất, Ngày cấp phép */}
@@ -1635,7 +1795,12 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
                 </div>
 
                 <button 
-                  onClick={() => setSelectedProductType('giftcode')}
+                  onClick={() => {
+                    setSelectedProductType('giftcode');
+                    const el = document.getElementById('shopee-products-grid');
+                    if (el) el.scrollIntoView({ behavior: 'smooth' });
+                    onShowToast('Đã chuyển đến toàn bộ danh mục Giftcode Flash Sale!', 'info');
+                  }}
                   className="text-xs text-[#ee4d2d] hover:underline font-semibold flex items-center cursor-pointer"
                 >
                   <span>Xem Tất Cả</span>
@@ -1663,6 +1828,9 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
                           ) : (
                             <div className="w-full h-full flex items-center justify-center text-2xl">🎮</div>
                           )}
+                          <span className="absolute top-0 left-0 bg-[#ee4d2d] text-white font-extrabold text-[9px] px-1 py-0.2 rounded-br">
+                            -100%
+                          </span>
                           <span className="absolute top-0 right-0 bg-yellow-400 text-red-600 font-extrabold text-[9px] px-1 py-0.2">
                             HOT
                           </span>
@@ -1674,7 +1842,10 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
                       </div>
 
                       <div className="mt-2 pt-1 border-t border-slate-100 dark:border-slate-700/60">
-                        <div className="text-[#ee4d2d] font-bold text-xs">0đ (Miễn Phí)</div>
+                        <div className="flex items-baseline justify-between">
+                          <div className="text-[#ee4d2d] font-bold text-xs">0 Core (Miễn Phí)</div>
+                          <div className="text-[10px] text-slate-400 line-through font-mono">50.000 Core</div>
+                        </div>
                         <div className="w-full bg-orange-100 dark:bg-orange-950/60 rounded-full h-3 mt-1 relative overflow-hidden flex items-center">
                           <div className="bg-[#ee4d2d] h-full rounded-full" style={{ width: `${Math.min(100, Math.max(30, activeCount * 5))}%` }}></div>
                           <span className="absolute inset-0 text-[8px] text-center font-bold text-white flex items-center justify-center leading-none">
@@ -1695,8 +1866,8 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
               <div className="flex items-center justify-between border-b-2 border-[#ee4d2d] pb-2 flex-wrap gap-2">
                 <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto scrollbar-none">
                   {[
-                    { id: 'all', label: '🔥 Tất Cả Hàng Hóa', count: (allGames.length + filteredStoreProducts.length + filteredUtilities.length + filteredGiveaways.length) },
-                    { id: 'giftcode', label: '🎁 Giftcode 0Đ', count: allGames.length },
+                    { id: 'all', label: '🔥 Tất Cả Hàng Hóa', count: (filteredGames.length + filteredStoreProducts.length + filteredUtilities.length + filteredGiveaways.length) },
+                    { id: 'giftcode', label: '🎁 Giftcode 0Đ', count: filteredGames.length },
                     { id: 'utility', label: '💳 Tiện Ích & Thẻ Game', count: filteredUtilities.length },
                     { id: 'account', label: '🎮 Gói Code Cửa Hàng', count: filteredStoreProducts.length },
                     { id: 'giveaway', label: '🎉 Săn Giveaway', count: filteredGiveaways.length },
@@ -1719,7 +1890,13 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
                 </div>
 
                 <div className="text-xs text-slate-500 font-medium">
-                  Trang {currentPage} / {totalPages} • Tổng {filteredGames.length} tựa game
+                  Trang {currentPage} / {totalPages} • Tổng {
+                    selectedProductType === 'giftcode' ? `${filteredGames.length} tựa game` :
+                    selectedProductType === 'utility' ? `${filteredUtilities.length} tiện ích` :
+                    selectedProductType === 'account' ? `${filteredStoreProducts.length} gói cửa hàng` :
+                    selectedProductType === 'giveaway' ? `${filteredGiveaways.length} sự kiện` :
+                    `${filteredGames.length + filteredStoreProducts.length + filteredUtilities.length + filteredGiveaways.length} mục`
+                  }
                 </div>
               </div>
 
@@ -1727,7 +1904,7 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5">
                 
                 {/* 1. RENDER TIỆN ÍCH GAME (Cloud Phone, Thẻ Game) */}
-                {(selectedProductType === 'all' || selectedProductType === 'utility') && filteredUtilities.slice(0, selectedProductType === 'utility' ? 36 : 6).map((ut) => {
+                {(selectedProductType === 'all' || selectedProductType === 'utility') && paginatedUtilities.map((ut) => {
                   const isOutOfStock = (ut.stock_quantity ?? 0) <= 0;
                   return (
                     <div
@@ -1792,7 +1969,7 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
                 })}
 
                 {/* 2. RENDER CỬA HÀNG GÓI CODE (10 GÓI HIỆP KHÁCH HÀNH CỦA WEB CHÍNH) */}
-                {(selectedProductType === 'all' || selectedProductType === 'account') && filteredStoreProducts.slice(0, selectedProductType === 'account' ? 36 : 6).map((prod) => {
+                {(selectedProductType === 'all' || selectedProductType === 'account') && paginatedStoreProducts.map((prod) => {
                   const isOutOfStock = (prod.stock_quantity ?? 0) <= 0;
                   const hasFirstOffer = prod.first_purchase_price ? true : ((prod.original_price || prod.current_price || 0) <= 30000 && prod.current_price > 2000);
                   const firstPrice = prod.first_purchase_price ? Number(prod.first_purchase_price) : 2000;
@@ -1870,54 +2047,60 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
                 })}
 
                 {/* 3. RENDER SỰ KIỆN GIVEAWAY */}
-                {(selectedProductType === 'all' || selectedProductType === 'giveaway') && filteredGiveaways.slice(0, selectedProductType === 'giveaway' ? 36 : 6).map((gw) => (
-                  <div
-                    key={gw.id}
-                    onClick={() => onSelectGiveaway ? onSelectGiveaway(gw.id) : onShowToast(`Sự kiện Giveaway: ${gw.title}`, 'info')}
-                    className={`rounded-lg border hover:border-[#ee4d2d] hover:-translate-y-0.5 transition duration-150 shadow-sm cursor-pointer overflow-hidden flex flex-col justify-between group ${isShopeeDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}
-                  >
-                    <div>
-                      <div className="w-full h-32 bg-slate-100 dark:bg-slate-800 relative flex items-center justify-center overflow-hidden">
-                        {gw.banner_url || gw.game_icon ? (
-                          <img src={gw.banner_url || gw.game_icon} alt={gw.title} className="w-full h-full object-cover group-hover:scale-105 transition duration-200" />
-                        ) : (
-                          <span className="text-4xl">🎉</span>
-                        )}
-                        <span className="absolute top-0 left-0 bg-purple-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-br">
-                          Giveaway
-                        </span>
+                {(selectedProductType === 'all' || selectedProductType === 'giveaway') && paginatedGiveaways.map((gw) => {
+                  const gwDisplayTitle = (!gw.title || /^[0-9]+$/.test(gw.title.trim()))
+                    ? `Săn Quà Tặng Giftcode ${gw.game_name || 'Đặc Biệt'}`
+                    : gw.title;
+
+                  return (
+                    <div
+                      key={gw.id}
+                      onClick={() => onSelectGiveaway ? onSelectGiveaway(gw.id) : onShowToast(`Sự kiện Giveaway: ${gwDisplayTitle}`, 'info')}
+                      className={`rounded-lg border hover:border-[#ee4d2d] hover:-translate-y-0.5 transition duration-150 shadow-sm cursor-pointer overflow-hidden flex flex-col justify-between group ${isShopeeDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}
+                    >
+                      <div>
+                        <div className="w-full h-32 bg-slate-100 dark:bg-slate-800 relative flex items-center justify-center overflow-hidden">
+                          {gw.banner_url || gw.game_icon ? (
+                            <img src={gw.banner_url || gw.game_icon} alt={gwDisplayTitle} className="w-full h-full object-cover group-hover:scale-105 transition duration-200" />
+                          ) : (
+                            <span className="text-4xl">🎉</span>
+                          )}
+                          <span className="absolute top-0 left-0 bg-purple-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-br">
+                            Giveaway
+                          </span>
+                        </div>
+
+                        <div className="p-2 space-y-1">
+                          <div className="text-[11px] font-semibold line-clamp-2 leading-snug group-hover:text-[#ee4d2d] transition" title={gwDisplayTitle}>
+                            {gwDisplayTitle}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="text-[9px] border border-purple-500 text-purple-500 px-1 rounded">Miễn Phí</span>
+                            <span className="text-[9px] text-slate-400">{gw.game_name}</span>
+                          </div>
+                        </div>
                       </div>
 
-                      <div className="p-2 space-y-1">
-                        <div className="text-[11px] font-semibold line-clamp-2 leading-snug group-hover:text-[#ee4d2d] transition" title={gw.title}>
-                          {gw.title}
+                      <div className="p-2 pt-0 space-y-1.5">
+                        <div className="flex items-baseline justify-between">
+                          <div className="text-purple-600 font-bold text-xs">0 Core (Quà Tặng)</div>
+                          <div className="text-[10px] text-slate-400">{gw.total_codes || 100} suất</div>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <span className="text-[9px] border border-purple-500 text-purple-500 px-1 rounded">Miễn Phí</span>
-                          <span className="text-[9px] text-slate-400">{gw.game_name}</span>
-                        </div>
+
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (onSelectGiveaway) onSelectGiveaway(gw.id);
+                          }}
+                          className="w-full py-1 rounded bg-purple-600 hover:bg-purple-700 text-white text-[10px] font-bold flex items-center justify-center gap-1 transition shadow-sm cursor-pointer"
+                        >
+                          <Gift className="w-3 h-3" />
+                          <span>Săn Quà 0Đ Ngay</span>
+                        </button>
                       </div>
                     </div>
-
-                    <div className="p-2 pt-0 space-y-1.5">
-                      <div className="flex items-baseline justify-between">
-                        <div className="text-purple-600 font-bold text-xs">0 đ (Quà Tặng)</div>
-                        <div className="text-[10px] text-slate-400">{gw.total_codes || 100} suất</div>
-                      </div>
-
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (onSelectGiveaway) onSelectGiveaway(gw.id);
-                        }}
-                        className="w-full py-1 rounded bg-purple-600 hover:bg-purple-700 text-white text-[10px] font-bold flex items-center justify-center gap-1 transition shadow-sm cursor-pointer"
-                      >
-                        <Gift className="w-3 h-3" />
-                        <span>Săn Quà 0Đ Ngay</span>
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
 
                 {/* 4. RENDER DANH MỤC GAME GIFTCODE (PHÂN TRANG 24 GAME / TRANG) */}
                 {(selectedProductType === 'all' || selectedProductType === 'giftcode') && paginatedGames.map((game) => {
@@ -1966,11 +2149,15 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
                           </div>
                           <div className="flex items-center gap-1 flex-wrap">
                             <span className="text-[9px] border border-[#ee4d2d] text-[#ee4d2d] px-1 rounded">Giao 0s</span>
-                            {Boolean(game.license_number || game.so_giay_phep) && (
+                            {sortOrder === 'licensed' && Boolean(game.license_issued_date || game.ngay_cap) ? (
+                              <span className="text-[9px] bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 px-1 rounded truncate max-w-[90px]" title={`Ngày cấp phép: ${game.license_issued_date || game.ngay_cap}`}>
+                                📅 {game.license_issued_date || game.ngay_cap}
+                              </span>
+                            ) : Boolean(game.license_number || game.so_giay_phep) ? (
                               <span className="text-[9px] bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 px-1 rounded truncate max-w-[80px]">
                                 GP G1
                               </span>
-                            )}
+                            ) : null}
                             <span className="text-[9px] bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 px-1 rounded truncate max-w-[80px]">
                               {game.publisher || 'NPH Game'}
                             </span>
@@ -1980,37 +2167,34 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
 
                       <div className="p-2 pt-0 space-y-1.5">
                         <div className="flex items-baseline justify-between">
-                          <div className="text-[#ee4d2d] font-bold text-xs">0 đ (Miễn Phí)</div>
+                          <div className="text-[#ee4d2d] font-bold text-xs">0 Core (Miễn Phí)</div>
                           <div className="text-[10px] text-slate-400 font-medium">
                             {totalCount > activeCount ? `${activeCount} còn hạn / ${totalCount} tổng` : `${activeCount} mã sẵn`}
                           </div>
                         </div>
 
-                        {firstCode ? (
-                          <button 
-                            onClick={(e) => handleCopyCode(firstCode, e)}
-                            className="w-full py-1 rounded bg-orange-500/10 hover:bg-orange-500/20 text-[#ee4d2d] font-mono text-[10px] font-bold flex items-center justify-center gap-1 transition cursor-pointer"
-                          >
-                            {copiedCode === firstCode ? (
-                              <>
-                                <Check className="w-3 h-3 text-emerald-500" />
-                                <span>Đã Copy!</span>
-                              </>
-                            ) : (
-                              <>
-                                <Copy className="w-3 h-3" />
-                                <span>{firstCode}</span>
-                              </>
-                            )}
-                          </button>
-                        ) : (
+                        <div className="flex items-center gap-1.5">
                           <button 
                             onClick={() => onSelectGame(game)}
-                            className="w-full py-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] font-bold flex items-center justify-center gap-1 transition cursor-pointer"
+                            className="flex-1 py-1 rounded bg-orange-500/10 hover:bg-orange-500/20 text-[#ee4d2d] text-[10px] font-bold flex items-center justify-center gap-1 transition cursor-pointer"
                           >
-                            Xem Chi Tiết Mã
+                            <Gift className="w-3 h-3" />
+                            <span>Xem Chi Tiết Mã</span>
                           </button>
-                        )}
+                          {firstCode && (
+                            <button
+                              onClick={(e) => handleCopyCode(firstCode, e)}
+                              className="px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[10px] font-mono font-bold flex items-center justify-center transition cursor-pointer shrink-0"
+                              title={`Copy nhanh mã: ${firstCode}`}
+                            >
+                              {copiedCode === firstCode ? (
+                                <Check className="w-3 h-3 text-emerald-500" />
+                              ) : (
+                                <Copy className="w-3 h-3" />
+                              )}
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   );
@@ -2032,11 +2216,17 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
                 </div>
               )}
 
-              {/* BỘ PHÂN TRANG CHUẨN SHOPEE (ĐỦ 593 GAME) */}
+              {/* BỘ PHÂN TRANG CHUẨN SHOPEE */}
               {totalPages > 1 && (
                 <div className="pt-6 pb-2 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
                   <div className="text-slate-500 font-medium">
-                    Đang hiển thị {paginatedGames.length} / {filteredGames.length} tựa game (Trang {currentPage} / {totalPages})
+                    Đang hiển thị {
+                      selectedProductType === 'giftcode' ? `${paginatedGames.length} / ${filteredGames.length} tựa game` :
+                      selectedProductType === 'giveaway' ? `${paginatedGiveaways.length} / ${filteredGiveaways.length} sự kiện` :
+                      selectedProductType === 'utility' ? `${paginatedUtilities.length} / ${filteredUtilities.length} tiện ích` :
+                      selectedProductType === 'account' ? `${paginatedStoreProducts.length} / ${filteredStoreProducts.length} gói cửa hàng` :
+                      `${paginatedGames.length} / ${filteredGames.length} tựa game`
+                    } (Trang {currentPage} / {totalPages})
                   </div>
 
                   <div className="flex items-center gap-1">
@@ -2113,8 +2303,12 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
               <p className="text-slate-700 dark:text-slate-300 text-xs leading-relaxed font-medium">
                 Nền tảng thương mại điện tử chuyên biệt: Mua bán Tiện ích game, Gói code Hiệp Khách Hành, Thẻ game chiết khấu cao và chia sẻ Giftcode 0đ từ NPH có giấy phép G1/G234.
               </p>
-              <div className="text-[11px] text-slate-600 dark:text-slate-400 font-semibold">
-                Hạ tầng Edge Network • Vận hành 24/7 • Giữ tiền 168h
+              <div className="text-[11px] text-slate-600 dark:text-slate-400 font-semibold flex flex-wrap items-center gap-x-2 gap-y-1">
+                <span>Hạ tầng Edge Network</span>
+                <span>•</span>
+                <span>Vận hành 24/7</span>
+                <span>•</span>
+                <span>Giữ tiền 168h</span>
               </div>
             </div>
 
@@ -2227,18 +2421,6 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
 
       </div>
 
-      {/* 4. REALTIME FOMO TICKER POPUP (GÓC TRÁI DƯỚI) */}
-      {fomoNotice && (
-        <div className="fixed bottom-4 left-4 z-40 max-w-sm bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 shadow-xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
-          <div className="w-8 h-8 rounded-lg bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-base flex-shrink-0">
-            {fomoNotice.icon}
-          </div>
-          <div className="text-[11px] leading-tight">
-            <div className="font-semibold text-slate-800 dark:text-slate-200">{fomoNotice.text}</div>
-            <div className="text-[10px] text-slate-400 mt-0.5">{fomoNotice.time} • Bảo chứng 168h</div>
-          </div>
-        </div>
-      )}
 
       {/* 5. MODE SWITCHER NỔI GÓC PHẢI DƯỚI */}
       <div className="fixed bottom-4 right-4 z-50 flex items-center gap-2 bg-white/95 dark:bg-slate-900/95 backdrop-blur shadow-2xl border border-slate-300 dark:border-slate-700 px-3 py-2 rounded-full text-xs font-semibold">

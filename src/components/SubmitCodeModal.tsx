@@ -117,7 +117,7 @@ export const SubmitCodeModal: React.FC<SubmitCodeModalProps> = ({
               required
             >
               <option value="" className="bg-card text-muted-foreground">
-                -- Chọn một trong 340+ tựa game --
+                -- Chọn một trong 593 tựa game --
               </option>
               {games.map((g) => (
                 <option key={g.id} value={g.slug} className="bg-card text-foreground">

@@ -10,6 +10,26 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-283: Bẫy Đồng Bộ Giao Diện Phong Cách Sàn Đa Ngành & Rủi Ro Phân Tách Quá Mức Giữa Subview Thử Nghiệm Và Core Systems
+- **Triệu chứng & Rủi ro**:
+  1. *Nút tính năng không phản hồi (Vòng Quay Xu)*: Nút trên giao diện test gọi handler hợp lệ nhưng modal không render vì cờ `isEnabled` của service hệ thống bị khóa hoặc bị bọc điều kiện ở root component.
+  2. *Bộ đếm ngược bị nhảy ngược/lặp lại*: Bộ đếm Flash Sale reset về mốc khởi tạo tĩnh hoặc nhảy lên 59 phút khi trừ giờ do dùng logic giảm trừ cục bộ thay vì tính khoảng chênh lệch epoch cố định.
+  3. *Phân trang bị cắt lát cứng (Hardcoded Slice)*: Dùng `.slice(0, 36)` thay vì tính toán theo `currentPage * pageSize`, khiến các mục từ 37 trở đi bị mất hoàn toàn và đổi trang không đổi nội dung.
+  4. *Xung đột Dark Mode cấp gốc*: Component con quản lý state theme cục bộ mà không toggle class `dark` trên thẻ `<html>`, dẫn tới các thành phần kế thừa biến CSS màu chữ trắng trên nền trắng.
+- **Nguyên nhân gốc rễ**:
+  1. Thiếu kiểm tra dependency toàn cục giữa UI components và Feature Flags trong config service.
+  2. Dùng state đếm ngược tự quản thay vì hàm thuần túy tính từ `Date.now()` đến mốc thời gian chốt ngày.
+  3. Ghi cứng giới hạn mảng khi mockup ban đầu rồi quên refactor sang dynamic pagination.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Luôn kích hoạt cờ dịch vụ song song khi mở tính năng trên UI và loại bỏ bọc điều kiện thừa ở Root Layout.
+  2. Luôn neo bộ đếm ngược vào mốc epoch tuyệt đối (ví dụ: cuối ngày 23:59:59).
+  3. Xây dựng hook/memo phân trang chuẩn hóa cho mọi loại thực thể (Game, Utility, Giveaway, Store Product).
+  4. Luôn toggle `document.documentElement.classList.toggle('dark', isDark)` để đảm bảo 100% token màu Tailwind hiển thị chuẩn xác.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không dùng state giảm dần trong setInterval mà không neo vào mốc timestamp thật.*
+  - ❌ *Không bọc điều kiện flag ở cấp root cho các modal cần trigger từ component con.*
+  - ❌ *Không dùng `.slice(0, N)` cố định trên các view có hỗ trợ chuyển trang.*
+
 ### ISSUE-282: Bẫy Chênh Lệch Dữ Liệu Bộ Đếm Mã Game Giữa Bản Tĩnh Và D1 Runtime & Bẫy Callback Nhận String vs Object Gây URL /game/undefined
 - **Triệu chứng & Rủi ro**:
   1. *Lệch số mã thẻ ngoài vs modal*: Thẻ game ngoài lưới ghi 5 code nhưng mở modal có 10 code (Idle Heroes); Sword x Staff ghi 19 nhưng modal có 20; Tiên Nghịch ghi 19 nhưng modal chỉ có 16 còn hạn / 21 tổng.

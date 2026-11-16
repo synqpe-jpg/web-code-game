@@ -20,7 +20,7 @@ export const ShopeeGuaranteeModal: React.FC<ShopeeGuaranteeModalProps> = ({ isOp
               <ShieldCheck className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h3 className="font-bold text-lg leading-tight">Bảo Chứng Sàn Shopee Game</h3>
+              <h3 className="font-bold text-lg leading-tight">Bảo Chứng Giao Dịch 168 Giờ</h3>
               <p className="text-xs text-white/90">Chính sách giữ tiền 168 giờ an toàn tuyệt đối</p>
             </div>
           </div>

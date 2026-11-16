@@ -7,6 +7,35 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-16]
 
+### 400. Sửa Toàn Diện 38 Điểm Bất Cập / Lỗi Tồn Tại Sau Đợt Kiểm 6 Giờ Trên /test1 (16/11/2026)
+- **Bối cảnh & Yêu cầu của Chủ sở hữu**:
+  - Đợt kiểm toán toàn diện 6 giờ (02:23–07:44 16/11/2026) trên `codegame.shop/test1` ghi nhận 38 điểm cần xử lý thuộc 3 nhóm (4 nghiêm trọng, 14 trung bình, 20 nhỏ):
+    1. *4 Nghiêm trọng*: Nút Vòng Quay Xu bị liệt không mở modal; Bộ đếm Flash Sale bị nhảy ngược 59 phút và reset về 02:15:48; Danh sách Giveaway bị cắt cứng 36 mục và phân trang trang 2 không đổi; Chữ trắng trên nền trắng ở theme Shopee Trắng do html class dark không toggle đồng bộ.
+    2. *14 Trung bình*: Danh mục A-Z trùng tên nhiều bản PC/Mobile; Gói Như Lai giá niêm yết mâu thuẫn giá ưu đãi; Nút trên thẻ game ngoài lưới chỉ copy mã không mở modal; Ô tìm kiếm không reset category và đếm tab cố định 593; 6 chuyên mục game hiển thị 698 > 593 thiếu chú thích; Ký tự tiếng Thái bị ô vuông do thiếu fallback font; Deep link `/game/:slug` gặp race condition rỗng 0 game; Sắp ra mắt gắn nhãn sai cho game `LAUNCHED`.
+    3. *20 Nhỏ*: Header dính 2 lớp riêng biệt làm đè lấn nhau; Ticker FOMO góc trái đè 50% lên Toast; Carousel chỉ có 1 slide; Lỗi chính tả CàiNG TY CỔ PHẦN; Footer bị cắt chữ trên mobile; v.v.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Vòng Quay Xu*: `GrowthCenterModal` bị bọc trong `{isGrowthEnabled && (` tại `App.tsx` với config mặc định `isEnabled: false`.
+  2. *Bộ đếm Flash Sale*: State đếm khởi tạo tĩnh `{ hours: 2, minutes: 15, seconds: 48 }` và hàm `setInterval` gán cứng `minutes: 59` khi đổi giờ thay vì tính toán thời gian thực theo epoch tới 23:59:59.
+  3. *Giveaway cắt 36 & phân trang*: Dòng 1882 ghi cứng `slice(0, 36)` không theo `currentPage`, bỏ rơi 7 sự kiện (43 tổng).
+  4. *Lỗi theme Shopee Trắng*: `isShopeeDark` chỉ đổi class cục bộ mà không gỡ class `dark` khỏi thẻ `<html>`.
+  5. *A-Z trùng tên*: Các bản ghi alias cùng name nhưng khác slug (PC, Mobile, VPlay, Boltray).
+  6. *Header đè nhau*: Main header (`top-[36px]`) và sub-nav (`top-[95px]`) nằm ở 2 div riêng biệt với class sticky tách rời.
+- **Giải pháp áp dụng (Solution)**:
+  1. *Kích hoạt Vòng Quay Xu*: Gỡ bọc điều kiện ở `App.tsx`, cập nhật `growthService.ts` mặc định `isEnabled: true`, `wheelEnabled: true`.
+  2. *Bộ đếm thời gian thực Flash Sale*: Sử dụng `calculateFlashSaleTimeLeft()` neo mốc 23:59:59 cố định mỗi ngày, đếm xuống đơn điệu mỗi giây; nút Xem Tất Cả cuộn mượt xuống kệ hàng kèm toast.
+  3. *Phân trang Giveaway & Danh Mục*: Tạo `paginatedGiveaways` (24 mục/trang), sửa tiêu đề nếu là số thành `Săn Quà Tặng Giftcode <game_name>`, tính `totalPages` và label phân trang động theo tab.
+  4. *Đồng bộ Dark Theme*: Thêm `useEffect` toggle `document.documentElement.classList.toggle('dark', isShopeeDark)`.
+  5. *Định danh A-Z chuẩn mực*: Tạo hàm `getGameDisplayName()` phân biệt rõ bản Mobile/PC, VPlay, Funtap, bảo toàn đúng 593 game không trùng lặp danh xưng.
+  6. *Gộp Header Container Sticky*: Bọc Main Header và Sub-navigation trong cùng 1 container `sticky top-[36px] z-40 shadow-md`.
+  7. *Thẻ Game & Flash Sale*: Nút chính trên thẻ game luôn là `Xem Chi Tiết Mã` gọi modal, thêm nút copy nhanh bên cạnh; đồng bộ đơn vị `formatCore`, chiết khấu `-90%` cho Như Lai và `-100%` cho Flash Sale.
+  8. *Font Thái & Lọc chính tả*: Bổ sung fallback font Thái (`Noto Sans Thai`, `Leelawadee UI`) vào `index.html` và `index.css`; sửa chính tả CÔNG TY CỔ PHẦN trong `games188.json`.
+- **Kết quả nghiệm thu**:
+  - Build Vite & Prerender 593 game thành công 100%.
+  - Zero test artifacts PASSED 100%.
+  - Triển khai Cloudflare Pages và đồng bộ GitHub main.
+
+---
+
 ### 399. Đồng Bộ Toàn Diện Số Lượng Mã, Giá Gói Hiệp Khách Hành, Danh Mục A-Z 593 Game & Trạng Thái Tải Modal (16/11/2026)
 - **Bối cảnh & Yêu cầu của Chủ sở hữu**:
   - Sau hotfix `b3399c1`, kiểm tra thực tế bằng trình duyệt thật ghi nhận 6 điểm lệch số và bất cập hiển thị:
@@ -105,6 +134,35 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-16]
 
+### 400. Sửa Toàn Diện 38 Điểm Bất Cập / Lỗi Tồn Tại Sau Đợt Kiểm 6 Giờ Trên /test1 (16/11/2026)
+- **Bối cảnh & Yêu cầu của Chủ sở hữu**:
+  - Đợt kiểm toán toàn diện 6 giờ (02:23–07:44 16/11/2026) trên `codegame.shop/test1` ghi nhận 38 điểm cần xử lý thuộc 3 nhóm (4 nghiêm trọng, 14 trung bình, 20 nhỏ):
+    1. *4 Nghiêm trọng*: Nút Vòng Quay Xu bị liệt không mở modal; Bộ đếm Flash Sale bị nhảy ngược 59 phút và reset về 02:15:48; Danh sách Giveaway bị cắt cứng 36 mục và phân trang trang 2 không đổi; Chữ trắng trên nền trắng ở theme Shopee Trắng do html class dark không toggle đồng bộ.
+    2. *14 Trung bình*: Danh mục A-Z trùng tên nhiều bản PC/Mobile; Gói Như Lai giá niêm yết mâu thuẫn giá ưu đãi; Nút trên thẻ game ngoài lưới chỉ copy mã không mở modal; Ô tìm kiếm không reset category và đếm tab cố định 593; 6 chuyên mục game hiển thị 698 > 593 thiếu chú thích; Ký tự tiếng Thái bị ô vuông do thiếu fallback font; Deep link `/game/:slug` gặp race condition rỗng 0 game; Sắp ra mắt gắn nhãn sai cho game `LAUNCHED`.
+    3. *20 Nhỏ*: Header dính 2 lớp riêng biệt làm đè lấn nhau; Ticker FOMO góc trái đè 50% lên Toast; Carousel chỉ có 1 slide; Lỗi chính tả CàiNG TY CỔ PHẦN; Footer bị cắt chữ trên mobile; v.v.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Vòng Quay Xu*: `GrowthCenterModal` bị bọc trong `{isGrowthEnabled && (` tại `App.tsx` với config mặc định `isEnabled: false`.
+  2. *Bộ đếm Flash Sale*: State đếm khởi tạo tĩnh `{ hours: 2, minutes: 15, seconds: 48 }` và hàm `setInterval` gán cứng `minutes: 59` khi đổi giờ thay vì tính toán thời gian thực theo epoch tới 23:59:59.
+  3. *Giveaway cắt 36 & phân trang*: Dòng 1882 ghi cứng `slice(0, 36)` không theo `currentPage`, bỏ rơi 7 sự kiện (43 tổng).
+  4. *Lỗi theme Shopee Trắng*: `isShopeeDark` chỉ đổi class cục bộ mà không gỡ class `dark` khỏi thẻ `<html>`.
+  5. *A-Z trùng tên*: Các bản ghi alias cùng name nhưng khác slug (PC, Mobile, VPlay, Boltray).
+  6. *Header đè nhau*: Main header (`top-[36px]`) và sub-nav (`top-[95px]`) nằm ở 2 div riêng biệt với class sticky tách rời.
+- **Giải pháp áp dụng (Solution)**:
+  1. *Kích hoạt Vòng Quay Xu*: Gỡ bọc điều kiện ở `App.tsx`, cập nhật `growthService.ts` mặc định `isEnabled: true`, `wheelEnabled: true`.
+  2. *Bộ đếm thời gian thực Flash Sale*: Sử dụng `calculateFlashSaleTimeLeft()` neo mốc 23:59:59 cố định mỗi ngày, đếm xuống đơn điệu mỗi giây; nút Xem Tất Cả cuộn mượt xuống kệ hàng kèm toast.
+  3. *Phân trang Giveaway & Danh Mục*: Tạo `paginatedGiveaways` (24 mục/trang), sửa tiêu đề nếu là số thành `Săn Quà Tặng Giftcode <game_name>`, tính `totalPages` và label phân trang động theo tab.
+  4. *Đồng bộ Dark Theme*: Thêm `useEffect` toggle `document.documentElement.classList.toggle('dark', isShopeeDark)`.
+  5. *Định danh A-Z chuẩn mực*: Tạo hàm `getGameDisplayName()` phân biệt rõ bản Mobile/PC, VPlay, Funtap, bảo toàn đúng 593 game không trùng lặp danh xưng.
+  6. *Gộp Header Container Sticky*: Bọc Main Header và Sub-navigation trong cùng 1 container `sticky top-[36px] z-40 shadow-md`.
+  7. *Thẻ Game & Flash Sale*: Nút chính trên thẻ game luôn là `Xem Chi Tiết Mã` gọi modal, thêm nút copy nhanh bên cạnh; đồng bộ đơn vị `formatCore`, chiết khấu `-90%` cho Như Lai và `-100%` cho Flash Sale.
+  8. *Font Thái & Lọc chính tả*: Bổ sung fallback font Thái (`Noto Sans Thai`, `Leelawadee UI`) vào `index.html` và `index.css`; sửa chính tả CÔNG TY CỔ PHẦN trong `games188.json`.
+- **Kết quả nghiệm thu**:
+  - Build Vite & Prerender 593 game thành công 100%.
+  - Zero test artifacts PASSED 100%.
+  - Triển khai Cloudflare Pages và đồng bộ GitHub main.
+
+---
+
 ### 399. Đồng Bộ Toàn Diện Số Lượng Mã, Giá Gói Hiệp Khách Hành, Danh Mục A-Z 593 Game & Trạng Thái Tải Modal (16/11/2026)
 - **Bối cảnh & Yêu cầu của Chủ sở hữu**:
   - Sau hotfix `b3399c1`, kiểm tra thực tế bằng trình duyệt thật ghi nhận 6 điểm lệch số và bất cập hiển thị:
@@ -176,6 +234,35 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 ---
 
 ## [2026-11-16]
+
+### 400. Sửa Toàn Diện 38 Điểm Bất Cập / Lỗi Tồn Tại Sau Đợt Kiểm 6 Giờ Trên /test1 (16/11/2026)
+- **Bối cảnh & Yêu cầu của Chủ sở hữu**:
+  - Đợt kiểm toán toàn diện 6 giờ (02:23–07:44 16/11/2026) trên `codegame.shop/test1` ghi nhận 38 điểm cần xử lý thuộc 3 nhóm (4 nghiêm trọng, 14 trung bình, 20 nhỏ):
+    1. *4 Nghiêm trọng*: Nút Vòng Quay Xu bị liệt không mở modal; Bộ đếm Flash Sale bị nhảy ngược 59 phút và reset về 02:15:48; Danh sách Giveaway bị cắt cứng 36 mục và phân trang trang 2 không đổi; Chữ trắng trên nền trắng ở theme Shopee Trắng do html class dark không toggle đồng bộ.
+    2. *14 Trung bình*: Danh mục A-Z trùng tên nhiều bản PC/Mobile; Gói Như Lai giá niêm yết mâu thuẫn giá ưu đãi; Nút trên thẻ game ngoài lưới chỉ copy mã không mở modal; Ô tìm kiếm không reset category và đếm tab cố định 593; 6 chuyên mục game hiển thị 698 > 593 thiếu chú thích; Ký tự tiếng Thái bị ô vuông do thiếu fallback font; Deep link `/game/:slug` gặp race condition rỗng 0 game; Sắp ra mắt gắn nhãn sai cho game `LAUNCHED`.
+    3. *20 Nhỏ*: Header dính 2 lớp riêng biệt làm đè lấn nhau; Ticker FOMO góc trái đè 50% lên Toast; Carousel chỉ có 1 slide; Lỗi chính tả CàiNG TY CỔ PHẦN; Footer bị cắt chữ trên mobile; v.v.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Vòng Quay Xu*: `GrowthCenterModal` bị bọc trong `{isGrowthEnabled && (` tại `App.tsx` với config mặc định `isEnabled: false`.
+  2. *Bộ đếm Flash Sale*: State đếm khởi tạo tĩnh `{ hours: 2, minutes: 15, seconds: 48 }` và hàm `setInterval` gán cứng `minutes: 59` khi đổi giờ thay vì tính toán thời gian thực theo epoch tới 23:59:59.
+  3. *Giveaway cắt 36 & phân trang*: Dòng 1882 ghi cứng `slice(0, 36)` không theo `currentPage`, bỏ rơi 7 sự kiện (43 tổng).
+  4. *Lỗi theme Shopee Trắng*: `isShopeeDark` chỉ đổi class cục bộ mà không gỡ class `dark` khỏi thẻ `<html>`.
+  5. *A-Z trùng tên*: Các bản ghi alias cùng name nhưng khác slug (PC, Mobile, VPlay, Boltray).
+  6. *Header đè nhau*: Main header (`top-[36px]`) và sub-nav (`top-[95px]`) nằm ở 2 div riêng biệt với class sticky tách rời.
+- **Giải pháp áp dụng (Solution)**:
+  1. *Kích hoạt Vòng Quay Xu*: Gỡ bọc điều kiện ở `App.tsx`, cập nhật `growthService.ts` mặc định `isEnabled: true`, `wheelEnabled: true`.
+  2. *Bộ đếm thời gian thực Flash Sale*: Sử dụng `calculateFlashSaleTimeLeft()` neo mốc 23:59:59 cố định mỗi ngày, đếm xuống đơn điệu mỗi giây; nút Xem Tất Cả cuộn mượt xuống kệ hàng kèm toast.
+  3. *Phân trang Giveaway & Danh Mục*: Tạo `paginatedGiveaways` (24 mục/trang), sửa tiêu đề nếu là số thành `Săn Quà Tặng Giftcode <game_name>`, tính `totalPages` và label phân trang động theo tab.
+  4. *Đồng bộ Dark Theme*: Thêm `useEffect` toggle `document.documentElement.classList.toggle('dark', isShopeeDark)`.
+  5. *Định danh A-Z chuẩn mực*: Tạo hàm `getGameDisplayName()` phân biệt rõ bản Mobile/PC, VPlay, Funtap, bảo toàn đúng 593 game không trùng lặp danh xưng.
+  6. *Gộp Header Container Sticky*: Bọc Main Header và Sub-navigation trong cùng 1 container `sticky top-[36px] z-40 shadow-md`.
+  7. *Thẻ Game & Flash Sale*: Nút chính trên thẻ game luôn là `Xem Chi Tiết Mã` gọi modal, thêm nút copy nhanh bên cạnh; đồng bộ đơn vị `formatCore`, chiết khấu `-90%` cho Như Lai và `-100%` cho Flash Sale.
+  8. *Font Thái & Lọc chính tả*: Bổ sung fallback font Thái (`Noto Sans Thai`, `Leelawadee UI`) vào `index.html` và `index.css`; sửa chính tả CÔNG TY CỔ PHẦN trong `games188.json`.
+- **Kết quả nghiệm thu**:
+  - Build Vite & Prerender 593 game thành công 100%.
+  - Zero test artifacts PASSED 100%.
+  - Triển khai Cloudflare Pages và đồng bộ GitHub main.
+
+---
 
 ### 399. Đồng Bộ Toàn Diện Số Lượng Mã, Giá Gói Hiệp Khách Hành, Danh Mục A-Z 593 Game & Trạng Thái Tải Modal (16/11/2026)
 - **Bối cảnh & Yêu cầu của Chủ sở hữu**:
@@ -271,6 +358,35 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-16]
 
+### 400. Sửa Toàn Diện 38 Điểm Bất Cập / Lỗi Tồn Tại Sau Đợt Kiểm 6 Giờ Trên /test1 (16/11/2026)
+- **Bối cảnh & Yêu cầu của Chủ sở hữu**:
+  - Đợt kiểm toán toàn diện 6 giờ (02:23–07:44 16/11/2026) trên `codegame.shop/test1` ghi nhận 38 điểm cần xử lý thuộc 3 nhóm (4 nghiêm trọng, 14 trung bình, 20 nhỏ):
+    1. *4 Nghiêm trọng*: Nút Vòng Quay Xu bị liệt không mở modal; Bộ đếm Flash Sale bị nhảy ngược 59 phút và reset về 02:15:48; Danh sách Giveaway bị cắt cứng 36 mục và phân trang trang 2 không đổi; Chữ trắng trên nền trắng ở theme Shopee Trắng do html class dark không toggle đồng bộ.
+    2. *14 Trung bình*: Danh mục A-Z trùng tên nhiều bản PC/Mobile; Gói Như Lai giá niêm yết mâu thuẫn giá ưu đãi; Nút trên thẻ game ngoài lưới chỉ copy mã không mở modal; Ô tìm kiếm không reset category và đếm tab cố định 593; 6 chuyên mục game hiển thị 698 > 593 thiếu chú thích; Ký tự tiếng Thái bị ô vuông do thiếu fallback font; Deep link `/game/:slug` gặp race condition rỗng 0 game; Sắp ra mắt gắn nhãn sai cho game `LAUNCHED`.
+    3. *20 Nhỏ*: Header dính 2 lớp riêng biệt làm đè lấn nhau; Ticker FOMO góc trái đè 50% lên Toast; Carousel chỉ có 1 slide; Lỗi chính tả CàiNG TY CỔ PHẦN; Footer bị cắt chữ trên mobile; v.v.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Vòng Quay Xu*: `GrowthCenterModal` bị bọc trong `{isGrowthEnabled && (` tại `App.tsx` với config mặc định `isEnabled: false`.
+  2. *Bộ đếm Flash Sale*: State đếm khởi tạo tĩnh `{ hours: 2, minutes: 15, seconds: 48 }` và hàm `setInterval` gán cứng `minutes: 59` khi đổi giờ thay vì tính toán thời gian thực theo epoch tới 23:59:59.
+  3. *Giveaway cắt 36 & phân trang*: Dòng 1882 ghi cứng `slice(0, 36)` không theo `currentPage`, bỏ rơi 7 sự kiện (43 tổng).
+  4. *Lỗi theme Shopee Trắng*: `isShopeeDark` chỉ đổi class cục bộ mà không gỡ class `dark` khỏi thẻ `<html>`.
+  5. *A-Z trùng tên*: Các bản ghi alias cùng name nhưng khác slug (PC, Mobile, VPlay, Boltray).
+  6. *Header đè nhau*: Main header (`top-[36px]`) và sub-nav (`top-[95px]`) nằm ở 2 div riêng biệt với class sticky tách rời.
+- **Giải pháp áp dụng (Solution)**:
+  1. *Kích hoạt Vòng Quay Xu*: Gỡ bọc điều kiện ở `App.tsx`, cập nhật `growthService.ts` mặc định `isEnabled: true`, `wheelEnabled: true`.
+  2. *Bộ đếm thời gian thực Flash Sale*: Sử dụng `calculateFlashSaleTimeLeft()` neo mốc 23:59:59 cố định mỗi ngày, đếm xuống đơn điệu mỗi giây; nút Xem Tất Cả cuộn mượt xuống kệ hàng kèm toast.
+  3. *Phân trang Giveaway & Danh Mục*: Tạo `paginatedGiveaways` (24 mục/trang), sửa tiêu đề nếu là số thành `Săn Quà Tặng Giftcode <game_name>`, tính `totalPages` và label phân trang động theo tab.
+  4. *Đồng bộ Dark Theme*: Thêm `useEffect` toggle `document.documentElement.classList.toggle('dark', isShopeeDark)`.
+  5. *Định danh A-Z chuẩn mực*: Tạo hàm `getGameDisplayName()` phân biệt rõ bản Mobile/PC, VPlay, Funtap, bảo toàn đúng 593 game không trùng lặp danh xưng.
+  6. *Gộp Header Container Sticky*: Bọc Main Header và Sub-navigation trong cùng 1 container `sticky top-[36px] z-40 shadow-md`.
+  7. *Thẻ Game & Flash Sale*: Nút chính trên thẻ game luôn là `Xem Chi Tiết Mã` gọi modal, thêm nút copy nhanh bên cạnh; đồng bộ đơn vị `formatCore`, chiết khấu `-90%` cho Như Lai và `-100%` cho Flash Sale.
+  8. *Font Thái & Lọc chính tả*: Bổ sung fallback font Thái (`Noto Sans Thai`, `Leelawadee UI`) vào `index.html` và `index.css`; sửa chính tả CÔNG TY CỔ PHẦN trong `games188.json`.
+- **Kết quả nghiệm thu**:
+  - Build Vite & Prerender 593 game thành công 100%.
+  - Zero test artifacts PASSED 100%.
+  - Triển khai Cloudflare Pages và đồng bộ GitHub main.
+
+---
+
 ### 399. Đồng Bộ Toàn Diện Số Lượng Mã, Giá Gói Hiệp Khách Hành, Danh Mục A-Z 593 Game & Trạng Thái Tải Modal (16/11/2026)
 - **Bối cảnh & Yêu cầu của Chủ sở hữu**:
   - Sau hotfix `b3399c1`, kiểm tra thực tế bằng trình duyệt thật ghi nhận 6 điểm lệch số và bất cập hiển thị:
@@ -354,6 +470,35 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-16]
 
+### 400. Sửa Toàn Diện 38 Điểm Bất Cập / Lỗi Tồn Tại Sau Đợt Kiểm 6 Giờ Trên /test1 (16/11/2026)
+- **Bối cảnh & Yêu cầu của Chủ sở hữu**:
+  - Đợt kiểm toán toàn diện 6 giờ (02:23–07:44 16/11/2026) trên `codegame.shop/test1` ghi nhận 38 điểm cần xử lý thuộc 3 nhóm (4 nghiêm trọng, 14 trung bình, 20 nhỏ):
+    1. *4 Nghiêm trọng*: Nút Vòng Quay Xu bị liệt không mở modal; Bộ đếm Flash Sale bị nhảy ngược 59 phút và reset về 02:15:48; Danh sách Giveaway bị cắt cứng 36 mục và phân trang trang 2 không đổi; Chữ trắng trên nền trắng ở theme Shopee Trắng do html class dark không toggle đồng bộ.
+    2. *14 Trung bình*: Danh mục A-Z trùng tên nhiều bản PC/Mobile; Gói Như Lai giá niêm yết mâu thuẫn giá ưu đãi; Nút trên thẻ game ngoài lưới chỉ copy mã không mở modal; Ô tìm kiếm không reset category và đếm tab cố định 593; 6 chuyên mục game hiển thị 698 > 593 thiếu chú thích; Ký tự tiếng Thái bị ô vuông do thiếu fallback font; Deep link `/game/:slug` gặp race condition rỗng 0 game; Sắp ra mắt gắn nhãn sai cho game `LAUNCHED`.
+    3. *20 Nhỏ*: Header dính 2 lớp riêng biệt làm đè lấn nhau; Ticker FOMO góc trái đè 50% lên Toast; Carousel chỉ có 1 slide; Lỗi chính tả CàiNG TY CỔ PHẦN; Footer bị cắt chữ trên mobile; v.v.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Vòng Quay Xu*: `GrowthCenterModal` bị bọc trong `{isGrowthEnabled && (` tại `App.tsx` với config mặc định `isEnabled: false`.
+  2. *Bộ đếm Flash Sale*: State đếm khởi tạo tĩnh `{ hours: 2, minutes: 15, seconds: 48 }` và hàm `setInterval` gán cứng `minutes: 59` khi đổi giờ thay vì tính toán thời gian thực theo epoch tới 23:59:59.
+  3. *Giveaway cắt 36 & phân trang*: Dòng 1882 ghi cứng `slice(0, 36)` không theo `currentPage`, bỏ rơi 7 sự kiện (43 tổng).
+  4. *Lỗi theme Shopee Trắng*: `isShopeeDark` chỉ đổi class cục bộ mà không gỡ class `dark` khỏi thẻ `<html>`.
+  5. *A-Z trùng tên*: Các bản ghi alias cùng name nhưng khác slug (PC, Mobile, VPlay, Boltray).
+  6. *Header đè nhau*: Main header (`top-[36px]`) và sub-nav (`top-[95px]`) nằm ở 2 div riêng biệt với class sticky tách rời.
+- **Giải pháp áp dụng (Solution)**:
+  1. *Kích hoạt Vòng Quay Xu*: Gỡ bọc điều kiện ở `App.tsx`, cập nhật `growthService.ts` mặc định `isEnabled: true`, `wheelEnabled: true`.
+  2. *Bộ đếm thời gian thực Flash Sale*: Sử dụng `calculateFlashSaleTimeLeft()` neo mốc 23:59:59 cố định mỗi ngày, đếm xuống đơn điệu mỗi giây; nút Xem Tất Cả cuộn mượt xuống kệ hàng kèm toast.
+  3. *Phân trang Giveaway & Danh Mục*: Tạo `paginatedGiveaways` (24 mục/trang), sửa tiêu đề nếu là số thành `Săn Quà Tặng Giftcode <game_name>`, tính `totalPages` và label phân trang động theo tab.
+  4. *Đồng bộ Dark Theme*: Thêm `useEffect` toggle `document.documentElement.classList.toggle('dark', isShopeeDark)`.
+  5. *Định danh A-Z chuẩn mực*: Tạo hàm `getGameDisplayName()` phân biệt rõ bản Mobile/PC, VPlay, Funtap, bảo toàn đúng 593 game không trùng lặp danh xưng.
+  6. *Gộp Header Container Sticky*: Bọc Main Header và Sub-navigation trong cùng 1 container `sticky top-[36px] z-40 shadow-md`.
+  7. *Thẻ Game & Flash Sale*: Nút chính trên thẻ game luôn là `Xem Chi Tiết Mã` gọi modal, thêm nút copy nhanh bên cạnh; đồng bộ đơn vị `formatCore`, chiết khấu `-90%` cho Như Lai và `-100%` cho Flash Sale.
+  8. *Font Thái & Lọc chính tả*: Bổ sung fallback font Thái (`Noto Sans Thai`, `Leelawadee UI`) vào `index.html` và `index.css`; sửa chính tả CÔNG TY CỔ PHẦN trong `games188.json`.
+- **Kết quả nghiệm thu**:
+  - Build Vite & Prerender 593 game thành công 100%.
+  - Zero test artifacts PASSED 100%.
+  - Triển khai Cloudflare Pages và đồng bộ GitHub main.
+
+---
+
 ### 399. Đồng Bộ Toàn Diện Số Lượng Mã, Giá Gói Hiệp Khách Hành, Danh Mục A-Z 593 Game & Trạng Thái Tải Modal (16/11/2026)
 - **Bối cảnh & Yêu cầu của Chủ sở hữu**:
   - Sau hotfix `b3399c1`, kiểm tra thực tế bằng trình duyệt thật ghi nhận 6 điểm lệch số và bất cập hiển thị:
@@ -436,6 +581,35 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 ---
 
 ## [2026-11-16]
+
+### 400. Sửa Toàn Diện 38 Điểm Bất Cập / Lỗi Tồn Tại Sau Đợt Kiểm 6 Giờ Trên /test1 (16/11/2026)
+- **Bối cảnh & Yêu cầu của Chủ sở hữu**:
+  - Đợt kiểm toán toàn diện 6 giờ (02:23–07:44 16/11/2026) trên `codegame.shop/test1` ghi nhận 38 điểm cần xử lý thuộc 3 nhóm (4 nghiêm trọng, 14 trung bình, 20 nhỏ):
+    1. *4 Nghiêm trọng*: Nút Vòng Quay Xu bị liệt không mở modal; Bộ đếm Flash Sale bị nhảy ngược 59 phút và reset về 02:15:48; Danh sách Giveaway bị cắt cứng 36 mục và phân trang trang 2 không đổi; Chữ trắng trên nền trắng ở theme Shopee Trắng do html class dark không toggle đồng bộ.
+    2. *14 Trung bình*: Danh mục A-Z trùng tên nhiều bản PC/Mobile; Gói Như Lai giá niêm yết mâu thuẫn giá ưu đãi; Nút trên thẻ game ngoài lưới chỉ copy mã không mở modal; Ô tìm kiếm không reset category và đếm tab cố định 593; 6 chuyên mục game hiển thị 698 > 593 thiếu chú thích; Ký tự tiếng Thái bị ô vuông do thiếu fallback font; Deep link `/game/:slug` gặp race condition rỗng 0 game; Sắp ra mắt gắn nhãn sai cho game `LAUNCHED`.
+    3. *20 Nhỏ*: Header dính 2 lớp riêng biệt làm đè lấn nhau; Ticker FOMO góc trái đè 50% lên Toast; Carousel chỉ có 1 slide; Lỗi chính tả CàiNG TY CỔ PHẦN; Footer bị cắt chữ trên mobile; v.v.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Vòng Quay Xu*: `GrowthCenterModal` bị bọc trong `{isGrowthEnabled && (` tại `App.tsx` với config mặc định `isEnabled: false`.
+  2. *Bộ đếm Flash Sale*: State đếm khởi tạo tĩnh `{ hours: 2, minutes: 15, seconds: 48 }` và hàm `setInterval` gán cứng `minutes: 59` khi đổi giờ thay vì tính toán thời gian thực theo epoch tới 23:59:59.
+  3. *Giveaway cắt 36 & phân trang*: Dòng 1882 ghi cứng `slice(0, 36)` không theo `currentPage`, bỏ rơi 7 sự kiện (43 tổng).
+  4. *Lỗi theme Shopee Trắng*: `isShopeeDark` chỉ đổi class cục bộ mà không gỡ class `dark` khỏi thẻ `<html>`.
+  5. *A-Z trùng tên*: Các bản ghi alias cùng name nhưng khác slug (PC, Mobile, VPlay, Boltray).
+  6. *Header đè nhau*: Main header (`top-[36px]`) và sub-nav (`top-[95px]`) nằm ở 2 div riêng biệt với class sticky tách rời.
+- **Giải pháp áp dụng (Solution)**:
+  1. *Kích hoạt Vòng Quay Xu*: Gỡ bọc điều kiện ở `App.tsx`, cập nhật `growthService.ts` mặc định `isEnabled: true`, `wheelEnabled: true`.
+  2. *Bộ đếm thời gian thực Flash Sale*: Sử dụng `calculateFlashSaleTimeLeft()` neo mốc 23:59:59 cố định mỗi ngày, đếm xuống đơn điệu mỗi giây; nút Xem Tất Cả cuộn mượt xuống kệ hàng kèm toast.
+  3. *Phân trang Giveaway & Danh Mục*: Tạo `paginatedGiveaways` (24 mục/trang), sửa tiêu đề nếu là số thành `Săn Quà Tặng Giftcode <game_name>`, tính `totalPages` và label phân trang động theo tab.
+  4. *Đồng bộ Dark Theme*: Thêm `useEffect` toggle `document.documentElement.classList.toggle('dark', isShopeeDark)`.
+  5. *Định danh A-Z chuẩn mực*: Tạo hàm `getGameDisplayName()` phân biệt rõ bản Mobile/PC, VPlay, Funtap, bảo toàn đúng 593 game không trùng lặp danh xưng.
+  6. *Gộp Header Container Sticky*: Bọc Main Header và Sub-navigation trong cùng 1 container `sticky top-[36px] z-40 shadow-md`.
+  7. *Thẻ Game & Flash Sale*: Nút chính trên thẻ game luôn là `Xem Chi Tiết Mã` gọi modal, thêm nút copy nhanh bên cạnh; đồng bộ đơn vị `formatCore`, chiết khấu `-90%` cho Như Lai và `-100%` cho Flash Sale.
+  8. *Font Thái & Lọc chính tả*: Bổ sung fallback font Thái (`Noto Sans Thai`, `Leelawadee UI`) vào `index.html` và `index.css`; sửa chính tả CÔNG TY CỔ PHẦN trong `games188.json`.
+- **Kết quả nghiệm thu**:
+  - Build Vite & Prerender 593 game thành công 100%.
+  - Zero test artifacts PASSED 100%.
+  - Triển khai Cloudflare Pages và đồng bộ GitHub main.
+
+---
 
 ### 399. Đồng Bộ Toàn Diện Số Lượng Mã, Giá Gói Hiệp Khách Hành, Danh Mục A-Z 593 Game & Trạng Thái Tải Modal (16/11/2026)
 - **Bối cảnh & Yêu cầu của Chủ sở hữu**:
@@ -523,6 +697,35 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 ---
 
 ## [2026-11-16]
+
+### 400. Sửa Toàn Diện 38 Điểm Bất Cập / Lỗi Tồn Tại Sau Đợt Kiểm 6 Giờ Trên /test1 (16/11/2026)
+- **Bối cảnh & Yêu cầu của Chủ sở hữu**:
+  - Đợt kiểm toán toàn diện 6 giờ (02:23–07:44 16/11/2026) trên `codegame.shop/test1` ghi nhận 38 điểm cần xử lý thuộc 3 nhóm (4 nghiêm trọng, 14 trung bình, 20 nhỏ):
+    1. *4 Nghiêm trọng*: Nút Vòng Quay Xu bị liệt không mở modal; Bộ đếm Flash Sale bị nhảy ngược 59 phút và reset về 02:15:48; Danh sách Giveaway bị cắt cứng 36 mục và phân trang trang 2 không đổi; Chữ trắng trên nền trắng ở theme Shopee Trắng do html class dark không toggle đồng bộ.
+    2. *14 Trung bình*: Danh mục A-Z trùng tên nhiều bản PC/Mobile; Gói Như Lai giá niêm yết mâu thuẫn giá ưu đãi; Nút trên thẻ game ngoài lưới chỉ copy mã không mở modal; Ô tìm kiếm không reset category và đếm tab cố định 593; 6 chuyên mục game hiển thị 698 > 593 thiếu chú thích; Ký tự tiếng Thái bị ô vuông do thiếu fallback font; Deep link `/game/:slug` gặp race condition rỗng 0 game; Sắp ra mắt gắn nhãn sai cho game `LAUNCHED`.
+    3. *20 Nhỏ*: Header dính 2 lớp riêng biệt làm đè lấn nhau; Ticker FOMO góc trái đè 50% lên Toast; Carousel chỉ có 1 slide; Lỗi chính tả CàiNG TY CỔ PHẦN; Footer bị cắt chữ trên mobile; v.v.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Vòng Quay Xu*: `GrowthCenterModal` bị bọc trong `{isGrowthEnabled && (` tại `App.tsx` với config mặc định `isEnabled: false`.
+  2. *Bộ đếm Flash Sale*: State đếm khởi tạo tĩnh `{ hours: 2, minutes: 15, seconds: 48 }` và hàm `setInterval` gán cứng `minutes: 59` khi đổi giờ thay vì tính toán thời gian thực theo epoch tới 23:59:59.
+  3. *Giveaway cắt 36 & phân trang*: Dòng 1882 ghi cứng `slice(0, 36)` không theo `currentPage`, bỏ rơi 7 sự kiện (43 tổng).
+  4. *Lỗi theme Shopee Trắng*: `isShopeeDark` chỉ đổi class cục bộ mà không gỡ class `dark` khỏi thẻ `<html>`.
+  5. *A-Z trùng tên*: Các bản ghi alias cùng name nhưng khác slug (PC, Mobile, VPlay, Boltray).
+  6. *Header đè nhau*: Main header (`top-[36px]`) và sub-nav (`top-[95px]`) nằm ở 2 div riêng biệt với class sticky tách rời.
+- **Giải pháp áp dụng (Solution)**:
+  1. *Kích hoạt Vòng Quay Xu*: Gỡ bọc điều kiện ở `App.tsx`, cập nhật `growthService.ts` mặc định `isEnabled: true`, `wheelEnabled: true`.
+  2. *Bộ đếm thời gian thực Flash Sale*: Sử dụng `calculateFlashSaleTimeLeft()` neo mốc 23:59:59 cố định mỗi ngày, đếm xuống đơn điệu mỗi giây; nút Xem Tất Cả cuộn mượt xuống kệ hàng kèm toast.
+  3. *Phân trang Giveaway & Danh Mục*: Tạo `paginatedGiveaways` (24 mục/trang), sửa tiêu đề nếu là số thành `Săn Quà Tặng Giftcode <game_name>`, tính `totalPages` và label phân trang động theo tab.
+  4. *Đồng bộ Dark Theme*: Thêm `useEffect` toggle `document.documentElement.classList.toggle('dark', isShopeeDark)`.
+  5. *Định danh A-Z chuẩn mực*: Tạo hàm `getGameDisplayName()` phân biệt rõ bản Mobile/PC, VPlay, Funtap, bảo toàn đúng 593 game không trùng lặp danh xưng.
+  6. *Gộp Header Container Sticky*: Bọc Main Header và Sub-navigation trong cùng 1 container `sticky top-[36px] z-40 shadow-md`.
+  7. *Thẻ Game & Flash Sale*: Nút chính trên thẻ game luôn là `Xem Chi Tiết Mã` gọi modal, thêm nút copy nhanh bên cạnh; đồng bộ đơn vị `formatCore`, chiết khấu `-90%` cho Như Lai và `-100%` cho Flash Sale.
+  8. *Font Thái & Lọc chính tả*: Bổ sung fallback font Thái (`Noto Sans Thai`, `Leelawadee UI`) vào `index.html` và `index.css`; sửa chính tả CÔNG TY CỔ PHẦN trong `games188.json`.
+- **Kết quả nghiệm thu**:
+  - Build Vite & Prerender 593 game thành công 100%.
+  - Zero test artifacts PASSED 100%.
+  - Triển khai Cloudflare Pages và đồng bộ GitHub main.
+
+---
 
 ### 399. Đồng Bộ Toàn Diện Số Lượng Mã, Giá Gói Hiệp Khách Hành, Danh Mục A-Z 593 Game & Trạng Thái Tải Modal (16/11/2026)
 - **Bối cảnh & Yêu cầu của Chủ sở hữu**:

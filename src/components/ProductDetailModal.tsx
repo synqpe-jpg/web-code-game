@@ -651,7 +651,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       {!isSelectedEscalating && isSelectedOfferEligible && displayCurrentPrice !== currentPrice && (
                         <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40 flex items-center gap-1 shadow-xs">
                           <Sparkles className="w-3 h-3 text-rose-400" />
-                          <span>Giá ưu đãi lần đầu (Giá niêm yết: {formatCore(currentPrice)})</span>
+                          <span>Ưu đãi mua lần đầu</span>
                         </span>
                       )}
                       {!isSelectedEscalating && displayOriginalPrice > displayCurrentPrice && (
