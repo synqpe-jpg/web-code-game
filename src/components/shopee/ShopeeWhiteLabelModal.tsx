@@ -67,6 +67,9 @@ export const ShopeeWhiteLabelModal: React.FC<ShopeeWhiteLabelModalProps> = ({
 
   const handleApplyPreview = (e: React.FormEvent) => {
     e.preventDefault();
+    const catConfig = getDefaultCategoriesConfig(selectedPreset);
+    dataService.saveProductCategoriesConfig(catConfig);
+
     if (onApplyPreviewSettings) {
       onApplyPreviewSettings({
         shopName,

@@ -16,6 +16,7 @@ import type {
 } from '../types/game';
 import { DEFAULT_UPCOMING_GAMES } from '../types/game';
 import { getDefaultCategoriesConfig, INDUSTRY_PRESETS } from '../data/industryPresets';
+import { getIndustryPresetProducts } from '../data/industryPresetProducts';
 import { getUpcomingGameIconUrl } from '../utils/upcomingGameIconUtils';
 import { calculateEffectiveOrder } from '../utils/upcomingGameGrowthUtils';
 import { smartVietnameseMatch, calculateGameSearchScore, matchGameSearch } from '../utils/textUtils';
@@ -2936,7 +2937,7 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
     return null;
   }
 
-  getStoreProducts(): StoreProduct[] {
+  getStoreProducts(customPresetId?: string): StoreProduct[] {
     let prods: StoreProduct[] | null = null;
     let deletedSet = new Set<string>(['sp_idle-cat-gunner_mw5yrnka']);
     try {
@@ -2947,19 +2948,42 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
       }
     } catch {}
 
-    try {
-      // Priority: Admin-managed store products from KV sync
-      const adminSp = localStorage.getItem('wcg_admin_store_products_v4');
-      if (adminSp !== null) {
-        const parsed = JSON.parse(adminSp);
-        if (Array.isArray(parsed)) {
-          prods = parsed.filter((p) => p && p.id && !deletedSet.has(p.id));
-        }
+    const isTestSite = typeof window !== 'undefined' && (
+      window.location.hostname.includes('test-code-game') ||
+      window.location.pathname.startsWith('/test1')
+    );
+
+    const activePreset = customPresetId || this.getProductCategoriesConfig().activePresetId || 'gaming';
+
+    // Nếu chọn preset đa ngành mẫu (Thời trang, Mỹ phẩm, Công nghệ, Dịch vụ):
+    if (activePreset && activePreset !== 'gaming') {
+      const presetProds = getIndustryPresetProducts(activePreset);
+      if (presetProds && presetProds.length > 0) {
+        prods = [...presetProds];
       }
-    } catch {}
+    }
 
     if (!prods || prods.length === 0) {
-      prods = (this.defaultStoreProducts || []).filter((p) => p && p.id && !deletedSet.has(p.id));
+      try {
+        // Priority: Admin-managed store products from KV sync
+        const adminSp = isTestSite
+          ? (localStorage.getItem('wcg_test_store_products_v4') || localStorage.getItem('wcg_admin_store_products_v4'))
+          : localStorage.getItem('wcg_admin_store_products_v4');
+        if (adminSp !== null) {
+          const parsed = JSON.parse(adminSp);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            prods = parsed.filter((p) => p && p.id && !deletedSet.has(p.id));
+          }
+        }
+      } catch {}
+    }
+
+    if (!prods || prods.length === 0) {
+      if (isTestSite && activePreset) {
+        prods = getIndustryPresetProducts(activePreset);
+      } else {
+        prods = (this.defaultStoreProducts || []).filter((p) => p && p.id && !deletedSet.has(p.id));
+      }
     } else {
       prods = prods.filter((p) => p && p.id && !p.id.startsWith('ut_') && !deletedSet.has(p.id));
     }

@@ -15,6 +15,10 @@ export interface CartItem {
   gameName?: string;
   coverUrl?: string;
   addedAt: string;
+  variantId?: string;
+  variantName?: string;
+  attributes?: Record<string, string>;
+  quantity?: number;
 }
 
 export interface StoreCartGroup {
@@ -54,33 +58,40 @@ class CartService {
   public addToCart(item: Omit<CartItem, 'addedAt'>): { success: boolean; message: string; count: number } {
     const cart = this.getCart();
     
-    // Mỗi sản phẩm mã số số lượng kho là độc nhất theo từng item trong 1 lần checkout multi
-    const existingIndex = cart.findIndex((i) => i.productId === item.productId);
+    // Kiểm tra trùng sản phẩm hoặc biến thể trong giỏ hàng
+    const existingIndex = cart.findIndex(
+      (i) => i.productId === item.productId && (item.variantId ? i.variantId === item.variantId : true)
+    );
     if (existingIndex >= 0) {
+      const variantSuffix = item.variantName ? ` (${item.variantName})` : '';
       return {
         success: false,
-        message: `Sản phẩm "${item.productName}" đã có trong giỏ hàng.`,
+        message: `Sản phẩm "${item.productName}${variantSuffix}" đã có trong giỏ hàng.`,
         count: cart.length,
       };
     }
 
     const newItem: CartItem = {
       ...item,
+      quantity: item.quantity || 1,
       addedAt: new Date().toISOString(),
     };
 
     cart.push(newItem);
     this.saveCart(cart);
 
+    const variantSuffix = item.variantName ? ` (${item.variantName})` : '';
     return {
       success: true,
-      message: `Đã thêm "${item.productName}" vào giỏ hàng!`,
+      message: `Đã thêm "${item.productName}${variantSuffix}" vào giỏ hàng!`,
       count: cart.length,
     };
   }
 
-  public removeFromCart(productId: string): CartItem[] {
-    const cart = this.getCart().filter((i) => i.productId !== productId);
+  public removeFromCart(productId: string, variantId?: string): CartItem[] {
+    const cart = this.getCart().filter(
+      (i) => !(i.productId === productId && (variantId ? i.variantId === variantId : true))
+    );
     this.saveCart(cart);
     return cart;
   }

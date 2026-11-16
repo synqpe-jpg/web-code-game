@@ -189,7 +189,28 @@ export interface ProductPackageVariant {
   first_purchase_max_price?: number | null;
 }
 
-// Store Product / Paid Code Model
+// Thuộc tính đa ngành (Attributes: Màu sắc, Kích cỡ, Dung tích, Dung lượng, Gói cước...)
+export interface ProductAttribute {
+  id: string; // e.g. 'attr_color', 'attr_size', 'attr_capacity', 'attr_plan'
+  name: string; // e.g. 'Màu Sắc', 'Kích Cỡ', 'Dung Tích', 'Dung Lượng', 'Thời Hạn'
+  values: string[]; // e.g. ['Trắng', 'Đen', 'Be'] hoặc ['S', 'M', 'L', 'XL']
+}
+
+// Biến thể / Phân loại hàng đa ngành (SKU Variant)
+export interface ProductVariantItem {
+  id: string; // e.g. 'var_1', 'var_2'
+  sku?: string;
+  name: string; // e.g. 'Đen / L', 'Trắng / M', '128GB / Titan Tự Nhiên'
+  attributes: Record<string, string>; // e.g. { 'Màu Sắc': 'Đen', 'Kích Cỡ': 'L' }
+  price: number;
+  original_price?: number;
+  stock_quantity: number;
+  sold_count?: number;
+  image_url?: string;
+  is_active?: boolean;
+}
+
+// Store Product / Universal E-Commerce Product Model
 export interface StoreProduct {
   id: string;
   sku?: string;
@@ -233,6 +254,16 @@ export interface StoreProduct {
   first_purchase_enabled?: boolean;
   first_purchase_price?: number | null;
   first_purchase_max_price?: number | null;
+
+  // --- TRƯỜNG ĐA NGÀNH (UNIVERSAL E-COMMERCE EXTENSIONS) ---
+  product_type?: 'physical' | 'digital'; // 'physical': hàng vật lý (giao hàng), 'digital': hàng số (giao mã/tài khoản)
+  industry?: string; // 'gaming' | 'fashion' | 'beauty' | 'tech' | 'services' | 'other'
+  brand?: string; // Thương hiệu (Apple, Nike, Innisfree, Maybelline, Steam...)
+  warranty_period?: string; // '12 tháng chính hãng', 'Đổi mới trong 7 ngày'
+  shipping_fee?: number; // Phí vận chuyển (0đ = Miễn phí ship toàn quốc)
+  origin?: string; // Xuất xứ (Việt Nam, Hàn Quốc, Nhật Bản, Mỹ...)
+  attributes?: ProductAttribute[]; // Danh sách nhóm phân loại (Size, Màu sắc...)
+  variants?: ProductVariantItem[]; // Danh sách các SKU biến thể thực tế
 }
 
 // Store Category Model (Danh Mục Gói Code / Cửa Hàng)

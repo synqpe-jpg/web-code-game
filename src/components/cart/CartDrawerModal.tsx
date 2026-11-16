@@ -139,8 +139,8 @@ export const CartDrawerModal: React.FC<CartDrawerModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleRemoveItem = (prodId: string) => {
-    cartService.removeFromCart(prodId);
+  const handleRemoveItem = (prodId: string, variantId?: string) => {
+    cartService.removeFromCart(prodId, variantId);
   };
 
   const handleClearCart = () => {
@@ -763,6 +763,11 @@ export const CartDrawerModal: React.FC<CartDrawerModalProps> = ({
                                 <h4 className="text-xs font-bold text-foreground truncate" title={item.productName}>
                                   {item.productName}
                                 </h4>
+                                {item.variantName && (
+                                  <div className="text-[10px] font-semibold text-rose-500 bg-rose-500/10 px-1 py-0.2 rounded inline-block mt-0.5">
+                                    {item.variantName}
+                                  </div>
+                                )}
                                 <div className="text-xs font-black text-primary mt-0.5">
                                   {item.priceCore.toLocaleString()} Core
                                 </div>
@@ -770,7 +775,7 @@ export const CartDrawerModal: React.FC<CartDrawerModalProps> = ({
                             </div>
 
                             <button
-                              onClick={() => handleRemoveItem(item.productId)}
+                              onClick={() => handleRemoveItem(item.productId, item.variantId)}
                               className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0"
                               title="Xóa sản phẩm này"
                               aria-label="Xóa"

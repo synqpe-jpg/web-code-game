@@ -1,3 +1,4 @@
+import confetti from 'canvas-confetti';
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -22,11 +23,16 @@ import {
   Plus,
   Lock,
   TrendingUp,
+  ShoppingCart,
+  Truck,
+  Tag,
+  BadgeCheck,
 } from 'lucide-react';
 import type { StoreProduct, UtilityProduct, UserProfile, ProductPackageVariant } from '../types/game';
-import { formatCore } from '../utils/textUtils';
+import { formatCore, formatCurrencyVND } from '../utils/textUtils';
 import { marketingService } from '../services/marketingService';
 import { dataService } from '../services/dataService';
+import { cartService } from '../services/cartService';
 import { offerService } from '../services/offerService';
 import { getProductPackages } from '../utils/productPackageUtils';
 import { GuideLinksBanner } from './GuideLinksBanner';
@@ -247,6 +253,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     : (typeof window !== 'undefined' ? (localStorage.getItem('wcg_utilities_global_show_sold') !== 'false' && localStorage.getItem('wcg_admin_show_sold_util') !== 'false') : true);
   const isSoldVisible = isGlobalSoldEnabled && (product as any).show_sold_count !== false;
 
+  const isVnd = dataService.getWebsiteBranding()?.currencyMode === 'VND' || (product as any)?.industry !== 'gaming';
+  const formatPriceVal = (amount: number) => isVnd ? formatCurrencyVND(amount) : formatCore(amount);
+
   const currentPrice = selectedPackage.price;
   const originalPrice = (typeof selectedPackage.original_price === 'number' && selectedPackage.original_price > 0)
     ? selectedPackage.original_price
@@ -381,6 +390,42 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       setQuantity(1);
     } else {
       setQuantity(Math.min(realStock, val));
+    }
+  };
+
+  const handleAddToCart = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isOutOfStock) {
+      if (onShowToast) onShowToast('Hết hàng', 'Sản phẩm tạm thời hết hàng trong kho.', 'error');
+      return;
+    }
+    const finalSafeQty = isSelectedEscalating ? 1 : (realStock > 0 ? Math.min(Math.max(1, quantity), realStock) : 1);
+    const result = cartService.addToCart({
+      productId: product.id,
+      productName: product.title,
+      priceCore: displayCurrentPrice,
+      sellerId: 'admin_store',
+      sellerName: (product as any).brand || 'Codegame Mall',
+      sellerSlug: (product as any).brand ? (product as any).brand.toLowerCase().replace(/\s+/g, '-') : 'codegame-mall',
+      gameSlug: (product as any).game_slug,
+      gameName: (product as any).brand || (product as any).game_name,
+      coverUrl: product.cover_image_url || product.product_images?.[0],
+      variantId: selectedPackage.id,
+      variantName: selectedPackage.name,
+      attributes: (selectedPackage as any).attributes,
+      quantity: finalSafeQty,
+    });
+    if (result.success) {
+      if (onShowToast) onShowToast('Thành công', result.message, 'success');
+      try {
+        confetti({
+          particleCount: 25,
+          spread: 50,
+          origin: { x: e.clientX / window.innerWidth, y: e.clientY / window.innerHeight }
+        });
+      } catch {}
+    } else {
+      if (onShowToast) onShowToast('Thông báo', result.message, 'info');
     }
   };
 
@@ -621,6 +666,53 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 theme="indigo"
               />
 
+              
+              {/* Thông Số & Cam Kết Bán Hàng Đa Ngành */}
+              {((product as any).brand || (product as any).origin || (product as any).warranty_period || (product as any).shipping_fee !== undefined) && (
+                <div className="p-3.5 rounded-2xl bg-card border border-border space-y-2 text-xs">
+                  <div className="font-bold text-foreground flex items-center gap-1.5 pb-1.5 border-b border-border/60">
+                    <BadgeCheck className="w-4 h-4 text-emerald-500" />
+                    <span>Thông Số & Cam Kết Bán Hàng</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-[11px]">
+                    {(product as any).brand && (
+                      <div>
+                        <span className="text-muted-foreground">Thương hiệu: </span>
+                        <span className="font-bold text-foreground">{(product as any).brand}</span>
+                      </div>
+                    )}
+                    {(product as any).product_type && (
+                      <div>
+                        <span className="text-muted-foreground">Loại sản phẩm: </span>
+                        <span className="font-bold text-foreground">
+                          {(product as any).product_type === 'physical' ? 'Hàng Vật Lý' : 'Kỹ Thuật Số'}
+                        </span>
+                      </div>
+                    )}
+                    {(product as any).origin && (
+                      <div>
+                        <span className="text-muted-foreground">Xuất xứ: </span>
+                        <span className="font-bold text-foreground">{(product as any).origin}</span>
+                      </div>
+                    )}
+                    {(product as any).shipping_fee !== undefined && (
+                      <div>
+                        <span className="text-muted-foreground">Vận chuyển: </span>
+                        <span className="font-bold text-emerald-500">
+                          {(product as any).shipping_fee === 0 ? 'Miễn phí giao hàng' : formatPriceVal((product as any).shipping_fee)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  {((product as any).warranty_period || (product as any).warranty_text) && (
+                    <div className="pt-1.5 border-t border-border/60 text-[11px] text-muted-foreground flex items-center gap-1.5">
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                      <span>{(product as any).warranty_period || (product as any).warranty_text}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Warranty text */}
               {(product as any).show_warranty && (
                 <div className="p-3 rounded-xl bg-muted/30 border border-border flex items-center gap-2 text-xs text-muted-foreground">
@@ -646,7 +738,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   <div className="flex items-baseline justify-between gap-2">
                     <div className="flex items-baseline gap-2 flex-wrap">
                       <span className="font-display font-extrabold text-2xl sm:text-3xl text-emerald-400 tracking-tight">
-                        {formatCore(displayCurrentPrice)}
+                        {formatPriceVal(displayCurrentPrice)}
                       </span>
                       {!isSelectedEscalating && isSelectedOfferEligible && displayCurrentPrice !== currentPrice && (
                         <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40 flex items-center gap-1 shadow-xs">
@@ -656,7 +748,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       )}
                       {!isSelectedEscalating && displayOriginalPrice > displayCurrentPrice && (
                         <span className="text-xs sm:text-sm text-muted-foreground line-through font-mono">
-                          {formatCore(displayOriginalPrice)}
+                          {formatPriceVal(displayOriginalPrice)}
                         </span>
                       )}
                       {!isSelectedEscalating && discountPercent > 0 && (
@@ -703,7 +795,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       <div className="grid grid-cols-3 gap-1.5 text-center pt-1 border-t border-slate-800">
                         <div className="p-1.5 rounded-xl bg-amber-500/20 border border-amber-500/50">
                           <span className="text-[9px] text-amber-300 font-bold uppercase block">Lượt {Number(selectedEscData.completed_count) + 1} (Hiện tại)</span>
-                          <span className="font-mono font-black text-xs text-amber-400 block mt-0.5">{formatCore(displayCurrentPrice)}</span>
+                          <span className="font-mono font-black text-xs text-amber-400 block mt-0.5">{formatPriceVal(displayCurrentPrice)}</span>
                           <span className="text-[8px] text-emerald-400 font-semibold block">Giá lượt này</span>
                         </div>
                         <div className="p-1.5 rounded-xl bg-muted/40 border border-border">
@@ -809,13 +901,14 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                         <LogIn className="w-4 h-4" />
                         <span>
                           {offerData.campaign?.enabled
-                            ? `Đăng Nhập Để Nhận Ưu Đãi (${formatCore(totalPrice)})`
-                            : `Đăng Nhập Để Mua (${formatCore(totalPrice)})`}
+                            ? `Đăng Nhập Để Nhận Ưu Đãi (${formatPriceVal(totalPrice)})`
+                            : `Đăng Nhập Để Mua (${formatPriceVal(totalPrice)})`}
                         </span>
                       </button>
                     ) : (
-                      <button
-                        type="button"
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
                         disabled={isOutOfStock}
                         onClick={() => {
                           if (isOutOfStock) {
@@ -845,7 +938,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                             finalSafeQty
                           );
                         }}
-                        className={`w-full min-h-[44px] h-[48px] py-3 px-4 rounded-xl font-display font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-2 shadow-lg active:scale-95 cursor-pointer ${
+                        className={`flex-1 min-h-[44px] h-[48px] py-3 px-3 rounded-xl font-display font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-1.5 shadow-lg active:scale-95 cursor-pointer ${
                           !isOutOfStock
                             ? isSelectedEscalating
                               ? 'bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-400 hover:to-orange-500 text-slate-950 font-black shadow-amber-500/25'
@@ -859,16 +952,29 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                         <span>
                           {!isOutOfStock
                             ? isSelectedEscalating
-                              ? `Mua Ngay Gói Nâng Giá (${formatCore(totalPrice)})`
+                              ? `Mua Ngay (${formatPriceVal(totalPrice)})`
                               : isSelectedOfferEligible
-                                ? `Mua Ngay Ưu Đãi Lần Đầu (${formatCore(totalPrice)})`
-                                : `Mua Ngay Gói Này (${formatCore(totalPrice)})`
+                                ? `Mua Ngay Ưu Đãi (${formatPriceVal(totalPrice)})`
+                                : `Mua Ngay (${formatPriceVal(totalPrice)})`
                             : 'Tạm Hết Hàng'}
                         </span>
                       </button>
+                      <button
+                        type="button"
+                        disabled={isOutOfStock}
+                        onClick={handleAddToCart}
+                        className="w-full sm:w-auto px-4 min-h-[44px] h-[48px] rounded-xl font-bold text-xs sm:text-sm border-2 border-secondary/60 text-secondary hover:bg-secondary/10 transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+                        title="Thêm phân loại này vào giỏ hàng"
+                      >
+                        <ShoppingCart className="w-4 h-4" />
+                        <span>Thêm Giỏ</span>
+                      </button>
+                    </div>
                     )}
                     <p className="text-[10px] text-center text-muted-foreground pt-0.5">
-                      ⚡ Giao mã tự động qua ví Core trong 0 giây
+                      {(product as any).product_type === 'physical'
+                        ? '📦 Đóng gói cẩn thận • Giao tận nơi toàn quốc • Đổi trả 7 ngày'
+                        : '⚡ Giao mã tự động qua ví trong 0 giây'}
                     </p>
                   </div>
                 </div>
@@ -922,6 +1028,57 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       {packages.length} gói có sẵn
                     </span>
                   </div>
+
+                  
+                {/* KHỐI CHỌN THUỘC TÍNH ĐA NGÀNH (MÀU SẮC, KÍCH CỠ, DUNG TÍCH...) */}
+                {(product as any).attributes && (product as any).attributes.length > 0 && (
+                  <div className="space-y-3 pt-2 pb-2 border-b border-border/70">
+                    <div className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      <Tag className="w-3.5 h-3.5 text-secondary" />
+                      <span>Chọn Thuộc Tính / Phân Loại Hàng:</span>
+                    </div>
+                    {(product as any).attributes.map((attr: any) => {
+                      const currentSelectedVal = (selectedPackage as any)?.attributes?.[attr.name] ||
+                        (selectedPackage?.name && attr.values.find((v: string) => selectedPackage.name.includes(v)));
+
+                      return (
+                        <div key={attr.id || attr.name} className="space-y-1.5">
+                          <div className="text-[11px] text-muted-foreground font-semibold flex items-center justify-between">
+                            <span>{attr.name}:</span>
+                            {currentSelectedVal && <span className="text-secondary font-bold">{currentSelectedVal}</span>}
+                          </div>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {attr.values.map((val: string) => {
+                              const isValSelected = currentSelectedVal === val;
+                              return (
+                                <button
+                                  key={val}
+                                  type="button"
+                                  onClick={() => {
+                                    const matchedPkg = packages.find((p) => {
+                                      if ((p as any).attributes && (p as any).attributes[attr.name] === val) return true;
+                                      return p.name.includes(val);
+                                    });
+                                    if (matchedPkg) {
+                                      setSelectedPackageId(matchedPkg.id);
+                                    }
+                                  }}
+                                  className={`px-3 py-1 rounded-lg text-xs font-bold border transition cursor-pointer ${
+                                    isValSelected
+                                      ? 'bg-secondary text-white border-secondary shadow-sm'
+                                      : 'bg-card text-foreground border-border hover:border-secondary/50'
+                                  }`}
+                                >
+                                  {val}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
 
                   <div className="space-y-2 sm:max-h-[300px] sm:overflow-y-auto pr-1 scrollbar-thin">
                     {packages.map((pkg) => {
@@ -1055,11 +1212,11 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                           <div className="flex items-center justify-between sm:justify-end gap-2.5 shrink-0 pt-1.5 sm:pt-0 border-t sm:border-t-0 border-slate-800/60 w-full sm:w-auto">
                             <div className="flex items-baseline gap-2 sm:block sm:text-right">
                               <span className={`font-mono font-bold text-xs sm:text-sm block ${isSelected ? (isPkgEscalating ? 'text-amber-400' : 'text-red-400') : (isPkgEscalating ? 'text-amber-300' : 'text-emerald-400')}`}>
-                                {formatCore(pkgDisplayPrice)}
+                                {formatPriceVal(pkgDisplayPrice)}
                               </span>
                               {!isPkgEscalating && isPkgOfferEligible && pkgOriginalPrice > pkgDisplayPrice ? (
                                 <span className="text-[10px] text-muted-foreground line-through font-mono block">
-                                  {formatCore(pkgOriginalPrice)}
+                                  {formatPriceVal(pkgOriginalPrice)}
                                 </span>
                               ) : isPkgOut ? (
                                 <span className="text-[10px] text-rose-400 font-semibold block">Hết hàng</span>

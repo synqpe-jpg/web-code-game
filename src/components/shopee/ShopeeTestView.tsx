@@ -281,6 +281,12 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
     return dataService.getProductCategoriesConfig();
   });
 
+  // Dynamic Multi-Industry Store Products based on active preset
+  const [currentStoreProducts, setCurrentStoreProducts] = useState<StoreProduct[]>(() => {
+    const cfg = dataService.getProductCategoriesConfig();
+    return dataService.getStoreProducts(cfg?.activePresetId);
+  });
+
   // Dynamic Theme Accent Color Palette
   const currentAccent = useMemo(() => {
     return THEME_ACCENTS[shopBrand.themeAccent] || THEME_ACCENTS.orange;
@@ -307,6 +313,7 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
       });
       const c = dataService.getProductCategoriesConfig();
       setCategoriesConfig(c);
+      setCurrentStoreProducts(dataService.getStoreProducts(c?.activePresetId));
     };
     window.addEventListener('wcg_admin_data_updated', handleBrandingSync);
     window.addEventListener('storage', handleBrandingSync);
@@ -315,6 +322,11 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
       window.removeEventListener('storage', handleBrandingSync);
     };
   }, []);
+
+  // Update store products whenever active preset changes
+  useEffect(() => {
+    setCurrentStoreProducts(dataService.getStoreProducts(categoriesConfig.activePresetId));
+  }, [categoriesConfig.activePresetId]);
 
   // Hero carousel slide state (3 slide thật sự có nút prev/next và tự chuyển slide)
   const [heroSlide, setHeroSlide] = useState<number>(0);
@@ -511,18 +523,34 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
     return g.name;
   };
 
-  // 2. Filter store products (10 Gói Hiệp Khách Hành của web chính)
+  // 2. Filter store products (Sản phẩm cửa hàng đa ngành / gói game)
   const filteredStoreProducts = useMemo(() => {
-    let list = storeProducts || [];
+    let list = currentStoreProducts && currentStoreProducts.length > 0 ? currentStoreProducts : (storeProducts || []);
     if (searchKeyword.trim()) {
       const q = searchKeyword.toLowerCase();
       list = list.filter((p) => 
         (p.title || '').toLowerCase().includes(q) || 
-        (p.game_name || '').toLowerCase().includes(q)
+        (p.brand || '').toLowerCase().includes(q) ||
+        (p.game_name || '').toLowerCase().includes(q) ||
+        (p.category_label || '').toLowerCase().includes(q)
       );
     }
+    // Lọc theo danh mục đã chọn
+    if (selectedCategory !== 'all') {
+      const targetCat = categoriesConfig.categories.find((c) => c.id === selectedCategory);
+      if (targetCat) {
+        list = list.filter((p) => {
+          if (p.category === selectedCategory || p.game_slug === selectedCategory) return true;
+          if (targetCat.matchKeywords && targetCat.matchKeywords.length > 0) {
+            const textToMatch = `${p.title} ${p.category || ''} ${p.category_label || ''} ${p.brand || ''} ${p.game_name || ''} ${p.description || ''}`.toLowerCase();
+            return targetCat.matchKeywords.some((kw) => textToMatch.includes(kw.toLowerCase()));
+          }
+          return false;
+        });
+      }
+    }
     return list;
-  }, [storeProducts, searchKeyword]);
+  }, [currentStoreProducts, storeProducts, searchKeyword, selectedCategory, categoriesConfig]);
 
   // 3. Filter utility products (Cloud Phone, Gói nạp)
   const filteredUtilities = useMemo(() => {
@@ -2115,13 +2143,16 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
               {/* TAB CHUYỂN ĐỔI KỆ HÀNG */}
               <div className="flex items-center justify-between border-b-2 border-[#ee4d2d] pb-2 flex-wrap gap-2">
                 <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto scrollbar-none">
-                  {[
+                  {(categoriesConfig.activePresetId && categoriesConfig.activePresetId !== 'gaming' ? [
+                    { id: 'all', label: '🔥 Tất Cả Sản Phẩm', count: filteredStoreProducts.length },
+                    { id: 'account', label: '🛍️ Hàng Hóa & Phân Loại', count: filteredStoreProducts.length },
+                  ] : [
                     { id: 'all', label: '🔥 Tất Cả Hàng Hóa', count: (filteredGames.length + filteredStoreProducts.length + filteredUtilities.length + filteredGiveaways.length) },
                     { id: 'giftcode', label: '🎁 Giftcode 0Đ', count: filteredGames.length },
                     { id: 'utility', label: '💳 Tiện Ích & Thẻ Game', count: filteredUtilities.length },
                     { id: 'account', label: '🎮 Gói Code Cửa Hàng', count: filteredStoreProducts.length },
                     { id: 'giveaway', label: '🎉 Săn Giveaway', count: filteredGiveaways.length },
-                  ].map((tab) => (
+                  ]).map((tab) => (
                     <button
                       key={tab.id}
                       onClick={() => setSelectedProductType(tab.id as any)}
@@ -2243,7 +2274,7 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
                             <span className="text-4xl">📦</span>
                           )}
                           <span className="absolute top-0 left-0 bg-emerald-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-br">
-                            Gói Code
+                            {prod.product_type === 'physical' ? 'Hàng Vật Lý' : (prod.badge || 'Gói Code')}
                           </span>
                           {discountPercent > 0 && (
                             <span className="absolute top-0 right-0 bg-yellow-400 text-red-600 text-[10px] font-bold px-1 py-0.2">
@@ -2256,9 +2287,22 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
                           <div className="text-[11px] font-semibold line-clamp-2 leading-snug group-hover:text-[#ee4d2d] transition" title={prod.title}>
                             {prod.title}
                           </div>
-                          <div className="flex items-center gap-1">
-                            <span className="text-[9px] border border-emerald-500 text-emerald-500 px-1 rounded">Giao 0s</span>
-                            <span className="text-[9px] text-slate-400">{prod.game_name || 'Hiệp Khách Hành'}</span>
+                          <div className="flex items-center gap-1 flex-wrap">
+                            {prod.product_type === 'physical' ? (
+                              <span className="text-[9px] border border-blue-500 text-blue-500 px-1 rounded font-medium">Giao tận nơi</span>
+                            ) : (
+                              <span className="text-[9px] border border-emerald-500 text-emerald-500 px-1 rounded font-medium">Giao 0s</span>
+                            )}
+                            {prod.brand ? (
+                              <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 truncate max-w-[100px]">{prod.brand}</span>
+                            ) : (
+                              <span className="text-[9px] text-slate-400 truncate max-w-[100px]">{prod.game_name || 'Codegame Mall'}</span>
+                            )}
+                            {prod.variants && prod.variants.length > 0 && (
+                              <span className="text-[9px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-1 rounded">
+                                {prod.variants.length} phân loại
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -2278,10 +2322,17 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
                           )}
                         </div>
 
-                        {/* Khóa nút mua khi hết hàng */}
+                        {/* Khóa nút mua khi hết hàng / Chọn phân loại nếu có nhiều biến thể */}
                         <button
                           disabled={isOutOfStock}
-                          onClick={isOutOfStock ? undefined : (e) => handleAddProductToCart(prod, e)}
+                          onClick={isOutOfStock ? undefined : (e) => {
+                            e.stopPropagation();
+                            if (prod.variants && prod.variants.length > 1 && onSelectProduct) {
+                              onSelectProduct(prod);
+                            } else {
+                              handleAddProductToCart(prod, e);
+                            }
+                          }}
                           className={`w-full py-1 rounded text-[10px] font-bold flex items-center justify-center gap-1 transition shadow-sm ${
                             isOutOfStock
                               ? 'bg-slate-300 dark:bg-slate-700 text-slate-500 cursor-not-allowed'
@@ -2289,7 +2340,7 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
                           }`}
                         >
                           <ShoppingCart className="w-3 h-3" />
-                          <span>{isOutOfStock ? 'Hết Hàng' : 'Thêm Giỏ Hàng'}</span>
+                          <span>{isOutOfStock ? 'Hết Hàng' : (prod.variants && prod.variants.length > 1 ? 'Chọn Phân Loại' : 'Thêm Giỏ Hàng')}</span>
                         </button>
                       </div>
                     </div>

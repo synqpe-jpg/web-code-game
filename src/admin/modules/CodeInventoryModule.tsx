@@ -124,6 +124,11 @@ export const CodeInventoryModule: React.FC<CodeInventoryModuleProps> = ({ onShow
     first_purchase_enabled: true,
     first_purchase_price: '' as string | number,
     first_purchase_max_price: '' as string | number,
+    product_type: 'digital' as 'digital' | 'physical',
+    brand: '',
+    origin: '',
+    warranty_period: '',
+    shipping_fee: 0,
   });
 
   // --- ESCALATING PRICE MANAGEMENT STATE ---
@@ -236,6 +241,11 @@ export const CodeInventoryModule: React.FC<CodeInventoryModuleProps> = ({ onShow
       first_purchase_enabled: true,
       first_purchase_price: '',
       first_purchase_max_price: '',
+      product_type: 'digital',
+      brand: '',
+      origin: '',
+      warranty_period: '',
+      shipping_fee: 0,
     });
     setIsProductModalOpen(true);
   };
@@ -299,6 +309,11 @@ export const CodeInventoryModule: React.FC<CodeInventoryModuleProps> = ({ onShow
       first_purchase_enabled: prod.first_purchase_enabled !== false,
       first_purchase_price: (prod.first_purchase_price !== null && prod.first_purchase_price !== undefined) ? prod.first_purchase_price : '',
       first_purchase_max_price: (prod.first_purchase_max_price !== null && prod.first_purchase_max_price !== undefined) ? prod.first_purchase_max_price : '',
+      product_type: prod.product_type || 'digital',
+      brand: prod.brand || '',
+      origin: prod.origin || '',
+      warranty_period: prod.warranty_period || '',
+      shipping_fee: prod.shipping_fee || 0,
     });
     setIsProductModalOpen(true);
   };
@@ -528,6 +543,13 @@ export const CodeInventoryModule: React.FC<CodeInventoryModuleProps> = ({ onShow
       first_purchase_enabled: firstPurchaseEnabled,
       first_purchase_price: firstPurchasePrice,
       first_purchase_max_price: firstPurchaseMaxPrice,
+      product_type: productForm.product_type || 'digital',
+      brand: (productForm.brand || '').trim(),
+      origin: (productForm.origin || '').trim(),
+      warranty_period: (productForm.warranty_period || '').trim(),
+      shipping_fee: Number(productForm.shipping_fee) || 0,
+      attributes: (editingProduct as any)?.attributes || [],
+      variants: (editingProduct as any)?.variants || [],
     });
 
     onShowToast(
@@ -1575,6 +1597,71 @@ export const CodeInventoryModule: React.FC<CodeInventoryModuleProps> = ({ onShow
                 placeholder="VD: Full code web / Code Triệu Vân"
                 className="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
               />
+            </div>
+          </div>
+
+          {/* Cấu Hình Đa Ngành & Loại Hàng (Universal Product Schema) */}
+          <div className="p-3 rounded-xl border border-indigo-200 dark:border-indigo-900/50 bg-indigo-50/40 dark:bg-slate-800/60 space-y-2.5">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <span className="text-xs font-bold text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5">
+                <Boxes className="w-3.5 h-3.5" />
+                <span>Loại Hàng Hóa & Vận Chuyển:</span>
+              </span>
+              <div className="flex items-center gap-3">
+                <label className="inline-flex items-center gap-1.5 text-xs cursor-pointer">
+                  <input
+                    type="radio"
+                    name="product_type"
+                    checked={productForm.product_type === 'physical'}
+                    onChange={() => setProductForm((p) => ({ ...p, product_type: 'physical' }))}
+                    className="text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span className="font-semibold text-slate-700 dark:text-slate-300">📦 Hàng Vật Lý (Giao tận nơi)</span>
+                </label>
+                <label className="inline-flex items-center gap-1.5 text-xs cursor-pointer">
+                  <input
+                    type="radio"
+                    name="product_type"
+                    checked={productForm.product_type !== 'physical'}
+                    onChange={() => setProductForm((p) => ({ ...p, product_type: 'digital' }))}
+                    className="text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span className="font-semibold text-slate-700 dark:text-slate-300">⚡ Hàng Số (Mã/Tài khoản)</span>
+                </label>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              <div>
+                <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400">Thương Hiệu (Brand)</label>
+                <input
+                  type="text"
+                  value={productForm.brand || ''}
+                  onChange={(e) => setProductForm((p) => ({ ...p, brand: e.target.value }))}
+                  placeholder="VD: Apple, Nike, POLO MAN..."
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2 text-xs text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400">Xuất Xứ (Origin)</label>
+                <input
+                  type="text"
+                  value={productForm.origin || ''}
+                  onChange={(e) => setProductForm((p) => ({ ...p, origin: e.target.value }))}
+                  placeholder="VD: Chính Hãng VN, Nhập Khẩu..."
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2 text-xs text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400">Bảo Hành (Warranty)</label>
+                <input
+                  type="text"
+                  value={productForm.warranty_period || ''}
+                  onChange={(e) => setProductForm((p) => ({ ...p, warranty_period: e.target.value }))}
+                  placeholder="VD: 12 tháng chính hãng, Đổi 7 ngày..."
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2 text-xs text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                />
+              </div>
             </div>
           </div>
 
