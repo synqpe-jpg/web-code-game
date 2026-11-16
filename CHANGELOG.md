@@ -7,6 +7,20 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-16]
 
+### 401. Hotfix Lỗi Khởi Tạo Biến Trước Khi Khai Báo (TDZ) Gây Crash Error Boundary Trên /test1 (16/11/2026)
+- **Bối cảnh & Yêu cầu của Chủ sở hữu**:
+  - Người dùng truy cập `codegame.shop/test1` nhận thông báo lỗi: `Đã có sự cố hiển thị nhỏ xảy ra... Cannot access 'M' before initialization`.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Lỗi Temporal Dead Zone (TDZ) trong JavaScript runtime: `activeTotalCount` và `paginatedGames` được khai báo bằng `useMemo` trước khi các biến `filteredStoreProducts`, `filteredUtilities`, `filteredGiveaways` được khởi tạo bằng `const`. Khi bundle production minified thành các biến chữ cái đơn (`M`, `k`...), engine JavaScript truy cập vào biến `filteredGiveaways` trong dependency array trước dòng khai báo của nó nên ném `ReferenceError: Cannot access 'M' before initialization`.
+- **Giải pháp áp dụng (Solution)**:
+  - Tái cấu trúc và sắp xếp lại đúng thứ tự khai báo logic trong `ShopeeTestView.tsx`: Khởi tạo toàn bộ 4 tập lọc nguồn (`filteredGames`, `filteredStoreProducts`, `filteredUtilities`, `filteredGiveaways`) trước, sau đó mới khai báo `activeTotalCount`, `totalPages` và các slice phân trang `paginated...`.
+- **Kết quả nghiệm thu**:
+  - Build Vite & Prerender 593 game thành công 100%.
+  - Zero test artifacts PASSED 100%.
+  - Triển khai Cloudflare Pages và push GitHub main.
+
+---
+
 ### 400. Sửa Toàn Diện 38 Điểm Bất Cập / Lỗi Tồn Tại Sau Đợt Kiểm 6 Giờ Trên /test1 (16/11/2026)
 - **Bối cảnh & Yêu cầu của Chủ sở hữu**:
   - Đợt kiểm toán toàn diện 6 giờ (02:23–07:44 16/11/2026) trên `codegame.shop/test1` ghi nhận 38 điểm cần xử lý thuộc 3 nhóm (4 nghiêm trọng, 14 trung bình, 20 nhỏ):
@@ -134,6 +148,20 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-16]
 
+### 401. Hotfix Lỗi Khởi Tạo Biến Trước Khi Khai Báo (TDZ) Gây Crash Error Boundary Trên /test1 (16/11/2026)
+- **Bối cảnh & Yêu cầu của Chủ sở hữu**:
+  - Người dùng truy cập `codegame.shop/test1` nhận thông báo lỗi: `Đã có sự cố hiển thị nhỏ xảy ra... Cannot access 'M' before initialization`.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Lỗi Temporal Dead Zone (TDZ) trong JavaScript runtime: `activeTotalCount` và `paginatedGames` được khai báo bằng `useMemo` trước khi các biến `filteredStoreProducts`, `filteredUtilities`, `filteredGiveaways` được khởi tạo bằng `const`. Khi bundle production minified thành các biến chữ cái đơn (`M`, `k`...), engine JavaScript truy cập vào biến `filteredGiveaways` trong dependency array trước dòng khai báo của nó nên ném `ReferenceError: Cannot access 'M' before initialization`.
+- **Giải pháp áp dụng (Solution)**:
+  - Tái cấu trúc và sắp xếp lại đúng thứ tự khai báo logic trong `ShopeeTestView.tsx`: Khởi tạo toàn bộ 4 tập lọc nguồn (`filteredGames`, `filteredStoreProducts`, `filteredUtilities`, `filteredGiveaways`) trước, sau đó mới khai báo `activeTotalCount`, `totalPages` và các slice phân trang `paginated...`.
+- **Kết quả nghiệm thu**:
+  - Build Vite & Prerender 593 game thành công 100%.
+  - Zero test artifacts PASSED 100%.
+  - Triển khai Cloudflare Pages và push GitHub main.
+
+---
+
 ### 400. Sửa Toàn Diện 38 Điểm Bất Cập / Lỗi Tồn Tại Sau Đợt Kiểm 6 Giờ Trên /test1 (16/11/2026)
 - **Bối cảnh & Yêu cầu của Chủ sở hữu**:
   - Đợt kiểm toán toàn diện 6 giờ (02:23–07:44 16/11/2026) trên `codegame.shop/test1` ghi nhận 38 điểm cần xử lý thuộc 3 nhóm (4 nghiêm trọng, 14 trung bình, 20 nhỏ):
@@ -234,6 +262,20 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 ---
 
 ## [2026-11-16]
+
+### 401. Hotfix Lỗi Khởi Tạo Biến Trước Khi Khai Báo (TDZ) Gây Crash Error Boundary Trên /test1 (16/11/2026)
+- **Bối cảnh & Yêu cầu của Chủ sở hữu**:
+  - Người dùng truy cập `codegame.shop/test1` nhận thông báo lỗi: `Đã có sự cố hiển thị nhỏ xảy ra... Cannot access 'M' before initialization`.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Lỗi Temporal Dead Zone (TDZ) trong JavaScript runtime: `activeTotalCount` và `paginatedGames` được khai báo bằng `useMemo` trước khi các biến `filteredStoreProducts`, `filteredUtilities`, `filteredGiveaways` được khởi tạo bằng `const`. Khi bundle production minified thành các biến chữ cái đơn (`M`, `k`...), engine JavaScript truy cập vào biến `filteredGiveaways` trong dependency array trước dòng khai báo của nó nên ném `ReferenceError: Cannot access 'M' before initialization`.
+- **Giải pháp áp dụng (Solution)**:
+  - Tái cấu trúc và sắp xếp lại đúng thứ tự khai báo logic trong `ShopeeTestView.tsx`: Khởi tạo toàn bộ 4 tập lọc nguồn (`filteredGames`, `filteredStoreProducts`, `filteredUtilities`, `filteredGiveaways`) trước, sau đó mới khai báo `activeTotalCount`, `totalPages` và các slice phân trang `paginated...`.
+- **Kết quả nghiệm thu**:
+  - Build Vite & Prerender 593 game thành công 100%.
+  - Zero test artifacts PASSED 100%.
+  - Triển khai Cloudflare Pages và push GitHub main.
+
+---
 
 ### 400. Sửa Toàn Diện 38 Điểm Bất Cập / Lỗi Tồn Tại Sau Đợt Kiểm 6 Giờ Trên /test1 (16/11/2026)
 - **Bối cảnh & Yêu cầu của Chủ sở hữu**:
@@ -358,6 +400,20 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-16]
 
+### 401. Hotfix Lỗi Khởi Tạo Biến Trước Khi Khai Báo (TDZ) Gây Crash Error Boundary Trên /test1 (16/11/2026)
+- **Bối cảnh & Yêu cầu của Chủ sở hữu**:
+  - Người dùng truy cập `codegame.shop/test1` nhận thông báo lỗi: `Đã có sự cố hiển thị nhỏ xảy ra... Cannot access 'M' before initialization`.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Lỗi Temporal Dead Zone (TDZ) trong JavaScript runtime: `activeTotalCount` và `paginatedGames` được khai báo bằng `useMemo` trước khi các biến `filteredStoreProducts`, `filteredUtilities`, `filteredGiveaways` được khởi tạo bằng `const`. Khi bundle production minified thành các biến chữ cái đơn (`M`, `k`...), engine JavaScript truy cập vào biến `filteredGiveaways` trong dependency array trước dòng khai báo của nó nên ném `ReferenceError: Cannot access 'M' before initialization`.
+- **Giải pháp áp dụng (Solution)**:
+  - Tái cấu trúc và sắp xếp lại đúng thứ tự khai báo logic trong `ShopeeTestView.tsx`: Khởi tạo toàn bộ 4 tập lọc nguồn (`filteredGames`, `filteredStoreProducts`, `filteredUtilities`, `filteredGiveaways`) trước, sau đó mới khai báo `activeTotalCount`, `totalPages` và các slice phân trang `paginated...`.
+- **Kết quả nghiệm thu**:
+  - Build Vite & Prerender 593 game thành công 100%.
+  - Zero test artifacts PASSED 100%.
+  - Triển khai Cloudflare Pages và push GitHub main.
+
+---
+
 ### 400. Sửa Toàn Diện 38 Điểm Bất Cập / Lỗi Tồn Tại Sau Đợt Kiểm 6 Giờ Trên /test1 (16/11/2026)
 - **Bối cảnh & Yêu cầu của Chủ sở hữu**:
   - Đợt kiểm toán toàn diện 6 giờ (02:23–07:44 16/11/2026) trên `codegame.shop/test1` ghi nhận 38 điểm cần xử lý thuộc 3 nhóm (4 nghiêm trọng, 14 trung bình, 20 nhỏ):
@@ -470,6 +526,20 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-16]
 
+### 401. Hotfix Lỗi Khởi Tạo Biến Trước Khi Khai Báo (TDZ) Gây Crash Error Boundary Trên /test1 (16/11/2026)
+- **Bối cảnh & Yêu cầu của Chủ sở hữu**:
+  - Người dùng truy cập `codegame.shop/test1` nhận thông báo lỗi: `Đã có sự cố hiển thị nhỏ xảy ra... Cannot access 'M' before initialization`.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Lỗi Temporal Dead Zone (TDZ) trong JavaScript runtime: `activeTotalCount` và `paginatedGames` được khai báo bằng `useMemo` trước khi các biến `filteredStoreProducts`, `filteredUtilities`, `filteredGiveaways` được khởi tạo bằng `const`. Khi bundle production minified thành các biến chữ cái đơn (`M`, `k`...), engine JavaScript truy cập vào biến `filteredGiveaways` trong dependency array trước dòng khai báo của nó nên ném `ReferenceError: Cannot access 'M' before initialization`.
+- **Giải pháp áp dụng (Solution)**:
+  - Tái cấu trúc và sắp xếp lại đúng thứ tự khai báo logic trong `ShopeeTestView.tsx`: Khởi tạo toàn bộ 4 tập lọc nguồn (`filteredGames`, `filteredStoreProducts`, `filteredUtilities`, `filteredGiveaways`) trước, sau đó mới khai báo `activeTotalCount`, `totalPages` và các slice phân trang `paginated...`.
+- **Kết quả nghiệm thu**:
+  - Build Vite & Prerender 593 game thành công 100%.
+  - Zero test artifacts PASSED 100%.
+  - Triển khai Cloudflare Pages và push GitHub main.
+
+---
+
 ### 400. Sửa Toàn Diện 38 Điểm Bất Cập / Lỗi Tồn Tại Sau Đợt Kiểm 6 Giờ Trên /test1 (16/11/2026)
 - **Bối cảnh & Yêu cầu của Chủ sở hữu**:
   - Đợt kiểm toán toàn diện 6 giờ (02:23–07:44 16/11/2026) trên `codegame.shop/test1` ghi nhận 38 điểm cần xử lý thuộc 3 nhóm (4 nghiêm trọng, 14 trung bình, 20 nhỏ):
@@ -581,6 +651,20 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 ---
 
 ## [2026-11-16]
+
+### 401. Hotfix Lỗi Khởi Tạo Biến Trước Khi Khai Báo (TDZ) Gây Crash Error Boundary Trên /test1 (16/11/2026)
+- **Bối cảnh & Yêu cầu của Chủ sở hữu**:
+  - Người dùng truy cập `codegame.shop/test1` nhận thông báo lỗi: `Đã có sự cố hiển thị nhỏ xảy ra... Cannot access 'M' before initialization`.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Lỗi Temporal Dead Zone (TDZ) trong JavaScript runtime: `activeTotalCount` và `paginatedGames` được khai báo bằng `useMemo` trước khi các biến `filteredStoreProducts`, `filteredUtilities`, `filteredGiveaways` được khởi tạo bằng `const`. Khi bundle production minified thành các biến chữ cái đơn (`M`, `k`...), engine JavaScript truy cập vào biến `filteredGiveaways` trong dependency array trước dòng khai báo của nó nên ném `ReferenceError: Cannot access 'M' before initialization`.
+- **Giải pháp áp dụng (Solution)**:
+  - Tái cấu trúc và sắp xếp lại đúng thứ tự khai báo logic trong `ShopeeTestView.tsx`: Khởi tạo toàn bộ 4 tập lọc nguồn (`filteredGames`, `filteredStoreProducts`, `filteredUtilities`, `filteredGiveaways`) trước, sau đó mới khai báo `activeTotalCount`, `totalPages` và các slice phân trang `paginated...`.
+- **Kết quả nghiệm thu**:
+  - Build Vite & Prerender 593 game thành công 100%.
+  - Zero test artifacts PASSED 100%.
+  - Triển khai Cloudflare Pages và push GitHub main.
+
+---
 
 ### 400. Sửa Toàn Diện 38 Điểm Bất Cập / Lỗi Tồn Tại Sau Đợt Kiểm 6 Giờ Trên /test1 (16/11/2026)
 - **Bối cảnh & Yêu cầu của Chủ sở hữu**:
@@ -697,6 +781,20 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 ---
 
 ## [2026-11-16]
+
+### 401. Hotfix Lỗi Khởi Tạo Biến Trước Khi Khai Báo (TDZ) Gây Crash Error Boundary Trên /test1 (16/11/2026)
+- **Bối cảnh & Yêu cầu của Chủ sở hữu**:
+  - Người dùng truy cập `codegame.shop/test1` nhận thông báo lỗi: `Đã có sự cố hiển thị nhỏ xảy ra... Cannot access 'M' before initialization`.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Lỗi Temporal Dead Zone (TDZ) trong JavaScript runtime: `activeTotalCount` và `paginatedGames` được khai báo bằng `useMemo` trước khi các biến `filteredStoreProducts`, `filteredUtilities`, `filteredGiveaways` được khởi tạo bằng `const`. Khi bundle production minified thành các biến chữ cái đơn (`M`, `k`...), engine JavaScript truy cập vào biến `filteredGiveaways` trong dependency array trước dòng khai báo của nó nên ném `ReferenceError: Cannot access 'M' before initialization`.
+- **Giải pháp áp dụng (Solution)**:
+  - Tái cấu trúc và sắp xếp lại đúng thứ tự khai báo logic trong `ShopeeTestView.tsx`: Khởi tạo toàn bộ 4 tập lọc nguồn (`filteredGames`, `filteredStoreProducts`, `filteredUtilities`, `filteredGiveaways`) trước, sau đó mới khai báo `activeTotalCount`, `totalPages` và các slice phân trang `paginated...`.
+- **Kết quả nghiệm thu**:
+  - Build Vite & Prerender 593 game thành công 100%.
+  - Zero test artifacts PASSED 100%.
+  - Triển khai Cloudflare Pages và push GitHub main.
+
+---
 
 ### 400. Sửa Toàn Diện 38 Điểm Bất Cập / Lỗi Tồn Tại Sau Đợt Kiểm 6 Giờ Trên /test1 (16/11/2026)
 - **Bối cảnh & Yêu cầu của Chủ sở hữu**:

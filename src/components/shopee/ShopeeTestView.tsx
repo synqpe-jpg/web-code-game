@@ -364,6 +364,45 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
     return g.name;
   };
 
+  // 2. Filter store products (10 Gói Hiệp Khách Hành của web chính)
+  const filteredStoreProducts = useMemo(() => {
+    let list = storeProducts || [];
+    if (searchKeyword.trim()) {
+      const q = searchKeyword.toLowerCase();
+      list = list.filter((p) => 
+        (p.title || '').toLowerCase().includes(q) || 
+        (p.game_name || '').toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [storeProducts, searchKeyword]);
+
+  // 3. Filter utility products (Cloud Phone, Gói nạp)
+  const filteredUtilities = useMemo(() => {
+    let list = utilities || [];
+    if (searchKeyword.trim()) {
+      const q = searchKeyword.toLowerCase();
+      list = list.filter((u) => 
+        (u.title || '').toLowerCase().includes(q) || 
+        (u.category_label || '').toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [utilities, searchKeyword]);
+
+  // 4. Filter giveaways
+  const filteredGiveaways = useMemo(() => {
+    let list = giveaways || [];
+    if (searchKeyword.trim()) {
+      const q = searchKeyword.toLowerCase();
+      list = list.filter((gw) => 
+        (gw.title || '').toLowerCase().includes(q) || 
+        (gw.game_name || '').toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [giveaways, searchKeyword]);
+
   // Paginated slices theo tab đang chọn
   const activeTotalCount = useMemo(() => {
     if (selectedProductType === 'giveaway') return filteredGiveaways.length;
@@ -379,19 +418,6 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
     return filteredGames.slice(start, start + pageSize);
   }, [filteredGames, currentPage, pageSize]);
 
-  // 2. Filter store products (10 Gói Hiệp Khách Hành của web chính)
-  const filteredStoreProducts = useMemo(() => {
-    let list = storeProducts || [];
-    if (searchKeyword.trim()) {
-      const q = searchKeyword.toLowerCase();
-      list = list.filter((p) => 
-        (p.title || '').toLowerCase().includes(q) || 
-        (p.game_name || '').toLowerCase().includes(q)
-      );
-    }
-    return list;
-  }, [storeProducts, searchKeyword]);
-
   const paginatedStoreProducts = useMemo(() => {
     if (selectedProductType !== 'account') {
       return filteredStoreProducts.slice(0, 6);
@@ -400,19 +426,6 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
     return filteredStoreProducts.slice(start, start + pageSize);
   }, [filteredStoreProducts, selectedProductType, currentPage, pageSize]);
 
-  // 3. Filter utility products (Cloud Phone, Gói nạp)
-  const filteredUtilities = useMemo(() => {
-    let list = utilities || [];
-    if (searchKeyword.trim()) {
-      const q = searchKeyword.toLowerCase();
-      list = list.filter((u) => 
-        (u.title || '').toLowerCase().includes(q) || 
-        (u.category_label || '').toLowerCase().includes(q)
-      );
-    }
-    return list;
-  }, [utilities, searchKeyword]);
-
   const paginatedUtilities = useMemo(() => {
     if (selectedProductType !== 'utility') {
       return filteredUtilities.slice(0, 6);
@@ -420,19 +433,6 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
     const start = (currentPage - 1) * pageSize;
     return filteredUtilities.slice(start, start + pageSize);
   }, [filteredUtilities, selectedProductType, currentPage, pageSize]);
-
-  // 4. Filter giveaways
-  const filteredGiveaways = useMemo(() => {
-    let list = giveaways || [];
-    if (searchKeyword.trim()) {
-      const q = searchKeyword.toLowerCase();
-      list = list.filter((gw) => 
-        (gw.title || '').toLowerCase().includes(q) || 
-        (gw.game_name || '').toLowerCase().includes(q)
-      );
-    }
-    return list;
-  }, [giveaways, searchKeyword]);
 
   const paginatedGiveaways = useMemo(() => {
     if (selectedProductType !== 'giveaway') {

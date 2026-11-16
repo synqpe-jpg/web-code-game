@@ -10,6 +10,19 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-284: Bẫy Khởi Tạo Biến Trước Khi Khai Báo (TDZ - Temporal Dead Zone) Trong React Hook Dependencies Gây Crash Production Error Boundary
+- **Triệu chứng & Rủi ro**:
+  1. *Crash runtime với mã lỗi minified*: Trang `/test1` văng Error Boundary kèm lỗi: `Cannot access 'M' before initialization`.
+  2. *Build Vite vượt qua bình thường*: Trình biên dịch Vite & Rollup không bắt lỗi TDZ lúc build nếu các biến đều tồn tại trong cùng scope hàm nhưng bị đảo lộn thứ tự dòng khởi tạo.
+- **Nguyên nhân gốc rễ**:
+  1. Đặt `useMemo` tính tổng (`activeTotalCount`) hoặc phân trang lên trên dòng khai báo của các danh sách phụ thuộc (`filteredStoreProducts`, `filteredUtilities`, `filteredGiveaways`). Khi hàm component chạy từ trên xuống, dependency array cố đọc `.length` của biến chưa đến dòng `const` của nó.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Luôn khai báo các nguồn dữ liệu gốc / mảng lọc cơ sở trước.
+  2. Sau đó mới khai báo các biến phụ thuộc (computed values, pagination slices, totals).
+  3. Duy trì thứ tự tuyến tính không có vòng phụ thuộc trong cùng 1 component.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không đặt `useMemo` có dependency array trỏ tới biến được khai báo ở các dòng code phía dưới.*
+
 ### ISSUE-283: Bẫy Đồng Bộ Giao Diện Phong Cách Sàn Đa Ngành & Rủi Ro Phân Tách Quá Mức Giữa Subview Thử Nghiệm Và Core Systems
 - **Triệu chứng & Rủi ro**:
   1. *Nút tính năng không phản hồi (Vòng Quay Xu)*: Nút trên giao diện test gọi handler hợp lệ nhưng modal không render vì cờ `isEnabled` của service hệ thống bị khóa hoặc bị bọc điều kiện ở root component.
