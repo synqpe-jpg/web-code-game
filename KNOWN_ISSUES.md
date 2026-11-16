@@ -10,6 +10,15 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-297: Landing Page Bán/Thuê Sàn E-Commerce & Quản Trị Hồ Sơ Khách Hàng (Leads) Chuẩn Single-Screen First (Rule 9)
+- **Triệu chứng & Rủi ro**:
+  - Khi triển khai tính năng bán đứt hoặc cho thuê sàn (SaaS multi-tenant / tenant leads), việc lưu hồ sơ khách hàng chứa nhiều trường thông tin dài (tên khách hàng, SĐT, email, tên shop, ngành hàng, tên miền dự kiến, ngân sách, ghi chú, trạng thái đàm phán, ghi chú nội bộ) rất dễ làm bảng quản trị bị tràn ngang làm mất nút gọi/sửa/xóa ở mép phải màn hình laptop 1366x768 (vi phạm Rule 9).
+  - Phía Client nếu không tách biệt Header/Footer giữa trang bán hàng chính và trang Landing Page giới thiệu giải pháp có thể làm xung đột điều hướng, khiến khách hàng bị bối rối khi tìm thông tin gói thuê.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - `PlatformSolutionsView.tsx` được thiết kế độc lập, có thanh Header Bar và Footer riêng, hỗ trợ điều hướng quay lại sàn mua sắm hoặc mở nhanh demo ngành hàng tương ứng.
+  - Bảng quản trị `PlatformLeadsModule.tsx` tuân thủ nghiêm ngặt Rule 9: sử dụng `table-fixed w-full`, chia tỷ lệ cột chính xác 100% (25% / 23% / 20% / 17% / 15%), toàn bộ văn bản dài cắt tỉa bằng `truncate` có thuộc tính `title`.
+  - Tích hợp nút kết nối Zalo nhanh (`zalo.me/...`) và modal xử lý ghi chú nội bộ giúp Quản trị viên cập nhật trạng thái đàm phán tức thì mà không cần chuyển trang.
+
 ### ISSUE-296: Quy Trình Đặt Hàng & Giao Nhận Linh Hoạt (Physical Shipping Info & Tracking vs Instant Digital Code Delivery) Tuân Thủ Tuyệt Đối Rule 9
 - **Triệu chứng & Rủi ro**:
   - Khi sàn mở rộng sang hàng vật lý (quần áo, mỹ phẩm, công nghệ...), nếu dùng chung luồng đặt hàng của game code sẽ dẫn đến lỗi logic: hệ thống đòi hỏi mã thẻ cào từ kho `inventory_codes` và màn hình hoàn tất lại hiển thị mã code trống, người mua không có nơi nhập địa chỉ giao hàng và chủ shop không có thông tin người nhận hay mã vận đơn để gửi hàng.

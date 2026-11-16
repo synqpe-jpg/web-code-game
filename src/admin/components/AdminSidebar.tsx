@@ -54,6 +54,7 @@ export type AdminModuleTab =
   | 'telegram'
   | 'orders'
   | 'marketplace'
+  | 'platform-leads'
   | 'first-purchase'
   | 'sepay'
   | 'content'
@@ -213,6 +214,13 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
           icon: Store,
           badge: 'MỚI',
           badgeColor: 'bg-emerald-500 text-neutral-950 font-bold',
+        },
+        {
+          id: 'platform-leads',
+          label: 'Khách Thuê / Mua Sàn',
+          icon: Rocket,
+          badge: 'LEADS',
+          badgeColor: 'bg-amber-500 text-neutral-950 font-bold',
         },
       ],
     },

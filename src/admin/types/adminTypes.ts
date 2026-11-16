@@ -379,3 +379,6 @@ export interface UpcomingGameApiLogEntry {
   }>;
   timestamp: string;
 }
+
+export type { TenantLeadRecord } from '../../types/game';
+

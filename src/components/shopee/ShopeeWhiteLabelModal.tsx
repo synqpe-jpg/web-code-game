@@ -434,6 +434,14 @@ export const ShopeeWhiteLabelModal: React.FC<ShopeeWhiteLabelModalProps> = ({
               Để Sau
             </button>
             <a
+              href="#giai-phap-san"
+              onClick={onClose}
+              className="bg-neutral-800 hover:bg-neutral-700 text-amber-400 font-bold px-3.5 py-2 rounded-xl text-xs transition border border-amber-500/30 flex items-center gap-1.5"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Xem Landing Giải Pháp Toàn Diện</span>
+            </a>
+            <a
               href="https://t.me/codegame_hotro"
               target="_blank"
               rel="noopener noreferrer"

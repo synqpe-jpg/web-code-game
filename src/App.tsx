@@ -45,6 +45,7 @@ const SellerCenterView = lazyWithRetry(() => import('./components/seller/SellerC
 const PublicStoreView = lazyWithRetry(() => import('./components/seller/PublicStoreView').then((m) => ({ default: m.PublicStoreView })));
 const CartDrawerModal = lazyWithRetry(() => import('./components/cart/CartDrawerModal').then((m) => ({ default: m.CartDrawerModal })));
 const ShopeeTestView = lazyWithRetry(() => import('./components/shopee/ShopeeTestView').then((m) => ({ default: m.ShopeeTestView })));
+const PlatformSolutionsView = lazyWithRetry(() => import('./components/showcase/PlatformSolutionsView').then((m) => ({ default: m.PlatformSolutionsView })));
 import { dataService } from './services/dataService';
 import fallbackGamesData from './data/games188.json';
 import { marketingService } from './services/marketingService';
@@ -91,7 +92,7 @@ export const App: React.FC = () => {
   const [, startTransition] = useTransition();
 
   // Navigation Tab State (Decoupled Frontends Domain Detection & Hash Routing)
-  const [currentTab, setCurrentTab] = useState<'catalog' | 'news' | 'giveaways' | 'store' | 'utilities' | 'missions' | 'telegram' | 'today-codes' | 'seller-center' | 'store-detail' | 'admin' | 'shopee-test'>(() => {
+  const [currentTab, setCurrentTab] = useState<'catalog' | 'news' | 'giveaways' | 'store' | 'utilities' | 'missions' | 'telegram' | 'today-codes' | 'seller-center' | 'store-detail' | 'admin' | 'shopee-test' | 'platform-solutions'>(() => {
     if (typeof window !== 'undefined') {
       const host = window.location.hostname.toLowerCase();
       const hash = window.location.hash.toLowerCase();
@@ -102,6 +103,22 @@ export const App: React.FC = () => {
       const isAdminHash = ADMIN_HASH_PREFIXES.some((p) => hash.startsWith(p));
       if (isAdminDomain || path.startsWith('/admin') || isAdminHash) {
         return 'admin';
+      }
+
+      // Check platform solutions route
+      if (
+        hash.includes('giai-phap-san') ||
+        hash.includes('ban-web') ||
+        hash.includes('cho-thue-web') ||
+        hash.includes('platform-solutions') ||
+        path === '/giai-phap-san' ||
+        path.startsWith('/giai-phap-san/') ||
+        path === '/ban-web' ||
+        path.startsWith('/ban-web/') ||
+        path === '/cho-thue-web' ||
+        path.startsWith('/cho-thue-web/')
+      ) {
+        return 'platform-solutions';
       }
 
       // 2. If on dedicated test client domain -> Default to shopee-test as homepage!
@@ -1010,6 +1027,28 @@ export const App: React.FC = () => {
         return;
       }
 
+      // Check platform solutions route
+      if (
+        hash === '#giai-phap-san' ||
+        hash.startsWith('#giai-phap-san') ||
+        hash === '#ban-web' ||
+        hash.startsWith('#ban-web') ||
+        hash === '#cho-thue-web' ||
+        hash.startsWith('#cho-thue-web') ||
+        hash === '#platform-solutions' ||
+        hash.startsWith('#platform-solutions') ||
+        path === '/giai-phap-san' ||
+        path.startsWith('/giai-phap-san/') ||
+        path === '/ban-web' ||
+        path.startsWith('/ban-web/') ||
+        path === '/cho-thue-web' ||
+        path.startsWith('/cho-thue-web/')
+      ) {
+        setSelectedGame(null);
+        setCurrentTab('platform-solutions');
+        return;
+      }
+
       // 1. Explicit hash deep links precedence
       if (hash === '#su-kien' || hash.startsWith('#su-kien') || hash === '#events' || hash.startsWith('#events')) {
         setSelectedGame(null);
@@ -1831,13 +1870,13 @@ export const App: React.FC = () => {
       {/* Main App Content (relative z-10) */}
       <div className="relative z-10 flex-1 flex flex-col w-full max-w-full">
         {/* Dynamic Announcement Banner from Admin CMS */}
-        {currentTab !== 'shopee-test' && <AnnouncementBar />}
+        {currentTab !== 'shopee-test' && currentTab !== 'platform-solutions' && <AnnouncementBar />}
 
         {/* Top Sticky Event Countdown Banner */}
-        {currentTab !== 'shopee-test' && <TopEventBanner onNavigate={handleBannerNavigate} />}
+        {currentTab !== 'shopee-test' && currentTab !== 'platform-solutions' && <TopEventBanner onNavigate={handleBannerNavigate} />}
 
         {/* Top Navigation Bar */}
-        {currentTab !== 'shopee-test' && (
+        {currentTab !== 'shopee-test' && currentTab !== 'platform-solutions' && (
           <Header
             currentTab={currentTab}
             onSelectTab={handleSelectTab}
@@ -2141,11 +2180,24 @@ export const App: React.FC = () => {
                 onShowToast={showToast}
               />
             )}
+
+            {currentTab === 'platform-solutions' && (
+              <PlatformSolutionsView
+                onNavigateBack={() => {
+                  const isTestClient = typeof window !== 'undefined' && (window.location.hostname.includes('test-code-game-shop') || window.location.hostname.includes('test-shopee'));
+                  setCurrentTab(isTestClient ? 'shopee-test' : 'catalog');
+                }}
+                onOpenStoreDemo={(ind) => {
+                  setCurrentTab('shopee-test');
+                  window.location.hash = '#shopee-test';
+                }}
+              />
+            )}
           </Suspense>
         </main>
 
         {/* Footer */}
-        {currentTab !== 'shopee-test' && (
+        {currentTab !== 'shopee-test' && currentTab !== 'platform-solutions' && (
           <Footer
             categories={categories}
             totalGames={totalResults || allGamesList.length || games.length || 591}
@@ -2160,7 +2212,7 @@ export const App: React.FC = () => {
         )}
 
         {/* Mobile Sticky Bottom Navigation Dock */}
-        {currentTab !== 'shopee-test' && (
+        {currentTab !== 'shopee-test' && currentTab !== 'platform-solutions' && (
           <MobileBottomNav
             currentTab={currentTab}
             onSelectTab={handleSelectTab}

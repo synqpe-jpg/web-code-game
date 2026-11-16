@@ -21,8 +21,10 @@ import {
   CrawlerApiLogEntry,
   UpcomingGameAdminRecord,
   UpcomingGameApiLogEntry,
+  TenantLeadRecord,
 } from '../types/adminTypes';
 import type { GiveawayCampaign, StoreProduct, UtilityProduct, UtilityCategory, StoreCategory, CrawlerSource, ProductCategoriesConfig, ProductCategoryItem } from '../../types/game';
+import { dataService } from '../../services/dataService';
 import { getDefaultCategoriesConfig, INDUSTRY_PRESETS } from '../../data/industryPresets';
 import defaultCrawlerSources from '../../data/crawler_sources.json';
 import rawGamesData from '../../data/games188.json';
@@ -5728,7 +5730,26 @@ class AdminDataService {
     }
   }
 
+  // ==================== TENANT LEADS MANAGEMENT ====================
+  public getTenantLeads(): TenantLeadRecord[] {
+    return dataService.getTenantLeads();
+  }
 
+  public updateTenantLeadStatus(id: string, status: string, adminNotes?: string): boolean {
+    return dataService.updateTenantLeadStatus(id, status, adminNotes);
+  }
+
+  public deleteTenantLead(id: string): boolean {
+    return dataService.deleteTenantLead(id);
+  }
+
+  public async createTenantLead(leadInput: Omit<TenantLeadRecord, 'id' | 'status' | 'created_at'>): Promise<{
+    success: boolean;
+    lead: TenantLeadRecord;
+    message?: string;
+  }> {
+    return dataService.submitTenantLead(leadInput);
+  }
 }
 
 export const adminDataService = new AdminDataService();

@@ -791,6 +791,14 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
           <span className="truncate">Đang chạy phiên bản sàn Shopee Game tại đường dẫn <code className="bg-amber-600/30 px-1.5 py-0.5 rounded font-mono">codegame.shop/test1</code> (Web chính không bị ảnh hưởng)</span>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          <a
+            href="#giai-phap-san"
+            className="flex items-center gap-1.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-neutral-950 px-3 py-1 rounded text-xs transition active:scale-95 cursor-pointer font-black shadow-sm"
+          >
+            <Rocket className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">🔥 Thuê / Mua Sàn Này</span>
+            <span className="sm:hidden">Thuê Sàn</span>
+          </a>
           <button 
             onClick={() => setIsWhiteLabelOpen(true)}
             className="flex items-center gap-1.5 bg-red-700 hover:bg-red-800 text-white px-3 py-1 rounded text-xs transition active:scale-95 cursor-pointer font-bold shadow-sm"

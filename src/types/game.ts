@@ -339,6 +339,24 @@ export interface OrderRecord {
   shipping_fee?: number; // Cước phí vận chuyển
 }
 
+// Tenant Lead Record (Khách Hàng Đăng Ký Thuê / Mua Sàn E-commerce)
+export interface TenantLeadRecord {
+  id: string; // 'LEAD-1731...-XXXX'
+  full_name: string; // Tên khách hàng / người liên hệ
+  phone: string; // Số điện thoại / Zalo
+  email?: string; // Email liên hệ
+  shop_name: string; // Tên shop / thương hiệu mong muốn
+  industry: 'gaming' | 'fashion' | 'beauty' | 'tech' | 'services' | 'other' | string; // Ngành hàng kinh doanh
+  plan_type: 'rental_starter' | 'rental_business' | 'buyout_full' | 'enterprise_custom' | string; // Gói quan tâm
+  expected_domain?: string; // Tên miền dự kiến
+  budget_range?: string; // Ngân sách dự kiến
+  note?: string; // Ghi chú yêu cầu riêng
+  status: 'NEW' | 'CONTACTED' | 'QUALIFIED' | 'CLOSED_WON' | 'CANCELLED' | string; // Trạng thái tư vấn
+  admin_notes?: string; // Ghi chú nội bộ của Quản trị viên
+  created_at: string;
+  ip_address?: string;
+}
+
 export interface ClaimedCodeRecord {
   id: string;
   campaign_id: string;

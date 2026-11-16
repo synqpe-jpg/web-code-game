@@ -13,6 +13,7 @@ import type {
   UpcomingGame,
   ProductCategoriesConfig,
   ProductCategoryItem,
+  TenantLeadRecord,
 } from '../types/game';
 import { DEFAULT_UPCOMING_GAMES } from '../types/game';
 import { getDefaultCategoriesConfig, INDUSTRY_PRESETS } from '../data/industryPresets';
@@ -4844,6 +4845,163 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
         message: 'Lỗi kết nối khi xác minh email: ' + (e?.message || 'Không xác định'),
       };
     }
+  }
+
+  // ==================== TENANT LEADS & PLATFORM SOLUTIONS ====================
+  getTenantLeads(): TenantLeadRecord[] {
+    const STORAGE_KEY = 'tenant_leads_records';
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to read tenant leads from localStorage:', e);
+    }
+
+    // Default sample leads for initial showcase
+    const defaultLeads: TenantLeadRecord[] = [
+      {
+        id: 'LEAD-20261116-001',
+        full_name: 'Nguyễn Văn Minh',
+        phone: '0988123456',
+        email: 'minh.nguyen@vintagestore.vn',
+        shop_name: 'Vintage Streetwear & Sneaker',
+        industry: 'fashion',
+        plan_type: 'rental_business',
+        expected_domain: 'vintagestreet.vn',
+        budget_range: 'Dưới 10 triệu',
+        note: 'Muốn mở shop thời trang tích hợp giao hàng GHTK và thanh toán QR tự động.',
+        status: 'NEW',
+        admin_notes: 'Khách quan tâm gói Thuê Chuyên Nghiệp 790k/tháng, hẹn gọi lại lúc 14h.',
+        created_at: new Date(Date.now() - 3600000 * 5).toISOString(),
+      },
+      {
+        id: 'LEAD-20261115-002',
+        full_name: 'Trần Thị Mỹ Duyên',
+        phone: '0912345678',
+        email: 'duyen.tran@cosmeticsglow.com',
+        shop_name: 'Glow Skin Cosmetics',
+        industry: 'beauty',
+        plan_type: 'buyout_full',
+        expected_domain: 'glowskin.vn',
+        budget_range: '15 - 25 triệu',
+        note: 'Cần mua đứt mã nguồn để tự host và quản lý độc lập cho chuỗi 3 cửa hàng mỹ phẩm.',
+        status: 'QUALIFIED',
+        admin_notes: 'Đã tư vấn qua Zalo, khách đồng ý gói Mua Đứt 15 triệu, đang chuẩn bị hợp đồng bàn giao.',
+        created_at: new Date(Date.now() - 3600000 * 28).toISOString(),
+      },
+      {
+        id: 'LEAD-20261114-003',
+        full_name: 'Lê Hoàng Long',
+        phone: '0977654321',
+        email: 'longlh@esportgaming.net',
+        shop_name: 'CyberZone Gaming Gear',
+        industry: 'tech',
+        plan_type: 'rental_starter',
+        expected_domain: 'cyberzonegear.com',
+        budget_range: 'Dưới 5 triệu',
+        note: 'Shop bán phụ kiện gaming và acc game, cần giao code số tự động 0s.',
+        status: 'CLOSED_WON',
+        admin_notes: 'Đã thanh toán cọc 6 tháng gói Khởi Nghiệp, đã bàn giao tên miền và link admin.',
+        created_at: new Date(Date.now() - 3600000 * 72).toISOString(),
+      },
+    ];
+
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultLeads));
+      }
+    } catch {}
+
+    return defaultLeads;
+  }
+
+  async submitTenantLead(leadInput: Omit<TenantLeadRecord, 'id' | 'status' | 'created_at'>): Promise<{
+    success: boolean;
+    lead: TenantLeadRecord;
+    message?: string;
+  }> {
+    const STORAGE_KEY = 'tenant_leads_records';
+    const newLead: TenantLeadRecord = {
+      id: `LEAD-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
+      ...leadInput,
+      status: 'NEW',
+      created_at: new Date().toISOString(),
+    };
+
+    try {
+      const currentLeads = this.getTenantLeads();
+      const updatedLeads = [newLead, ...currentLeads];
+      if (typeof window !== 'undefined' && window.localStorage) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedLeads));
+        window.dispatchEvent(new CustomEvent('tenant_leads_updated', { detail: { lead: newLead } }));
+      }
+
+      // Try sending to Cloudflare worker endpoint if available
+      try {
+        await fetch('/api/tenant-leads', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newLead),
+        }).catch(() => {});
+      } catch {}
+
+      return {
+        success: true,
+        lead: newLead,
+        message: 'Đăng ký tư vấn thành công! Chuyên viên sẽ liên hệ với bạn trong vòng 15 phút qua Zalo/SĐT.',
+      };
+    } catch (e: any) {
+      return {
+        success: false,
+        lead: newLead,
+        message: 'Lỗi lưu thông tin: ' + (e?.message || 'Không xác định'),
+      };
+    }
+  }
+
+  updateTenantLeadStatus(id: string, status: string, adminNotes?: string): boolean {
+    const STORAGE_KEY = 'tenant_leads_records';
+    try {
+      const leads = this.getTenantLeads();
+      const idx = leads.findIndex((l) => l.id === id);
+      if (idx !== -1) {
+        leads[idx].status = status;
+        if (adminNotes !== undefined) {
+          leads[idx].admin_notes = adminNotes;
+        }
+        if (typeof window !== 'undefined' && window.localStorage) {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(leads));
+          window.dispatchEvent(new CustomEvent('tenant_leads_updated', { detail: { updatedId: id } }));
+        }
+        return true;
+      }
+    } catch (e) {
+      console.error('Error updating tenant lead:', e);
+    }
+    return false;
+  }
+
+  deleteTenantLead(id: string): boolean {
+    const STORAGE_KEY = 'tenant_leads_records';
+    try {
+      const leads = this.getTenantLeads();
+      const filtered = leads.filter((l) => l.id !== id);
+      if (typeof window !== 'undefined' && window.localStorage) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
+        window.dispatchEvent(new CustomEvent('tenant_leads_updated', { detail: { deletedId: id } }));
+      }
+      return true;
+    } catch (e) {
+      console.error('Error deleting tenant lead:', e);
+    }
+    return false;
   }
 }
 

@@ -7,6 +7,33 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-16]
 
+### 413. Triển Khai Bước 5: Trang Giới Thiệu Giải Pháp & Giao Diện Bán / Cho Thuê Sàn Chuyên Nghiệp (Platform Solutions Landing Page & Tenant Leads Management) (16/11/2026)
+- **Bối cảnh**: Triển khai Bước 5 trong lộ trình biến hệ thống thành nền tảng thương mại điện tử đa ngành toàn diện (bán đứt mã nguồn trọn gói hoặc cho thuê sàn SaaS cho mọi đối tác/chủ shop). Cần có trang Landing Page giới thiệu giải pháp chuyên nghiệp, bảng giá minh bạch, bộ demo 5 ngành hàng, form thu thập hồ sơ khách hàng quan tâm (Tenant Leads) và module quản trị hồ sơ đăng ký trong trang Admin tuân thủ tuyệt đối Rule 9.
+- **Giải pháp thực hiện**:
+  1. **Landing Page Giới Thiệu Giải Pháp Bán / Cho Thuê Sàn (`PlatformSolutionsView.tsx`)**:
+     - Định tuyến trực quan: Tự động kích hoạt khi URL là `/giai-phap-san`, `/ban-web`, `/cho-thue-web` hoặc hash `#giai-phap-san`, `#ban-web`, `#cho-thue-web`.
+     - Hero Section định vị: "Nền Tảng Thương Mại Điện Tử Đa Ngành Số 1 Việt Nam - Vận Hành 0đ Server • Khởi Chạy 2 Phút".
+     - 4 Chỉ số KPI nổi bật: 2 Phút bàn giao, 0đ duy trì máy chủ Cloudflare, <100ms tải trang Edge toàn cầu, Cổng VietQR 0s tiền về thẳng ví cá nhân.
+     - 6 Trụ cột công nghệ độc bản: Siêu tốc độ Edge, Cổng VietQR 0% chiết khấu sàn, Bán song song hàng số 0s & hàng vật lý, White-label đổi thương hiệu 30s, Quản trị chuẩn Single-Screen (Rule 9), CSDL Cloudflare D1 phân tán bảo mật cao.
+     - Bộ demo tương tác 5 ngành hàng: Gaming & Phần mềm, Thời trang & Streetwear, Mỹ phẩm & Chăm sóc da, Công nghệ & Điện tử, Dịch vụ số & Khóa học (nút mở ngay live demo).
+     - Bảng giá minh bạch: Thuê Khởi Nghiệp (390k/tháng), Thuê Chuyên Nghiệp (790k/tháng - Best seller), Mua Đứt Toàn Quyền Mã Nguồn (15tr 1 lần duy nhất).
+     - Form Đăng ký tư vấn: Đầy đủ Họ tên, SĐT/Zalo, Tên shop dự kiến, Ngành hàng, Gói dịch vụ, Tên miền, Ngân sách, Ghi chú. Tự động lưu hồ sơ vào CSDL và sinh mã LEAD-xxx.
+     - Khối FAQ: Giải đáp 6 câu hỏi then chốt của chủ shop về vận hành, thanh toán và bảo hành.
+  2. **Quản Trị Khách Thuê / Mua Sàn Admin (`PlatformLeadsModule.tsx`) Tuân Thủ Tuyệt Đối Rule 9 (Single-Screen First)**:
+     - Bổ sung Tab `12. Khách Thuê / Mua Sàn` (Icon `Rocket`, badge `LEADS`) vào thanh menu Admin.
+     - KPI Header: Tổng Hồ Sơ, Chờ Tư Vấn (`NEW`), Tiềm Năng (`QUALIFIED`), Đã Chốt/Bàn Giao (`CLOSED_WON`).
+     - Bảng quản trị 100% không tràn ngang: Áp dụng `table-fixed w-full` với tỷ lệ cột xác định chính xác tổng 100% (25% / 23% / 20% / 17% / 15%).
+     - Cắt tỉa văn bản dài bằng `truncate` kèm `title` hiển thị tooltip khi rê chuột.
+     - Thao tác nhanh: Nút mở chat Zalo trực tiếp qua SĐT khách hàng, Modal cập nhật trạng thái & ghi chú nội bộ của Quản trị viên, nút tạo lead thủ công và nút xóa.
+  3. **Tích Hợp Điều Hướng Đa Điểm (Entry Points)**:
+     - Header Web Khách: Thêm nút nổi bật "🚀 Thuê / Mua Sàn" dẫn vào `#giai-phap-san`.
+     - Banner Shopee Test View: Thêm nút "🔥 Thuê / Mua Sàn Này" dẫn vào `#giai-phap-san`.
+     - Modal White-Label Branding (`ShopeeWhiteLabelModal.tsx`): Thêm nút xem Landing Page giải pháp toàn diện.
+- **Kiểm thử**:
+  - `npm run build`: Compile TypeScript và đóng gói Vite thành công (`dist/assets/PlatformSolutionsView-D1es3lKj.js` 34.71 kB, Cloudflare Worker bundle 18.8mb).
+  - `node scripts/audit_zero_test_artifacts.cjs`: 100% sạch, 0 test artifacts.
+  - Tuân thủ 100% Rule 6, Rule 7 và Rule 9.
+
 ### 412. Triển Khai Bước 4: Quy Trình Đặt Hàng & Giao Nhận Linh Hoạt (Physical Shipping Info - Họ Tên, SĐT, Địa Chỉ Giao Hàng Toàn Quốc vs Instant Digital Code Delivery) (16/11/2026)
 - **Bối cảnh**: Triển khai Bước 4 trong lộ trình phát triển sàn thương mại điện tử đa ngành (bán hoặc cho thuê trọn gói), tách biệt rõ ràng 2 luồng: Hàng vật lý (quần áo, mỹ phẩm, công nghệ... cần thông tin nhận hàng, tính cước ship, cập nhật mã vận đơn và trạng thái giao hàng) và Hàng kỹ thuật số (mã thẻ, key, code ingame... nhận mã tự động 0 giây).
 - **Giải pháp thực hiện**:
