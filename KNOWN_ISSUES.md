@@ -10,6 +10,20 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-291: Bẫy Cloudflare Pages Mới Thiếu D1 Binding & Route Hash/PopState Override Trên Domain Con
+- **Triệu chứng & Rủi ro**:
+  - Khi tạo dự án Pages mới qua CLI mà chưa bind CSDL D1 (`env.DB`), các API backend trả về HTTP 500 "D1 Database chưa được cấu hình".
+  - Frontend trên domain mới (`test-code-game-shop.pages.dev`) khởi tạo tab `shopee-test` nhưng bị `parseHash()` / `handlePopState` ghi đè thành `catalog` khi `path === '/'` hoặc `hash === ''`.
+  - Nút "Quay về trang web khách" tại màn hình login admin điều hướng về `/store` nội bộ thay vì domain web khách test.
+- **Nguyên nhân gốc rễ**:
+  - Cloudflare Pages CLI `wrangler pages project create` chỉ tạo vỏ rỗng, không tự động kế thừa D1 bindings và biến môi trường secrets từ project cha.
+  - Vòng đời router React chạy qua `parseHash()` sau khi mount và ép `currentTab = 'catalog'` theo logic URL mặc định cũ của web gốc.
+  - `AdminApp` prop `onBackToClient` chỉ bắt `admin-code-game-shop`, chưa phân luồng `admin-test-code-game-shop`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Gửi Cloudflare API PATCH cập nhật `deployment_configs` cho cả `production` & `preview`: liên kết `d1_databases.DB` tới ID `b2b5372f-1c6f-4067-a74d-8029ded6ec79`, cấu hình đầy đủ `env_vars` secrets.
+  - Thống nhất cờ `isTestClientDomain` trong `src/App.tsx`: từ `useState` khởi tạo, `parseHash()`, `pathname.startsWith('/game/')` đến `handlePopState`.
+  - Cập nhật `onBackToClient` trong `App.tsx` và nhãn `AdminLoginGuard.tsx` trỏ đúng sang `https://test-code-game-shop.pages.dev`.
+
 ### ISSUE-290: Bẫy Tách Web Test Dùng Chung Database Làm Nhiễm Bẩn Dữ Liệu Sản Xuất & Cách Khắc Phục Bằng Tenant Shadowing
 - **Triệu chứng & Rủi ro**:
   - Khi tách web test thành 1 trang riêng cho khách hàng thuê / mua dùng thử, nếu trang Admin Test ghi thẳng vào các khóa cài đặt chung của CSDL (wcg_admin_banners, wcg_admin_marketing_v4, wcg_admin_store_products_v4), các thao tác thử nghiệm của khách test sẽ ngay lập tức làm biến dạng giao diện và giá bán của Web Gốc codegame.shop.

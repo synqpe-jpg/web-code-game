@@ -7,6 +7,15 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-16]
 
+### 408. Hoàn Thiện Binding D1 Cloudflare Pages, Cố Định Route Sàn Shopee Tại Root và Nút Quay Về Web Khách Test (16/11/2026)
+- **Bối cảnh**: Sau khi deploy bản đầu tiên của 2 website test độc lập, browser agent kiểm tra và phát hiện: (1) CSDL D1 chưa được bind vào 2 project mới gây lỗi 500 khi gọi API backend, (2) Route root `/` trên `test-code-game-shop.pages.dev` bị `parseHash` lùi về tab Portal, (3) Nút "Quay về trang web khách" tại màn hình login Admin điều hướng về `/store` thay vì domain web khách test.
+- **Giải pháp thực hiện**:
+  1. Cấu hình Cloudflare API PATCH `deployment_configs` cho cả 2 project `test-code-game-shop` và `admin-test-code-game-shop`: gán binding `d1_databases.DB` (database `web-code-game-db`) và đồng bộ các biến bí mật `JWT_SECRET`, `ADMIN_SYNC_SECRET`, `PASSWORD_PEPPER`, `ENVIRONMENT`.
+  2. Trong `src/App.tsx`: Cập nhật logic `parseHash()` và `handlePopState()` để khi truy cập domain `test-code-game-shop`, tab luôn được giữ cố định là `shopee-test` (cả khi ở root `/`, khi mở chi tiết `/game/:slug`, hoặc khi điều hướng popstate).
+  3. Cập nhật `onBackToClient` trong `src/App.tsx` và `src/admin/components/AdminLoginGuard.tsx` mở trực tiếp `https://test-code-game-shop.pages.dev`.
+- **Phạm vi file**: `src/App.tsx`, `src/admin/components/AdminLoginGuard.tsx`, `CHANGELOG.md`, `KNOWN_ISSUES.md`.
+- **Kiểm thử**: Build Vite & Cloudflare Pages edge worker thành công, chạy kiểm thử trình duyệt thực tế.
+
 ### 407. Tách Rời 2 Trang Web Mới: Web Khách Test (Shopee Style) & Web Quản Trị Admin Test Độc Lập Hoàn Toàn Với Web Gốc (16/11/2026)
 - **Bối cảnh**: Người dùng yêu cầu tạo 2 trang web mới độc lập nhằm phục vụ mục đích bán hoặc cho thuê nền tảng thương mại điện tử đa ngành / phong cách Shopee:
   1. Web Khách Test: Hiển thị giao diện sàn Shopee làm Trang Chủ mặc định (/), kế thừa toàn bộ danh mục sản phẩm từ Web Gốc.

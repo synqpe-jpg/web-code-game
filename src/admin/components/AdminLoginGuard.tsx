@@ -229,7 +229,11 @@ export const AdminLoginGuard: React.FC<AdminLoginGuardProps> = ({
             className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-cyan-400 transition cursor-pointer"
           >
             <ExternalLink className="w-3.5 h-3.5" />
-            <span>Quay về trang web khách (CodeGame.Shop)</span>
+            <span>
+              {typeof window !== 'undefined' && window.location.hostname.includes('admin-test-code-game-shop')
+                ? 'Quay về trang web khách (Bản Test Shopee)'
+                : 'Quay về trang web khách (CodeGame.Shop)'}
+            </span>
           </button>
         </div>
       </div>

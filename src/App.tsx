@@ -106,7 +106,7 @@ export const App: React.FC = () => {
 
       // 2. If on dedicated test client domain -> Default to shopee-test as homepage!
       const isTestClientDomain = host.includes('test-code-game-shop') || host.includes('test-shopee');
-      if (isTestClientDomain && (path === '/' || path === '' || hash === '' || hash === '#')) {
+      if (isTestClientDomain && (path === '/' || path === '' || !hash || hash === '#' || hash === '#catalog')) {
         return 'shopee-test';
       }
 
@@ -527,6 +527,7 @@ export const App: React.FC = () => {
         const hash = window.location.hash;
         const hashLower = hash.toLowerCase();
         const host = window.location.hostname;
+        const isTestClientDomain = host.toLowerCase().includes('test-code-game-shop') || host.toLowerCase().includes('test-shopee');
         const urlParams = new URLSearchParams(window.location.search);
 
         // Check for cross-origin sync_data payload in URL hash (from Admin "Xem Web Khách")
@@ -659,7 +660,7 @@ export const App: React.FC = () => {
           setCurrentTab('utilities');
           return;
         } else if (hashLower === '#catalog' || hashLower.startsWith('#catalog')) {
-          setCurrentTab('catalog');
+          setCurrentTab(isTestClientDomain ? 'shopee-test' : 'catalog');
           return;
         } else if (hashLower.includes('g=') || urlParams.get('g') || urlParams.get('game')) {
           const slug = urlParams.get('g') || urlParams.get('game') || hash.split(/g=/i)[1]?.split('&')[0];
@@ -667,7 +668,7 @@ export const App: React.FC = () => {
             const game = await dataService.getGameBySlug(slug);
             if (game) {
               setSelectedGame(game);
-              setCurrentTab('catalog');
+              setCurrentTab(isTestClientDomain ? 'shopee-test' : 'catalog');
               return;
             }
           }
@@ -688,7 +689,7 @@ export const App: React.FC = () => {
         } else if (pathname.startsWith('/game/') || pathname.startsWith('/g/')) {
           const pathSlug = window.location.pathname.replace(/^\/(?:game|g)\//i, '').replace(/\/$/, '').trim();
           if (pathSlug) {
-            setCurrentTab('catalog');
+            setCurrentTab(isTestClientDomain ? 'shopee-test' : 'catalog');
             const localFallback = (dataService.getGames() || []).find((g) => (g.slug || g.id) === pathSlug);
             if (localFallback) {
               setSelectedGame(localFallback);
@@ -763,7 +764,7 @@ export const App: React.FC = () => {
           setCurrentTab('shopee-test');
           return;
         } else if (!hash || hash === '#' || hash === '#catalog') {
-          setCurrentTab('catalog');
+          setCurrentTab(isTestClientDomain ? 'shopee-test' : 'catalog');
         }
       };
 
@@ -1074,7 +1075,8 @@ export const App: React.FC = () => {
           dataService.getGameBySlug(pathSlug).then((g) => {
             if (g) {
               setSelectedGame(g);
-              setCurrentTab('catalog');
+              const isTestClient = typeof window !== 'undefined' && (window.location.hostname.includes('test-code-game-shop') || window.location.hostname.includes('test-shopee'));
+              setCurrentTab(isTestClient ? 'shopee-test' : 'catalog');
             }
           });
         }
@@ -1170,7 +1172,8 @@ export const App: React.FC = () => {
         setCurrentTab('shopee-test');
       } else if (path === '/' || path === '') {
         setSelectedGame(null);
-        setCurrentTab('catalog');
+        const isTestClient = typeof window !== 'undefined' && (window.location.hostname.includes('test-code-game-shop') || window.location.hostname.includes('test-shopee'));
+        setCurrentTab(isTestClient ? 'shopee-test' : 'catalog');
       }
     };
 
@@ -1766,11 +1769,19 @@ export const App: React.FC = () => {
       >
         <AdminApp
           onBackToClient={() => {
-            const isDedicatedAdmin = typeof window !== 'undefined' && window.location.hostname.includes('admin-code-game-shop');
-            if (isDedicatedAdmin) {
-              const newWin = window.open('https://web-code-game.pages.dev', '_blank');
+            const host = typeof window !== 'undefined' ? window.location.hostname : '';
+            if (host.includes('admin-test-code-game-shop')) {
+              const newWin = window.open('https://test-code-game-shop.pages.dev', '_blank');
               if (!newWin || newWin.closed || typeof newWin.closed === 'undefined') {
-                window.location.href = 'https://web-code-game.pages.dev';
+                window.location.href = 'https://test-code-game-shop.pages.dev';
+              }
+              return;
+            }
+            const isDedicatedAdmin = host.includes('admin-code-game-shop');
+            if (isDedicatedAdmin) {
+              const newWin = window.open('https://codegame.shop', '_blank');
+              if (!newWin || newWin.closed || typeof newWin.closed === 'undefined') {
+                window.location.href = 'https://codegame.shop';
               }
             } else {
               if (window.location.pathname.toLowerCase().startsWith('/admin')) {
