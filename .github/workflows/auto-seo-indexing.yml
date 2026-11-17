@@ -1,0 +1,31 @@
+name: Daily Auto-Indexing & Search Engines Ping
+
+on:
+  schedule:
+    # Chạy tự động mỗi ngày lúc 06:00 sáng (Giờ Việt Nam UTC+7, tức 23:00 UTC)
+    - cron: '0 23 * * *'
+  workflow_dispatch:
+    # Cho phép kích hoạt thủ công bất cứ lúc nào từ GitHub Actions
+
+jobs:
+  auto-indexing:
+    name: Submit Sitemap & IndexNow to Search Engines
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout Codebase
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js Runtime
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: ''
+
+      - name: Run Search Engines Auto-Indexer
+        run: node scripts/ping-search-engines.js
+        env:
+          GOOGLE_INDEXING_CREDENTIALS: ${{ secrets.GOOGLE_INDEXING_CREDENTIALS }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_ADMIN_CHAT_ID: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID || secrets.TELEGRAM_CHAT_ID }}

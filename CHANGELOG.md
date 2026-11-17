@@ -7,6 +7,29 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-17]
 
+### 421. Thiết Lập Hệ Thống Tự Động Lập Chỉ Mục (Auto-Indexing) Hàng Ngày (17/11/2026)
+- **Bối cảnh & Yêu cầu của Chủ sở hữu**:
+  - Người dùng yêu cầu thiết lập giải pháp và công cụ hỗ trợ tự động lập chỉ mục (auto-indexing) hàng ngày cho website `https://codegame.shop`.
+- **Nguyên nhân gốc rễ & Phân tích hiện trạng**:
+  - Website đã có sitemap tự động 883 URL chuẩn SEO và file key xác thực IndexNow `public/e47e8c3bf4d84f8db27da7c55cb8e30b.txt`.
+  - Tuy nhiên công cụ trước đó mới ở dạng script thử nghiệm cục bộ, chưa được kết nối định kỳ với GitHub Actions, chưa hỗ trợ Google Indexing API và chưa tự động thông báo sau mỗi lần deploy.
+- **Giải pháp áp dụng (Solution)**:
+  1. *Bộ công cụ Auto-Indexer (`scripts/ping-search-engines.js`)*:
+     - Nạp danh sách toàn bộ 883 URLs từ sitemap (hỗ trợ đọc từ `dist/sitemap.xml`, `public/sitemap.xml` hoặc live web).
+     - Gửi toàn bộ 883 URLs qua giao thức IndexNow tới: **Bing IndexNow**, **IndexNow Global Engine** và **Yandex IndexNow** (đã kiểm chứng thành công HTTP 200/202).
+     - Tích hợp chuẩn Google Indexing API thông qua xác thực khóa Google Cloud Service Account RSA-256 JWT tích hợp sẵn (không phụ thuộc thư viện ngoài).
+     - Tích hợp thông báo kết quả tự động về Telegram khi có cấu hình bot.
+     - Thiết lập cơ chế Strict Timeout (15s/endpoint) đảm bảo không bao giờ làm treo hệ thống.
+  2. *Quy trình CI/CD Định Kỳ (`.github/workflows/auto-seo-indexing.yml`)*:
+     - Cấu hình chạy tự động mỗi ngày vào lúc 06:00 sáng (Giờ Việt Nam UTC+7, tức 23:00 UTC hôm trước: `cron: '0 23 * * *'`).
+     - Cho phép kích hoạt thủ công từ giao diện GitHub Actions bất cứ khi nào cần (`workflow_dispatch`).
+  3. *Tích hợp Deploy (`package.json`)*:
+     - Bổ sung lệnh `npm run seo:index`.
+     - Tự động chạy `node scripts/ping-search-engines.js` ngay sau bước xác minh và làm ấm bộ đệm trong lệnh `npm run deploy:all`.
+- **Kiểm thử & Nghiệm thu**:
+  - Chạy thử nghiệm thành công 100%: Bing IndexNow (HTTP 200), IndexNow Global Engine (HTTP 200), Yandex IndexNow (HTTP 202).
+  - Biên dịch và triển khai tự động lên Cloudflare Pages và GitHub.
+
 ### 420. Gỡ Hẳn 2 Game (hai-tac-ti-hon & hiep-khach-hanh-joygames) Khỏi File Tĩnh & Chặn 404 Trang Chi Tiết (17/11/2026)
 - **Bối cảnh & Yêu cầu của Chủ sở hữu**:
   - Người dùng đã tắt 2 game trong D1 (`is_active=0`, `status='INACTIVE'`), catalog D1 đã về 591 game.
