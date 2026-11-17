@@ -973,6 +973,43 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           }
         }
 
+        // Đảm bảo catalog đồng bộ đủ 593 game chuẩn mực
+        if (!normalized.some((g: any) => (g.slug && g.slug.toLowerCase() === 'hai-tac-ti-hon') || (g.id && g.id.toLowerCase() === 'hai-tac-ti-hon'))) {
+          normalized.push({
+            id: 'hai-tac-ti-hon',
+            slug: 'hai-tac-ti-hon',
+            name: 'Hải Tặc Tí Hon',
+            publisher: 'TeaMobi / VTC',
+            category: 'Nhập Vai Hành Động',
+            platform: 'Android, iOS, PC',
+            icon_url: '/game_icons/hai-tac-ti-hon.webp',
+            iconUrl: '/game_icons/hai-tac-ti-hon.webp',
+            active_codes_count: 5,
+            total_codes_count: 5,
+            codes_count: 5,
+            is_active: true,
+          });
+          needsDbHealing = true;
+        }
+
+        if (!normalized.some((g: any) => (g.slug && g.slug.toLowerCase() === 'hiep-khach-hanh-joygames') || (g.id && g.id.toLowerCase() === 'hiep-khach-hanh-joygames'))) {
+          normalized.push({
+            id: 'hiep-khach-hanh-joygames',
+            slug: 'hiep-khach-hanh-joygames',
+            name: 'Hiệp Khách Hành (JoyGames)',
+            publisher: 'JoyGames',
+            category: 'Kiếm Hiệp / Tiên Hiệp',
+            platform: 'Android, iOS',
+            icon_url: '/game_icons/hiep-khach-hanh-joygames.webp',
+            iconUrl: '/game_icons/hiep-khach-hanh-joygames.webp',
+            active_codes_count: 16,
+            total_codes_count: 16,
+            codes_count: 16,
+            is_active: true,
+          });
+          needsDbHealing = true;
+        }
+
         if (needsDbHealing && env.DB) {
           setSettingD1(env.DB, 'wcg_admin_games_v5', normalized).catch(() => {});
           getSettingD1(env.DB, 'wcg_master_state_v4', null, true).then((m: any) => {

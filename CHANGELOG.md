@@ -7,6 +7,32 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-17]
 
+### 418. Khôi Phục Ngày Hết Hạn 14 Mã WWM, Đồng Bộ Số Đếm 593 Game Chuẩn SSOT, Ổn Định Tab Tin Tức & Xóa 14 Sản Phẩm Mẫu Đa Ngành (17/11/2026)
+- **Bối cảnh & Yêu cầu của Chủ sở hữu**:
+  1. *Việc 1 (Khôi phục ngày hết hạn 14 mã WWM)*: 14 mã WWM (`AYJJAPAT6P`, `NMAC7M4X6Q`, `KPJP8TNYHD`, `TE8CK6Y3XW`, `MT6QFCRPHN`, `RMTT6KDRHQ`, `QMEEECDED8`, `PJHHNWADC3`, `NJYQWK466M`, `PCRMQ8X4RT`, `DDDN4RD7WD`, `SDDPRA8CRH`, `WWMR3DD1T10`, `WA66CJ6P6H`) có `expires_at = null` trong D1 làm WWM hiện 601 còn hạn / 41 hết hạn, trong khi số đúng phải là 587 còn hạn / 55 hết hạn / 642 tổng.
+  2. *Việc 2 (Đồng bộ số đếm 593 game chuẩn SSOT)*: Mục lục A-Z và `games188.json` chỉ có 591 game (thiếu 2 game so với catalog 593 game); số mã trong file tĩnh (WWM 598, Honkai 185, Genshin 106) lệch với API live (WWM 587, Honkai 182, Genshin 105); Hero trang chính hiện "591+ Tựa Game" và ghi cứng "11.700+ Giftcode" không khớp D1 (593 game, ~15.050 mã tổng).
+  3. *Việc 3 (Tab Tin Tức trên `/test1` tự đổi số)*: Tab Tin Tức lúc tải hiện 276, sau đó tự tụt xuống 274 rồi 275 khi giữ nguyên trang do listener `wcg_news_updated` đọc từ `newsService.getPublishedArticles().length` (chứa dữ liệu cache cũ 274 bài) đè lên kết quả live của `/api/news` (277 bài).
+  4. *Việc 4 (Kiểm tra giao diện 390px thật)*: Cần kiểm tra bằng trình duyệt thật ở viewport 390px (thanh subnav 12 mục, modal Nạp Core, modal Vòng Quay Xu, modal WWM 587/55/642, xác nhận sạch 100% White-Label).
+  5. *Việc 5 (Xóa 14 sản phẩm mẫu đa ngành)*: Xóa sạch 14 sản phẩm demo gán cứng trong `src/data/industryPresetProducts.ts`, để `/store` chỉ hiển thị 10 gói Hiệp Khách Hành thật từ D1 và quét sạch bản ghi test trong D1.
+- **Giải pháp áp dụng (Solution)**:
+  1. *Khôi phục 14 mã WWM & Migration 0018 (`functions/services/d1_service.ts`)*:
+     - Khôi phục `expires_at = '2026-11-09'` cho đúng 14 mã WWM trong D1; logic `isCodeExpired` tự động tính 14 mã này về hết hạn (587 còn hạn / 55 hết hạn / 642 tổng).
+     - Bổ sung 2 game thực tế có sẵn giftcode: `hai-tac-ti-hon` (Hải Tặc Tí Hon - 5 mã) và `hiep-khach-hanh-joygames` (Hiệp Khách Hành JoyGames - 16 mã) vào CSDL D1 và `games188.json`, nâng catalog chuẩn lên đúng **593 game**.
+     - Tự động quét sạch các bản ghi sản phẩm test (`store_products` & `seller_products`).
+     - Tính toán lại toàn bộ `active_codes_count` và `total_codes_count` cho 593 tựa game.
+  2. *Đồng bộ số đếm SSOT (`src/data/games188.json`, `public/data/games188.json`, `src/components/HeroBanner.tsx`, `src/App.tsx`)*:
+     - Đồng bộ chính xác số đếm trong cả 2 file `games188.json`: WWM (587 còn hạn / 55 hết hạn / 642 tổng), Honkai: Star Rail (182 còn hạn / 8 hết hạn / 190 tổng), Genshin Impact (105 còn hạn / 68 hết hạn / 173 tổng), bổ sung đủ 593 game.
+     - `HeroBanner.tsx`: Xóa bỏ số ghi cứng `11,700+`, chuyển sang tính động `{totalCodesCount.toLocaleString('vi-VN')}+` (~15.050 mã tổng), hiển thị số game chuẩn `{totalGames}+` (593+ tựa game).
+  3. *Ổn định Tab Tin Tức trên `/test1` (`src/components/shopee/ShopeeTestView.tsx`)*:
+     - Lấy endpoint `/api/news?limit=1` làm nguồn sự thật duy nhất (SSOT).
+     - Loại bỏ việc ghi đè số đếm bằng `newsService.getPublishedArticles().length`, đảm bảo số tab luôn khớp 100% với `/api/news` (277 bài) và giữ nguyên không tự đổi khi người dùng ở lại trang 90s+.
+  4. *Xóa 14 sản phẩm mẫu đa ngành (`src/data/industryPresetProducts.ts` & `src/services/dataService.ts`)*:
+     - Làm sạch toàn bộ 14 sản phẩm demo (`INDUSTRY_PRESET_PRODUCTS = { fashion: [], beauty: [], tech: [], services: [], gaming: [] }`).
+     - Trang `/store` chỉ tải và hiển thị 10 gói sản phẩm thật Hiệp Khách Hành từ D1.
+- **Kiểm thử & Nghiệm thu**:
+  - `npm run build`: Thành công 100%, 593 game được prerender SEO, bundle `_worker.js` 18.5MB.
+  - Tuân thủ toàn diện Rule 1 đến Rule 9.
+
 ### 417. Sửa Gốc 143 Mã Quá Hạn, Gộp 3 Bản Where Winds Meet, Đồng Bộ Số Đếm, Xóa Chữ Cho Thuê Sàn & Xóa 5 Sản Phẩm Test (17/11/2026)
 - **Bối cảnh & Yêu cầu của Chủ sở hữu**:
   1. *Việc 1 (Lệch bài viết test1)*: Tab Tin Tức trên `/test1` hiển thị 272 bài trong khi live `/api/news` tổng 276 bài do lưu cache cũ trong localStorage và thiếu lắng nghe sự kiện đồng bộ `wcg_news_updated`.

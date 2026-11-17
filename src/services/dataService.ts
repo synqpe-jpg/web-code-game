@@ -1262,9 +1262,15 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
       const savedGames = localStorage.getItem('wcg_admin_games_v5');
       if (savedGames !== null) {
         try {
-          gamesList = JSON.parse(savedGames);
+          const parsed = JSON.parse(savedGames);
+          if (Array.isArray(parsed) && parsed.length >= 593) {
+            gamesList = parsed;
+          } else {
+            localStorage.removeItem('wcg_admin_games_v5');
+          }
         } catch {}
-      } else {
+      }
+      if (gamesList.length === 0) {
         gamesList = Array.isArray(rawGamesData) ? (rawGamesData as RawGame[]) : [];
       }
 
@@ -1358,23 +1364,6 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
             codes: existingCodes.length > 0 ? existingCodes : (Array.isArray(g.codes) ? g.codes : []),
           };
         });
-
-      if (!this.games.some((g) => g.slug === 'where-winds-meet' || g.id === 'where-winds-meet')) {
-        const wwmParent = this.games.find((g) => g.slug === 'where-winds-meet-mobile' || g.slug === 'yen-van-thap-luc-thanh');
-        if (wwmParent) {
-          this.games.push({
-            ...wwmParent,
-            id: 'where-winds-meet',
-            slug: 'where-winds-meet',
-            name: 'Where Winds Meet (Yến Vân Thập Lục Thanh) (Bản PC Quốc Tế)',
-            codes_count: 22,
-            active_codes_count: 22,
-            free_codes_count: 22,
-            total_codes_count: 22,
-            expired_codes_count: 0,
-          });
-        }
-      }
 
       this.categories = normalizeAndDeduplicateCategories(Array.from(categorySet));
 

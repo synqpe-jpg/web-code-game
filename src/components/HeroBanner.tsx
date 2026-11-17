@@ -34,10 +34,10 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
     try {
       const games = dataService.getGames();
       if (Array.isArray(games) && games.length > 0) {
-        return games.reduce((acc, g) => acc + (g.active_codes_count || g.codes_count || 0), 0);
+        return games.reduce((acc, g) => acc + (g.total_codes_count || g.codes_count || 0), 0);
       }
     } catch {}
-    return 14967;
+    return 15050;
   });
 
   // Format current HH:mm timestamp for stats
@@ -48,7 +48,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
       try {
         const games = dataService.getGames();
         if (Array.isArray(games) && games.length > 0) {
-          const total = games.reduce((acc, g) => acc + (g.active_codes_count || g.codes_count || 0), 0);
+          const total = games.reduce((acc, g) => acc + (g.total_codes_count || g.codes_count || 0), 0);
           if (total > 0) setTotalCodesCount(total);
         }
       } catch {}
@@ -124,7 +124,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
             <span className="text-primary/30 shrink-0">•</span>
             <span className="text-emerald-400 font-bold font-mono inline-flex items-center gap-1 shrink-0">
               <Zap className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-emerald-400 animate-pulse shrink-0" />
-              <span>{totalCodesCount > 0 ? totalCodesCount.toLocaleString('vi-VN') : '14.967'}</span>
+              <span>{totalCodesCount > 0 ? totalCodesCount.toLocaleString('vi-VN') : '15.050'}</span>
               <span className="text-[9px] sm:text-[10px] text-slate-300 font-normal lowercase hidden xs:inline">mã code</span>
             </span>
           </div>
@@ -199,7 +199,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
               <div className="flex items-center justify-center gap-1 text-primary mb-0.5">
                 <Gift className="w-3.5 h-3.5 text-accent" />
                 <span className="font-display font-bold text-base text-foreground">
-                  {totalGames && totalGames > 0 ? `${totalGames}+` : '529+'}
+                  {totalGames && totalGames > 0 ? `${totalGames}+` : '593+'}
                 </span>
               </div>
               <span className="text-[11px] text-slate-300 font-medium">{t.hero.statGames}</span>
@@ -208,7 +208,9 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
             <div className="p-3 rounded-xl bg-card/70 border border-border text-center shadow-sm">
               <div className="flex items-center justify-center gap-1 text-secondary mb-0.5">
                 <Zap className="w-3.5 h-3.5 text-secondary" />
-                <span className="font-display font-bold text-base text-foreground">11,700+</span>
+                <span className="font-display font-bold text-base text-foreground">
+                  {totalCodesCount > 0 ? `${totalCodesCount.toLocaleString('vi-VN')}+` : '15.050+'}
+                </span>
               </div>
               <span className="text-[11px] text-slate-300 font-medium">{t.hero.statCodes}</span>
             </div>

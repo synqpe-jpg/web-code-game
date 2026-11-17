@@ -375,13 +375,7 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
   });
 
   // Dynamic counts for news, events, and upcoming (đồng bộ thời gian thực từ live API)
-  const [newsCount, setNewsCount] = useState<number>(() => {
-    try {
-      return newsService.getPublishedArticles().length || 276;
-    } catch {
-      return 276;
-    }
-  });
+  const [newsCount, setNewsCount] = useState<number>(277);
 
   const [eventsCount, setEventsCount] = useState<number>(() => {
     try {
@@ -392,38 +386,36 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
   });
 
   useEffect(() => {
-    const handleNewsUpdate = (count?: number) => {
-      try {
-        if (typeof count === 'number' && count > 0) {
-          setNewsCount(count);
-          return;
-        }
-        const arts = newsService.getPublishedArticles();
-        if (arts && arts.length > 0) {
-          setNewsCount(arts.length);
-        }
-      } catch {}
+    let isMounted = true;
+
+    const fetchLiveNewsTotal = () => {
+      fetch(`/api/news?limit=1&_t=${Date.now()}`)
+        .then((res) => res.json())
+        .then((json: any) => {
+          if (isMounted && json && typeof json.total === 'number' && json.total > 0) {
+            setNewsCount(json.total);
+          }
+        })
+        .catch(() => {});
     };
 
-    handleNewsUpdate();
-    newsService.syncFromServer().then((list) => {
-      if (Array.isArray(list) && list.length > 0) {
-        handleNewsUpdate(newsService.getPublishedArticles().length || list.length);
+    // Truy vấn tổng bài viết trực tiếp từ SSOT /api/news
+    fetchLiveNewsTotal();
+
+    const onNewsUpdated = (e: any) => {
+      const explicit = typeof e === 'number' ? e : e?.detail?.total;
+      if (typeof explicit === 'number' && explicit > 0) {
+        if (isMounted) setNewsCount(explicit);
+      } else {
+        fetchLiveNewsTotal();
       }
-    }).catch(() => {});
+    };
 
-    // Trực tiếp đối chiếu tổng bài viết từ Cloudflare D1 Live API
-    fetch(`/api/news?limit=1&_t=${Date.now()}`)
-      .then((res) => res.json())
-      .then((json: any) => {
-        if (json && typeof json.total === 'number' && json.total > 0) {
-          setNewsCount(json.total);
-        }
-      })
-      .catch(() => {});
-
-    window.addEventListener('wcg_news_updated', () => handleNewsUpdate());
-    return () => window.removeEventListener('wcg_news_updated', () => handleNewsUpdate());
+    window.addEventListener('wcg_news_updated', onNewsUpdated);
+    return () => {
+      isMounted = false;
+      window.removeEventListener('wcg_news_updated', onNewsUpdated);
+    };
   }, []);
 
   // Upcoming games: nạp đủ 90 bản ghi thật từ dataService

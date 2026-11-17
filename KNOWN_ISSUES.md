@@ -10,6 +10,19 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-301: Đồng Bộ Tuyệt Đối Số Đếm Catalog 593 Game, Ngày Hết Hạn WWM (587/55/642), Tab Tin Tức SSOT & Xóa Dữ Liệu Mẫu Đa Ngành
+- **Triệu chứng & Rủi ro**:
+  - Khi gộp hoặc đồng bộ dữ liệu nếu vô tình để ngày hết hạn `expires_at` về `null`, mã quá hạn sẽ bị tính thành còn hạn (WWM bị thành 601 còn hạn thay vì 587 còn hạn).
+  - Sử dụng hai nguồn dữ liệu không đồng bộ (file JSON tĩnh 591 game vs D1 593 game) khiến mục lục A-Z và Hero trang chính lệch nhau (A-Z báo WWM 598, Honkai 185, Genshin 106 trong khi modal live báo WWM 587, Honkai 182, Genshin 105).
+  - Thẻ đếm số bài viết (Tab Tin Tức) nếu vừa đọc API vừa lắng nghe event rồi fallback về `newsService.getPublishedArticles().length` (lưu cache cũ 274 bài) sẽ gây hiện tượng số nhảy giật cục (276 -> 274 -> 275) khi người dùng ở lại trang.
+  - Tồn tại dữ liệu demo mẫu đa ngành `INDUSTRY_PRESET_PRODUCTS` với các số bán giả (3270, 2010...) trên trang `/store` gây nhầm lẫn với sản phẩm thật trong D1.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Migration 0018: Khôi phục `expires_at = '2026-11-09'` cho 14 mã WWM; bổ sung `hai-tac-ti-hon` (5 mã) và `hiep-khach-hanh-joygames` (16 mã) nâng catalog lên đúng 593 game; tính toán lại số đếm D1 `total_codes_count` và `active_codes_count`.
+  - Đồng bộ `games188.json` (src và public) với D1: đúng 593 game, WWM 587 active / 55 expired / 642 total, Honkai 182/8/190, Genshin 105/68/173.
+  - Hero trang chính: Xóa hoàn toàn số ghi cứng `11,700+`, đếm động theo tổng mã thật D1 (~15.050 mã) và hiển thị đúng `593+ Tựa Game`.
+  - Tab Tin Tức trên `/test1`: Thiết lập `/api/news?limit=1` làm SSOT duy nhất, loại bỏ việc đọc từ `newsService.getPublishedArticles()`, đảm bảo số tab luôn khớp 100% với API (277 bài) và ổn định tuyệt đối trong 90s+.
+  - Xóa 100% dữ liệu mẫu demo trong `src/data/industryPresetProducts.ts` (mảng rỗng), trang `/store` chỉ hiển thị 10 gói thật Hiệp Khách Hành từ D1.
+
 ### ISSUE-300: Ngày Hết Hạn Thắng Trạng Thái D1 Trong isCodeExpired & Gộp Where Winds Meet SSOT
 - **Triệu chứng & Rủi ro**:
   - Khi ưu tiên trạng thái `status: 'active'` của D1 trước `expires_at`, các mã đã quá hạn (Avatar Land 20/10, 31/10; Where Winds Meet 09/11...) vẫn bị tính là còn hạn làm lệch số lượng mã active so với thực tế và gây hiểu nhầm cho người dùng.

@@ -1649,6 +1649,102 @@ export async function ensureSchemaUpgrades(db: D1Database): Promise<void> {
     console.warn('[Migration 0017_merge_wwm_and_purge_test_products error]', err?.message);
   }
 
+  // 20. Migration 0018: Khôi phục ngày hết hạn cho 14 mã Where Winds Meet + Bổ sung 2 game chuẩn hóa 593 game + Xóa sản phẩm test
+  try {
+    const m18Mig = await db.prepare("SELECT 1 FROM schema_migrations WHERE id = '0018_restore_wwm_14_codes_expiration' LIMIT 1;").first<any>().catch(() => null);
+    if (!m18Mig) {
+      // 1. Khôi phục expires_at = '2026-11-09' cho đúng 14 mã WWM
+      await db.prepare(`
+        UPDATE codes
+        SET expires_at = '2026-11-09'
+        WHERE (game_slug = 'where-winds-meet' OR game_slug = 'where-winds-meet-mobile' OR game_slug = 'yen-van-thap-luc-thanh')
+          AND code IN (
+            'AYJJAPAT6P', 'NMAC7M4X6Q', 'KPJP8TNYHD', 'TE8CK6Y3XW',
+            'MT6QFCRPHN', 'RMTT6KDRHQ', 'QMEEECDED8', 'PJHHNWADC3',
+            'NJYQWK466M', 'PCRMQ8X4RT', 'DDDN4RD7WD', 'SDDPRA8CRH',
+            'WWMR3DD1T10', 'WA66CJ6P6H'
+          );
+      `).run().catch(() => {});
+
+      // 2. Bổ sung 2 game chuẩn hóa có sẵn mã trong catalog để đồng bộ đủ 593 game
+      await db.prepare(`
+        INSERT OR IGNORE INTO games (id, name, slug, publisher, category, platform, rating, icon_url, status, is_active, total_codes_count, active_codes_count)
+        VALUES
+        (
+          'hai-tac-ti-hon',
+          'Hải Tặc Tí Hon',
+          'hai-tac-ti-hon',
+          'TeaMobi / VTC',
+          'Nhập Vai Hành Động',
+          'Android, iOS, PC',
+          4.8,
+          '/game_icons/hai-tac-ti-hon.webp',
+          'ACTIVE',
+          1,
+          5,
+          5
+        ),
+        (
+          'hiep-khach-hanh-joygames',
+          'Hiệp Khách Hành (JoyGames)',
+          'hiep-khach-hanh-joygames',
+          'JoyGames',
+          'Kiếm Hiệp / Tiên Hiệp',
+          'Android, iOS',
+          4.8,
+          '/game_icons/hiep-khach-hanh-joygames.webp',
+          'ACTIVE',
+          1,
+          16,
+          16
+        );
+      `).run().catch(() => {});
+
+      // 3. Quét sạch triệt để mọi bản ghi sản phẩm test còn sót trong D1 (Rule 7)
+      await db.prepare(`
+        DELETE FROM store_products WHERE LOWER(title) LIKE '%test%' OR LOWER(name) LIKE '%test%' OR LOWER(id) LIKE '%test%';
+      `).run().catch(() => {});
+
+      await db.prepare(`
+        DELETE FROM seller_products WHERE LOWER(title) LIKE '%test%' OR LOWER(name) LIKE '%test%' OR LOWER(id) LIKE '%test%';
+      `).run().catch(() => {});
+
+      // 4. Tính toán lại số đếm chuẩn xác cho tất cả game trên D1
+      await db.prepare(`
+        UPDATE games
+        SET
+          total_codes_count = (
+            SELECT COUNT(*) FROM codes
+            WHERE codes.game_slug = games.slug
+              AND UPPER(TRIM(codes.code)) != 'REDEMPTION'
+              AND UPPER(codes.code) NOT GLOB 'IN-*-*[0-9]X[0-9]*'
+              AND UPPER(codes.code) NOT GLOB 'REDEMPTION*[0-9]X[0-9]*'
+          ),
+          active_codes_count = (
+            SELECT COUNT(*) FROM codes
+            WHERE codes.game_slug = games.slug
+              AND (codes.status = 'active' OR codes.status = 'verified')
+              AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now', '+7 hours'))
+              AND UPPER(TRIM(codes.code)) != 'REDEMPTION'
+              AND UPPER(codes.code) NOT GLOB 'IN-*-*[0-9]X[0-9]*'
+              AND UPPER(codes.code) NOT GLOB 'REDEMPTION*[0-9]X[0-9]*'
+          ),
+          last_code_at = (
+            SELECT MAX(added_at) FROM codes
+            WHERE codes.game_slug = games.slug
+              AND UPPER(TRIM(codes.code)) != 'REDEMPTION'
+              AND UPPER(codes.code) NOT GLOB 'IN-*-*[0-9]X[0-9]*'
+              AND UPPER(codes.code) NOT GLOB 'REDEMPTION*[0-9]X[0-9]*'
+          ),
+          updated_at = datetime('now');
+      `).run().catch(() => {});
+
+      await db.prepare("INSERT OR IGNORE INTO schema_migrations (id) VALUES ('0018_restore_wwm_14_codes_expiration');").run().catch(() => {});
+    }
+  } catch (err: any) {
+    console.warn('[Migration 0018_restore_wwm_14_codes_expiration error]', err?.message);
+  }
+
 
     try {
       // Fast 1-subrequest check: If wcg_virtual_layer_tables_v1 exists, all schema migrations are already done

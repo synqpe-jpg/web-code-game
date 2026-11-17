@@ -1964,7 +1964,7 @@ export const App: React.FC = () => {
           {currentTab === 'catalog' && (
             <>
               <HeroBanner
-                totalGames={totalResults || 529}
+                totalGames={totalResults || (allGamesList.length > 0 ? allGamesList.length : (dataService.getGames().length > 0 ? dataService.getGames().length : 593))}
                 searchQuery={searchQuery}
                 onSearchChange={handleSearchChange}
                 onSelectGame={handleSelectGame}
@@ -2216,7 +2216,7 @@ export const App: React.FC = () => {
         {currentTab !== 'shopee-test' && currentTab !== 'platform-solutions' && (
           <Footer
             categories={categories}
-            totalGames={totalResults || allGamesList.length || games.length || 591}
+            totalGames={totalResults || allGamesList.length || games.length || 593}
             onSelectCategory={(cat) => {
               handleSelectTab('catalog');
               handleFilterChange({ category: cat });
