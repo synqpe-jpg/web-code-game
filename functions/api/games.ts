@@ -689,22 +689,49 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       }
       const cleanWithoutMobile = cleanSlug.replace(/-mobile$/i, '');
 
+      // Chặn ngay các game đã bị gỡ bỏ vĩnh viễn khỏi hệ thống
+      const DISABLED_GAME_SLUGS = new Set(['hai-tac-ti-hon', 'hiep-khach-hanh-joygames']);
+      if (DISABLED_GAME_SLUGS.has(cleanSlug) || DISABLED_GAME_SLUGS.has(cleanWithoutMobile)) {
+        singleGameCache.delete(cleanSlug);
+        singleGameCache.delete(cleanWithoutMobile);
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: `Trò chơi "${requestedSlug}" hiện không còn hoạt động hoặc đã bị gỡ bỏ.`,
+            games: [],
+            total: 0,
+          }),
+          {
+            status: 404,
+            headers: {
+              ...CORS_HEADERS,
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+            },
+          }
+        );
+      }
+
       if (!forceFresh) {
         const cached = singleGameCache.get(cleanSlug) || singleGameCache.get(cleanWithoutMobile);
         if (cached && Date.now() < cached.expiresAt) {
-          return new Response(
-            JSON.stringify({
-              success: true,
-              game: cached.game,
-            }),
-            {
-              headers: {
-                ...CORS_HEADERS,
-                'Cache-Control': 'public, max-age=60, s-maxage=300, stale-while-revalidate=600',
-                'X-Cache-Source': 'edge-memory',
-              },
-            }
-          );
+          if (cached.game?.is_active === false || cached.game?.is_active === 0 || String(cached.game?.status || '').toUpperCase() === 'INACTIVE') {
+            singleGameCache.delete(cleanSlug);
+            singleGameCache.delete(cleanWithoutMobile);
+          } else {
+            return new Response(
+              JSON.stringify({
+                success: true,
+                game: cached.game,
+              }),
+              {
+                headers: {
+                  ...CORS_HEADERS,
+                  'Cache-Control': 'public, max-age=60, s-maxage=300, stale-while-revalidate=600',
+                  'X-Cache-Source': 'edge-memory',
+                },
+              }
+            );
+          }
         }
       }
 
@@ -718,6 +745,33 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       );
 
       if (gameRow) {
+        const isInactive = 
+          gameRow.is_active === 0 || 
+          gameRow.is_active === false || 
+          gameRow.is_active === '0' || 
+          String(gameRow.status || '').trim().toUpperCase() === 'INACTIVE' ||
+          DISABLED_GAME_SLUGS.has(String(gameRow.slug || '').toLowerCase()) ||
+          DISABLED_GAME_SLUGS.has(String(gameRow.id || '').toLowerCase());
+
+        if (isInactive) {
+          singleGameCache.delete(cleanSlug);
+          singleGameCache.delete(cleanWithoutMobile);
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: `Trò chơi "${gameRow.name || requestedSlug}" hiện không còn hoạt động.`,
+              games: [],
+              total: 0,
+            }),
+            {
+              status: 404,
+              headers: {
+                ...CORS_HEADERS,
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+              },
+            }
+          );
+        }
         if (gameRow.slug === 'kof-legend' || cleanSlug === 'kof-legend') {
           gameRow.release_date = '2026-11-04';
         }
@@ -910,6 +964,34 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         (g.slug || '').toLowerCase() === cleanWithoutMobile
       );
       if (staticGame) {
+        const isStaticInactive = 
+          staticGame.is_active === 0 || 
+          staticGame.is_active === false || 
+          staticGame.is_active === '0' || 
+          String(staticGame.status || '').trim().toUpperCase() === 'INACTIVE' ||
+          DISABLED_GAME_SLUGS.has((staticGame.slug || '').toLowerCase()) ||
+          DISABLED_GAME_SLUGS.has((staticGame.id || '').toLowerCase());
+
+        if (isStaticInactive) {
+          singleGameCache.delete(cleanSlug);
+          singleGameCache.delete(cleanWithoutMobile);
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: `Trò chơi "${staticGame.name || requestedSlug}" hiện không còn hoạt động hoặc đã bị gỡ bỏ.`,
+              games: [],
+              total: 0,
+            }),
+            {
+              status: 404,
+              headers: {
+                ...CORS_HEADERS,
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+              },
+            }
+          );
+        }
+
         const matchedCodesRaw = fallbackCodesBySlug.get(cleanSlug) || 
                                 fallbackCodesBySlug.get(cleanWithoutMobile) || 
                                 fallbackCodesBySlug.get(staticGame.slug) || 

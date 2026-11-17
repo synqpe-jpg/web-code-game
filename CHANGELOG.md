@@ -7,6 +7,32 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-17]
 
+### 420. Gỡ Hẳn 2 Game (hai-tac-ti-hon & hiep-khach-hanh-joygames) Khỏi File Tĩnh & Chặn 404 Trang Chi Tiết (17/11/2026)
+- **Bối cảnh & Yêu cầu của Chủ sở hữu**:
+  - Người dùng đã tắt 2 game trong D1 (`is_active=0`, `status='INACTIVE'`), catalog D1 đã về 591 game.
+  - Tuy nhiên `/test1` vẫn hiện 593 game vì đọc trực tiếp file tĩnh `games188.json`.
+  - Các đường dẫn `/game/hai-tac-ti-hon` và `/game/hiep-khach-hanh-joygames` vẫn mở được kèm giftcode do API chi tiết và worker chưa chặn khi game có `is_active=0` / `status='INACTIVE'` và tự fallback sang file tĩnh.
+  - Cần: Gỡ 2 game khỏi `games188.json` (về 591 game); gỡ 16 mã JoyGames + 5 mã Hải Tặc khỏi `crawled_codes_188.json`; API chi tiết `/api/games?slug=...` và route SSR `/game/:slug` trả 404 cho game INACTIVE; xóa icon 2 game; bảo toàn nguyên vẹn 100% bản chính `hiep-khach-hanh`.
+- **Giải pháp áp dụng (Solution)**:
+  1. *File tĩnh `games188.json` & `crawled_codes_188.json`*:
+     - Xóa 2 game `hai-tac-ti-hon` và `hiep-khach-hanh-joygames` khỏi `src/data/games188.json` và `public/data/games188.json` (đưa tổng tựa game về đúng chuẩn 591 game).
+     - Xóa 21 mã (16 mã của `hiep-khach-hanh-joygames` và 5 mã của `hai-tac-ti-hon`) khỏi `src/data/crawled_codes_188.json` và `public/data/crawled_codes_188.json`.
+     - Giữ nguyên vẹn 18 mã và thông tin của bản chính `hiep-khach-hanh`.
+  2. *API Chi Tiết (`functions/api/games.ts`)*:
+     - Thêm kiểm tra `DISABLED_GAME_SLUGS` chặn ngay các slug đã bị gỡ.
+     - Khi `gameRow` từ D1 có `is_active === 0 || is_active === false || status === 'INACTIVE'`, lập tức trả về HTTP 404, không trả dữ liệu và không rơi xuống fallback file tĩnh.
+     - Áp dụng kiểm tra inactive cho cả `staticGame` và bộ nhớ đệm `singleGameCache`.
+  3. *Cloudflare Edge Worker (`functions/_worker.ts`)*:
+     - Chặn các route `/game/hai-tac-ti-hon`, `/game/hiep-khach-hanh-joygames`, `/g/...`, `/test1/game/...` trả HTTP 404 chuẩn (sử dụng trang `404.html`).
+     - Khi tra cứu D1 trong Worker, nếu game có `is_active = 0` hoặc `status = 'INACTIVE'`, gán `game = null` và không fallback sang catalog.
+  4. *Tài nguyên Icon (`public/game_icons/`)*:
+     - Xóa sạch các file `hai-tac-ti-hon.webp`, `hiep-khach-hanh-joygames.webp` cùng các phiên bản thu nhỏ 128px, 256px và jpg tương ứng.
+     - Bảo toàn file icon gốc của bản chính `hiep-khach-hanh.webp`.
+- **Kiểm thử & Nghiệm thu**:
+  - `audit_zero_test_artifacts.cjs`: Đạt 100% (591 game, 0 test).
+  - Biên dịch `npm run build`: Hoàn thành 100%, 591 game được prerender.
+  - Triển khai `npm run deploy:all` và `git push origin main`.
+
 ### 419. Xóa Nút & Chữ "Thuê / Mua Sàn" Khỏi Header Web Khách & Chuyển Hướng An Toàn (17/11/2026)
 - **Bối cảnh & Yêu cầu của Chủ sở hữu**:
   - Người dùng gửi yêu cầu: "Bạn xóa chữ thuê, mua sàn trên web giúp tôi." kèm ảnh chụp màn hình thực tế trang chủ `codegame.shop`.

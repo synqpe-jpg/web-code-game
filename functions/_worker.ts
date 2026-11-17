@@ -2565,9 +2565,35 @@ async function renderSeoHtml(
     }
   }
 
-  // 2. Chuyển hướng 301 chuẩn hóa cho các bí danh trùng lặp -> slug chính
-  if (pathname.startsWith('/game/')) {
-    const rawSlug = pathname.replace(/^\/game\//i, '').replace(/\/$/, '').trim().toLowerCase();
+  // 2. Chuyển hướng 301 chuẩn hóa cho các bí danh trùng lặp -> slug chính, chặn triệt để game đã gỡ bỏ
+  if (
+    pathname.startsWith('/game/') ||
+    pathname.startsWith('/g/') ||
+    pathname.startsWith('/test1/game/') ||
+    pathname.startsWith('/test1/g/')
+  ) {
+    const rawSlug = pathname
+      .replace(/^\/(?:test1\/)?(?:game|g)\//i, '')
+      .replace(/\/$/, '')
+      .trim()
+      .toLowerCase();
+
+    // Chặn vĩnh viễn các game đã gỡ bỏ khỏi hệ thống -> Trả 404 chuẩn
+    if (rawSlug === 'hai-tac-ti-hon' || rawSlug === 'hiep-khach-hanh-joygames') {
+      const notFoundRes = await env.ASSETS.fetch(new Request(`${origin}/404.html`)).catch(() => null);
+      if (notFoundRes && notFoundRes.status === 200) {
+        const notFoundHtml = await notFoundRes.text();
+        return new Response(notFoundHtml, {
+          status: 404,
+          headers: {
+            'Content-Type': 'text/html; charset=utf-8',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+          },
+        });
+      }
+      return new Response('404 Not Found', { status: 404 });
+    }
+
     if (GAME_CANONICAL_ALIASES[rawSlug]) {
       return Response.redirect(`${origin}/game/${GAME_CANONICAL_ALIASES[rawSlug]}`, 301);
     }
@@ -2680,39 +2706,53 @@ async function renderSeoHtml(
         ).bind(lookupSlug, lookupSlug, cleanWithoutMobile).first<any>().catch(() => null);
 
         if (gameRow) {
-          game = { ...gameRow };
-          const codesRes = await (
-            lookupSlug === 'where-winds-meet'
-              ? env.DB.prepare(
-                  `SELECT code, rewards, status, expires_at FROM codes WHERE game_slug = 'where-winds-meet' OR game_slug = 'yen-van-thap-luc-thanh' OR game_slug = 'where-winds-meet-mobile' ORDER BY CASE WHEN status = 'active' OR status = 'verified' THEN 0 ELSE 1 END, added_at DESC`
-                ).all<any>()
-              : env.DB.prepare(
-                  `SELECT code, rewards, status, expires_at FROM codes WHERE game_slug = ? ORDER BY CASE WHEN status = 'active' OR status = 'verified' THEN 0 ELSE 1 END, added_at DESC`
-                ).bind(gameRow.slug).all<any>()
-          ).catch(() => ({ results: [] as any[] }));
-          const allCodes = codesRes?.results || [];
-          if (allCodes.length === 0) {
-            const fbList = (fallbackCodesData as any)?.[gameRow.slug] || (fallbackCodesData as any)?.[slug] || (fallbackCodesData as any)?.[cleanWithoutMobile];
-            if (Array.isArray(fbList) && fbList.length > 0) {
-              displayCodes = fbList.map((c: any) => ({
-                code: String(c.code || '').trim().toUpperCase(),
-                rewards: c.rewards || c.description || null,
-                status: 'active',
-                expires_at: c.expires_at || c.expiry || null,
-              })).filter((c: any) => Boolean(c.code));
-            }
-          } else {
-            displayCodes = allCodes;
-          }
+          const isInactive = 
+            gameRow.is_active === 0 || 
+            gameRow.is_active === false || 
+            gameRow.is_active === '0' || 
+            String(gameRow.status || '').trim().toUpperCase() === 'INACTIVE' ||
+            slug === 'hai-tac-ti-hon' || 
+            slug === 'hiep-khach-hanh-joygames' || 
+            cleanWithoutMobile === 'hai-tac-ti-hon' || 
+            cleanWithoutMobile === 'hiep-khach-hanh-joygames';
 
-          const activeCodes = displayCodes.filter((c: any) => !isCodeExpired(c));
-          displayCodes = activeCodes.length > 0 ? activeCodes : displayCodes;
-          game.codes = displayCodes;
-          game.codes_count = activeCodes.length;
-          game.active_codes_count = activeCodes.length;
-          game.free_codes_count = activeCodes.length;
-          game.expired_codes_count = allCodes.length - activeCodes.length;
-          game.total_codes_count = allCodes.length;
+          if (isInactive) {
+            game = null;
+          } else {
+            game = { ...gameRow };
+            const codesRes = await (
+              lookupSlug === 'where-winds-meet'
+                ? env.DB.prepare(
+                    `SELECT code, rewards, status, expires_at FROM codes WHERE game_slug = 'where-winds-meet' OR game_slug = 'yen-van-thap-luc-thanh' OR game_slug = 'where-winds-meet-mobile' ORDER BY CASE WHEN status = 'active' OR status = 'verified' THEN 0 ELSE 1 END, added_at DESC`
+                  ).all<any>()
+                : env.DB.prepare(
+                    `SELECT code, rewards, status, expires_at FROM codes WHERE game_slug = ? ORDER BY CASE WHEN status = 'active' OR status = 'verified' THEN 0 ELSE 1 END, added_at DESC`
+                  ).bind(gameRow.slug).all<any>()
+            ).catch(() => ({ results: [] as any[] }));
+            const allCodes = codesRes?.results || [];
+            if (allCodes.length === 0) {
+              const fbList = (fallbackCodesData as any)?.[gameRow.slug] || (fallbackCodesData as any)?.[slug] || (fallbackCodesData as any)?.[cleanWithoutMobile];
+              if (Array.isArray(fbList) && fbList.length > 0) {
+                displayCodes = fbList.map((c: any) => ({
+                  code: String(c.code || '').trim().toUpperCase(),
+                  rewards: c.rewards || c.description || null,
+                  status: 'active',
+                  expires_at: c.expires_at || c.expiry || null,
+                })).filter((c: any) => Boolean(c.code));
+              }
+            } else {
+              displayCodes = allCodes;
+            }
+
+            const activeCodes = displayCodes.filter((c: any) => !isCodeExpired(c));
+            displayCodes = activeCodes.length > 0 ? activeCodes : displayCodes;
+            game.codes = displayCodes;
+            game.codes_count = activeCodes.length;
+            game.active_codes_count = activeCodes.length;
+            game.free_codes_count = activeCodes.length;
+            game.expired_codes_count = allCodes.length - activeCodes.length;
+            game.total_codes_count = allCodes.length;
+          }
         }
 
         // Tự động đối chiếu với fallbackGamesData nếu bảng games D1 còn giữ văn mẫu Avatar cũ
@@ -2728,8 +2768,8 @@ async function renderSeoHtml(
           }
         }
 
-        // 2. Fallback sang catalog nếu bảng games chưa có
-        if (!game) {
+        // 2. Fallback sang catalog nếu bảng games chưa có (loại trừ game đã bị gỡ)
+        if (!game && slug !== 'hai-tac-ti-hon' && slug !== 'hiep-khach-hanh-joygames' && cleanWithoutMobile !== 'hai-tac-ti-hon' && cleanWithoutMobile !== 'hiep-khach-hanh-joygames') {
           const catalog = await gamesApi.getLoadedCatalog(env.DB);
           game = catalog.allRawGames?.find((g: any) => g && (String(g.slug || '').toLowerCase() === slug || String(g.id || '').toLowerCase() === slug || String(g.slug || '').toLowerCase().replace(/-mobile$/i, '') === cleanWithoutMobile || (isYenVan && (g.slug === 'yen-van-thap-luc-thanh' || g.slug === 'where-winds-meet-mobile'))));
           if (game) {
