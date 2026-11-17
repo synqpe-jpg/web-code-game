@@ -295,22 +295,20 @@ export function isCodeExpired(codeObj: any, nowMs?: number): boolean {
     return true;
   }
 
-  // 2. Check explicit status (D1 database is Single Source of Truth)
+  // 2. Check explicit expired status from D1/NPH (NPH closed early -> expired regardless)
   const statusStr = String(codeObj.status || codeObj.statusValue || '').trim().toLowerCase();
   if (
     statusStr === 'expired' ||
     statusStr === 'hết hạn' ||
     statusStr === 'het han' ||
     statusStr === 'inactive' ||
-    statusStr === 'disabled'
+    statusStr === 'disabled' ||
+    codeObj.is_active === 0
   ) {
     return true;
   }
-  if (statusStr === 'active' || statusStr === 'còn hạn' || statusStr === 'con han' || codeObj.is_active === 1) {
-    return false;
-  }
 
-  // 3. Check expiration date fields
+  // 3. Check expiration date: NGÀY HẾT HẠN THẮNG TRẠNG THÁI D1
   const rawExp =
     codeObj.expiresAt ||
     codeObj.expires_at ||
@@ -324,9 +322,21 @@ export function isCodeExpired(codeObj: any, nowMs?: number): boolean {
 
   if (rawExp) {
     const parsed = parseExpirationDate(rawExp, nowMs);
+    // Nếu có ngày hết hạn đọc được:
+    // Ngày đã qua (< now) -> BẮT BUỘC trả true (hết hạn), BẤT KỂ status D1 ghi gì (kể cả status='active', is_active=1)
     if (parsed.isExpired) {
       return true;
     }
+    // Nếu ngày hết hạn chưa qua (>= now, bao gồm hôm nay) -> trả false (còn hạn)
+    if (parsed.dateObj) {
+      return false;
+    }
+  }
+
+  // 4. Khi mã KHÔNG CÓ ngày hết hạn (vô thời hạn / null / rỗng):
+  // Mới dùng status D1 để quyết định
+  if (statusStr === 'active' || statusStr === 'còn hạn' || statusStr === 'con han' || codeObj.is_active === 1) {
+    return false;
   }
 
   return false;

@@ -1352,11 +1352,11 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
             is_hot: Boolean(g.is_hot || g.isHot || g.status === 'HOT' || existingCodes.length > 5),
             is_new: Boolean(g.is_new || g.isNew || relDate.startsWith('2026-09')),
             is_active: true,
-            codes_count: isWwm ? 579 : (typeof g.codes_count === 'number' ? g.codes_count : existingCodes.filter((c: any) => !isCodeExpired(c)).length),
-            active_codes_count: isWwm ? 579 : (typeof g.active_codes_count === 'number' ? g.active_codes_count : existingCodes.filter((c: any) => !isCodeExpired(c)).length),
-            free_codes_count: isWwm ? 579 : (typeof g.free_codes_count === 'number' ? g.free_codes_count : (typeof g.codes_count === 'number' ? g.codes_count : existingCodes.filter((c: any) => !isCodeExpired(c)).length)),
-            total_codes_count: isWwm ? 620 : (existingCodes.length || (typeof g.total_codes_count === 'number' ? g.total_codes_count : 0)),
-            expired_codes_count: isWwm ? 41 : (existingCodes.filter((c: any) => isCodeExpired(c)).length),
+            codes_count: typeof g.codes_count === 'number' ? g.codes_count : existingCodes.filter((c: any) => !isCodeExpired(c)).length,
+            active_codes_count: typeof g.active_codes_count === 'number' ? g.active_codes_count : existingCodes.filter((c: any) => !isCodeExpired(c)).length,
+            free_codes_count: typeof g.free_codes_count === 'number' ? g.free_codes_count : (typeof g.codes_count === 'number' ? g.codes_count : existingCodes.filter((c: any) => !isCodeExpired(c)).length),
+            total_codes_count: existingCodes.length || (typeof g.total_codes_count === 'number' ? g.total_codes_count : 0),
+            expired_codes_count: existingCodes.filter((c: any) => isCodeExpired(c)).length,
             codes: existingCodes.length > 0 ? existingCodes : (Array.isArray(g.codes) ? g.codes : []),
           };
         });
@@ -1919,6 +1919,9 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
     if (!slug) return null;
     let normSlug = slug.toLowerCase().trim();
     if (normSlug === 'doors') normSlug = 'doors-roblox';
+    if (normSlug === 'where-winds-meet-mobile' || normSlug === 'yen-van-thap-luc-thanh') {
+      normSlug = 'where-winds-meet';
+    }
     const cleanWithoutMobile = normSlug.replace(/-mobile$/i, '');
 
     // 1. Check if cached game has full details and was recently fetched from server
@@ -1967,18 +1970,15 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
           });
 
           const activeFullCodes = fullCodes.filter((c: any) => !isCodeExpired(c));
-          const isWwmGame = (game.slug === 'where-winds-meet-mobile' || game.slug === 'yen-van-thap-luc-thanh' ||
-                             game.id === 'where-winds-meet-mobile' || game.id === 'yen-van-thap-luc-thanh' ||
-                             normSlug === 'where-winds-meet-mobile' || normSlug === 'yen-van-thap-luc-thanh');
-          const finalActiveCount = isWwmGame ? 579 : (typeof game.active_codes_count === 'number' ? game.active_codes_count : activeFullCodes.length);
+          const finalActiveCount = typeof game.active_codes_count === 'number' ? game.active_codes_count : activeFullCodes.length;
           const finalGame: GameItem = {
             ...game,
             codes: fullCodes,
-            codes_count: isWwmGame ? 579 : (typeof game.codes_count === 'number' ? game.codes_count : activeFullCodes.length),
+            codes_count: typeof game.codes_count === 'number' ? game.codes_count : activeFullCodes.length,
             active_codes_count: finalActiveCount,
-            free_codes_count: isWwmGame ? 579 : (typeof game.free_codes_count === 'number' ? game.free_codes_count : finalActiveCount),
-            expired_codes_count: isWwmGame ? 41 : (fullCodes.length - activeFullCodes.length),
-            total_codes_count: isWwmGame ? 620 : fullCodes.length,
+            free_codes_count: typeof game.free_codes_count === 'number' ? game.free_codes_count : finalActiveCount,
+            expired_codes_count: fullCodes.length - activeFullCodes.length,
+            total_codes_count: fullCodes.length,
             icon_url: game.icon_url || `/game_icons/${game.slug}.webp`,
             is_full_detail: true,
             is_partial_preview: false,
@@ -2048,18 +2048,15 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
     const codes = this.getCodesForGame(game);
     const finalCodes = codes.length > 0 ? codes : (game.codes || []);
     const usableFinalCodes = finalCodes.filter((c: any) => !isCodeExpired(c));
-    const isWwmLocal = (game.slug === 'where-winds-meet-mobile' || game.slug === 'yen-van-thap-luc-thanh' ||
-                        game.id === 'where-winds-meet-mobile' || game.id === 'yen-van-thap-luc-thanh' ||
-                        normSlug === 'where-winds-meet-mobile' || normSlug === 'yen-van-thap-luc-thanh');
-    const localActiveCount = isWwmLocal ? 579 : (typeof game.active_codes_count === 'number' ? game.active_codes_count : usableFinalCodes.length);
+    const localActiveCount = typeof game.active_codes_count === 'number' ? game.active_codes_count : usableFinalCodes.length;
     const localResult: GameItem = {
       ...game,
       codes: finalCodes,
-      codes_count: isWwmLocal ? 579 : (typeof game.codes_count === 'number' ? game.codes_count : usableFinalCodes.length),
+      codes_count: typeof game.codes_count === 'number' ? game.codes_count : usableFinalCodes.length,
       active_codes_count: localActiveCount,
-      free_codes_count: isWwmLocal ? 579 : (typeof game.free_codes_count === 'number' ? game.free_codes_count : localActiveCount),
-      expired_codes_count: isWwmLocal ? 41 : (finalCodes.length - usableFinalCodes.length),
-      total_codes_count: isWwmLocal ? 620 : finalCodes.length,
+      free_codes_count: typeof game.free_codes_count === 'number' ? game.free_codes_count : localActiveCount,
+      expired_codes_count: finalCodes.length - usableFinalCodes.length,
+      total_codes_count: finalCodes.length,
       icon_url: game.icon_url || `/game_icons/${game.slug}.webp`,
       is_full_detail: true,
       is_partial_preview: false,

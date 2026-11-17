@@ -30,11 +30,32 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
   const { t } = useLanguage();
   const [cmsHero, setCmsHero] = useState(() => dataService.getContentByKey('hero_banner'));
   const [liveCopies, setLiveCopies] = useState<number>(() => marketingService.getLiveCounter());
+  const [totalCodesCount, setTotalCodesCount] = useState<number>(() => {
+    try {
+      const games = dataService.getGames();
+      if (Array.isArray(games) && games.length > 0) {
+        return games.reduce((acc, g) => acc + (g.active_codes_count || g.codes_count || 0), 0);
+      }
+    } catch {}
+    return 14967;
+  });
 
   // Format current HH:mm timestamp for stats
   const [lastUpdatedTime, setLastUpdatedTime] = useState('19:55');
 
   useEffect(() => {
+    const updateCodes = () => {
+      try {
+        const games = dataService.getGames();
+        if (Array.isArray(games) && games.length > 0) {
+          const total = games.reduce((acc, g) => acc + (g.active_codes_count || g.codes_count || 0), 0);
+          if (total > 0) setTotalCodesCount(total);
+        }
+      } catch {}
+    };
+    updateCodes();
+    window.addEventListener('wcg_games_updated', updateCodes);
+
     const now = new Date();
     const hours = String(now.getHours()).padStart(2, '0');
     const minutes = String(now.getMinutes()).padStart(2, '0');
@@ -42,6 +63,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
 
     const unsub = dataService.subscribe(() => {
       setCmsHero(dataService.getContentByKey('hero_banner'));
+      updateCodes();
     });
     const unsubCounter = marketingService.subscribeCounter((count) => {
       setLiveCopies(count);
@@ -62,6 +84,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
     return () => {
       unsub();
       unsubCounter();
+      window.removeEventListener('wcg_games_updated', updateCodes);
       window.removeEventListener('wcg_master_copy_count_updated', handleCopyCountUpdated);
       window.removeEventListener('wcg_global_copy_count_updated', handleCopyCountUpdated);
       window.removeEventListener('wcg_admin_content_updated', handleContentUpdated);
@@ -101,7 +124,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
             <span className="text-primary/30 shrink-0">•</span>
             <span className="text-emerald-400 font-bold font-mono inline-flex items-center gap-1 shrink-0">
               <Zap className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-emerald-400 animate-pulse shrink-0" />
-              <span>14.739</span>
+              <span>{totalCodesCount > 0 ? totalCodesCount.toLocaleString('vi-VN') : '14.967'}</span>
               <span className="text-[9px] sm:text-[10px] text-slate-300 font-normal lowercase hidden xs:inline">mã code</span>
             </span>
           </div>

@@ -249,6 +249,9 @@ export const App: React.FC = () => {
       } else if (pathname.startsWith('/game/') || pathname.startsWith('/g/')) {
         pathSlug = pathname.replace(/^\/(?:game|g)\//i, '').replace(/\/$/, '').trim().toLowerCase();
       }
+      if (pathSlug === 'where-winds-meet-mobile' || pathSlug === 'yen-van-thap-luc-thanh') {
+        pathSlug = 'where-winds-meet';
+      }
       if (pathSlug) {
         const found = (fallbackGamesData as any[]).find((g: any) =>
           g && ((g.slug && g.slug.toLowerCase() === pathSlug) || (g.id && String(g.id).toLowerCase() === pathSlug))
@@ -705,7 +708,10 @@ export const App: React.FC = () => {
           setInitialNewsSubTab('events');
           return;
         } else if (pathname.startsWith('/game/') || pathname.startsWith('/g/')) {
-          const pathSlug = window.location.pathname.replace(/^\/(?:game|g)\//i, '').replace(/\/$/, '').trim();
+          let pathSlug = window.location.pathname.replace(/^\/(?:game|g)\//i, '').replace(/\/$/, '').trim();
+          if (pathSlug === 'where-winds-meet-mobile' || pathSlug === 'yen-van-thap-luc-thanh') {
+            pathSlug = 'where-winds-meet';
+          }
           if (pathSlug) {
             setCurrentTab(isTestClientDomain ? 'shopee-test' : 'catalog');
             const localFallback = (dataService.getGames() || []).find((g) => (g.slug || g.id) === pathSlug);
@@ -761,7 +767,10 @@ export const App: React.FC = () => {
           setCurrentTab('store-detail');
           return;
         } else if (pathname.startsWith('/test1/game/') || pathname.startsWith('/test1/g/')) {
-          const pathSlug = window.location.pathname.replace(/^\/test1\/(?:game|g)\//i, '').replace(/\/$/, '').trim();
+          let pathSlug = window.location.pathname.replace(/^\/test1\/(?:game|g)\//i, '').replace(/\/$/, '').trim();
+          if (pathSlug === 'where-winds-meet-mobile' || pathSlug === 'yen-van-thap-luc-thanh') {
+            pathSlug = 'where-winds-meet';
+          }
           setCurrentTab('shopee-test');
           if (pathSlug) {
             const fallbackList = dataService.getGames().length > 0 ? dataService.getGames() : (fallbackGamesData as any[]);
@@ -879,20 +888,23 @@ export const App: React.FC = () => {
     if (currentTab === 'admin') return;
 
     if (selectedGame && typeof selectedGame === 'object' && selectedGame.slug && selectedGame.slug !== 'undefined') {
-      const isYenVan = selectedGame.slug === 'where-winds-meet-mobile' || selectedGame.slug === 'yen-van-thap-luc-thanh';
-      const isWwmPc = selectedGame.slug === 'where-winds-meet';
-      const codeCount = isYenVan ? 579 : (isWwmPc ? 22 : (selectedGame.codes_count || selectedGame.active_codes_count || selectedGame.codes?.length || 0));
+      const effectiveSlug = (selectedGame.slug === 'where-winds-meet-mobile' || selectedGame.slug === 'yen-van-thap-luc-thanh')
+        ? 'where-winds-meet'
+        : selectedGame.slug;
+      const codeCount = selectedGame.active_codes_count !== undefined
+        ? selectedGame.active_codes_count
+        : (selectedGame.codes_count || selectedGame.codes?.filter((c: any) => !isCodeExpired(c))?.length || 0);
       const countSuffix = codeCount > 0 ? `Nhận ${codeCount} Mã Code ` : '';
-      document.title = `Giftcode ${selectedGame.name || selectedGame.slug} Mới Nhất 2026 - ${countSuffix}| CodeGame.shop`;
+      document.title = `Giftcode ${selectedGame.name || effectiveSlug} Mới Nhất 2026 - ${countSuffix}| CodeGame.shop`;
       const isTestClientDomain = typeof window !== 'undefined' && (window.location.hostname.includes('test-code-game-shop') || window.location.hostname.includes('test-shopee'));
       const inTest1 = currentTab === 'shopee-test' || (typeof window !== 'undefined' && window.location.pathname.startsWith('/test1')) || isTestClientDomain;
       if (inTest1) {
-        const targetPath = isTestClientDomain ? `/game/${selectedGame.slug}` : `/test1/game/${selectedGame.slug}`;
+        const targetPath = isTestClientDomain ? `/game/${effectiveSlug}` : `/test1/game/${effectiveSlug}`;
         if (window.location.pathname !== targetPath) {
           window.history.replaceState(null, '', targetPath);
         }
-      } else if (window.location.pathname !== `/game/${selectedGame.slug}`) {
-        window.history.replaceState(null, '', `/game/${selectedGame.slug}`);
+      } else if (window.location.pathname !== `/game/${effectiveSlug}`) {
+        window.history.replaceState(null, '', `/game/${effectiveSlug}`);
       }
     } else {
       // Do not wipe pathname if initial deep-link routing is still parsing

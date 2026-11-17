@@ -1540,6 +1540,115 @@ export async function ensureSchemaUpgrades(db: D1Database): Promise<void> {
     console.warn('[Migration 0016_clean_clone_drone_markdown error]', err?.message);
   }
 
+  // 19. Migration 0017: Gộp 3 bản Where Winds Meet thành 1 bản chính duy nhất + Xóa 5 sản phẩm test khỏi CSDL D1
+  try {
+    const m17Mig = await db.prepare("SELECT 1 FROM schema_migrations WHERE id = '0017_merge_wwm_and_purge_test_products' LIMIT 1;").first<any>().catch(() => null);
+    if (!m17Mig) {
+      // 1. Xóa sạch 5 sản phẩm test và kho mã test liên quan
+      await db.prepare(`
+        DELETE FROM seller_codes WHERE product_id IN (
+          'sprod_1794418979025_qaj30',
+          'sprod_1794417226214_piq6x',
+          'sprod_1794417198339_bgrom',
+          'sprod_1794417191824_wxjrt',
+          'sprod_1794400055289_fewdt'
+        );
+      `).run().catch(() => {});
+
+      await db.prepare(`
+        DELETE FROM seller_products WHERE id IN (
+          'sprod_1794418979025_qaj30',
+          'sprod_1794417226214_piq6x',
+          'sprod_1794417198339_bgrom',
+          'sprod_1794417191824_wxjrt',
+          'sprod_1794400055289_fewdt'
+        );
+      `).run().catch(() => {});
+
+      // 2. Chuyển toàn bộ 620 mã của where-winds-meet-mobile và yen-van-thap-luc-thanh sang where-winds-meet
+      await db.prepare(`
+        UPDATE OR IGNORE codes
+        SET game_slug = 'where-winds-meet'
+        WHERE game_slug = 'where-winds-meet-mobile' OR game_slug = 'yen-van-thap-luc-thanh';
+      `).run().catch(() => {});
+
+      // Xóa các mã trùng hoặc còn sót của 2 slug cũ
+      await db.prepare(`
+        DELETE FROM codes WHERE game_slug = 'where-winds-meet-mobile' OR game_slug = 'yen-van-thap-luc-thanh';
+      `).run().catch(() => {});
+
+      // 3. Đảm bảo game where-winds-meet tồn tại và cập nhật đầy đủ thông tin chuẩn hóa
+      await db.prepare(`
+        INSERT OR IGNORE INTO games (id, name, slug, publisher, category, platform, status, is_active, icon_url, banner_url)
+        VALUES (
+          'where-winds-meet',
+          'Where Winds Meet (Yến Vân Thập Lục Thanh)',
+          'where-winds-meet',
+          'NetEase Games / VNG',
+          'Nhập Vai',
+          'Mobile / PC',
+          'ACTIVE',
+          1,
+          '/game_icons/where-winds-meet.webp',
+          '/game_banners/where-winds-meet.webp'
+        );
+      `).run().catch(() => {});
+
+      await db.prepare(`
+        UPDATE games
+        SET
+          name = 'Where Winds Meet (Yến Vân Thập Lục Thanh)',
+          publisher = 'NetEase Games / VNG',
+          platform = 'Mobile / PC',
+          icon_url = '/game_icons/where-winds-meet.webp',
+          banner_url = '/game_banners/where-winds-meet.webp',
+          status = 'ACTIVE',
+          is_active = 1,
+          updated_at = datetime('now')
+        WHERE slug = 'where-winds-meet';
+      `).run().catch(() => {});
+
+      // Xóa 2 bản ghi thừa khỏi bảng games
+      await db.prepare(`
+        DELETE FROM games WHERE slug IN ('where-winds-meet-mobile', 'yen-van-thap-luc-thanh');
+      `).run().catch(() => {});
+
+      // 4. Tính toán lại số đếm chuẩn xác cho tất cả game trên D1
+      await db.prepare(`
+        UPDATE games
+        SET
+          total_codes_count = (
+            SELECT COUNT(*) FROM codes
+            WHERE codes.game_slug = games.slug
+              AND UPPER(TRIM(codes.code)) != 'REDEMPTION'
+              AND UPPER(codes.code) NOT GLOB 'IN-*-*[0-9]X[0-9]*'
+              AND UPPER(codes.code) NOT GLOB 'REDEMPTION*[0-9]X[0-9]*'
+          ),
+          active_codes_count = (
+            SELECT COUNT(*) FROM codes
+            WHERE codes.game_slug = games.slug
+              AND (codes.status = 'active' OR codes.status = 'verified')
+              AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now', '+7 hours'))
+              AND UPPER(TRIM(codes.code)) != 'REDEMPTION'
+              AND UPPER(codes.code) NOT GLOB 'IN-*-*[0-9]X[0-9]*'
+              AND UPPER(codes.code) NOT GLOB 'REDEMPTION*[0-9]X[0-9]*'
+          ),
+          last_code_at = (
+            SELECT MAX(added_at) FROM codes
+            WHERE codes.game_slug = games.slug
+              AND UPPER(TRIM(codes.code)) != 'REDEMPTION'
+              AND UPPER(codes.code) NOT GLOB 'IN-*-*[0-9]X[0-9]*'
+              AND UPPER(codes.code) NOT GLOB 'REDEMPTION*[0-9]X[0-9]*'
+          ),
+          updated_at = datetime('now');
+      `).run().catch(() => {});
+
+      await db.prepare("INSERT OR IGNORE INTO schema_migrations (id) VALUES ('0017_merge_wwm_and_purge_test_products');").run().catch(() => {});
+    }
+  } catch (err: any) {
+    console.warn('[Migration 0017_merge_wwm_and_purge_test_products error]', err?.message);
+  }
+
 
     try {
       // Fast 1-subrequest check: If wcg_virtual_layer_tables_v1 exists, all schema migrations are already done

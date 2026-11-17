@@ -7,6 +7,26 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-17]
 
+### 417. Sửa Gốc 143 Mã Quá Hạn, Gộp 3 Bản Where Winds Meet, Đồng Bộ Số Đếm, Xóa Chữ Cho Thuê Sàn & Xóa 5 Sản Phẩm Test (17/11/2026)
+- **Bối cảnh & Yêu cầu của Chủ sở hữu**:
+  1. *Việc 1 (Lệch bài viết test1)*: Tab Tin Tức trên `/test1` hiển thị 272 bài trong khi live `/api/news` tổng 276 bài do lưu cache cũ trong localStorage và thiếu lắng nghe sự kiện đồng bộ `wcg_news_updated`.
+  2. *Việc 2 (Sửa gốc 143 mã quá hạn)*: `isCodeExpired` ưu tiên trạng thái `status: 'active'` của D1 trước khi đọc `expires_at`, dẫn đến 143 mã thật sự đã quá hạn nhưng status D1 còn là active (Avatar Land `AL-PNVN26` hết hạn 20/10, `DAHOIVAMPIRE` hết hạn 31/10, WWM 14 mã hết hạn 09/11...) bị tính sai thành còn hạn.
+  3. *Việc 3 (Gộp Where Winds Meet)*: Trong D1 tồn tại 3 bản ghi rời rạc (`where-winds-meet` 22 mã PC, `where-winds-meet-mobile` 620 mã, `yen-van-thap-luc-thanh` 620 mã). Gộp toàn bộ thành 1 bản chính duy nhất `where-winds-meet` với 642 mã (598 còn hạn + 44 hết hạn), xóa 2 bản ghi alias thừa trong bảng `games`, giữ 100% rewards và source, map redirect tự động từ 2 slug cũ về `where-winds-meet`.
+  4. *Việc 4 (Một định nghĩa đếm duy nhất)*: Triệt tiêu mọi số ghi cứng (`isYenVan ? 579 : 41`, `isWwm ? 579 : 41`, 579 ở `src/App.tsx`, hero "14.739" sửa về số đếm động từ D1/dataService, banner test1 "kho 623+ game"). Sửa lỗi nhảy số Honkai (185 lúc API trả về nhưng 182 lúc tải tĩnh) và Genshin (106 vs 103) bằng cách đồng bộ `games188.json`.
+  5. *Việc 5 (Xóa toàn bộ chữ cho thuê/bán sàn White-Label khỏi `/test1`)*: Xóa modal `ShopeeWhiteLabelModal.tsx`, xóa 3 nút/banner mở modal ở topbar, banner callout và CTA footer. Giữ nguyên điều khoản riêng tư ("không bán, cho thuê hay tiết lộ...").
+  6. *Việc 6 (Xóa 5 sản phẩm test)*: Xóa sạch 5 sản phẩm test (`sprod_1794418979025_qaj30`, `sprod_1794417226214_piq6x`, `sprod_1794417198339_bgrom`, `sprod_1794417191824_wxjrt`, `sprod_1794400055289_fewdt`) và kho mã test liên quan khỏi CSDL D1. Bổ sung API `DELETE /api/admin/seller-products/:id` có thẩm quyền `MARKETPLACE_MANAGE`. Giữ nguyên 10 gói Hiệp Khách Hành tại `/api/store`.
+- **Giải pháp áp dụng (Solution)**:
+  1. *Sửa gốc isCodeExpired (`src/utils/codeUtils.ts`)*: Logic mới thực hiện tuần tự: (1) Mã test `ATNGAY1`/`ATNGAY2` -> true; (2) Trạng thái tiêu cực NPH đóng sớm (`expired`, `hết hạn`, `inactive`, `disabled`, `is_active === 0`) -> true; (3) Ngày hết hạn đọc được: nếu `parsed.isExpired` -> true ngay lập tức BẤT KỂ status D1 ghi gì; nếu `parsed.dateObj` và chưa qua -> false (mã hết hạn hôm nay vẫn dùng được hết ngày); (4) Chỉ khi mã không có ngày hết hạn mới dựa vào status D1.
+  2. *Tin tức test1 (`src/components/shopee/ShopeeTestView.tsx`)*: Lắng nghe sự kiện `wcg_news_updated` và truy vấn trực tiếp `/api/news?limit=1` để cập nhật động số lượng bài viết thời gian thực (276 bài).
+  3. *Gộp Where Winds Meet (`functions/api/games.ts`, `src/App.tsx`, `functions/services/d1_service.ts` Migration 0017)*: Tự động chuyển 620 mã của `where-winds-meet-mobile` và `yen-van-thap-luc-thanh` sang slug `where-winds-meet`, xóa 2 bản ghi game thừa, cập nhật slug map chuyển hướng về `where-winds-meet`.
+  4. *Xóa bỏ toàn bộ số ghi cứng*: Xóa bỏ `isYenVan ? 579 : 41` tại `functions/api/games.ts`, `functions/_worker.ts`, `src/services/dataService.ts`, `src/App.tsx`, `ShopeeTestView.tsx`. Cập nhật `games188.json` (Honkai 185/190, Genshin 106/173, WWM 598/642). Hero banner hiển thị số đếm động từ `dataService`.
+  5. *Xóa sạch chữ cho thuê sàn test1*: Xóa bỏ hoàn toàn modal `ShopeeWhiteLabelModal.tsx`, các nút gọi mở modal tại topbar, banner callout và CTA footer trong `ShopeeTestView.tsx`.
+  6. *Xóa 5 sản phẩm test D1*: Tạo Migration 0017 tự động dọn sạch 5 sản phẩm test và bảng `seller_codes`, bổ sung endpoint `DELETE /api/admin/seller-products/:id` với quyền `MARKETPLACE_MANAGE`.
+- **Kiểm thử**:
+  - `npm run build`: Compile hoàn tất 100%, 0 lỗi.
+  - `node scripts/audit_zero_test_artifacts.cjs`: 100% sạch, 0 test artifacts.
+  - Tuân thủ đầy đủ Rule 1 đến Rule 9.
+
 ### 416. Tối Ưu Z-Index Modal & Hoàn Thiện Luồng Đặt Hàng Vật Lý Tự Động Sinh Mã Vận Đơn (17/11/2026)
 - **Bối cảnh**: Sau khi triển khai tích hợp đơn vị vận chuyển và hệ thống Shopee voucher, quá trình kiểm thử tự động ghi nhận 2 vấn đề:
   1. *Lỗi Z-Index*: Modal `ShopeeCouponModal` và `ShippingTrackingModal` khai báo `z-50`, trong khi `ProductCheckoutModal` sử dụng `z-[100]`, dẫn tới việc các modal con bị che khuất dưới modal thanh toán.

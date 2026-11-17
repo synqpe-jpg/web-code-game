@@ -22,7 +22,6 @@ import { formatCurrency, formatDateTime } from '../../utils/formatUtils';
 import { contentTranslationService } from '../../services/contentTranslationService';
 import { ShopeeGuaranteeModal } from './ShopeeGuaranteeModal';
 import { ShopeeSupportModal } from './ShopeeSupportModal';
-import { ShopeeWhiteLabelModal } from './ShopeeWhiteLabelModal';
 
 // Subview components from codebase
 import { NewsView } from '../NewsView';
@@ -237,7 +236,6 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
   // Modals state
   const [isGuaranteeOpen, setIsGuaranteeOpen] = useState(false);
   const [isSupportOpen, setIsSupportOpen] = useState(false);
-  const [isWhiteLabelOpen, setIsWhiteLabelOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isSubmitCodeOpen, setIsSubmitCodeOpen] = useState(false);
   const [isBookmarkDrawerOpen, setIsBookmarkDrawerOpen] = useState(false);
@@ -379,9 +377,9 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
   // Dynamic counts for news, events, and upcoming (đồng bộ thời gian thực từ live API)
   const [newsCount, setNewsCount] = useState<number>(() => {
     try {
-      return newsService.getPublishedArticles().length || 274;
+      return newsService.getPublishedArticles().length || 276;
     } catch {
-      return 274;
+      return 276;
     }
   });
 
@@ -394,11 +392,38 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
   });
 
   useEffect(() => {
+    const handleNewsUpdate = (count?: number) => {
+      try {
+        if (typeof count === 'number' && count > 0) {
+          setNewsCount(count);
+          return;
+        }
+        const arts = newsService.getPublishedArticles();
+        if (arts && arts.length > 0) {
+          setNewsCount(arts.length);
+        }
+      } catch {}
+    };
+
+    handleNewsUpdate();
     newsService.syncFromServer().then((list) => {
       if (Array.isArray(list) && list.length > 0) {
-        setNewsCount(list.length);
+        handleNewsUpdate(newsService.getPublishedArticles().length || list.length);
       }
     }).catch(() => {});
+
+    // Trực tiếp đối chiếu tổng bài viết từ Cloudflare D1 Live API
+    fetch(`/api/news?limit=1&_t=${Date.now()}`)
+      .then((res) => res.json())
+      .then((json: any) => {
+        if (json && typeof json.total === 'number' && json.total > 0) {
+          setNewsCount(json.total);
+        }
+      })
+      .catch(() => {});
+
+    window.addEventListener('wcg_news_updated', () => handleNewsUpdate());
+    return () => window.removeEventListener('wcg_news_updated', () => handleNewsUpdate());
   }, []);
 
   // Upcoming games: nạp đủ 90 bản ghi thật từ dataService
@@ -507,9 +532,9 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
   // Định danh chuẩn mực chống trùng tên trên cùng 1 bảng A-Z
   const getGameDisplayName = (g: GameItem) => {
     const slug = g.slug || '';
-    if (slug === 'where-winds-meet-mobile') return 'Where Winds Meet (Bản Mobile Quốc Tế)';
-    if (slug === 'where-winds-meet') return 'Where Winds Meet (Yến Vân Thập Lục Thanh) (Bản PC Quốc Tế)';
-    if (slug === 'yen-van-thap-luc-thanh') return 'Yến Vân Thập Lục Thanh (Where Winds Meet) (Bản Phát Hành VN)';
+    if (slug === 'where-winds-meet' || slug === 'where-winds-meet-mobile' || slug === 'yen-van-thap-luc-thanh') {
+      return 'Where Winds Meet (Yến Vân Thập Lục Thanh)';
+    }
     if (slug === 'dau-truong-chan-ly-mobile') return `${g.name} (TFT Mobile VN)`;
     if (slug === 'dau-truong-chan-ly') return `${g.name} (TFT PC)`;
     if (slug === 'ta-la-hac-ngo-khong-vplay') return `${g.name} (VPlay)`;
@@ -674,7 +699,7 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
       map[l] = [];
     }
 
-    const source = (allGames && allGames.length >= 593) ? allGames : (rawGamesFallback as any as GameItem[]);
+    const source = (allGames && allGames.length >= 590) ? allGames : (rawGamesFallback as any as GameItem[]);
     const sortedGames = [...source].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'vi'));
 
     for (const g of sortedGames) {
@@ -801,22 +826,6 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
           </span>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <a
-            href="#giai-phap-san"
-            className="flex items-center gap-1.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-neutral-950 px-3 py-1 rounded text-xs transition active:scale-95 cursor-pointer font-black shadow-sm"
-          >
-            <Rocket className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">{language === 'en' ? '🔥 Rent / Buy This Platform' : '🔥 Thuê / Mua Sàn Này'}</span>
-            <span className="sm:hidden">{language === 'en' ? 'Rent Platform' : 'Thuê Sàn'}</span>
-          </a>
-          <button 
-            onClick={() => setIsWhiteLabelOpen(true)}
-            className="flex items-center gap-1.5 bg-red-700 hover:bg-red-800 text-white px-3 py-1 rounded text-xs transition active:scale-95 cursor-pointer font-bold shadow-sm"
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">{language === 'en' ? 'View Web Delivery Quote' : 'Xem Báo Giá Bàn Giao Web'}</span>
-            <span className="sm:hidden">{language === 'en' ? 'Quote' : 'Báo Giá'}</span>
-          </button>
           <button 
             onClick={() => {
               setSubView('home');
@@ -1697,12 +1706,7 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
                                 {getGameDisplayName(g)}
                               </div>
                               <div className="text-[10px] text-slate-400 truncate">
-                                {(() => {
-                                  const s = (g.slug || '').toLowerCase();
-                                  if (s === 'where-winds-meet-mobile' || s === 'yen-van-thap-luc-thanh') return 579;
-                                  if (s === 'where-winds-meet') return 22;
-                                  return g.codes_count || g.active_codes_count || 0;
-                                })()} mã
+                                {(g.active_codes_count !== undefined ? g.active_codes_count : (g.codes_count || 0))} mã
                               </div>
                             </div>
                           </button>
@@ -1756,23 +1760,6 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
         {/* ========================================================================= */}
         {subView === 'home' && (
           <>
-            {/* 3.0. DẢI BANNER BÀN GIAO SIÊU TỐC (WHITE-LABEL CALLOUT) */}
-            <div className="bg-gradient-to-r from-red-600 via-orange-500 to-amber-500 rounded-xl p-3 text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
-              <div className="flex items-center gap-2.5">
-                <span className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center font-bold text-lg shrink-0">⚡</span>
-                <div>
-                  <div className="font-bold text-sm">Bạn muốn sở hữu website sàn game phong cách Shopee này?</div>
-                  <div className="text-xs text-white/90">Bàn giao trọn gói dưới 2 phút • Tích hợp sẵn kho 623+ game & cổng VietQR tự động</div>
-                </div>
-              </div>
-              <button
-                onClick={() => setIsWhiteLabelOpen(true)}
-                className="bg-white text-[#ee4d2d] hover:bg-amber-50 font-bold px-4 py-1.5 rounded-lg text-xs shadow transition active:scale-95 cursor-pointer whitespace-nowrap self-end sm:self-auto"
-              >
-                Xem Báo Giá & Tùy Biến Thử →
-              </button>
-            </div>
-
             {/* 3.1. HERO BANNER GRID (2/3 + 1/3) */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
               {/* Banner Chính Lớn - Dynamic Carousel 3 Slides */}
@@ -2782,15 +2769,8 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
 
           </div>
 
-          {/* 2 NÚT CTA CHỦ LỰC */}
+          {/* NÚT VỀ ĐẦU TRANG SÀN */}
           <div className="flex flex-wrap items-center justify-center gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
-            <button 
-              onClick={() => setIsWhiteLabelOpen(true)}
-              className="inline-flex items-center gap-2 bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600 text-white font-bold text-xs px-6 py-2.5 rounded-full shadow transition cursor-pointer"
-            >
-              <Rocket className="w-4 h-4" />
-              <span>Đặt Mua Website Sàn Này (Bàn Giao 2 Phút)</span>
-            </button>
             <button 
               onClick={() => {
                 setSubView('home');
@@ -2838,35 +2818,6 @@ export const ShopeeTestView: React.FC<ShopeeTestViewProps> = ({
         isOpen={isSupportOpen}
         onClose={() => setIsSupportOpen(false)}
         onOpenReceivedCodes={() => onOpenReceivedCodes ? onOpenReceivedCodes('marketplace') : null}
-        onShowToast={onShowToast}
-      />
-
-      <ShopeeWhiteLabelModal
-        isOpen={isWhiteLabelOpen}
-        onClose={() => setIsWhiteLabelOpen(false)}
-        initialSettings={{
-          shopName: shopBrand.name,
-          shopSlogan: shopBrand.slogan,
-          hotline: shopBrand.hotline,
-          currencyMode: shopBrand.currencyMode,
-          themeAccent: shopBrand.themeAccent,
-          presetId: categoriesConfig.activePresetId,
-        }}
-        onApplyPreviewSettings={(st) => {
-          setShopBrand({
-            ...shopBrand,
-            name: st.shopName,
-            slogan: st.shopSlogan,
-            hotline: st.hotline,
-            currencyMode: st.currencyMode || 'VND',
-            themeAccent: st.themeAccent || 'orange',
-          });
-          if (st.presetId) {
-            const newCatCfg = getDefaultCategoriesConfig(st.presetId);
-            setCategoriesConfig(newCatCfg);
-            dataService.saveProductCategoriesConfig(newCatCfg);
-          }
-        }}
         onShowToast={onShowToast}
       />
 

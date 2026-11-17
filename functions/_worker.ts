@@ -2708,11 +2708,11 @@ async function renderSeoHtml(
           const activeCodes = displayCodes.filter((c: any) => !isCodeExpired(c));
           displayCodes = activeCodes.length > 0 ? activeCodes : displayCodes;
           game.codes = displayCodes;
-          game.codes_count = isYenVan ? 579 : activeCodes.length;
-          game.active_codes_count = isYenVan ? 579 : activeCodes.length;
-          game.free_codes_count = isYenVan ? 579 : activeCodes.length;
-          game.expired_codes_count = isYenVan ? 41 : (allCodes.length - activeCodes.length);
-          game.total_codes_count = isYenVan ? 620 : allCodes.length;
+          game.codes_count = activeCodes.length;
+          game.active_codes_count = activeCodes.length;
+          game.free_codes_count = activeCodes.length;
+          game.expired_codes_count = allCodes.length - activeCodes.length;
+          game.total_codes_count = allCodes.length;
         }
 
         // Tự động đối chiếu với fallbackGamesData nếu bảng games D1 còn giữ văn mẫu Avatar cũ

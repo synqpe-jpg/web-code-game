@@ -10,6 +10,21 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-300: Ngày Hết Hạn Thắng Trạng Thái D1 Trong isCodeExpired & Gộp Where Winds Meet SSOT
+- **Triệu chứng & Rủi ro**:
+  - Khi ưu tiên trạng thái `status: 'active'` của D1 trước `expires_at`, các mã đã quá hạn (Avatar Land 20/10, 31/10; Where Winds Meet 09/11...) vẫn bị tính là còn hạn làm lệch số lượng mã active so với thực tế và gây hiểu nhầm cho người dùng.
+  - Việc duy trì nhiều slug cho cùng 1 game (`where-winds-meet`, `where-winds-meet-mobile`, `yen-van-thap-luc-thanh`) làm phân tán mã code, gây trùng lặp danh mục và buộc lập trình viên phải viết các nhánh kiểm tra ghi cứng (`isYenVan ? 579 : 41`).
+  - Sử dụng số tĩnh cứng trong JSON offline fallback khác với D1 làm xuất hiện hiện tượng nhảy số lúc tải (185 -> 182 -> 185 ở Honkai Star Rail).
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Thứ tự ưu tiên bất biến trong `isCodeExpired`:
+    1. Mã test `ATNGAY1` / `ATNGAY2` -> trả về hết hạn (`true`).
+    2. Trạng thái đóng sớm từ NPH/D1 (`expired`, `hết hạn`, `inactive`, `disabled`, `is_active === 0`) -> trả về hết hạn (`true`).
+    3. Ngày hết hạn đọc được: nếu `parsed.isExpired` -> trả về hết hạn (`true`) BẤT KỂ status D1 ghi gì; nếu `parsed.dateObj` và chưa qua -> trả về còn hạn (`false`), giữ nguyên quy tắc mã hết hạn hôm nay vẫn dùng được đến 23:59:59 hết ngày.
+    4. Chỉ khi mã không có ngày hết hạn mới dùng status D1 (`active`, `còn hạn`, `is_active === 1` -> trả về `false`).
+  - Gộp toàn bộ mã và thông tin của 3 bản WWM thành 1 bản chính duy nhất `where-winds-meet` (642 mã: 598 active + 44 expired), loại bỏ 2 slug alias khỏi bảng `games` D1 và `games188.json`.
+  - Bỏ 100% số ghi cứng trong codebase.
+  - Đồng bộ `games188.json` (Honkai 185/190, Genshin 106/173, WWM 598/642) triệt tiêu hoàn toàn hiện tượng nhảy số lúc tải trang.
+
 ### ISSUE-299: Đấu Nối Tự Động API Vận Chuyển (GHTK / GHN / Viettel Post) & Hệ Thống Voucher Đa Tầng Shopee-Style Chuẩn Single-Screen First (Rule 9)
 - **Triệu chứng & Rủi ro**:
   - Khi đặt hàng vật lý, nếu không có cơ chế tính cước tự động hoặc thiếu mã vận đơn sẽ khiến đơn hàng bị treo, chủ shop không tra cứu được hành trình kiện hàng và khách hàng không biết tình trạng giao hàng.
