@@ -1272,6 +1272,21 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
                 variantName: o.variant_name || o.variantName || '',
               };
             });
+            const savedOrdersRaw = d1Settings['wcg_admin_orders_v4'];
+            if (savedOrdersRaw) {
+              try {
+                const savedList = typeof savedOrdersRaw === 'string' ? JSON.parse(savedOrdersRaw) : savedOrdersRaw;
+                if (Array.isArray(savedList)) {
+                  const existingIds = new Set(responsePayload.orders.map((o: any) => o.id));
+                  for (const ord of savedList) {
+                    if (ord && ord.id && !existingIds.has(ord.id)) {
+                      responsePayload.orders.unshift(ord);
+                      existingIds.add(ord.id);
+                    }
+                  }
+                }
+              } catch {}
+            }
           } else {
             const savedOrders = d1Settings['wcg_admin_orders_v4'] || masterState.orders;
             if (Array.isArray(savedOrders) && savedOrders.length > 0) {
@@ -1295,6 +1310,21 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
                 createdAt: tx.created_at || tx.createdAt || new Date().toISOString(),
               };
             });
+            const savedOrdersRaw = d1Settings['wcg_admin_orders_v4'];
+            if (savedOrdersRaw) {
+              try {
+                const savedList = typeof savedOrdersRaw === 'string' ? JSON.parse(savedOrdersRaw) : savedOrdersRaw;
+                if (Array.isArray(savedList)) {
+                  const existingIds = new Set(responsePayload.orders.map((o: any) => o.id));
+                  for (const ord of savedList) {
+                    if (ord && ord.id && !existingIds.has(ord.id)) {
+                      responsePayload.orders.unshift(ord);
+                      existingIds.add(ord.id);
+                    }
+                  }
+                }
+              } catch {}
+            }
           } else {
             const savedTxs = d1Settings['wcg_admin_transactions_v4'] || masterState.transactions;
             if (Array.isArray(savedTxs) && savedTxs.length > 0) {
@@ -5252,8 +5282,12 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       if (vKey === 'wcg_admin_transactions_v4' && Array.isArray(body.data) && body.data.length === 0) {
         if (env.DB) await env.DB.prepare('DELETE FROM wallet_transactions').run().catch(() => {});
       }
-      if (vKey === 'wcg_admin_orders_v4' && Array.isArray(body.data) && body.data.length === 0) {
-        if (env.DB) await env.DB.prepare('DELETE FROM orders').run().catch(() => {});
+      if (vKey === 'wcg_admin_orders_v4' && Array.isArray(body.data)) {
+        if (body.data.length === 0) {
+          if (env.DB) await env.DB.prepare('DELETE FROM orders').run().catch(() => {});
+        } else if (env.DB) {
+          await env.DB.prepare("INSERT INTO system_settings (key, value, updated_at) VALUES ('wcg_admin_orders_v4', ?, datetime('now')) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at").bind(JSON.stringify(body.data.slice(0, 100))).run().catch(() => {});
+        }
       }
       if (vKey === 'wcg_admin_store_products_v4') currentMaster.storeProducts = body.data;
       else if (vKey === 'wcg_admin_utilities_v4') currentMaster.utilities = body.data;

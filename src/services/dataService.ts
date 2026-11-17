@@ -17,7 +17,7 @@ import type {
 } from '../types/game';
 import { DEFAULT_UPCOMING_GAMES } from '../types/game';
 import { getDefaultCategoriesConfig, INDUSTRY_PRESETS } from '../data/industryPresets';
-import { getIndustryPresetProducts } from '../data/industryPresetProducts';
+import { getIndustryPresetProducts, INDUSTRY_PRESET_PRODUCTS } from '../data/industryPresetProducts';
 import { getUpcomingGameIconUrl } from '../utils/upcomingGameIconUtils';
 import { calculateEffectiveOrder } from '../utils/upcomingGameGrowthUtils';
 import { smartVietnameseMatch, calculateGameSearchScore, matchGameSearch } from '../utils/textUtils';
@@ -2919,7 +2919,16 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
     // Fallback: Tìm trong dữ liệu hiện có nếu fetch thất bại
     try {
       const allSp = this.getStoreProducts();
-      const localSp = allSp.find((p) => p.id === cleanId || (p as any).sku === cleanId);
+      let localSp = allSp.find((p) => p.id === cleanId || (p as any).sku === cleanId);
+      if (!localSp) {
+        for (const list of Object.values(INDUSTRY_PRESET_PRODUCTS)) {
+          const found = list.find((p) => p.id === cleanId || (p as any).sku === cleanId);
+          if (found) {
+            localSp = found;
+            break;
+          }
+        }
+      }
       if (localSp && typeof localSp.stock_quantity === 'number') {
         return Math.max(0, Number(localSp.stock_quantity));
       }
@@ -3129,7 +3138,19 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
     }
   ): Promise<{ success: boolean; order?: OrderRecord; message?: string; newBalance?: number; remainingBalance?: number; code?: string; old_price?: number; new_price?: number }> {
     const products = this.getStoreProducts();
-    const prod = products.find((p) => p.id === productId || p.sku === productId || p.title === productId);
+    let prod = products.find((p) => p.id === productId || p.sku === productId || p.title === productId);
+    if (!prod) {
+      for (const list of Object.values(INDUSTRY_PRESET_PRODUCTS)) {
+        const found = list.find((p) => p.id === productId || p.sku === productId || p.title === productId);
+        if (found) {
+          prod = found;
+          break;
+        }
+      }
+    }
+    if (!prod && (options as any)?.productFallback) {
+      prod = (options as any).productFallback;
+    }
     if (!prod) return { success: false, message: 'Sản phẩm không tồn tại.' };
 
     const user = this.getCurrentUser();

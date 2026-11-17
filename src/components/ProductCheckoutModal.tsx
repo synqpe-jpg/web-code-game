@@ -812,6 +812,7 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
           expectedPrice: expectedProductPrice,
           orderType: 'physical',
           paymentMethod: 'vietqr',
+          productFallback: liveProduct || product,
           shippingInfo: {
             name: shippingName.trim(),
             phone: shippingPhone.trim(),
@@ -1024,6 +1025,7 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
         expectedPrice: expectedProductPrice,
         orderType: isPhysical ? 'physical' : 'digital',
         paymentMethod: 'wallet',
+        productFallback: liveProduct || product,
         shippingInfo: isPhysical ? {
           name: shippingName.trim(),
           phone: shippingPhone.trim(),

@@ -35,11 +35,13 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
   1. **Nâng cấp Z-Index đồng bộ (`src/components/voucher/ShopeeCouponModal.tsx` & `src/components/shipping/ShippingTrackingModal.tsx`)**:
      - Nâng cấp container modal từ `z-50` lên `z-[150]`, đảm bảo luôn nổi lên trên `ProductCheckoutModal` (`z-[100]`) và mọi modal cấp dưới.
   2. **Hoàn thiện luồng tạo đơn hàng vật lý (`src/components/ProductCheckoutModal.tsx` & `src/services/dataService.ts`)**:
+     - Sửa lỗi đối soát sản phẩm: Bổ sung tra cứu chéo toàn bộ danh mục sản phẩm đa ngành `INDUSTRY_PRESET_PRODUCTS` (Thời trang, Mỹ phẩm, Thiết bị công nghệ, Khóa học) trong `dataService.ts:createOrder` và `getStoreStock`, đồng thời truyền `productFallback: liveProduct || product` từ `ProductCheckoutModal` để triệt tiêu hoàn toàn lỗi "Sản phẩm không tồn tại".
      - Trong `handleCreateQrOrder`: Bổ sung luồng kiểm tra dữ liệu giao hàng (Tên, SĐT 10 số, Địa chỉ) và tự động tạo đơn hàng vật lý `dataService.createOrder` với `paymentMethod: 'vietqr'`, sinh mã vận đơn bưu chính chuẩn (`GHTK.VN...`, `GHN...`, `VTP...`), đăng ký hành trình bưu cục qua `shippingService.createShippingOrder`, trừ lượt dùng voucher Shopee và mở ngay màn hình thành công hiển thị mã vận đơn cùng nút "Tra Cứu Vận Đơn (Live Tracking)".
      - Trong `handlePayWithWallet`: Tự động liên kết bản ghi `shipOrder` vào `trackingModalOrder` để modal live tracking sẵn sàng 100%.
      - Bổ sung nút trợ năng `🧪 [Thử Nghiệm Sandbox] Nạp Nhanh 1.000.000₫ Vào Ví Test` khi số dư không đủ, giúp người dùng và kiểm thử viên trên môi trường test có thể trải nghiệm tức thì toàn bộ luồng thanh toán ví.
   3. **Đồng bộ hóa thuộc tính giao nhận bưu chính trong API Sync (`functions/api/sync.ts`)**:
      - Bổ sung các trường `orderType`, `shippingName`, `shippingPhone`, `shippingAddress`, `shippingNote`, `carrier`, `carrierName`, `trackingCode`, `estimatedDelivery`, `shippingFee`, `voucherCode`, `voucherDiscount`, `freeshipDiscount`, `variantName` vào payload phản hồi của `/api/sync`.
+     - Tự động lưu trữ danh sách đơn hàng vật lý `wcg_admin_orders_v4` vào `system_settings` trong D1 và merge tự động vào payload phản hồi, bảo đảm Web Quản trị hiển thị tức thời đơn hàng vật lý mới sinh.
 - **Kiểm thử**:
   - `npm run build`: Compile hoàn tất 100%, 0 lỗi.
   - `node scripts/audit_zero_test_artifacts.cjs`: 100% sạch, 0 test artifacts.
