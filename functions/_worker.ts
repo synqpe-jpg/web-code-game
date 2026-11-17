@@ -2658,11 +2658,11 @@ async function renderSeoHtml(
     const cleanWithoutMobile = slug.replace(/-mobile$/i, '');
     let game: any = null;
     let displayCodes: any[] = [];
-    const isYenVan = slug === 'where-winds-meet-mobile' || slug === 'yen-van-thap-luc-thanh';
+    const isYenVan = slug === 'where-winds-meet-mobile' || slug === 'yen-van-thap-luc-thanh' || slug === 'where-winds-meet';
 
     const gScope = globalThis as any;
     if (!gScope.__wcg_game_cache) gScope.__wcg_game_cache = new Map();
-    const lookupSlug = isYenVan ? 'yen-van-thap-luc-thanh' : slug;
+    const lookupSlug = isYenVan ? 'where-winds-meet' : slug;
     const ramKey = `game_${lookupSlug}_${cleanWithoutMobile}`;
     const ramCached = gScope.__wcg_game_cache.get(ramKey);
     const now = Date.now();
@@ -2682,9 +2682,9 @@ async function renderSeoHtml(
         if (gameRow) {
           game = { ...gameRow };
           const codesRes = await (
-            isYenVan
+            lookupSlug === 'where-winds-meet'
               ? env.DB.prepare(
-                  `SELECT code, rewards, status, expires_at FROM codes WHERE game_slug = 'yen-van-thap-luc-thanh' OR game_slug = 'where-winds-meet-mobile' ORDER BY CASE WHEN status = 'active' OR status = 'verified' THEN 0 ELSE 1 END, added_at DESC`
+                  `SELECT code, rewards, status, expires_at FROM codes WHERE game_slug = 'where-winds-meet' OR game_slug = 'yen-van-thap-luc-thanh' OR game_slug = 'where-winds-meet-mobile' ORDER BY CASE WHEN status = 'active' OR status = 'verified' THEN 0 ELSE 1 END, added_at DESC`
                 ).all<any>()
               : env.DB.prepare(
                   `SELECT code, rewards, status, expires_at FROM codes WHERE game_slug = ? ORDER BY CASE WHEN status = 'active' OR status = 'verified' THEN 0 ELSE 1 END, added_at DESC`

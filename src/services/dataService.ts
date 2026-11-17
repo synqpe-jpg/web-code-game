@@ -1275,8 +1275,6 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
         .map((g, index) => {
           const slug = g.slug || g.id || `game-${index + 1}`;
           const rawId = g.id || slug;
-          const isWwm = slug === 'where-winds-meet-mobile' || slug === 'yen-van-thap-luc-thanh' ||
-                        rawId === 'where-winds-meet-mobile' || rawId === 'yen-van-thap-luc-thanh';
 
           // Multi-key code lookup to catch any slug variation (with or without -mobile, underscores, or clean names)
           const possibleKeys = [

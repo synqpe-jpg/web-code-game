@@ -766,9 +766,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           .map((c: any) => {
             const rawExp = c.expires_at || '';
             const isFakeExp = rawExp === '2026-12-31' || rawExp === '2026-12-31T23:59:59Z' || rawExp === '31/12/2026';
-            const status = isYenVan
-              ? (c.status === 'expired' ? 'expired' : 'active')
-              : (isCodeExpired(c) ? 'expired' : (c.status || 'active'));
+            const status = isCodeExpired(c) ? 'expired' : (c.status || 'active');
             return {
               code: c.code,
               rewards: cleanRewardText(c.rewards),
