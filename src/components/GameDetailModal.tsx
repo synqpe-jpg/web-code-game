@@ -48,6 +48,7 @@ import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import { isG1Licensed } from '../utils/licenseUtils';
 import { isCodeExpired, decodeHtmlEntities } from '../utils/codeUtils';
 import { GameDownloadSection } from './game/GameDownloadSection';
+import { generateFomoComments } from '../services/fomoCommentsService';
 import { templateService } from '../services/templateService';
 
 interface GameDetailModalProps {
@@ -243,7 +244,7 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
       if (token) headers['Authorization'] = `Bearer ${token}`;
       const res = await fetch(`/api/games/${slug}/comments?limit=15`, { headers });
       const data: any = await res.json().catch(() => ({}));
-      if (res.ok && data?.success) {
+      if (res.ok && data?.success && Array.isArray(data?.comments) && data.comments.length > 0) {
         setCommentsList(data.comments || []);
         if (data.overview) {
           setCommentsOverview(data.overview);
@@ -253,9 +254,25 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
         } else {
           setMyPendingComment(null);
         }
+      } else {
+        // Fallback sang Client-Side FOMO Reviews Generator nếu mạng chậm hoặc API chưa sẵn sàng
+        const fallbackFomo = generateFomoComments(slug, {
+          is_hot: Boolean((game as any)?.is_hot || (liveGame as any)?.is_hot),
+          is_featured: Boolean((game as any)?.is_featured || (liveGame as any)?.is_featured),
+          total_codes_count: Number((game as any)?.total_codes || (liveGame as any)?.total_codes_count || codes.length || 0),
+        });
+        setCommentsList(fallbackFomo.comments.slice(0, 15));
+        setCommentsOverview(fallbackFomo.overview);
       }
     } catch (err) {
-      console.warn('Error loading comments:', err);
+      console.warn('Error loading comments, using deterministic FOMO fallback:', err);
+      const fallbackFomo = generateFomoComments(slug, {
+        is_hot: Boolean((game as any)?.is_hot || (liveGame as any)?.is_hot),
+        is_featured: Boolean((game as any)?.is_featured || (liveGame as any)?.is_featured),
+        total_codes_count: Number((game as any)?.total_codes || (liveGame as any)?.total_codes_count || codes.length || 0),
+      });
+      setCommentsList(fallbackFomo.comments.slice(0, 15));
+      setCommentsOverview(fallbackFomo.overview);
     } finally {
       setIsLoadingComments(false);
     }
@@ -1573,7 +1590,7 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
             {/* Danh sách bình luận đã duyệt */}
             <div className="space-y-2.5 pt-2">
               <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Bình luận cộng đồng ({commentsList.length})
+                Bình luận cộng đồng ({commentsOverview.total_comments || commentsList.length})
               </div>
 
               {isLoadingComments ? (

@@ -13,6 +13,7 @@ import {
   RefreshCw,
   Eye,
   ShieldAlert,
+  Trash2,
 } from 'lucide-react';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import { FormModal } from '../components/ui/FormModal';
@@ -277,6 +278,29 @@ export const GiftcodesModerationModule: React.FC<GiftcodesModerationModuleProps>
       }
     } catch (err: any) {
       onShowToast('Lỗi', err.message, 'error');
+    } finally {
+      setIsSubmittingCommentAction(false);
+    }
+  };
+
+  const handleDeleteComment = async (id: string) => {
+    if (!window.confirm('Bạn có chắc chắn muốn xóa vĩnh viễn bình luận này khỏi hệ thống?')) return;
+    setIsSubmittingCommentAction(true);
+    const token = getAdminToken();
+    try {
+      const res = await fetch(`/api/admin/comments/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data: any = await res.json().catch(() => ({}));
+      if (res.ok && data?.success) {
+        onShowToast('Đã xóa bình luận', 'Đã xóa bình luận thành công khỏi hệ thống.', 'success');
+        setComments((prev) => prev.filter((item) => item.id !== id));
+      } else {
+        onShowToast('Lỗi', data?.error || 'Không thể xóa bình luận.', 'error');
+      }
+    } catch (err: any) {
+      onShowToast('Lỗi', err?.message || 'Lỗi kết nối khi xóa bình luận.', 'error');
     } finally {
       setIsSubmittingCommentAction(false);
     }
@@ -669,30 +693,39 @@ export const GiftcodesModerationModule: React.FC<GiftcodesModerationModuleProps>
 
                       {/* Thao tác */}
                       <td className="p-3 text-right">
-                        {c.status === 'PENDING' ? (
-                          <div className="inline-flex items-center gap-1 justify-end">
-                            <button
-                              type="button"
-                              onClick={() => handleApproveComment(c.id)}
-                              disabled={isSubmittingCommentAction}
-                              className="px-2 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] transition-all cursor-pointer"
-                              title="Duyệt bình luận"
-                            >
-                              Duyệt
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setRejectingComment(c)}
-                              disabled={isSubmittingCommentAction}
-                              className="px-2 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold text-[11px] transition-all cursor-pointer"
-                              title="Từ chối bình luận"
-                            >
-                              Từ chối
-                            </button>
-                          </div>
-                        ) : (
-                          <span className="text-[11px] text-muted-foreground italic">Đã xong</span>
-                        )}
+                        <div className="inline-flex items-center gap-1 justify-end">
+                          {c.status === 'PENDING' && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleApproveComment(c.id)}
+                                disabled={isSubmittingCommentAction}
+                                className="px-2 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] transition-all cursor-pointer"
+                                title="Duyệt bình luận"
+                              >
+                                Duyệt
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setRejectingComment(c)}
+                                disabled={isSubmittingCommentAction}
+                                className="px-2 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold text-[11px] transition-all cursor-pointer"
+                                title="Từ chối bình luận"
+                              >
+                                Từ chối
+                              </button>
+                            </>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteComment(c.id)}
+                            disabled={isSubmittingCommentAction}
+                            className="p-1.5 rounded-lg bg-muted/60 hover:bg-rose-500/20 text-muted-foreground hover:text-rose-400 transition-all cursor-pointer"
+                            title="Xóa vĩnh viễn"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))

@@ -58,6 +58,7 @@ import {
   ShieldAlert,
   Truck,
   Ticket,
+  MessageSquare,
 } from 'lucide-react';
 
 export type ApiKeyScope =
@@ -66,6 +67,7 @@ export type ApiKeyScope =
   | 'NEWS_FULL'
   | 'EVENTS_FULL'
   | 'GAME_ICONS_FULL'
+  | 'GAME_COMMENTS_MANAGE'
   | 'MISSIONS_FULL'
   | 'MISSIONS_REVIEW'
   | 'GAMES_FULL'
@@ -170,6 +172,17 @@ export const ALL_API_SCOPES: ScopeOption[] = [
     badgeText: 'text-sky-500',
     badgeBorder: 'border-sky-500/20',
     icon: Sparkles,
+  },
+  {
+    id: 'GAME_COMMENTS_MANAGE',
+    name: 'Quản Lý Đánh Giá & Bình Luận Game (Game Reviews & Comments API)',
+    category: 'Cộng Đồng',
+    description: 'Tra cứu danh sách bình luận game (/api/admin/comments), phê duyệt/từ chối bình luận, xóa bình luận vi phạm và điều hành động cơ đánh giá tự động FOMO (/api/admin/comments/fomo). Kế thừa từ GAMES_FULL, STORE_FULL, ADMIN_FULL.',
+    color: 'amber',
+    badgeBg: 'bg-amber-500/10',
+    badgeText: 'text-amber-500',
+    badgeBorder: 'border-amber-500/20',
+    icon: MessageSquare,
   },
   {
     id: 'MISSIONS_FULL',
@@ -3553,6 +3566,40 @@ curl -X PUT "https://codegame.shop/api/admin/settings" \
     "site_announcement": "🔥 Khuyến mãi nạp ví tặng 10% giá trị nạp trong tuần này!",
     "site_announcement_enabled": true
   }'`}
+                </pre>
+              </div>
+
+              {/* Module 8: Game Reviews & Comments */}
+              <div className="space-y-2">
+                <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <MessageSquare className="w-4 h-4 text-amber-500" />
+                  8. Quản Lý Đánh Giá & Bình Luận Game (Scope: GAME_COMMENTS_MANAGE)
+                </h4>
+                <div className="text-xs text-muted-foreground">
+                  Tra cứu, duyệt/từ chối bình luận người dùng, xóa bình luận vi phạm và điều hành động cơ FOMO Reviews.
+                </div>
+                <pre className="p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto">
+{`# 1. Tra cứu danh sách bình luận game (lọc theo trạng thái hoặc game)
+curl -X GET "https://codegame.shop/api/admin/comments?status=PENDING&limit=20" \\
+  -H "X-Api-Key: YOUR_API_KEY"
+
+# 2. Duyệt bình luận công khai
+curl -X POST "https://codegame.shop/api/admin/comments/COMMENT_ID/approve" \\
+  -H "X-Api-Key: YOUR_API_KEY"
+
+# 3. Từ chối bình luận kèm lý do
+curl -X POST "https://codegame.shop/api/admin/comments/COMMENT_ID/reject" \\
+  -H "Content-Type: application/json" \\
+  -H "X-Api-Key: YOUR_API_KEY" \\
+  -d '{"reason": "Bình luận chứa ngôn từ không phù hợp"}'
+
+# 4. Xóa bình luận vĩnh viễn
+curl -X DELETE "https://codegame.shop/api/admin/comments/COMMENT_ID" \\
+  -H "X-Api-Key: YOUR_API_KEY"
+
+# 5. Tra cứu mô phỏng động cơ FOMO Reviews của game
+curl -X GET "https://codegame.shop/api/admin/comments/fomo?slug=where-winds-meet" \\
+  -H "X-Api-Key: YOUR_API_KEY"`}
                 </pre>
               </div>
             </div>

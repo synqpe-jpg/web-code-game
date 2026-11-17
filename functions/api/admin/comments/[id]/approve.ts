@@ -31,7 +31,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       return new Response(JSON.stringify({ success: false, error: 'Database not available' }), { status: 500, headers: CORS_HEADERS });
     }
 
-    const auth = await verifyAdminAuth(request, env as any, 'GAMES_FULL');
+    const auth = await verifyAdminAuth(request, env as any, 'GAME_COMMENTS_MANAGE');
     if (!auth.authorized) {
       return new Response(JSON.stringify({ success: false, error: auth.error || 'Unauthorized' }), { status: 401, headers: CORS_HEADERS });
     }

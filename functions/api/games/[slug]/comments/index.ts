@@ -1,5 +1,6 @@
 import { ensureSchemaUpgrades, ensureGameCommentsSchema } from '../../../../services/d1_service';
 import { verifyMemberAuth } from '../../../../services/mission_service';
+import { generateFomoComments } from '../../../../services/fomo_comments_service';
 
 interface Env {
   DB: D1Database;
@@ -49,45 +50,64 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     const limit = Math.min(50, Math.max(1, parseInt(url.searchParams.get('limit') || '10', 10) || 10));
     const offset = (page - 1) * limit;
 
-    // 1. Thống kê tổng quan đánh giá đã duyệt
-    const statsRes = await env.DB.prepare(`
-      SELECT 
-        COUNT(*) as total_approved,
-        COUNT(rating) as rating_count,
-        AVG(rating) as avg_rating,
-        SUM(CASE WHEN rating = 1 THEN 1 ELSE 0 END) as star_1,
-        SUM(CASE WHEN rating = 2 THEN 1 ELSE 0 END) as star_2,
-        SUM(CASE WHEN rating = 3 THEN 1 ELSE 0 END) as star_3,
-        SUM(CASE WHEN rating = 4 THEN 1 ELSE 0 END) as star_4,
-        SUM(CASE WHEN rating = 5 THEN 1 ELSE 0 END) as star_5,
-        SUM(CASE WHEN confirmed_working = 1 AND created_at >= datetime('now', '-7 days') THEN 1 ELSE 0 END) as confirmed_working_7d
-      FROM game_comments 
-      WHERE game_slug = ? AND status = 'APPROVED'
-    `).bind(gameSlug).first<any>();
+    // 1. Lấy thông tin metadata của game (để tính độ HOT và mức tăng trưởng FOMO)
+    let gameMeta: any = {};
+    try {
+      const gRow = await env.DB.prepare(`
+        SELECT is_hot, is_featured, is_new, total_codes_count, active_codes_count
+        FROM games
+        WHERE slug = ?
+        LIMIT 1
+      `).bind(gameSlug).first<any>();
+      if (gRow) {
+        gameMeta = gRow;
+      }
+    } catch {}
 
-    const totalApproved = statsRes?.total_approved || 0;
-    const ratingCount = statsRes?.rating_count || 0;
-    const avgRating = statsRes?.avg_rating ? Math.round(Number(statsRes.avg_rating) * 10) / 10 : 0;
-    const confirmedWorkingCount = statsRes?.confirmed_working_7d || 0;
-
-    const distribution = {
-      '5': statsRes?.star_5 || 0,
-      '4': statsRes?.star_4 || 0,
-      '3': statsRes?.star_3 || 0,
-      '2': statsRes?.star_2 || 0,
-      '1': statsRes?.star_1 || 0,
-    };
-
-    // 2. Lấy danh sách bình luận đã duyệt phân trang
-    const commentsRes = await env.DB.prepare(`
+    // 2. Thống kê & lấy danh sách bình luận THẬT đã duyệt từ DB
+    const realCommentsRes = await env.DB.prepare(`
       SELECT id, game_slug, user_id, user_name, rating, content, confirmed_working, status, created_at
       FROM game_comments
       WHERE game_slug = ? AND status = 'APPROVED'
       ORDER BY created_at DESC
-      LIMIT ? OFFSET ?
-    `).bind(gameSlug, limit, offset).all<any>();
+    `).bind(gameSlug).all<any>();
 
-    // 3. Kiểm tra xem người dùng hiện tại có đánh giá chờ duyệt của chính mình không
+    const realComments: any[] = realCommentsRes.results || [];
+
+    // 3. Sinh danh sách đánh giá FOMO theo độ HOT và số ngày trôi qua (deterministic, điểm >= 4.5)
+    const nowMs = Date.now();
+    const fomo = generateFomoComments(gameSlug, gameMeta, nowMs);
+
+    // Ghép bình luận thật đã duyệt lên đầu, bình luận FOMO nối tiếp sau
+    const allComments = [
+      ...realComments.map((c) => ({ ...c, is_real: true })),
+      ...fomo.comments.map((c) => ({ ...c, is_fomo: true })),
+    ];
+
+    // 4. Tính toán phân bố sao và điểm đánh giá trung bình tổng thể
+    const combinedDistribution = { ...fomo.overview.distribution };
+    let combinedConfirmedWorking = fomo.overview.confirmed_working_count;
+    let totalRatingSum = fomo.overview.average_rating * fomo.overview.rating_count;
+
+    for (const rc of realComments) {
+      const starKey = String(Math.max(1, Math.min(5, Math.round(Number(rc.rating) || 5)))) as '1' | '2' | '3' | '4' | '5';
+      combinedDistribution[starKey] = (combinedDistribution[starKey] || 0) + 1;
+      totalRatingSum += Number(rc.rating) || 5;
+      if (Number(rc.confirmed_working) === 1) {
+        combinedConfirmedWorking += 1;
+      }
+    }
+
+    const totalCommentsCount = allComments.length;
+    const calcAvg = totalCommentsCount > 0 ? (totalRatingSum / totalCommentsCount) : 4.8;
+    // Đảm bảo đánh giá chung luôn >= 4.5 sao theo quy chuẩn
+    const combinedAverageRating = Math.max(4.5, Math.min(5.0, Math.round(calcAvg * 10) / 10));
+
+    // 5. Cắt phân trang
+    const pagedComments = allComments.slice(offset, offset + limit);
+    const totalPages = Math.ceil(totalCommentsCount / limit) || 1;
+
+    // 6. Kiểm tra xem người dùng hiện tại có đánh giá chờ duyệt của chính mình không
     let myComment: any = null;
     try {
       const auth = await verifyMemberAuth(request, env as any).catch(() => ({ authorized: false }));
@@ -101,21 +121,19 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       }
     } catch {}
 
-    const totalPages = Math.ceil(totalApproved / limit) || 1;
-
     return new Response(
       JSON.stringify({
         success: true,
-        comments: commentsRes.results || [],
+        comments: pagedComments,
         overview: {
-          average_rating: avgRating,
-          rating_count: ratingCount,
-          total_comments: totalApproved,
-          distribution,
-          confirmed_working_count: confirmedWorkingCount,
+          average_rating: combinedAverageRating,
+          rating_count: totalCommentsCount,
+          total_comments: totalCommentsCount,
+          distribution: combinedDistribution,
+          confirmed_working_count: combinedConfirmedWorking,
         },
         pagination: {
-          total: totalApproved,
+          total: totalCommentsCount,
           page,
           limit,
           totalPages,
