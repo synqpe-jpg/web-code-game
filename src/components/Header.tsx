@@ -21,7 +21,6 @@ import {
   Send,
   Store,
   ShoppingCart,
-  Rocket,
 } from 'lucide-react';
 import type { GameItem, UserProfile } from '../types/game';
 import { formatCore } from '../utils/textUtils';
@@ -283,18 +282,6 @@ export const Header: React.FC<HeaderProps> = ({
               <Wrench className="w-4 h-4 text-teal-400" />
               <span>{t.nav.utilities}</span>
             </button>
-
-            <a
-              href="#giai-phap-san"
-              className="hidden lg:flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer bg-gradient-to-r from-amber-500/15 to-orange-500/15 border border-amber-500/30 text-amber-400 hover:text-amber-300 hover:border-amber-500/60"
-              title="Giải pháp bán đứt hoặc cho thuê sàn TMĐT chuyên nghiệp"
-            >
-              <Rocket className="w-3.5 h-3.5 text-amber-400" />
-              <span>Thuê / Mua Sàn</span>
-              <span className="text-[9px] px-1 rounded bg-amber-500 text-neutral-950 font-black">HOT</span>
-            </a>
-
-
           </nav>
 
           {/* 3. Actions Toolbar: Tải App, Bookmark, Account (Compact & responsive on mobile) */}

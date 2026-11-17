@@ -7,6 +7,22 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-17]
 
+### 419. Xóa Nút & Chữ "Thuê / Mua Sàn" Khỏi Header Web Khách & Chuyển Hướng An Toàn (17/11/2026)
+- **Bối cảnh & Yêu cầu của Chủ sở hữu**:
+  - Người dùng gửi yêu cầu: "Bạn xóa chữ thuê, mua sàn trên web giúp tôi." kèm ảnh chụp màn hình thực tế trang chủ `codegame.shop`.
+  - Trên thanh điều hướng chính (Header navbar) hiển thị nút `🚀 Thuê / Mua Sàn [HOT]` (giữa mục `Tiện Ích` và `Tải App [APP]`), điều hướng đến `#giai-phap-san`.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Khối thẻ `<a href="#giai-phap-san">` được gắn cứng trong `src/components/Header.tsx` (dòng 287-295) phục vụ quảng bá gói giải pháp sàn TMĐT trước đó.
+  - Bộ định tuyến `src/App.tsx` vẫn duy trì bắt hash `#giai-phap-san`, `#ban-web`, `#cho-thue-web`, `#platform-solutions` để mở `PlatformSolutionsView`.
+- **Giải pháp áp dụng (Solution)**:
+  1. *Header Navbar (`src/components/Header.tsx`)*:
+     - Xóa hoàn toàn thẻ liên kết và icon `Rocket`, xóa hoàn toàn chữ `Thuê / Mua Sàn` và badge `HOT` khỏi thanh điều hướng chính.
+  2. *Định tuyến an toàn (`src/App.tsx`)*:
+     - Chuyển hướng tự động mọi hash/route liên quan (`#giai-phap-san`, `#ban-web`, `#cho-thue-web`, `#platform-solutions`, `/giai-phap-san`, `/ban-web`, `/cho-thue-web`) về trang chủ (`catalog`).
+- **Kiểm thử & Nghiệm thu**:
+  - `npm run build`: Hoàn thành 100%, 0 lỗi, kiểm tra Zero Test Artifacts đạt chuẩn.
+  - Triển khai Cloudflare Pages `deploy:all` và đồng bộ `origin main`.
+
 ### 418. Khôi Phục Ngày Hết Hạn 14 Mã WWM, Đồng Bộ Số Đếm 593 Game Chuẩn SSOT, Ổn Định Tab Tin Tức & Xóa 14 Sản Phẩm Mẫu Đa Ngành (17/11/2026)
 - **Bối cảnh & Yêu cầu của Chủ sở hữu**:
   1. *Việc 1 (Khôi phục ngày hết hạn 14 mã WWM)*: 14 mã WWM (`AYJJAPAT6P`, `NMAC7M4X6Q`, `KPJP8TNYHD`, `TE8CK6Y3XW`, `MT6QFCRPHN`, `RMTT6KDRHQ`, `QMEEECDED8`, `PJHHNWADC3`, `NJYQWK466M`, `PCRMQ8X4RT`, `DDDN4RD7WD`, `SDDPRA8CRH`, `WWMR3DD1T10`, `WA66CJ6P6H`) có `expires_at = null` trong D1 làm WWM hiện 601 còn hạn / 41 hết hạn, trong khi số đúng phải là 587 còn hạn / 55 hết hạn / 642 tổng.

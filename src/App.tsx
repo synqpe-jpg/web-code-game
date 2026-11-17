@@ -106,7 +106,7 @@ export const App: React.FC = () => {
         return 'admin';
       }
 
-      // Check platform solutions route
+      // Redirect legacy platform solutions routes to catalog
       if (
         hash.includes('giai-phap-san') ||
         hash.includes('ban-web') ||
@@ -119,7 +119,7 @@ export const App: React.FC = () => {
         path === '/cho-thue-web' ||
         path.startsWith('/cho-thue-web/')
       ) {
-        return 'platform-solutions';
+        return 'catalog';
       }
 
       // 2. If on dedicated test client domain -> Default to shopee-test as homepage!
@@ -1040,7 +1040,7 @@ export const App: React.FC = () => {
         return;
       }
 
-      // Check platform solutions route
+      // Redirect legacy platform solutions routes to catalog
       if (
         hash === '#giai-phap-san' ||
         hash.startsWith('#giai-phap-san') ||
@@ -1058,7 +1058,7 @@ export const App: React.FC = () => {
         path.startsWith('/cho-thue-web/')
       ) {
         setSelectedGame(null);
-        setCurrentTab('platform-solutions');
+        setCurrentTab('catalog');
         return;
       }
 
