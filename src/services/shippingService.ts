@@ -332,6 +332,22 @@ class ShippingService {
     return this.shippingOrders.get(trackingCodeOrOrderId) || null;
   }
 
+  public getByTrackingCode(trackingCode: string): ShippingOrderRecord | null {
+    return this.getShippingOrder(trackingCode);
+  }
+
+  public getByOrderId(orderId: string): ShippingOrderRecord | null {
+    return this.getShippingOrder(orderId);
+  }
+
+  public getOrderByTracking(trackingCode: string): ShippingOrderRecord | null {
+    return this.getShippingOrder(trackingCode);
+  }
+
+  public getOrderByOrderId(orderId: string): ShippingOrderRecord | null {
+    return this.getShippingOrder(orderId);
+  }
+
   /**
    * Lấy toàn bộ danh sách đơn vận chuyển (dành cho Admin)
    */

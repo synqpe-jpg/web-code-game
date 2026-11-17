@@ -1440,7 +1440,8 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
                           type="button"
                           onClick={() => {
                             if (completedOrder?.tracking_code) {
-                              const found = shippingService.getByTrackingCode(completedOrder.tracking_code);
+                              const found = shippingService?.getByTrackingCode?.(completedOrder.tracking_code)
+                                || shippingService?.getShippingOrder?.(completedOrder.tracking_code);
                               if (found) setTrackingModalOrder(found);
                             }
                             setIsTrackingModalOpen(true);
