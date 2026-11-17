@@ -5,6 +5,43 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ---
 
+## [2026-11-17]
+
+### 415. Đấu Nối Tự Động API Vận Chuyển (GHTK / GHN / Viettel Post) & Hệ Thống Voucher Đa Tầng Shopee-Style (17/11/2026)
+- **Bối cảnh**: Nhu cầu hoàn thiện nền tảng thương mại điện tử đa ngành toàn diện, tự động hóa khâu giao nhận hàng vật lý và tối ưu hóa chuyển đổi mua sắm bằng cơ chế khuyến mãi đa tầng. Cần đấu nối tự động 3 đơn vị vận chuyển hàng đầu Việt Nam (GHTK Express, GHN Express, Viettel Post) để tự động tính cước động theo địa chỉ và tự động sinh mã vận đơn chính thức ngay khi khách đặt hàng, đồng thời tích hợp hệ thống mã giảm giá đa tầng phong cách Shopee (Shopee-Style Voucher Stacking: áp dụng đồng thời 1 Mã Vận Chuyển Freeship Xtra + 1 Mã Giảm Giá Sàn/Shop trên cùng 1 đơn hàng).
+- **Giải pháp thực hiện**:
+  1. **Dịch Vụ Vận Chuyển Tự Động (`src/services/shippingService.ts`)**:
+     - Cấu hình chuẩn 3 hãng vận chuyển: GHTK Express (`GHTK`, cước từ 22k, 1-2 ngày, hotline 1900 6092), GHN Express (`GHN`, cước từ 25k, 2-3 ngày, hotline 1900 636677), Viettel Post (`VTP`, cước từ 28k, 2-4 ngày, hotline 1900 8095).
+     - Thuật toán tính cước tự động `calculateFee` theo tỉnh/thành nội thành, ngoại thành và vùng sâu vùng xa.
+     - Thuật toán sinh mã vận đơn chính thức `generateTrackingCode`: GHTK (`GHTK.VN.{CITY}.{DATE}.{RAND}`), GHN (`GHN{DATE}{RAND}`), Viettel Post (`VTP{DATE}{RAND}`).
+     - Hàm đấu nối tự động `createShippingOrder` sinh timeline hành trình 5 bước trực quan và lưu trữ lịch sử bưu cục.
+  2. **Hệ Thống Voucher Đa Tầng Phong Cách Shopee (`src/services/voucherService.ts`)**:
+     - Định nghĩa 3 loại voucher: `freeship` (giảm cước ship), `platform` (giảm giá sàn) và `shop` (giảm giá cửa hàng).
+     - Cơ chế Shopee Voucher Stacking: Trong 1 đơn hàng, cho phép chọn đồng thời tối đa 1 mã Freeship + 1 mã Giảm giá.
+     - Tính toán minh bạch `calculateStacking`: `finalShippingFee = Math.max(0, shippingFee - freeshipDiscount)`, `finalProductTotal = Math.max(0, productTotal - productDiscount)`, `finalTotal = finalProductTotal + finalShippingFee`.
+     - Bộ preset voucher Shopee mẫu: `FREESHIP15K`, `FREESHIP30K`, `FREESHIPALL`, `SAN20K`, `SAN10PCT`, `SAN50K`, `GAMEVIP10K`, `FASHION25K`.
+  3. **Modal Tra Cứu Hành Trình Vận Đơn (`src/components/shipping/ShippingTrackingModal.tsx`)**:
+     - Hiển thị badge hãng vận chuyển, mã vận đơn chính thức, mã vạch bưu chính giả lập chuẩn Code128, timeline hành trình 5 bước phát hàng thời gian thực kèm hiệu ứng active glow, địa chỉ gửi/nhận, hotline hỗ trợ 1-chạm và chức năng in phiếu gửi hàng.
+  4. **Modal Chọn Voucher Phong Cách Shopee (`src/components/voucher/ShopeeCouponModal.tsx`)**:
+     - Thiết kế vé phiếu Shopee Voucher độc bản với 2 tab chuyển đổi mượt mà (Mã Vận Chuyển & Mã Giảm Giá), ô nhập mã thủ công, thanh tiến độ điều kiện đơn tối thiểu và thanh tóm tắt tổng số tiền tiết kiệm.
+  5. **Nâng Cấp Quy Trình Thanh Toán (`src/components/ProductCheckoutModal.tsx` & `src/services/dataService.ts`)**:
+     - Khi chọn sản phẩm vật lý: Giao diện hiển thị 3 radio card chọn đơn vị vận chuyển với logo, cước phí động và thời gian giao hàng.
+     - Banner Shopee Voucher chọn mã giảm giá hiển thị trực quan cho toàn bộ đơn hàng.
+     - Khi bấm đặt hàng thành công: Hệ thống tự động gọi API bưu chính sinh mã vận đơn, ghi nhận lượt dùng voucher, hiển thị mã vận đơn to rõ trên màn hình thành công kèm nút "Tra Cứu Vận Đơn 1-Chạm" mở ngay `ShippingTrackingModal`.
+  6. **Module Quản Trị Voucher Admin Chuẩn Rule 9 (`src/admin/modules/VouchersModule.tsx`)**:
+     - Bảng quản trị tỷ lệ 100% không tràn ngang: Mã Code & Tên (28%), Mức Giảm (20%), Điều Kiện & Phạm Vi (20%), Lượt Dùng (18%), Thao Tác (14%).
+     - Đăng ký tab `vouchers` vào `AdminSidebar.tsx` và `AdminApp.tsx`.
+  7. **Nâng Cấp Quản Trị Đơn Hàng (`src/admin/modules/OrdersModule.tsx`)**:
+     - Thêm nút và Modal Cấu Hình API Vận Chuyển (GHTK token, GHN token & shopId, Viettel Post credentials, sandbox/production mode, chọn hãng mặc định).
+     - Hiển thị badge hãng bưu chính và mã vận đơn có thể bấm trực tiếp để mở modal tra cứu hành trình thời gian thực.
+  8. **Tuân Thủ Rule 8 (Auto Register New API Scopes)**:
+     - Thêm `SHIPPING_MANAGE` và `VOUCHERS_MANAGE` vào `ApiKeyScope` và `ALL_API_SCOPES` trong `src/admin/modules/ApiKeysModule.tsx`.
+     - Bổ sung quyền phân giải trong `hasScope` tại `functions/services/mission_service.ts`.
+- **Kiểm thử**:
+  - `npm run build`: Compile TypeScript và Vite thành công 100%, Cloudflare Worker bundle 18.8mb.
+  - `node scripts/audit_zero_test_artifacts.cjs`: 100% sạch, 0 test artifacts.
+  - Tuân thủ 100% Rule 6, Rule 7, Rule 8 và Rule 9.
+
 ## [2026-11-16]
 
 ### 414. Đa Ngôn Ngữ Cho Web Test Đa Ngành, Đợt 1: Tiếng Việt + Tiếng Anh (Universal Multi-Language i18n Architecture) (16/11/2026)

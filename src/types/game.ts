@@ -332,7 +332,12 @@ export interface OrderRecord {
   shipping_address?: string; // Địa chỉ chi tiết nhận hàng (Số nhà, đường, phường, quận, tỉnh)
   shipping_note?: string; // Ghi chú giao hàng từ khách
   tracking_code?: string; // Mã vận đơn từ hãng vận chuyển (GHTK, GHN, Viettel Post...)
-  carrier?: string; // Tên đơn vị vận chuyển (GHTK, GHN, Viettel Post, Shopee Xpress, J&T...)
+  carrier?: string; // Mã đơn vị vận chuyển ('GHTK' | 'GHN' | 'VTP')
+  carrier_name?: string; // Tên đầy đủ hãng vận chuyển
+  estimated_delivery?: string; // Thời gian giao hàng dự kiến
+  voucher_code?: string; // Mã voucher giảm giá đã áp dụng
+  voucher_discount?: number; // Số tiền giảm giá từ voucher sàn/shop
+  freeship_discount?: number; // Số tiền giảm phí vận chuyển
   variant_id?: string; // Mã SKU biến thể
   variant_name?: string; // Tên biến thể (ví dụ: "Size L - Trắng")
   variant_attributes?: Record<string, string>; // Chi tiết thuộc tính đã chọn {"Màu sắc": "Trắng", "Size": "L"}

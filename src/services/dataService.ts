@@ -3124,6 +3124,13 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
         attributes?: Record<string, string>;
       };
       shippingFee?: number;
+      carrier?: string;
+      carrierName?: string;
+      trackingCode?: string;
+      estimatedDelivery?: string;
+      voucherCode?: string;
+      voucherDiscount?: number;
+      freeshipDiscount?: number;
     }
   ): Promise<{ success: boolean; order?: OrderRecord; message?: string; newBalance?: number; remainingBalance?: number; code?: string; old_price?: number; new_price?: number }> {
     const products = this.getStoreProducts();
@@ -3234,8 +3241,13 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
         variant_name: options?.variantInfo?.name,
         variant_attributes: options?.variantInfo?.attributes,
         shipping_fee: shippingFee,
-        carrier: '',
-        tracking_code: '',
+        carrier: options?.carrier || '',
+        carrier_name: options?.carrierName || '',
+        tracking_code: options?.trackingCode || '',
+        estimated_delivery: options?.estimatedDelivery || '',
+        voucher_code: options?.voucherCode || '',
+        voucher_discount: options?.voucherDiscount || 0,
+        freeship_discount: options?.freeshipDiscount || 0,
       };
 
       // Save client order
@@ -3264,8 +3276,13 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
           shippingPhone: physicalOrder.shipping_phone,
           shippingAddress: physicalOrder.shipping_address,
           shippingNote: physicalOrder.shipping_note,
-          trackingCode: '',
-          carrier: '',
+          trackingCode: options?.trackingCode || '',
+          carrier: options?.carrier || '',
+          carrierName: options?.carrierName || '',
+          estimatedDelivery: options?.estimatedDelivery || '',
+          voucherCode: options?.voucherCode || '',
+          voucherDiscount: options?.voucherDiscount || 0,
+          freeshipDiscount: options?.freeshipDiscount || 0,
           variantName: physicalOrder.variant_name,
           variantAttributes: physicalOrder.variant_attributes,
           shippingFee: physicalOrder.shipping_fee,

@@ -56,6 +56,8 @@ import {
   Mail,
   Star,
   ShieldAlert,
+  Truck,
+  Ticket,
 } from 'lucide-react';
 
 export type ApiKeyScope =
@@ -78,6 +80,8 @@ export type ApiKeyScope =
   | 'FIRST_PURCHASE_MANAGE'
   | 'ESCALATING_MANAGE'
   | 'MEMBERS_FULL'
+  | 'SHIPPING_MANAGE'
+  | 'VOUCHERS_MANAGE'
   | 'WALLET_MANAGE'
   | 'ORDERS_FULL'
   | 'SEPAY_FULL'
@@ -518,6 +522,28 @@ export const ALL_API_SCOPES: ScopeOption[] = [
     badgeText: 'text-orange-500',
     badgeBorder: 'border-orange-500/20',
     icon: KeyRound,
+  },
+  {
+    id: 'SHIPPING_MANAGE',
+    name: 'Quản Lý Vận Chuyển & Đấu Nối Hãng Vận Đơn (GHTK / GHN / Viettel Post)',
+    category: 'Vận Chuyển',
+    description: 'Cấu hình API kết nối 3 hãng vận chuyển lớn nhất Việt Nam, tự động sinh mã vận đơn và tra cứu hành trình kiện hàng thời gian thực.',
+    color: 'emerald',
+    badgeBg: 'bg-emerald-500/10',
+    badgeText: 'text-emerald-500',
+    badgeBorder: 'border-emerald-500/20',
+    icon: Truck,
+  },
+  {
+    id: 'VOUCHERS_MANAGE',
+    name: 'Quản Lý Mã Giảm Giá Đa Tầng (Shopee Vouchers Management)',
+    category: 'Khuyến Mãi',
+    description: 'Thêm, sửa, xóa và cấu hình hệ thống voucher đa tầng: Mã Vận Chuyển Freeship Xtra, Voucher Sàn và Voucher Shop.',
+    color: 'orange',
+    badgeBg: 'bg-orange-500/10',
+    badgeText: 'text-orange-500',
+    badgeBorder: 'border-orange-500/20',
+    icon: Ticket,
   },
   {
     id: 'ADMIN_FULL',

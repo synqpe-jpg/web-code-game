@@ -28,6 +28,9 @@ import {
   User,
   FileText,
   Package,
+  Ticket,
+  ChevronRight,
+  ExternalLink,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import QRCode from 'qrcode';
@@ -41,6 +44,19 @@ import { marketingService } from '../services/marketingService';
 import { useLanguage } from '../context/LanguageContext';
 import { formatCore } from '../utils/textUtils';
 import { GuideLinksBanner } from './GuideLinksBanner';
+import {
+  shippingService,
+  CarrierCode,
+  CARRIERS,
+  ShippingOrderRecord,
+} from '../services/shippingService';
+import {
+  voucherService,
+  VoucherItem,
+  VoucherStackingResult,
+} from '../services/voucherService';
+import { ShippingTrackingModal } from './shipping/ShippingTrackingModal';
+import { ShopeeCouponModal } from './voucher/ShopeeCouponModal';
 
 interface ProductCheckoutModalProps {
   product: StoreProduct | any | null;
@@ -152,6 +168,16 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
   });
 
   const [shippingNote, setShippingNote] = useState<string>('');
+
+  // --- TÍNH NĂNG VẬN CHUYỂN & VOUCHER SHOPEE ĐA TẦNG ---
+  const [selectedCarrier, setSelectedCarrier] = useState<CarrierCode>(() => {
+    return shippingService.getConfig().defaultCarrier || 'GHTK';
+  });
+  const [selectedFreeship, setSelectedFreeship] = useState<VoucherItem | null>(null);
+  const [selectedDiscount, setSelectedDiscount] = useState<VoucherItem | null>(null);
+  const [isCouponModalOpen, setIsCouponModalOpen] = useState(false);
+  const [isTrackingModalOpen, setIsTrackingModalOpen] = useState(false);
+  const [trackingModalOrder, setTrackingModalOrder] = useState<ShippingOrderRecord | null>(null);
 
   const saveShippingCache = (name: string, phone: string, address: string) => {
     if (typeof localStorage !== 'undefined') {
@@ -635,10 +661,21 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
     : (safeQty > 0
         ? (firstItemActualPrice + Math.max(0, safeQty - 1) * effectiveRegularPrice)
         : 0);
-  const finalGrandTotal = totalPrice + (isPhysical ? shippingFee : 0);
-  const totalDiscountAmount = isFirstPurchaseEligible
+  const calculatedCarrierFee = isPhysical ? shippingService.calculateFee(selectedCarrier, shippingAddress) : 0;
+  const rawShippingFee = isPhysical ? (shippingFee > 0 ? shippingFee : calculatedCarrierFee) : 0;
+
+  const voucherStacking: VoucherStackingResult = voucherService.calculateStacking({
+    productTotal: totalPrice,
+    shippingFee: rawShippingFee,
+    freeshipVoucher: selectedFreeship,
+    discountVoucher: selectedDiscount,
+  });
+
+  const finalShippingFee = isPhysical ? voucherStacking.finalShippingFee : 0;
+  const finalGrandTotal = isPhysical ? voucherStacking.finalTotal : Math.max(0, totalPrice - voucherStacking.productDiscount);
+  const totalDiscountAmount = (isFirstPurchaseEligible
     ? Math.max(0, (effectiveRegularPrice * safeQty) - totalPrice)
-    : 0;
+    : 0) + voucherStacking.totalSavings;
   const isPriceValid = !isNaN(totalPrice) && totalPrice > 0;
   const isBalanceEnough = isPriceValid && (userBalance >= finalGrandTotal);
   const checkoutDisplayStock = realStock <= 0 ? 0 : marketingService.getDisplayStock(effectiveTargetId, realStock);
@@ -879,8 +916,12 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
     setIsProcessing(true);
 
     try {
+      const carrierInfo = CARRIERS[selectedCarrier] || CARRIERS.GHTK;
+      const trackingCode = isPhysical ? shippingService.generateTrackingCode(selectedCarrier, shippingAddress) : '';
+      const expectedProductPrice = Math.max(0, totalPrice - voucherStacking.productDiscount);
+
       const orderPromise = dataService.createOrder(effectiveTargetId, safeQty, activeKey, {
-        expectedPrice: totalPrice,
+        expectedPrice: expectedProductPrice,
         orderType: isPhysical ? 'physical' : 'digital',
         paymentMethod: 'wallet',
         shippingInfo: isPhysical ? {
@@ -893,7 +934,14 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
           id: selectedPackage.id,
           name: selectedPackage.name,
         } : undefined,
-        shippingFee: isPhysical ? shippingFee : 0,
+        shippingFee: isPhysical ? finalShippingFee : 0,
+        carrier: isPhysical ? selectedCarrier : undefined,
+        carrierName: isPhysical ? carrierInfo.name : undefined,
+        trackingCode: trackingCode || undefined,
+        estimatedDelivery: isPhysical ? carrierInfo.estimatedDelivery : undefined,
+        voucherCode: [selectedFreeship?.code, selectedDiscount?.code].filter(Boolean).join(', ') || undefined,
+        voucherDiscount: voucherStacking.productDiscount,
+        freeshipDiscount: voucherStacking.freeshipDiscount,
       });
       const timeoutPromise = new Promise<{ success: boolean; message: string }>((_, reject) =>
         setTimeout(() => reject(new Error('Thời gian phản hồi máy chủ vượt quá 15 giây. Vui lòng kiểm tra lại danh sách mã đã nhận hoặc thử lại.')), 15000)
@@ -913,8 +961,31 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
       }
 
       if (res.success && res.order) {
+        if (isPhysical) {
+          const shipOrder = await shippingService.createShippingOrder({
+            orderId: res.order.id,
+            carrierCode: selectedCarrier,
+            recipientName: shippingName.trim(),
+            recipientPhone: shippingPhone.trim(),
+            recipientAddress: shippingAddress.trim(),
+            shippingNote: shippingNote.trim(),
+            shippingFee: finalShippingFee,
+          });
+          res.order.carrier = selectedCarrier;
+          res.order.carrier_name = carrierInfo.name;
+          res.order.tracking_code = shipOrder.trackingCode;
+          res.order.estimated_delivery = carrierInfo.estimatedDelivery;
+          res.order.shipping_fee = finalShippingFee;
+          res.order.voucher_code = [selectedFreeship?.code, selectedDiscount?.code].filter(Boolean).join(', ');
+          res.order.voucher_discount = voucherStacking.productDiscount;
+          res.order.freeship_discount = voucherStacking.freeshipDiscount;
+        }
+
+        voucherService.recordUsage(selectedFreeship?.code);
+        voucherService.recordUsage(selectedDiscount?.code);
+
         const activeUser = currentUser || (typeof window !== 'undefined' ? dataService.getCurrentUser() : null);
-        marketingService.recordRealOrder(effectiveTitle, effectiveTargetId, totalPrice, 'store', activeUser, safeQty);
+        marketingService.recordRealOrder(effectiveTitle, effectiveTargetId, finalGrandTotal, 'store', activeUser, safeQty);
 
         // Instantly notify React app state of new balance
         if (activeUser) {
@@ -924,7 +995,7 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
               ? Number((res.order as any).balance_after)
               : res?.remainingBalance !== undefined
                 ? Number(res.remainingBalance)
-                : Math.max(0, (activeUser.wallet_balance || 0) - totalPrice);
+                : Math.max(0, (activeUser.wallet_balance || 0) - finalGrandTotal);
           const updatedUser: UserProfile = {
             ...activeUser,
             wallet_balance: newBal,
@@ -1222,6 +1293,68 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
                           <span className="text-muted-foreground">{isEn ? 'Delivery Note: ' : 'Ghi chú bưu tá: '}</span>
                           <span className="text-amber-300 italic">{completedOrder.shipping_note}</span>
                         </div>
+                      </div>
+                    )}
+
+                    {/* Carrier & Tracking Code Card */}
+                    {completedOrder.tracking_code && (
+                      <div className="p-3 rounded-xl bg-card border border-emerald-500/40 space-y-2 mt-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-sm">
+                              {completedOrder.carrier === 'GHN' ? '🚚' : completedOrder.carrier === 'VTP' ? '🛡️' : '⚡'}
+                            </span>
+                            <span className="font-bold text-xs text-foreground">
+                              {completedOrder.carrier_name || completedOrder.carrier || 'GHTK Express'}
+                            </span>
+                          </div>
+                          <span className="text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                            {completedOrder.estimated_delivery || '1 - 2 ngày'}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between bg-muted/60 p-2 rounded-lg">
+                          <div className="space-y-0.5">
+                            <div className="text-[10px] text-muted-foreground uppercase font-semibold">Mã Vận Đơn Tự Động:</div>
+                            <div className="font-mono font-bold text-xs sm:text-sm text-foreground tracking-wide">
+                              {completedOrder.tracking_code}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(completedOrder.tracking_code || '');
+                              onShowToast('Đã sao chép mã vận đơn', completedOrder.tracking_code, 'success');
+                            }}
+                            className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                            title="Sao chép"
+                          >
+                            <Copy className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTrackingModalOrder(null);
+                            setIsTrackingModalOpen(true);
+                          }}
+                          className="w-full py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+                        >
+                          <Truck className="w-3.5 h-3.5" />
+                          <span>Tra Cứu Hành Trình Vận Đơn (Live Tracking)</span>
+                        </button>
+                      </div>
+                    )}
+
+                    {completedOrder.voucher_code && (
+                      <div className="p-2.5 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-between text-[11px]">
+                        <span className="text-orange-400 font-semibold flex items-center gap-1">
+                          <Ticket className="w-3.5 h-3.5" /> Voucher: {completedOrder.voucher_code}
+                        </span>
+                        <span className="text-orange-400 font-bold">
+                          Tiết kiệm -{formatCurrency((completedOrder.voucher_discount || 0) + (completedOrder.freeship_discount || 0))}
+                        </span>
                       </div>
                     )}
 
@@ -1599,18 +1732,107 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
                     </div>
                   </div>
 
+                  {/* Lựa chọn Đơn Vị Vận Chuyển Tự Động (GHTK, GHN, Viettel Post) */}
+                  <div>
+                    <label className="text-[11px] font-semibold text-muted-foreground block mb-1.5 flex items-center justify-between">
+                      <span>{isEn ? 'Shipping Carrier (Auto Tracking)' : 'Đơn Vị Vận Chuyển (Tự Sinh Mã Vận Đơn)'}</span>
+                      <span className="text-[10px] text-emerald-400 font-bold flex items-center gap-1">
+                        ⚡ API Kết Nối Tự Động
+                      </span>
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      {(['GHTK', 'GHN', 'VTP'] as CarrierCode[]).map((cCode) => {
+                        const c = CARRIERS[cCode];
+                        const isSelected = selectedCarrier === cCode;
+                        const cFee = shippingService.calculateFee(cCode, shippingAddress);
+                        return (
+                          <button
+                            key={cCode}
+                            type="button"
+                            onClick={() => setSelectedCarrier(cCode)}
+                            className={`p-2.5 rounded-xl border text-left transition-all relative flex flex-col justify-between ${
+                              isSelected
+                                ? 'border-emerald-500 bg-emerald-500/10 shadow-sm ring-1 ring-emerald-500'
+                                : 'border-border/80 bg-muted/30 hover:border-border'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="text-base">{c.logoIcon}</span>
+                              <span className="font-mono text-[11px] font-bold text-foreground">
+                                {formatCurrency(cFee)}
+                              </span>
+                            </div>
+                            <div className="mt-1">
+                              <div className="font-bold text-xs text-foreground flex items-center gap-1">
+                                {c.shortName}
+                                {isSelected && <Check className="w-3 h-3 text-emerald-500 stroke-[3]" />}
+                              </div>
+                              <div className="text-[10px] text-muted-foreground truncate">{c.estimatedDelivery}</div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
                   {/* Phí vận chuyển Badge */}
                   <div className="p-2.5 rounded-xl bg-muted/40 border border-border flex items-center justify-between text-xs">
                     <span className="text-muted-foreground flex items-center gap-1.5">
                       <Truck className="w-3.5 h-3.5 text-emerald-400" />
-                      {isEn ? 'Shipping Courier Fee:' : 'Phí vận chuyển bưu điện:'}
+                      {isEn ? 'Courier Shipping Fee:' : 'Cước phí vận chuyển:'}
                     </span>
-                    <span className="font-bold text-emerald-400">
-                      {shippingFee === 0 ? (isEn ? 'Free Nationwide Shipping' : 'Miễn phí toàn quốc (0đ)') : `+${formatCurrency(shippingFee)}`}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      {voucherStacking.freeshipDiscount > 0 && (
+                        <span className="text-[11px] text-muted-foreground line-through">
+                          {formatCurrency(rawShippingFee)}
+                        </span>
+                      )}
+                      <span className="font-bold text-emerald-400">
+                        {finalShippingFee === 0
+                          ? (isEn ? 'Free Shipping (0đ)' : 'Miễn phí toàn quốc (0đ)')
+                          : formatCurrency(finalShippingFee)}
+                      </span>
+                    </div>
                   </div>
                 </div>
               )}
+
+              {/* Shopee Voucher Stacking Trigger Card */}
+              <div
+                onClick={() => setIsCouponModalOpen(true)}
+                className="p-3 rounded-2xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-rose-500/10 border border-orange-500/30 hover:border-orange-500/50 cursor-pointer transition-all flex items-center justify-between group"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-xl bg-[#ee4d2d] text-white flex items-center justify-center shrink-0 shadow-sm shadow-orange-500/30">
+                    <Ticket className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-xs font-bold text-foreground">Shopee Voucher Đa Tầng</span>
+                      {selectedFreeship && (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-500 border border-emerald-500/30">
+                          🚚 -{formatCurrency(voucherStacking.freeshipDiscount)}
+                        </span>
+                      )}
+                      {selectedDiscount && (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#ee4d2d]/15 text-[#ee4d2d] border border-[#ee4d2d]/30">
+                          🎟️ -{formatCurrency(voucherStacking.productDiscount)}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-muted-foreground truncate">
+                      {selectedFreeship || selectedDiscount
+                        ? `Đã áp dụng • Tiết kiệm ${formatCurrency(voucherStacking.totalSavings)}`
+                        : 'Chọn hoặc nhập mã giảm giá Shopee / Sàn'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1 text-xs text-[#ee4d2d] font-semibold shrink-0 group-hover:translate-x-0.5 transition-transform">
+                  <span>{selectedFreeship || selectedDiscount ? 'Đổi mã' : 'Chọn mã'}</span>
+                  <ChevronRight className="w-4 h-4" />
+                </div>
+              </div>
 
               {/* Payment Method Selector (Chỉ hiện khi đơn hàng >= ngưỡng minQrAmount, mặc định 2.000) */}
               {isQrAvailable && (
@@ -2078,19 +2300,31 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
                     </div>
                   )}
 
-                  {isPhysical && shippingFee > 0 && (
-                    <div className="p-2.5 rounded-xl bg-muted/30 border border-border flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground">Tiền hàng ({safeQty} món):</span>
-                      <span className="font-mono font-semibold text-foreground">{formatCore(totalPrice)}</span>
-                    </div>
-                  )}
                   {isPhysical && (
                     <div className="p-2.5 rounded-xl bg-muted/30 border border-border flex items-center justify-between text-xs">
                       <span className="text-muted-foreground flex items-center gap-1">
-                        <Truck className="w-3.5 h-3.5 text-emerald-400" /> Cước vận chuyển:
+                        <Truck className="w-3.5 h-3.5 text-emerald-400" /> Cước vận chuyển ({CARRIERS[selectedCarrier]?.shortName}):
                       </span>
-                      <span className="font-mono font-semibold text-emerald-400">
-                        {shippingFee === 0 ? 'Miễn phí (0đ)' : formatCore(shippingFee)}
+                      <div className="flex items-center gap-1.5">
+                        {voucherStacking.freeshipDiscount > 0 && (
+                          <span className="text-[11px] text-muted-foreground line-through">
+                            {formatCurrency(rawShippingFee)}
+                          </span>
+                        )}
+                        <span className="font-mono font-semibold text-emerald-400">
+                          {finalShippingFee === 0 ? 'Miễn phí (0đ)' : formatCurrency(finalShippingFee)}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {voucherStacking.totalSavings > 0 && (
+                    <div className="p-2.5 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-between text-xs">
+                      <span className="text-orange-500 font-semibold flex items-center gap-1.5">
+                        <Ticket className="w-3.5 h-3.5" /> Shopee Voucher Tiết Kiệm:
+                      </span>
+                      <span className="font-mono font-bold text-orange-500">
+                        -{formatCurrency(voucherStacking.totalSavings)}
                       </span>
                     </div>
                   )}
@@ -2247,6 +2481,32 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
           </div>
         </div>
       </div>
+    )}
+
+    {isCouponModalOpen && (
+      <ShopeeCouponModal
+        isOpen={isCouponModalOpen}
+        onClose={() => setIsCouponModalOpen(false)}
+        productTotal={totalPrice}
+        shippingFee={rawShippingFee}
+        isPhysical={isPhysical}
+        initialFreeship={selectedFreeship}
+        initialDiscount={selectedDiscount}
+        onApply={(fs, disc) => {
+          setSelectedFreeship(fs);
+          setSelectedDiscount(disc);
+        }}
+      />
+    )}
+
+    {isTrackingModalOpen && (
+      <ShippingTrackingModal
+        isOpen={isTrackingModalOpen}
+        onClose={() => setIsTrackingModalOpen(false)}
+        initialShippingOrder={trackingModalOrder}
+        trackingCode={trackingModalOrder?.trackingCode || completedOrder?.tracking_code}
+        orderId={trackingModalOrder?.orderId || completedOrder?.id}
+      />
     )}
   </>,
   document.body

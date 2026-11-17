@@ -15,6 +15,9 @@ import {
   FileText,
   Clock,
   Layers,
+  Settings,
+  ShieldCheck,
+  X,
 } from 'lucide-react';
 import { DataTable, Column } from '../components/ui/DataTable';
 import { StatusBadge } from '../components/ui/StatusBadge';
@@ -24,6 +27,14 @@ import { ConfirmModal } from '../components/ui/ConfirmModal';
 import { adminDataService } from '../services/adminDataService';
 import { AdminOrderRecord } from '../types/adminTypes';
 import { formatFullDateTime } from '../../utils/textUtils';
+import {
+  shippingService,
+  CarrierApiConfig,
+  CARRIERS,
+  CarrierCode,
+  ShippingOrderRecord,
+} from '../../services/shippingService';
+import { ShippingTrackingModal } from '../../components/shipping/ShippingTrackingModal';
 
 interface OrdersModuleProps {
   onShowToast: (title: string, desc?: string, type?: 'success' | 'error' | 'info') => void;
@@ -55,6 +66,13 @@ export const OrdersModule: React.FC<OrdersModuleProps> = ({ onShowToast }) => {
   const [refundReason] = useState('Mã thẻ không nạp được / Lỗi từ phía nhà phát hành');
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Carrier API & Tracking States
+  const [isCarrierConfigOpen, setIsCarrierConfigOpen] = useState(false);
+  const [carrierConfig, setCarrierConfig] = useState<CarrierApiConfig>(() => shippingService.getConfig());
+  const [isTrackingModalOpen, setIsTrackingModalOpen] = useState(false);
+  const [trackingModalOrder, setTrackingModalOrder] = useState<ShippingOrderRecord | null>(null);
+  const [selectedTrackingCode, setSelectedTrackingCode] = useState<string>('');
 
   useEffect(() => {
     let isMounted = true;
@@ -295,10 +313,23 @@ export const OrdersModule: React.FC<OrdersModuleProps> = ({ onShowToast }) => {
             )}
             {isPhys ? (
               item.trackingCode ? (
-                <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono truncate flex items-center gap-1">
-                  <Truck className="w-3 h-3 shrink-0" />
-                  <span className="font-bold">{item.carrier || 'Bưu điện'}:</span> {item.trackingCode}
-                </p>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedTrackingCode(item.trackingCode || '');
+                      setTrackingModalOrder(null);
+                      setIsTrackingModalOpen(true);
+                    }}
+                    className="text-[10px] text-emerald-400 font-mono font-bold hover:underline flex items-center gap-1 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20"
+                    title="Bấm để xem hành trình bưu chính thời gian thực"
+                  >
+                    <Truck className="w-3 h-3 shrink-0" />
+                    <span className="font-bold">{item.carrier || 'GHTK'}:</span>
+                    <span>{item.trackingCode}</span>
+                  </button>
+                </div>
               ) : (
                 <p className="text-[10px] text-amber-500 italic">Chưa xuất mã vận đơn</p>
               )
@@ -438,6 +469,17 @@ export const OrdersModule: React.FC<OrdersModuleProps> = ({ onShowToast }) => {
         searchKeys={['orderCode', 'buyerName', 'buyerEmail', 'shippingName', 'shippingPhone', 'shippingAddress', 'productTitle', 'trackingCode']}
         onRefresh={handleManualRefresh}
         onExportCsv={handleExportCsv}
+        actions={
+          <button
+            type="button"
+            onClick={() => setIsCarrierConfigOpen(true)}
+            className="px-3 py-1.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-xs font-semibold text-neutral-200 border border-neutral-700 transition-colors flex items-center gap-1.5 shrink-0"
+            title="Cấu hình Token API GHTK, GHN, Viettel Post"
+          >
+            <Settings className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Cấu Hình API Vận Chuyển</span>
+          </button>
+        }
         filters={[
           {
             key: 'type',
@@ -726,6 +768,196 @@ export const OrdersModule: React.FC<OrdersModuleProps> = ({ onShowToast }) => {
         confirmText="Hoàn tiền ngay"
         variant="warning"
       />
+
+      {/* Carrier API Configuration Modal */}
+      {isCarrierConfigOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
+          <div
+            className="w-full max-w-lg bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 border-b border-neutral-800 flex items-center justify-between bg-neutral-950">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400">
+                  <Truck className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm sm:text-base text-white flex items-center gap-2">
+                    Cấu Hình API Vận Chuyển Tự Động
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                      GHTK • GHN • Viettel Post
+                    </span>
+                  </h3>
+                  <p className="text-xs text-neutral-400">Tự động kết nối, tính cước và sinh mã vận đơn khi khách đặt hàng</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsCarrierConfigOpen(false)}
+                className="p-1.5 rounded-lg bg-neutral-800 text-neutral-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                shippingService.saveConfig(carrierConfig);
+                setIsCarrierConfigOpen(false);
+                onShowToast('Lưu cấu hình thành công', 'Thông tin API 3 đơn vị vận chuyển đã được áp dụng ngay.', 'success');
+              }}
+              className="p-5 space-y-4 overflow-y-auto flex-1 text-xs"
+            >
+              <div className="p-3 rounded-xl bg-neutral-950 border border-neutral-800 flex items-center justify-between">
+                <div>
+                  <span className="font-bold text-white block">Môi Trường Vận Hành (API Mode)</span>
+                  <span className="text-[11px] text-neutral-400">Chọn chế độ kết nối bưu chính</span>
+                </div>
+                <div className="flex items-center gap-1 bg-neutral-900 p-1 rounded-lg border border-neutral-800">
+                  <button
+                    type="button"
+                    onClick={() => setCarrierConfig({ ...carrierConfig, mode: 'sandbox' })}
+                    className={`px-3 py-1 rounded-md font-semibold text-[11px] transition-colors ${
+                      carrierConfig.mode === 'sandbox'
+                        ? 'bg-amber-500 text-neutral-950'
+                        : 'text-neutral-400 hover:text-white'
+                    }`}
+                  >
+                    Sandbox (Thử nghiệm)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCarrierConfig({ ...carrierConfig, mode: 'production' })}
+                    className={`px-3 py-1 rounded-md font-semibold text-[11px] transition-colors ${
+                      carrierConfig.mode === 'production'
+                        ? 'bg-emerald-500 text-neutral-950'
+                        : 'text-neutral-400 hover:text-white'
+                    }`}
+                  >
+                    Production (Thật)
+                  </button>
+                </div>
+              </div>
+
+              {/* Hãng mặc định */}
+              <div>
+                <label className="font-semibold text-neutral-300 block mb-1">Đơn Vị Vận Chuyển Mặc Định</label>
+                <select
+                  value={carrierConfig.defaultCarrier}
+                  onChange={(e) => setCarrierConfig({ ...carrierConfig, defaultCarrier: e.target.value as CarrierCode })}
+                  className="w-full px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-white outline-none focus:border-emerald-500"
+                >
+                  <option value="GHTK">⚡ Giao Hàng Tiết Kiệm (GHTK Express)</option>
+                  <option value="GHN">🚚 Giao Hàng Nhanh (GHN Express)</option>
+                  <option value="VTP">🛡️ Viettel Post (Bưu Chính Viettel)</option>
+                </select>
+              </div>
+
+              {/* GHTK Config */}
+              <div className="p-3.5 rounded-xl bg-neutral-950 border border-emerald-900/40 space-y-2">
+                <div className="font-bold text-emerald-400 flex items-center gap-1.5 text-xs">
+                  <span>⚡ Giao Hàng Tiết Kiệm (GHTK)</span>
+                </div>
+                <div>
+                  <label className="text-[11px] text-neutral-400 block mb-1">API Token GHTK</label>
+                  <input
+                    type="password"
+                    value={carrierConfig.ghtkToken || ''}
+                    onChange={(e) => setCarrierConfig({ ...carrierConfig, ghtkToken: e.target.value })}
+                    placeholder="Nhập mã API Token cấp bởi GHTK..."
+                    className="w-full px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-800 font-mono text-white outline-none focus:border-emerald-500"
+                  />
+                </div>
+              </div>
+
+              {/* GHN Config */}
+              <div className="p-3.5 rounded-xl bg-neutral-950 border border-orange-900/40 space-y-2">
+                <div className="font-bold text-orange-400 flex items-center gap-1.5 text-xs">
+                  <span>🚚 Giao Hàng Nhanh (GHN Express)</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[11px] text-neutral-400 block mb-1">API Token GHN</label>
+                    <input
+                      type="password"
+                      value={carrierConfig.ghnToken || ''}
+                      onChange={(e) => setCarrierConfig({ ...carrierConfig, ghnToken: e.target.value })}
+                      placeholder="API Token GHN..."
+                      className="w-full px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-800 font-mono text-white outline-none focus:border-orange-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-neutral-400 block mb-1">Shop ID</label>
+                    <input
+                      type="text"
+                      value={carrierConfig.ghnShopId || ''}
+                      onChange={(e) => setCarrierConfig({ ...carrierConfig, ghnShopId: e.target.value })}
+                      placeholder="Mã cửa hàng (Shop ID)..."
+                      className="w-full px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-800 font-mono text-white outline-none focus:border-orange-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Viettel Post Config */}
+              <div className="p-3.5 rounded-xl bg-neutral-950 border border-red-900/40 space-y-2">
+                <div className="font-bold text-red-400 flex items-center gap-1.5 text-xs">
+                  <span>🛡️ Viettel Post (Bưu Chính Viettel)</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[11px] text-neutral-400 block mb-1">Tài Khoản VTP</label>
+                    <input
+                      type="text"
+                      value={carrierConfig.vtpUsername || ''}
+                      onChange={(e) => setCarrierConfig({ ...carrierConfig, vtpUsername: e.target.value })}
+                      placeholder="Tên đăng nhập Viettel Post..."
+                      className="w-full px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-800 text-white outline-none focus:border-red-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-neutral-400 block mb-1">Mật Khẩu</label>
+                    <input
+                      type="password"
+                      value={carrierConfig.vtpPassword || ''}
+                      onChange={(e) => setCarrierConfig({ ...carrierConfig, vtpPassword: e.target.value })}
+                      placeholder="Mật khẩu VTP..."
+                      className="w-full px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-800 text-white outline-none focus:border-red-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-neutral-800 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsCarrierConfigOpen(false)}
+                  className="px-4 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-semibold text-xs transition-colors"
+                >
+                  Đóng
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-600/20 transition-all"
+                >
+                  Lưu Cấu Hình Vận Chuyển
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Shipping Live Tracking Modal */}
+      {isTrackingModalOpen && (
+        <ShippingTrackingModal
+          isOpen={isTrackingModalOpen}
+          onClose={() => setIsTrackingModalOpen(false)}
+          initialShippingOrder={trackingModalOrder}
+          trackingCode={selectedTrackingCode || viewingOrder?.trackingCode}
+          orderId={viewingOrder?.id}
+        />
+      )}
     </div>
   );
 };

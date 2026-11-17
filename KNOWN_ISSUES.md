@@ -10,6 +10,24 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-299: Đấu Nối Tự Động API Vận Chuyển (GHTK / GHN / Viettel Post) & Hệ Thống Voucher Đa Tầng Shopee-Style Chuẩn Single-Screen First (Rule 9)
+- **Triệu chứng & Rủi ro**:
+  - Khi đặt hàng vật lý, nếu không có cơ chế tính cước tự động hoặc thiếu mã vận đơn sẽ khiến đơn hàng bị treo, chủ shop không tra cứu được hành trình kiện hàng và khách hàng không biết tình trạng giao hàng.
+  - Khi áp dụng mã giảm giá, nếu cho phép cộng dồn không kiểm soát nhiều mã cùng loại (ví dụ dồn 3 mã giảm 50k trên đơn 100k) sẽ dẫn đến lỗi âm tiền (`total < 0`). Ngược lại, nếu chỉ cho dùng 1 mã duy nhất sẽ không đạt trải nghiệm đa tầng như Shopee (vừa muốn Freeship vừa muốn giảm giá đơn hàng).
+  - Bảng quản trị Voucher và Quản lý Đơn hàng nếu thêm nhiều cột dài (Mã code, tiêu đề, điều kiện tối thiểu, hạn dùng, hãng bưu chính, mã vận đơn) rất dễ gây tràn ngang (horizontal overflow) che khuất nút thao tác ở mép phải màn hình laptop 1366x768 (vi phạm Rule 9).
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Quy tắc Voucher Stacking Shopee chuẩn xác: Mỗi đơn hàng chỉ được áp dụng tối đa 1 Voucher Vận Chuyển (`freeship`) + 1 Voucher Giảm Giá (`platform` hoặc `shop`).
+  - Đảm bảo tính toán độc lập và an toàn:
+    - `finalShippingFee = Math.max(0, shippingFee - freeshipDiscount)`.
+    - `finalProductTotal = Math.max(0, productTotal - productDiscount)`.
+    - `finalTotal = finalProductTotal + finalShippingFee`.
+    - Tổng tiền không bao giờ bị âm.
+  - Tự động sinh mã vận đơn chính thức khi hoàn tất đặt hàng theo chuẩn bưu chính từng hãng (`GHTK.VN.{CITY}.{DATE}.{RAND}`, `GHN{DATE}{RAND}`, `VTP{DATE}{RAND}`) và khởi tạo timeline 5 bước phát hàng thời gian thực.
+  - Tuân thủ nghiêm ngặt Rule 9:
+    - Bảng `VouchersModule.tsx` dùng `table-fixed w-full`, chia cột 28% / 20% / 20% / 18% / 14% (tổng đúng 100%).
+    - Modal Cấu Hình API Vận Chuyển (GHTK token, GHN token, Viettel Post credentials) nằm trọn trong modal popup, không làm phình to bảng chính.
+  - Tuân thủ Rule 8: Tự động cập nhật `SHIPPING_MANAGE` và `VOUCHERS_MANAGE` vào `ApiKeyScope`, `ALL_API_SCOPES` trong `ApiKeysModule.tsx` và `hasScope` trong `mission_service.ts`.
+
 ### ISSUE-298: Kiến Trúc Đa Ngôn Ngữ Chuẩn Mực (i18n Architecture) & Quản Trị Bản Dịch Nội Dung Động (Translations) Chuẩn Single-Screen First (Rule 9)
 - **Triệu chứng & Rủi ro**:
   - Khi tách chữ ra file JSON dịch giao diện, nếu một số component dùng key không tồn tại hoặc component thiếu fallback có thể gây crash trang trắng (`TypeError: Cannot read properties of undefined`) hoặc hiển thị key code thô (ví dụ `nav.store_unknown`).

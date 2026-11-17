@@ -29,6 +29,7 @@ import {
   Send,
   Sparkles,
   Store,
+  Ticket,
 } from 'lucide-react';
 import { AdminUser } from '../types/adminTypes';
 import { normalizeVietnamese } from '../../utils/textUtils';
@@ -56,6 +57,7 @@ export type AdminModuleTab =
   | 'marketplace'
   | 'platform-leads'
   | 'translations'
+  | 'vouchers'
   | 'first-purchase'
   | 'sepay'
   | 'content'
@@ -208,6 +210,13 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
           icon: ShoppingCart,
           badge: pendingOrdersCount,
           badgeColor: 'bg-sky-500 text-white',
+        },
+        {
+          id: 'vouchers',
+          label: 'Voucher & Freeship',
+          icon: Ticket,
+          badge: 'SHOPEE',
+          badgeColor: 'bg-orange-500 text-white font-bold',
         },
         {
           id: 'first-purchase',
