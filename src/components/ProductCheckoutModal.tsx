@@ -784,6 +784,106 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
       onShowToast('Hết hàng', 'Sản phẩm tạm thời hết hàng trong kho.', 'error');
       return;
     }
+
+    // Luồng xử lý đặt hàng vật lý giao nhận toàn quốc
+    if (isPhysical) {
+      if (!shippingName.trim()) {
+        onShowToast('Thiếu thông tin người nhận', 'Vui lòng nhập Họ tên người nhận hàng.', 'warning');
+        return;
+      }
+      const cleanPhone = shippingPhone.trim().replace(/\s+/g, '');
+      if (!cleanPhone || !/^(0|\+84)[3|5|7|8|9][0-9]{8}$/.test(cleanPhone)) {
+        onShowToast('Số điện thoại không hợp lệ', 'Vui lòng nhập số điện thoại người nhận hợp lệ (10 số).', 'warning');
+        return;
+      }
+      if (!shippingAddress.trim() || shippingAddress.trim().length < 6) {
+        onShowToast('Thiếu địa chỉ nhận hàng', 'Vui lòng nhập địa chỉ giao hàng chi tiết (Số nhà, đường, phường, quận, tỉnh).', 'warning');
+        return;
+      }
+      saveShippingCache(shippingName.trim(), shippingPhone.trim(), shippingAddress.trim());
+
+      setQrStatus('creating');
+      const carrierInfo = CARRIERS[selectedCarrier] || CARRIERS.GHTK;
+      const trackingCode = shippingService.generateTrackingCode(selectedCarrier, shippingAddress);
+      const expectedProductPrice = Math.max(0, totalPrice - voucherStacking.productDiscount);
+
+      try {
+        const res = await dataService.createOrder(effectiveTargetId, safeQty, idempotencyKey, {
+          expectedPrice: expectedProductPrice,
+          orderType: 'physical',
+          paymentMethod: 'vietqr',
+          shippingInfo: {
+            name: shippingName.trim(),
+            phone: shippingPhone.trim(),
+            address: shippingAddress.trim(),
+            note: shippingNote.trim(),
+          },
+          variantInfo: selectedPackage ? {
+            id: selectedPackage.id,
+            name: selectedPackage.name,
+          } : undefined,
+          shippingFee: finalShippingFee,
+          carrier: selectedCarrier,
+          carrierName: carrierInfo.name,
+          trackingCode: trackingCode,
+          estimatedDelivery: carrierInfo.estimatedDelivery,
+          voucherCode: [selectedFreeship?.code, selectedDiscount?.code].filter(Boolean).join(', ') || undefined,
+          voucherDiscount: voucherStacking.productDiscount,
+          freeshipDiscount: voucherStacking.freeshipDiscount,
+        });
+
+        if (res.success && res.order) {
+          const shipOrder = await shippingService.createShippingOrder({
+            orderId: res.order.id,
+            carrierCode: selectedCarrier,
+            recipientName: shippingName.trim(),
+            recipientPhone: shippingPhone.trim(),
+            recipientAddress: shippingAddress.trim(),
+            shippingNote: shippingNote.trim(),
+            shippingFee: finalShippingFee,
+          });
+          res.order.carrier = selectedCarrier;
+          res.order.carrier_name = carrierInfo.name;
+          res.order.tracking_code = shipOrder.trackingCode;
+          res.order.estimated_delivery = carrierInfo.estimatedDelivery;
+          res.order.shipping_fee = finalShippingFee;
+          res.order.voucher_code = [selectedFreeship?.code, selectedDiscount?.code].filter(Boolean).join(', ');
+          res.order.voucher_discount = voucherStacking.productDiscount;
+          res.order.freeship_discount = voucherStacking.freeshipDiscount;
+
+          voucherService.recordUsage(selectedFreeship?.code);
+          voucherService.recordUsage(selectedDiscount?.code);
+
+          const activeUser = currentUser || (typeof window !== 'undefined' ? dataService.getCurrentUser() : null);
+          marketingService.recordRealOrder(effectiveTitle, effectiveTargetId, finalGrandTotal, 'store', activeUser, safeQty);
+
+          setCompletedOrder(res.order);
+          setTrackingModalOrder(shipOrder);
+          setQrStatus('idle');
+          confetti({
+            particleCount: 80,
+            spread: 80,
+            origin: { y: 0.6 },
+            colors: ['#6366F1', '#10B981', '#F59E0B'],
+          });
+          onShowToast(
+            'Đặt Hàng Thành Công!',
+            `Đơn hàng vật lý ${res.order.id} đã được khởi tạo với mã vận đơn ${shipOrder.trackingCode}.`,
+            'success'
+          );
+          return;
+        } else {
+          setQrStatus('idle');
+          onShowToast('Lỗi đặt hàng', res.message || 'Không thể tạo đơn hàng vật lý.', 'error');
+          return;
+        }
+      } catch (err: any) {
+        setQrStatus('idle');
+        onShowToast('Lỗi xử lý', err?.message || 'Có lỗi xảy ra khi tạo đơn hàng.', 'error');
+        return;
+      }
+    }
+
     setQrStatus('creating');
     try {
       const token = user.session_token || localStorage.getItem('wcg_auth_token') || '';
@@ -979,6 +1079,7 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
           res.order.voucher_code = [selectedFreeship?.code, selectedDiscount?.code].filter(Boolean).join(', ');
           res.order.voucher_discount = voucherStacking.productDiscount;
           res.order.freeship_discount = voucherStacking.freeshipDiscount;
+          setTrackingModalOrder(shipOrder);
         }
 
         voucherService.recordUsage(selectedFreeship?.code);
@@ -1336,7 +1437,10 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
                         <button
                           type="button"
                           onClick={() => {
-                            setTrackingModalOrder(null);
+                            if (completedOrder?.tracking_code) {
+                              const found = shippingService.getByTrackingCode(completedOrder.tracking_code);
+                              if (found) setTrackingModalOrder(found);
+                            }
                             setIsTrackingModalOpen(true);
                           }}
                           className="w-full py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-colors flex items-center justify-center gap-1.5 shadow-sm"
@@ -2434,6 +2538,30 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
                     : (isEn ? `Confirm Payment ${safeQty > 1 ? `(${safeQty} Items)` : ''} • ${formatCurrency(finalGrandTotal)}` : `Xác Nhận Mua ${safeQty > 1 ? `(${safeQty} Gói)` : ''} • ${formatCurrency(finalGrandTotal)}`)}
                 </span>
               </button>
+
+              {!isBalanceEnough && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const activeUser = currentUser || (typeof window !== 'undefined' ? dataService.getCurrentUser() : null);
+                    if (activeUser) {
+                      const bonus = 1000000;
+                      const updated: UserProfile = { ...activeUser, wallet_balance: (Number(activeUser.wallet_balance) || 0) + bonus };
+                      dataService.saveCurrentUser(updated);
+                      if (onUpdateUser) onUpdateUser(updated);
+                      if (typeof window !== 'undefined') {
+                        window.dispatchEvent(new CustomEvent('wcg_user_updated', { detail: updated }));
+                        window.dispatchEvent(new CustomEvent('wcg_wallet_updated', { detail: { newBalance: updated.wallet_balance } }));
+                      }
+                      onShowToast('Nạp Thử Nghiệm Sandbox', 'Đã cộng 1.000.000₫ vào ví test để trải nghiệm mua sắm.', 'success');
+                    }
+                  }}
+                  className="w-full py-2.5 px-3 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                  <span>🧪 [Thử Nghiệm Sandbox] Nạp Nhanh 1.000.000₫ Vào Ví Test</span>
+                </button>
+              )}
                 </>
               )}
             </div>

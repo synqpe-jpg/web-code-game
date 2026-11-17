@@ -3289,6 +3289,7 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
         };
         adminOrders.unshift(newAdminOrder);
         localStorage.setItem('wcg_admin_orders_v4', JSON.stringify(adminOrders));
+        this.saveRemoteData('wcg_admin_orders_v4', adminOrders);
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('wcg_admin_data_updated', { detail: { type: 'ORDERS_UPDATED' } }));
         }

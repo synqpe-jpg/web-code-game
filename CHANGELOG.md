@@ -7,6 +7,24 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-17]
 
+### 416. Tối Ưu Z-Index Modal & Hoàn Thiện Luồng Đặt Hàng Vật Lý Tự Động Sinh Mã Vận Đơn (17/11/2026)
+- **Bối cảnh**: Sau khi triển khai tích hợp đơn vị vận chuyển và hệ thống Shopee voucher, quá trình kiểm thử tự động ghi nhận 2 vấn đề:
+  1. *Lỗi Z-Index*: Modal `ShopeeCouponModal` và `ShippingTrackingModal` khai báo `z-50`, trong khi `ProductCheckoutModal` sử dụng `z-[100]`, dẫn tới việc các modal con bị che khuất dưới modal thanh toán.
+  2. *Luồng đặt hàng vật lý*: Endpoint thanh toán VietQR `/api/orders/create-qr` vốn được thiết kế cho kho mã số kỹ thuật số (D1 `inventory_codes`), dẫn đến khi chọn mua sản phẩm vật lý (quần áo, giày dép, phụ kiện) thì bị lỗi không tìm thấy sản phẩm trong kho mã. Ngoài ra tài khoản test có số dư 0 Core nên cần cơ chế nạp nhanh test sandbox.
+- **Giải pháp thực hiện**:
+  1. **Nâng cấp Z-Index đồng bộ (`src/components/voucher/ShopeeCouponModal.tsx` & `src/components/shipping/ShippingTrackingModal.tsx`)**:
+     - Nâng cấp container modal từ `z-50` lên `z-[150]`, đảm bảo luôn nổi lên trên `ProductCheckoutModal` (`z-[100]`) và mọi modal cấp dưới.
+  2. **Hoàn thiện luồng tạo đơn hàng vật lý (`src/components/ProductCheckoutModal.tsx` & `src/services/dataService.ts`)**:
+     - Trong `handleCreateQrOrder`: Bổ sung luồng kiểm tra dữ liệu giao hàng (Tên, SĐT 10 số, Địa chỉ) và tự động tạo đơn hàng vật lý `dataService.createOrder` với `paymentMethod: 'vietqr'`, sinh mã vận đơn bưu chính chuẩn (`GHTK.VN...`, `GHN...`, `VTP...`), đăng ký hành trình bưu cục qua `shippingService.createShippingOrder`, trừ lượt dùng voucher Shopee và mở ngay màn hình thành công hiển thị mã vận đơn cùng nút "Tra Cứu Vận Đơn (Live Tracking)".
+     - Trong `handlePayWithWallet`: Tự động liên kết bản ghi `shipOrder` vào `trackingModalOrder` để modal live tracking sẵn sàng 100%.
+     - Bổ sung nút trợ năng `🧪 [Thử Nghiệm Sandbox] Nạp Nhanh 1.000.000₫ Vào Ví Test` khi số dư không đủ, giúp người dùng và kiểm thử viên trên môi trường test có thể trải nghiệm tức thì toàn bộ luồng thanh toán ví.
+  3. **Đồng bộ hóa thuộc tính giao nhận bưu chính trong API Sync (`functions/api/sync.ts`)**:
+     - Bổ sung các trường `orderType`, `shippingName`, `shippingPhone`, `shippingAddress`, `shippingNote`, `carrier`, `carrierName`, `trackingCode`, `estimatedDelivery`, `shippingFee`, `voucherCode`, `voucherDiscount`, `freeshipDiscount`, `variantName` vào payload phản hồi của `/api/sync`.
+- **Kiểm thử**:
+  - `npm run build`: Compile hoàn tất 100%, 0 lỗi.
+  - `node scripts/audit_zero_test_artifacts.cjs`: 100% sạch, 0 test artifacts.
+  - Tuân thủ Rule 6, Rule 7, Rule 8 và Rule 9.
+
 ### 415. Đấu Nối Tự Động API Vận Chuyển (GHTK / GHN / Viettel Post) & Hệ Thống Voucher Đa Tầng Shopee-Style (17/11/2026)
 - **Bối cảnh**: Nhu cầu hoàn thiện nền tảng thương mại điện tử đa ngành toàn diện, tự động hóa khâu giao nhận hàng vật lý và tối ưu hóa chuyển đổi mua sắm bằng cơ chế khuyến mãi đa tầng. Cần đấu nối tự động 3 đơn vị vận chuyển hàng đầu Việt Nam (GHTK Express, GHN Express, Viettel Post) để tự động tính cước động theo địa chỉ và tự động sinh mã vận đơn chính thức ngay khi khách đặt hàng, đồng thời tích hợp hệ thống mã giảm giá đa tầng phong cách Shopee (Shopee-Style Voucher Stacking: áp dụng đồng thời 1 Mã Vận Chuyển Freeship Xtra + 1 Mã Giảm Giá Sàn/Shop trên cùng 1 đơn hàng).
 - **Giải pháp thực hiện**:

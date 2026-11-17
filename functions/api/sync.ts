@@ -1295,6 +1295,20 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
                 deliveredCodes: delCodes,
                 status: o.status || 'COMPLETED',
                 createdAt: o.created_at || o.createdAt || new Date().toISOString(),
+                orderType: o.order_type || o.orderType || 'DIGITAL',
+                shippingName: o.shipping_name || o.shippingName || '',
+                shippingPhone: o.shipping_phone || o.shippingPhone || '',
+                shippingAddress: o.shipping_address || o.shippingAddress || '',
+                shippingNote: o.shipping_note || o.shippingNote || '',
+                carrier: o.carrier || '',
+                carrierName: o.carrier_name || o.carrierName || '',
+                trackingCode: o.tracking_code || o.trackingCode || '',
+                estimatedDelivery: o.estimated_delivery || o.estimatedDelivery || '',
+                shippingFee: Number(o.shipping_fee ?? o.shippingFee) || 0,
+                voucherCode: o.voucher_code || o.voucherCode || '',
+                voucherDiscount: Number(o.voucher_discount ?? o.voucherDiscount) || 0,
+                freeshipDiscount: Number(o.freeship_discount ?? o.freeshipDiscount) || 0,
+                variantName: o.variant_name || o.variantName || '',
               };
             });
           } else {
