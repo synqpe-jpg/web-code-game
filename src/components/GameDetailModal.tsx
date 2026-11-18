@@ -240,7 +240,13 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
     setIsLoadingComments(true);
 
     const isDtcl = slug === 'dau-truong-chan-ly-mobile' || slug === 'dau-truong-chan-ly';
-    const totalCodes = Number((game as any)?.total_codes || (liveGame as any)?.total_codes_count || codes.length || 0);
+    const totalCodes = Number(
+      (game as any)?.total_codes ||
+      (liveGame as any)?.total_codes_count ||
+      currentGame?.codes?.length ||
+      game?.codes?.length ||
+      0
+    );
     const hasCodes = isDtcl || totalCodes > 0;
 
     const token = typeof window !== 'undefined' ? localStorage.getItem('wcg_auth_token') || '' : '';
@@ -1467,7 +1473,8 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
 
           {/* PHẦN 3: Đánh Giá & Bình Luận Game (Ẩn hẳn nếu game không có mã và không có bình luận thật) */}
           {((currentGame.slug === 'dau-truong-chan-ly-mobile' || currentGame.slug === 'dau-truong-chan-ly') ||
-            (codes && codes.length > 0) ||
+            (currentGame.codes && currentGame.codes.length > 0) ||
+            (game?.codes && game.codes.length > 0) ||
             Number((game as any)?.total_codes || (liveGame as any)?.total_codes_count || 0) > 0 ||
             commentsList.length > 0 ||
             myPendingComment !== null) && (
