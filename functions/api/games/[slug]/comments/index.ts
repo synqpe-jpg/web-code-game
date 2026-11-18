@@ -1,6 +1,7 @@
 import { ensureSchemaUpgrades, ensureGameCommentsSchema } from '../../../../services/d1_service';
 import { verifyMemberAuth } from '../../../../services/mission_service';
 import { generateFomoComments } from '../../../../services/fomo_comments_service';
+import fallbackCodesData from '../../../../../src/data/crawled_codes_188.json';
 
 interface Env {
   DB: D1Database;
@@ -64,6 +65,41 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       }
     } catch {}
 
+    // Kiểm tra xem game có mã hay không (tính theo D1 + fallback catalog)
+    // Ngoại lệ bắt buộc: Đấu Trường Chân Lý Mobile luôn tính là có mã (68 mã)
+    const isDtcl = gameSlug === 'dau-truong-chan-ly-mobile' || gameSlug === 'dau-truong-chan-ly';
+    let totalCodesCount = 0;
+
+    if (isDtcl) {
+      totalCodesCount = 68;
+    } else {
+      // 1. Kiểm tra từ D1 bảng codes
+      try {
+        const isWwm = gameSlug === 'where-winds-meet' || gameSlug === 'where-winds-meet-mobile' || gameSlug === 'yen-van-thap-luc-thanh';
+        const codesCountRow = await env.DB.prepare(
+          isWwm
+            ? `SELECT COUNT(*) as cnt FROM codes WHERE (game_slug = 'where-winds-meet' OR game_slug = 'where-winds-meet-mobile' OR game_slug = 'yen-van-thap-luc-thanh') AND status != 'deleted'`
+            : `SELECT COUNT(*) as cnt FROM codes WHERE (game_slug = ? OR game_slug = ?) AND status != 'deleted'`
+        ).bind(...(isWwm ? [] : [gameSlug, gameSlug.replace(/-mobile$/, '')])).first<any>();
+        totalCodesCount = Number(codesCountRow?.cnt || 0);
+      } catch {}
+
+      // 2. Nếu D1 bảng codes = 0, kiểm tra bảng games
+      if (totalCodesCount <= 0 && gameMeta) {
+        totalCodesCount = Number(gameMeta.total_codes_count || gameMeta.active_codes_count || 0);
+      }
+
+      // 3. Nếu vẫn <= 0, kiểm tra file tĩnh fallback (crawled_codes_188.json)
+      if (totalCodesCount <= 0) {
+        const fbCodes = (fallbackCodesData as Record<string, any[]>)[gameSlug] || (fallbackCodesData as Record<string, any[]>)[gameSlug.replace(/-mobile$/, '')];
+        if (Array.isArray(fbCodes) && fbCodes.length > 0) {
+          totalCodesCount = fbCodes.length;
+        }
+      }
+    }
+
+    const hasCodes = totalCodesCount > 0;
+
     // 2. Thống kê & lấy danh sách bình luận THẬT đã duyệt từ DB
     const realCommentsRes = await env.DB.prepare(`
       SELECT id, game_slug, user_id, user_name, rating, content, confirmed_working, status, created_at
@@ -74,9 +110,20 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
     const realComments: any[] = realCommentsRes.results || [];
 
-    // 3. Sinh danh sách đánh giá FOMO theo độ HOT và số ngày trôi qua (deterministic, điểm >= 4.5)
+    // 3. Sinh danh sách đánh giá FOMO theo độ HOT và số ngày trôi qua (chỉ sinh khi game CÓ MÃ)
     const nowMs = Date.now();
-    const fomo = generateFomoComments(gameSlug, gameMeta, nowMs);
+    const fomo = hasCodes
+      ? generateFomoComments(gameSlug, gameMeta, nowMs)
+      : {
+          comments: [],
+          overview: {
+            average_rating: 0,
+            rating_count: 0,
+            total_comments: 0,
+            distribution: { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 },
+            confirmed_working_count: 0,
+          },
+        };
 
     // Ghép bình luận thật đã duyệt lên đầu, bình luận FOMO nối tiếp sau
     const allComments = [
@@ -84,27 +131,50 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       ...fomo.comments.map((c) => ({ ...c, is_fomo: true })),
     ];
 
-    // 4. Tính toán phân bố sao và điểm đánh giá trung bình tổng thể
-    const combinedDistribution = { ...fomo.overview.distribution };
-    let combinedConfirmedWorking = fomo.overview.confirmed_working_count;
-    let totalRatingSum = fomo.overview.average_rating * fomo.overview.rating_count;
-
-    for (const rc of realComments) {
-      const starKey = String(Math.max(1, Math.min(5, Math.round(Number(rc.rating) || 5)))) as '1' | '2' | '3' | '4' | '5';
-      combinedDistribution[starKey] = (combinedDistribution[starKey] || 0) + 1;
-      totalRatingSum += Number(rc.rating) || 5;
-      if (Number(rc.confirmed_working) === 1) {
-        combinedConfirmedWorking += 1;
+    // Lọc trùng nội dung bình luận sinh tự động trong danh sách cuối cùng
+    const seenAutoContents = new Set<string>();
+    const deduplicatedComments: any[] = [];
+    for (const c of allComments) {
+      if (c.is_real) {
+        deduplicatedComments.push(c);
+      } else {
+        const norm = String(c.content || '').trim().toLowerCase();
+        if (!seenAutoContents.has(norm)) {
+          seenAutoContents.add(norm);
+          deduplicatedComments.push(c);
+        }
       }
     }
 
-    const totalCommentsCount = allComments.length;
-    const calcAvg = totalCommentsCount > 0 ? (totalRatingSum / totalCommentsCount) : 4.8;
-    // Đảm bảo đánh giá chung luôn >= 4.5 sao theo quy chuẩn
-    const combinedAverageRating = Math.max(4.5, Math.min(5.0, Math.round(calcAvg * 10) / 10));
+    // 4. Tính toán phân bố sao và điểm đánh giá trung bình tổng thể
+    let combinedDistribution = { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 };
+    let combinedConfirmedWorking = 0;
+    let combinedAverageRating = 0;
+    const totalCommentsCount = deduplicatedComments.length;
+
+    if (totalCommentsCount > 0) {
+      let totalRatingSum = 0;
+      for (const c of deduplicatedComments) {
+        const starKey = String(Math.max(1, Math.min(5, Math.round(Number(c.rating) || 5)))) as '1' | '2' | '3' | '4' | '5';
+        combinedDistribution[starKey] = (combinedDistribution[starKey] || 0) + 1;
+        totalRatingSum += Number(c.rating) || 5;
+        if (Number(c.confirmed_working) === 1) {
+          combinedConfirmedWorking += 1;
+        }
+      }
+
+      const calcAvg = totalRatingSum / totalCommentsCount;
+      if (hasCodes) {
+        // Game có mã kèm FOMO: Đảm bảo đánh giá chung luôn >= 4.5 sao theo quy chuẩn
+        combinedAverageRating = Math.max(4.5, Math.min(5.0, Math.round(calcAvg * 10) / 10));
+      } else {
+        // Game không có mã nhưng có bình luận thật: tính theo điểm thật
+        combinedAverageRating = Math.round(calcAvg * 10) / 10;
+      }
+    }
 
     // 5. Cắt phân trang
-    const pagedComments = allComments.slice(offset, offset + limit);
+    const pagedComments = deduplicatedComments.slice(offset, offset + limit);
     const totalPages = Math.ceil(totalCommentsCount / limit) || 1;
 
     // 6. Kiểm tra xem người dùng hiện tại có đánh giá chờ duyệt của chính mình không

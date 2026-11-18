@@ -80,6 +80,8 @@ import * as gameCommentsIdApi from './api/games/[slug]/comments/[id]';
 import * as adminCommentsApi from './api/admin/comments/index';
 import * as adminCommentsApproveApi from './api/admin/comments/[id]/approve';
 import * as adminCommentsRejectApi from './api/admin/comments/[id]/reject';
+import * as adminCommentsIdApi from './api/admin/comments/[id]/index';
+import * as adminCommentsFomoApi from './api/admin/comments/fomo';
 import * as codesTodayApi from './api/codes/today';
 
 // Marketplace Phase 1 (11/11/2026): Seller Center, Stores, Orders, Admin Moderation
@@ -1315,6 +1317,12 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
         return new Response('Method Not Allowed', { status: 405 });
       }
 
+      if (pathname === '/api/admin/comments/fomo') {
+        if (method === 'OPTIONS') return await adminCommentsFomoApi.onRequestOptions();
+        if (method === 'GET') return await adminCommentsFomoApi.onRequestGet(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
       const matchCommentApprove = pathname.match(/^\/api\/admin\/comments\/([^/]+)\/approve$/);
       if (matchCommentApprove) {
         context.params = { ...(context.params || {}), id: matchCommentApprove[1] };
@@ -1328,6 +1336,14 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
         context.params = { ...(context.params || {}), id: matchCommentReject[1] };
         if (method === 'OPTIONS') return await adminCommentsRejectApi.onRequestOptions();
         if (method === 'POST') return await adminCommentsRejectApi.onRequestPost(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      const matchCommentId = pathname.match(/^\/api\/admin\/comments\/([^/]+)$/);
+      if (matchCommentId) {
+        context.params = { ...(context.params || {}), id: matchCommentId[1] };
+        if (method === 'OPTIONS') return await adminCommentsIdApi.onRequestOptions();
+        if (method === 'DELETE') return await adminCommentsIdApi.onRequestDelete(context);
         return new Response('Method Not Allowed', { status: 405 });
       }
 

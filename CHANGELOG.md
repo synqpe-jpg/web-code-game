@@ -5,6 +5,45 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ---
 
+## [2026-11-18]
+
+### 423. Lọc Trùng Bình Luận Ảo, Kho Mẫu 100 Câu, Khắc Phục DELETE Admin API & Ẩn Bình Luận Game 0 Mã (18/11/2026)
+- **Bối cảnh & Yêu cầu của Chủ sở hữu**:
+  - Tại trang `Age of Stickman: Evolution` (`age-of-stickman-evolution`), mục bình luận hiện 4-10 câu liên tiếp bị trùng lặp nội dung (*"vừa nhập xong dc bao nhiêu đồ ngon"*).
+  - Kho mẫu trước đó chỉ có 51 mẫu, chưa đủ đa dạng và chưa có thuật toán chống trùng lặp.
+  - Endpoint quản lý bình luận của Admin chưa gọi được thao tác xóa: `DELETE /api/admin/comments/:id` trả 404.
+  - Có 9 game hiện 0 mã trên trang chi tiết nhưng vẫn sinh ra hơn 100 bình luận mặc định (`archer-castle-afk-idle-rpg`, `narco-empire`, `tan-y-thien-do-long-ky`, `esports`, `ta-la-hac-ngo-khong-vplay`, `ta-la-quan-lao-gia`, `phi-kiem-cuu-long-dan-quan`, `au-mobile-vtc-bigupdate`, `age-of-stickman-evolution`).
+  - Yêu cầu:
+    1. Một nội dung sinh tự động chỉ xuất hiện tối đa 1 lần trong 1 game (lọc trùng cả ở danh sách cuối cùng trả về API).
+    2. Mở rộng kho mẫu lên đúng 100 câu phân biệt: 82 câu 5★, 10 câu 4★, 8 câu phản hồi hết hạn. Giới hạn tối đa 100 bình luận/game.
+    3. Hoàn thiện API quản trị bình luận đủ bộ 4 thao tác (`GET`, `POST approve`, `POST reject`, `DELETE`) qua khóa admin có quyền `GAME_COMMENTS_MANAGE`.
+    4. Game 0 mã thì không sinh bình luận mặc định (trả về rỗng, overview 0 lượt, ẩn hẳn mục bình luận nếu không có bình luận thật).
+    5. Ngoại lệ bắt buộc: `dau-truong-chan-ly-mobile` có 68 mã trên trang chi tiết $\rightarrow$ giữ nguyên bình luận, tuyệt đối không ẩn.
+- **Nguyên nhân gốc rễ & Phân tích hiện trạng**:
+  - *Về trùng lặp nội dung*: Chuỗi hash prefix kết hợp với `Math.abs` trên số âm trong JavaScript làm hạt giống `seed` giảm đi 1 khi $i$ tăng 1. Việc cộng thêm $(seed + i)$ đã tạo ra một hằng số bất biến cho 10 phần tử đầu tiên ($i=0..9$), dẫn đến chọn cùng index 24.
+  - *Về DELETE 404*: Cloudflare Worker bundle trong `functions/_worker.ts` chưa đăng ký route `pathname.match(/^\/api\/admin\/comments\/([^/]+)$/)` cho `onRequestDelete`.
+  - *Về game 0 mã*: Backend `functions/api/games/[slug]/comments/index.ts` chưa kiểm tra tổng số mã của game trước khi kích hoạt `generateFomoComments`.
+- **Giải pháp áp dụng (Solution)**:
+  1. *Kho mẫu 100 câu phân biệt (`functions/services/fomo_comments_service.ts`)*:
+     - Chuẩn hóa đúng 100 câu duy nhất đôi một: 82 câu 5★, 10 câu 4★, 8 câu hết hạn (3-4★).
+     - Áp dụng thuật toán Fisher-Yates shuffle tất định bằng PRNG LCG riêng cho từng nhóm mẫu.
+     - Lựa chọn mẫu từ các index đã shuffle và lọc trùng tuyệt đối qua `Set<string>`.
+     - Giới hạn tối đa 100 bình luận/game.
+  2. *Khắc phục DELETE Admin API & Đăng Ký Route (`functions/_worker.ts`)*:
+     - Import `* as adminCommentsIdApi from './api/admin/comments/[id]/index'` và `* as adminCommentsFomoApi from './api/admin/comments/fomo'`.
+     - Đăng ký route `matchCommentId` cho `DELETE /api/admin/comments/:id` và route `GET /api/admin/comments/fomo`.
+     - Xác thực chuẩn mực bằng `GAME_COMMENTS_MANAGE` (hoặc `ADMIN_FULL`), xóa hàng khỏi D1 và ghi audit log.
+  3. *Quy tắc Game 0 Mã & Ngoại Lệ ĐTCL Mobile*:
+     - Kiểm tra tổng số mã khả dụng từ 3 nguồn: D1 `codes`, D1 `games.total_codes_count`, và file tĩnh `crawled_codes_188.json`.
+     - Nếu `totalCodesCount <= 0` (và không phải `dau-truong-chan-ly-mobile`):
+       + Backend trả về `comments: []`, `overview: 0` (không điểm TB, không phân bố sao, 0 xác nhận).
+       + Frontend [GameDetailModal.tsx](file:///c:/4%20Antigravity%20all/13%20web%20code%20game/src/components/GameDetailModal.tsx) ẩn hẳn mục "Đánh Giá & Bình Luận" nếu không có mã và không có bình luận thật.
+     - Với `dau-truong-chan-ly-mobile`: Được bảo vệ tuyệt đối như một ngoại lệ bắt buộc (68 mã), hiển thị đầy đủ đánh giá cộng đồng.
+- **Kiểm thử & Nghiệm thu**:
+  - Chạy test script cục bộ: kho mẫu đúng 100 câu phân biệt (100%), không có câu nào kết thúc bằng dấu chấm, không câu nào nhắc phần thưởng cụ thể.
+  - Đã kiểm tra 5 game (`stickman`, `idle-heroes`, `wwm`, `genshin`, `dtcl-mobile`): 100% bình luận sinh ra phân biệt nhau đôi một (0 câu trùng), 2 câu liên tiếp không cùng nội dung, điểm TB $\ge 4.5$★.
+  - Build `npm run build` thành công 100%.
+
 ## [2026-11-17]
 
 ### 422. Triển Khai Động Cơ Đánh Giá FOMO Reviews & Quản Lý Qua API (17/11/2026)

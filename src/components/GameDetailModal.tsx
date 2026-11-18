@@ -238,13 +238,18 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
       return;
     }
     setIsLoadingComments(true);
+
+    const isDtcl = slug === 'dau-truong-chan-ly-mobile' || slug === 'dau-truong-chan-ly';
+    const totalCodes = Number((game as any)?.total_codes || (liveGame as any)?.total_codes_count || codes.length || 0);
+    const hasCodes = isDtcl || totalCodes > 0;
+
     const token = typeof window !== 'undefined' ? localStorage.getItem('wcg_auth_token') || '' : '';
     try {
       const headers: Record<string, string> = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
       const res = await fetch(`/api/games/${slug}/comments?limit=15`, { headers });
       const data: any = await res.json().catch(() => ({}));
-      if (res.ok && data?.success && Array.isArray(data?.comments) && data.comments.length > 0) {
+      if (res.ok && data?.success) {
         setCommentsList(data.comments || []);
         if (data.overview) {
           setCommentsOverview(data.overview);
@@ -254,25 +259,46 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
         } else {
           setMyPendingComment(null);
         }
-      } else {
-        // Fallback sang Client-Side FOMO Reviews Generator nếu mạng chậm hoặc API chưa sẵn sàng
+      } else if (hasCodes) {
+        // Fallback sang Client-Side FOMO Reviews Generator nếu mạng chậm hoặc API chưa sẵn sàng (chỉ khi game CÓ MÃ)
         const fallbackFomo = generateFomoComments(slug, {
           is_hot: Boolean((game as any)?.is_hot || (liveGame as any)?.is_hot),
           is_featured: Boolean((game as any)?.is_featured || (liveGame as any)?.is_featured),
-          total_codes_count: Number((game as any)?.total_codes || (liveGame as any)?.total_codes_count || codes.length || 0),
+          total_codes_count: totalCodes,
         });
         setCommentsList(fallbackFomo.comments.slice(0, 15));
         setCommentsOverview(fallbackFomo.overview);
+      } else {
+        // Game 0 mã: xóa trắng và ẩn hoàn toàn
+        setCommentsList([]);
+        setCommentsOverview({
+          average_rating: 0,
+          rating_count: 0,
+          total_comments: 0,
+          distribution: { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 },
+          confirmed_working_count: 0,
+        });
       }
     } catch (err) {
-      console.warn('Error loading comments, using deterministic FOMO fallback:', err);
-      const fallbackFomo = generateFomoComments(slug, {
-        is_hot: Boolean((game as any)?.is_hot || (liveGame as any)?.is_hot),
-        is_featured: Boolean((game as any)?.is_featured || (liveGame as any)?.is_featured),
-        total_codes_count: Number((game as any)?.total_codes || (liveGame as any)?.total_codes_count || codes.length || 0),
-      });
-      setCommentsList(fallbackFomo.comments.slice(0, 15));
-      setCommentsOverview(fallbackFomo.overview);
+      console.warn('Error loading comments:', err);
+      if (hasCodes) {
+        const fallbackFomo = generateFomoComments(slug, {
+          is_hot: Boolean((game as any)?.is_hot || (liveGame as any)?.is_hot),
+          is_featured: Boolean((game as any)?.is_featured || (liveGame as any)?.is_featured),
+          total_codes_count: totalCodes,
+        });
+        setCommentsList(fallbackFomo.comments.slice(0, 15));
+        setCommentsOverview(fallbackFomo.overview);
+      } else {
+        setCommentsList([]);
+        setCommentsOverview({
+          average_rating: 0,
+          rating_count: 0,
+          total_comments: 0,
+          distribution: { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 },
+          confirmed_working_count: 0,
+        });
+      }
     } finally {
       setIsLoadingComments(false);
     }
@@ -1439,8 +1465,13 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
             </div>
           )}
 
-          {/* PHẦN 3: Đánh Giá & Bình Luận Game */}
-          <div className="p-4 sm:p-5 rounded-2xl bg-card border border-border/80 space-y-4">
+          {/* PHẦN 3: Đánh Giá & Bình Luận Game (Ẩn hẳn nếu game không có mã và không có bình luận thật) */}
+          {((currentGame.slug === 'dau-truong-chan-ly-mobile' || currentGame.slug === 'dau-truong-chan-ly') ||
+            (codes && codes.length > 0) ||
+            Number((game as any)?.total_codes || (liveGame as any)?.total_codes_count || 0) > 0 ||
+            commentsList.length > 0 ||
+            myPendingComment !== null) && (
+            <div className="p-4 sm:p-5 rounded-2xl bg-card border border-border/80 space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-foreground font-heading font-bold text-sm sm:text-base">
                 <MessageSquare className="w-4 h-4 text-amber-400" />
@@ -1648,6 +1679,7 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
               )}
             </div>
           </div>
+          )}
         </div>
       </div>
 
