@@ -58,7 +58,7 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
       action: 'DELETE_GAME_COMMENT',
       targetId: commentId,
       targetUser: comment.user_id,
-      severity: 'WARNING',
+      severity: 'WARN',
       details: {
         game_slug: comment.game_slug,
         rating: comment.rating,

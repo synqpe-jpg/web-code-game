@@ -14,11 +14,13 @@
 - **Triệu chứng & Rủi ro**:
   - Khi sinh bình luận tự động cho các game có số lượng bình luận lớn (85-102 bình luận), nếu kho mẫu chỉ có 51 câu và thuật toán chọn mẫu dùng `(itemSeed + i) % length` cùng với hash chuỗi gây ra hiện tượng 4-10 câu liên tiếp bị trùng lặp y hệt nhau (ví dụ: *"vừa nhập xong dc bao nhiêu đồ ngon"* lặp 10/10 lần ở Stickman).
   - Cloudflare Pages Worker bundle `functions/_worker.ts` chưa đăng ký route `pathname.match(/^\/api\/admin\/comments\/([^/]+)$/)` khiến cho `DELETE /api/admin/comments/:id` trả về 404, không thể xóa bình luận qua API admin.
+  - Khi xóa bình luận, nếu hàm `logAdminAudit` truyền `severity: 'WARNING'` sẽ bị vi phạm SQLite `CHECK (severity IN ('INFO', 'WARN', 'CRITICAL'))`, dẫn đến việc xóa thành công trong D1 nhưng bị mất dòng log kiểm toán `DELETE_GAME_COMMENT` trong `security_logs`.
   - Các game không có mã code (0 mã) nhưng vẫn sinh ra hơn 100 bình luận và hiển thị điểm đánh giá 4.7★ - 4.9★, gây mâu thuẫn trực quan và thiếu chân thực.
 - **Giải pháp chuẩn đã kiểm chứng**:
   - Mở rộng kho mẫu lên đúng 100 câu phân biệt đôi một (82 câu 5★, 10 câu 4★, 8 câu hết hạn 3-4★). Tất cả đều viết thường, không có dấu chấm câu ở cuối, sử dụng từ viết tắt tự nhiên (`ad/dc/k/ko/ae/nha/mn/code/mã/oki/tks`), không ghi phần thưởng cụ thể.
   - Thuật toán Fisher-Yates shuffle tất định theo LCG PRNG riêng cho từng nhóm mẫu theo seed của game, kết hợp bước lọc trùng tuyệt đối `seenAutoContents: Set<string>` ở tầng trả về API cuối cùng. Đảm bảo 100% không có bất kỳ 2 câu nào trùng nhau trong 1 game ở mọi trang phân trang.
-  - Đăng ký đầy đủ route `DELETE /api/admin/comments/:id` và `GET /api/admin/comments/fomo` trong `functions/_worker.ts`, kiểm tra quyền `GAME_COMMENTS_MANAGE` hoặc `ADMIN_FULL` và ghi nhật ký kiểm toán `logAdminAudit`.
+  - Đăng ký đầy đủ route `DELETE /api/admin/comments/:id` và `GET /api/admin/comments/fomo` trong `functions/_worker.ts`, kiểm tra quyền `GAME_COMMENTS_MANAGE` hoặc `ADMIN_FULL`.
+  - Trong `logAdminAudit` và `functions/api/admin/comments/[id]/index.ts`: Chuẩn hóa `severity: 'WARN'` và bổ sung mapping phòng thủ (`'WARNING'` $\rightarrow$ `'WARN'`), đảm bảo 100% mọi thao tác xóa đều ghi dòng `DELETE_GAME_COMMENT` vào `security_logs`.
   - Quy tắc game 0 mã: Kiểm tra tổng số mã của game từ D1 `codes`, D1 `games.total_codes_count`, và catalog fallback `crawled_codes_188.json`. Nếu `totalCodesCount <= 0`, trả về danh sách bình luận rỗng và overview toàn 0, đồng thời ẩn hẳn mục "Đánh Giá & Bình Luận" trên modal chi tiết game nếu không có bình luận thật.
   - Ngoại lệ bắt buộc: `dau-truong-chan-ly-mobile` có 68 mã hiển thị trên trang chi tiết $\rightarrow$ luôn được bảo vệ để hiển thị đầy đủ đánh giá cộng đồng.
 

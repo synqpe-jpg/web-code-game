@@ -7,6 +7,26 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-18]
 
+### 424. Sửa Lỗi Thiếu Dòng Log Kiểm Toán DELETE_GAME_COMMENT (SQLite Severity CHECK Constraint) (18/11/2026)
+- **Bối cảnh & Yêu cầu của Chủ sở hữu**:
+  - Tại build `8655d5b`, thao tác xóa bình luận `DELETE /api/admin/comments/:id` đã xóa thành công bản ghi khỏi bảng `game_comments` trong D1.
+  - Tuy nhiên, trong `/api/admin/audit-log` chỉ ghi nhận dòng `APPROVE_GAME_COMMENT` và `REJECT_GAME_COMMENT`, hoàn toàn thiếu dòng `DELETE_GAME_COMMENT`.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Bảng `security_logs` trong CSDL D1 có ràng buộc: `CHECK (severity IN ('INFO', 'WARN', 'CRITICAL'))`.
+  - Trong `functions/api/admin/comments/[id]/index.ts`, hàm `logAdminAudit` được gọi với `severity: 'WARNING'`.
+  - Từ khóa `'WARNING'` không nằm trong danh sách cho phép (`'INFO'`, `'WARN'`, `'CRITICAL'`), dẫn đến câu lệnh `INSERT INTO security_logs` bị SQLite từ chối với lỗi `CHECK constraint failed: severity IN ('INFO', 'WARN', 'CRITICAL')`.
+  - Đồng thời, trong `functions/services/d1_service.ts`, hàm `logAdminAudit` có `.catch(() => {})` khiến ngoại lệ bị nuốt thầm, API vẫn trả về HTTP 200 dù log kiểm toán không được lưu.
+- **Giải pháp áp dụng (Solution)**:
+  1. *Chuẩn hóa mức độ nghiêm trọng tại `functions/api/admin/comments/[id]/index.ts`*:
+     - Chuyển `severity: 'WARNING'` thành `severity: 'WARN'` chuẩn xác theo schema SQLite.
+  2. *Phòng thủ đa tầng tại `functions/services/d1_service.ts` (`logAdminAudit`)*:
+     - Thêm cơ chế chuẩn hóa chuỗi `cleanSeverity`: tự động ánh xạ `'WARNING'` / `'WARN'` $\rightarrow$ `'WARN'`, `'CRITICAL'` / `'ERROR'` / `'FATAL'` $\rightarrow$ `'CRITICAL'`, mặc định `'INFO'`. Đảm bảo không bao giờ vi phạm ràng buộc CHECK trong tương lai.
+     - Loại bỏ việc nuốt lỗi âm thầm, ghi log `console.error('[logAdminAudit error]', ...)` để phục vụ giám sát Cloudflare.
+- **Kiểm thử & Nghiệm thu**:
+  - `npm run build` thành công 100%.
+  - Tiến hành test luồng hoàn chỉnh trên production: tạo bình luận test $\rightarrow$ duyệt $\rightarrow$ xóa $\rightarrow$ kiểm tra `/api/admin/audit-log` xuất hiện đúng dòng `DELETE_GAME_COMMENT` với `targetId`, `game_slug`, `rating`, `content` $\rightarrow$ dọn sạch dữ liệu test.
+
+
 ### 423. Lọc Trùng Bình Luận Ảo, Kho Mẫu 100 Câu, Khắc Phục DELETE Admin API & Ẩn Bình Luận Game 0 Mã (18/11/2026)
 - **Bối cảnh & Yêu cầu của Chủ sở hữu**:
   - Tại trang `Age of Stickman: Evolution` (`age-of-stickman-evolution`), mục bình luận hiện 4-10 câu liên tiếp bị trùng lặp nội dung (*"vừa nhập xong dc bao nhiêu đồ ngon"*).

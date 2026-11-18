@@ -1132,7 +1132,7 @@ export async function logAdminAudit(
     action: string;
     targetId?: string;
     targetUser?: string;
-    severity?: 'INFO' | 'WARN' | 'CRITICAL';
+    severity?: 'INFO' | 'WARN' | 'CRITICAL' | string;
     ipAddress?: string;
     details?: any;
   }
@@ -1140,6 +1140,20 @@ export async function logAdminAudit(
   try {
     const id = `sec_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const detailsStr = typeof params.details === 'string' ? params.details : JSON.stringify(params.details || {});
+
+    // Normalize severity to match SQLite CHECK constraint: severity IN ('INFO', 'WARN', 'CRITICAL')
+    let cleanSeverity: 'INFO' | 'WARN' | 'CRITICAL' = 'INFO';
+    if (params.severity) {
+      const s = String(params.severity).toUpperCase().trim();
+      if (s === 'WARN' || s === 'WARNING') {
+        cleanSeverity = 'WARN';
+      } else if (s === 'CRITICAL' || s === 'ERROR' || s === 'FATAL' || s === 'HIGH') {
+        cleanSeverity = 'CRITICAL';
+      } else {
+        cleanSeverity = 'INFO';
+      }
+    }
+
     await db.prepare(`
       INSERT INTO security_logs (id, actor_name, actor_email, action, target_id, target_user, severity, ip_address, details, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
@@ -1150,12 +1164,12 @@ export async function logAdminAudit(
       params.action,
       params.targetId || null,
       params.targetUser || null,
-      params.severity || 'INFO',
+      cleanSeverity,
       params.ipAddress || 'cloudflare-edge',
       detailsStr
-    ).run().catch(() => {});
-  } catch (e) {
-    console.warn('[logAdminAudit error]', e);
+    ).run();
+  } catch (e: any) {
+    console.error('[logAdminAudit error]', e?.message || e);
   }
 }
 
