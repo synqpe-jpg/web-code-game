@@ -260,6 +260,21 @@
   3. Cắt tỉa văn bản dài bằng `truncate` kèm thuộc tính `title` để hiển thị tooltip khi rê chuột.
   4. Cột Thao Tác (Actions) luôn hiển thị đầy đủ trong khung nhìn (kèm hỗ trợ `sticky: 'right'` khi cần thiết).
 
+### 3.17. Quy Tắc Động Cơ Đánh Giá FOMO Reviews & Quản Lý Bình Luận Game
+- **Kiến trúc FOMO Reviews Tất Định (Deterministic FOMO Engine)**:
+  - Sinh đánh giá và bình luận cộng đồng tự động dựa trên hạt giống `game.slug` + `currentDaySeed` (tăng trưởng dần theo độ hot của game).
+  - Kho mẫu chuẩn 100 câu phân biệt đôi một (82 câu 5★, 10 câu 4★, 8 câu hết hạn 3-4★): toàn bộ chữ thường, không dấu chấm câu cuối câu, không nhắc phần thưởng cụ thể, sử dụng từ viết tắt tự nhiên của giới game thủ (`ad/dc/k/ko/ae/nha/mn/code/mã/oki/tks`).
+  - Thuật toán Fisher-Yates shuffle tất định + bộ lọc `Set<string>` đảm bảo 100% không có 2 bình luận nào trùng nội dung trong cùng 1 game ở mọi trang phân trang. Điểm trung bình duy trì $\ge 4.5$★ cho game có mã. Giới hạn tối đa 100 bình luận/game.
+- **Quy tắc Game 0 Mã (Zero-Code Games)**:
+  - Nếu tựa game có 0 mã khả dụng (kiểm tra từ D1 `codes`, D1 `games.total_codes_count`, và catalog fallback tĩnh): backend trả về danh sách rỗng (`comments: []`) và overview toàn 0; frontend ẩn hẳn mục "Đánh Giá & Bình Luận" nếu không có bình luận thật.
+  - Ngoại lệ bắt buộc: `dau-truong-chan-ly-mobile` có 68 mã hiển thị trên web $\rightarrow$ luôn được bảo vệ tính là có mã, hiển thị đầy đủ đánh giá cộng đồng.
+- **API Quản Trị Đủ Bộ 4 Thao Tác**:
+  - `GET /api/admin/comments`: Liệt kê, tìm kiếm, lọc theo trạng thái (`PENDING`, `APPROVED`, `REJECTED`), phân trang.
+  - `POST /api/admin/comments/:id/approve`: Duyệt bình luận công khai.
+  - `POST /api/admin/comments/:id/reject`: Từ chối bình luận kèm lý do.
+  - `DELETE /api/admin/comments/:id`: Xóa vĩnh viễn bình luận khỏi D1 kèm ghi nhật ký kiểm toán `logAdminAudit`. Yêu cầu quyền `GAME_COMMENTS_MANAGE` hoặc `ADMIN_FULL`.
+
+
 ## 4. BẢN ĐỒ DỮ LIỆU & STATE MANAGEMENT
 
 ### 4.1. LocalStorage Keys Chính
