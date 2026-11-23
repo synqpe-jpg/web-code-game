@@ -22,6 +22,14 @@ execSync('npx vite build', { stdio: 'inherit' });
 console.log('🌐 3. Generating Prerendered Static SEO HTML Pages for 486+ Games...');
 execSync('node scripts/prerender.js', { stdio: 'inherit' });
 
+console.log('🔄 3b. Removing static robots.txt & manifest.json from dist to delegate 100% to dynamic Edge Worker...');
+try {
+  if (fs.existsSync('dist/robots.txt')) fs.unlinkSync('dist/robots.txt');
+  if (fs.existsSync('dist/manifest.json')) fs.unlinkSync('dist/manifest.json');
+} catch (e) {
+  console.warn('   Could not remove static files from dist:', e.message);
+}
+
 console.log('⚡ 4. Compiling Cloudflare Pages Edge Worker bundle...');
 let commitHash = 'unknown';
 try {
