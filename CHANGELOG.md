@@ -7,6 +7,39 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-23]
 
+### 427. Hoàn Thiện Prerender Tĩnh Động Hóa 100%, Tiêu Đề Tab Trang Chủ Phản Ứng Tức Thì & Nút Tải App Động (23/11/2026)
+- **Bối cảnh & Yêu cầu của Chủ sở hữu (Prompt 10 Final Polish)**:
+  - *Nhóm 1 — Bản prerender tĩnh vẫn ghi cứng tên thương hiệu và FAQ*: Khối `#home-faq-section` trong `scripts/prerender.js` trước đây ghi cứng 3 câu hỏi/đáp và tiêu đề tiếng Việt; thẻ đóng `</main>` bị trùng lặp ở dòng 726 khiến khối FAQ nằm ngoài `<main>`. Prerender phải đọc động cấu hình branding hiện tại (`faqList`, `brandDisplay`, `brandName`, `siteTitle`, `baseUrl`), đưa khối FAQ vào trong `<main>` và xóa thẻ `</main>` thừa.
+  - *Nhóm 2 — Tiêu đề tab trang chủ không đổi theo tên thương hiệu mới*: Khi đổi `brandDisplay` sang tên mới qua API hoặc Admin, tab trang chủ vẫn giữ nguyên tiêu đề cũ do `siteTitle` cũ chưa được thay thế chuỗi thương hiệu mới. Tiêu đề tab trang chủ phải phản ứng tức thì theo `brandDisplay` trong khi vẫn bảo lưu tiêu đề riêng của các tab khác.
+  - *Nhóm 3 — Nút tải app còn đường dẫn và link ghi cứng tên cũ*: File APK tải về trong `DownloadAppModal.tsx` và link fallback tạo mã QR / sao chép link phải đọc động từ `brandName` và `baseUrl`.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - 1. Trong `scripts/prerender.js`, `FAQPage` schema và `#home-faq-section` HTML được viết tĩnh dạng chuỗi cố định; dòng 726 có `</main>` đóng sớm trước khối FAQ, rồi dòng 747 lại có thêm `</main>` thừa. Các trang con (news, events, telegram, giveaways, store, admin, missions, cart, seller, games, 404, categories, A-Z) cũng chứa nhiều chuỗi tĩnh `CodeGame.Shop` / `https://codegame.shop`.
+  - 2. Trong `src/App.tsx`, `brandDefaultTitle` chỉ đọc `brandingConfig.siteTitle` nguyên bản. Nếu người dùng gọi API PUT cập nhật `brandDisplay` mà không truyền hoặc giữ nguyên `siteTitle` cũ thì tab trang chủ không phản ánh tên thương hiệu mới.
+  - 3. Trong `src/components/DownloadAppModal.tsx`, `href` nút tải APK ghi cứng `/download/codegame.apk`, và các hàm QR/copy link fallback ghi cứng `'https://codegame.shop'`.
+- **Giải pháp áp dụng (Solution)**:
+  - 1. *Động Hóa Hoàn Toàn `scripts/prerender.js`*:
+     - Import `DEFAULT_BRANDING_CONFIG` từ `src/services/brandingService.ts`.
+     - Ở đầu hàm `runPrerender()`: Fetch live cấu hình branding từ `${BASE_URL}/api/branding` với timeout 3s qua `AbortController`. Fallback an toàn về `DEFAULT_BRANDING_CONFIG`, hợp nhất với `process.env`.
+     - Thêm helper `formatFaqText()` tự động thay thế `{brand}` và tên thương hiệu cũ.
+     - Sinh động JSON-LD `FAQPage` và HTML cards `#home-faq-section` qua `FAQ_LIST.map(...)`.
+     - Xóa thẻ `</main>` thừa ở dòng 726, đặt `#home-faq-section` nằm gọn gàng bên trong container và bên trong `<main>`, kết thúc chỉ bằng 1 thẻ `</main>` duy nhất.
+     - Chuyển toàn bộ các trang tĩnh con (Tin tức, Sự kiện, Telegram, Mã hôm nay, Chi tiết bài tin, Giveaway, Cửa hàng VIP, Quản trị, Nhiệm vụ, Giỏ hàng, Kênh người bán, Chi tiết game, 404, Chuyên mục thể loại, Mục lục A-Z) sang biến động `${escapeHtml(BRAND_DISPLAY)}`, `${BASE_URL}` và `${BRAND_NAME}`.
+  - 2. *Tiêu Đề Tab Trang Chủ Phản Ứng Tức Thì*:
+     - `src/App.tsx:894–896`: Thêm logic tự động thay thế chuỗi thương hiệu cũ trong `rawSiteTitle` thành `brandingConfig.brandDisplay` / `brandingConfig.brandName` khi `brandDisplay` khác mặc định. Tab trang chủ cập nhật tức thì theo tên thương hiệu mới.
+     - `functions/services/branding_service.ts`: Trong hàm `saveBrandingConfig()`, bổ sung cơ chế tự động đồng bộ `siteTitle` theo `update.brandDisplay` nếu người gọi không truyền `siteTitle` mới riêng biệt.
+  - 3. *Dynamic Hóa Modal Tải App & Worker Redirect*:
+     - `src/components/DownloadAppModal.tsx`: Dòng 56 và 88 fallback `(branding.baseUrl || 'https://codegame.shop')` cho cả tạo QR code và Clipboard copy. Dòng 326 `href` chuyển thành `/download/${brandName.toLowerCase()}.apk`.
+     - `functions/_worker.ts`: Bổ sung điều kiện wildcard `(lowerPath.startsWith('/download/') && lowerPath.endsWith('.apk'))` chuyển hướng HTTP 302 đến bản phát hành GitHub Release chính thức, đảm bảo không bao giờ bị 404 với bất kỳ tên thương hiệu nào.
+- **Kiểm thử & Nghiệm thu Thực Tế**:
+  - `npm run build`: Hoàn tất thành công (Exit code 0, 0 test artifacts, 1 thẻ `</main>` duy nhất trong `dist/index.html`, FAQ nằm trong `<main>`).
+  - Triển khai đồng thời cả 2 dự án Cloudflare Pages qua `npm run deploy:all` (Web khách: `web-code-game`, Web quản trị: `admin-code-game-shop`).
+  - Đồng bộ commit `904f33d` lên GitHub repository qua `git push origin main`.
+  - Kiểm thử trực tiếp với API live:
+    + Gọi `PUT /api/admin/branding` đổi sang `brandDisplay: "MegaCode.Shop"`: Public `GET /api/branding` phản hồi ngay tức thì với `brandDisplay: "MegaCode.Shop"` và `siteTitle: "MegaCode.Shop - Cổng Tra Cứu Giftcode & Game Bản Quyền Hàng Đầu"`.
+    + Gọi `GET /download/megacode.apk` phản hồi HTTP 302 chuyển tiếp chính xác đến GitHub Release APK.
+    + Khôi phục sạch 100% về `CodeGame.Shop` và `https://codegame.shop`.
+
+
 ### 426. Khắc Phục Thứ Tự Ưu Tiên Header/Banner, Thêm Khối FAQ Trang Chủ & Làm Sạch Chuỗi Thương Hiệu Còn Sót (23/11/2026)
 - **Bối cảnh & Yêu cầu của Chủ sở hữu (Prompt 10 Follow-up)**:
   - Khi đổi cấu hình thương hiệu sang tên mới qua Admin hoặc API, tiêu đề tab và footer đổi theo tên mới nhưng Header vẫn hiển thị chuỗi cũ từ kho nội dung cũ `wcg_admin_content_v4`, và Banner chào mừng vẫn hiển thị chuỗi cũ.

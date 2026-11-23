@@ -10,6 +10,16 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-305: Bản Prerender Ghi Cứng Tên/FAQ, Tiêu Đề Tab Trang Chủ Không Phản Ứng & Nút Tải App Ghi Cứng
+- **Triệu chứng & Rủi ro**:
+  - Bản vẽ đầu tiên (Initial Paint) hoặc crawler bot tìm kiếm (Googlebot, Bingbot) chỉ nhận được nội dung FAQ và tên thương hiệu cũ được ghi cứng trong `scripts/prerender.js`. Thẻ đóng `</main>` bị ghi đúp ở dòng 726 và 747 làm khối FAQ nằm ngoài `<main>` gây lỗi cấu trúc DOM.
+  - Khi người dùng đổi `brandDisplay` qua API hoặc Admin, tiêu đề tab trang chủ (`document.title`) vẫn giữ nguyên giá trị `CodeGame.shop` do `App.tsx` chỉ đọc `brandingConfig.siteTitle` nguyên bản.
+  - Nút tải APK trong `DownloadAppModal.tsx` trỏ cứng tới `/download/codegame.apk`, và các link dự phòng tạo mã QR / sao chép link trỏ cứng tới `https://codegame.shop`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - *Prerender Động Hóa*: Nạp live cấu hình branding từ `/api/branding` với fallback an toàn `DEFAULT_BRANDING_CONFIG`, render động JSON-LD `FAQPage` và HTML cards `#home-faq-section` qua `FAQ_LIST.map(...)`. Xóa thẻ `</main>` thừa, đặt khối FAQ nằm đúng vị trí bên trong `<main>`. Toàn bộ các trang tĩnh con đọc biến `${escapeHtml(BRAND_DISPLAY)}`.
+  - *Tab Trang Chủ Linh Hoạt*: Trong `src/App.tsx`, tự động thay thế chuỗi thương hiệu cũ trong `siteTitle` thành `brandDisplay` / `brandName` khi tên thương hiệu thay đổi. Đồng thời trong `saveBrandingConfig()`, tự động đồng bộ `siteTitle` tương ứng khi người dùng cập nhật `brandDisplay`.
+  - *Modal Tải App Động & Wildcard Redirect*: Dùng `/download/${brandName.toLowerCase()}.apk` và fallback `branding.baseUrl`. Thêm điều kiện wildcard `(lowerPath.startsWith('/download/') && lowerPath.endsWith('.apk'))` trong `functions/_worker.ts` chuyển hướng HTTP 302 an toàn đến GitHub Release APK.
+
 ### ISSUE-304: Xung Đột Thứ Tự Ưu Tiên Branding Cũ/Mới, Hiển Thị Khối FAQ Trang Chủ & Làm Sạch Chuỗi Thương Hiệu Còn Sót
 - **Triệu chứng & Rủi ro**:
   - Khi người dùng đổi tên thương hiệu qua API hoặc Admin Branding, tiêu đề tab và footer hiển thị tên mới nhưng Header và Banner chào mừng vẫn cố chấp hiển thị tên thương hiệu cũ. Nguyên nhân do `Header.tsx` ưu tiên prop `branding.siteTitle` từ kho CMS cũ `wcg_admin_content_v4` trước `brandingServiceConfig.brandDisplay`.
