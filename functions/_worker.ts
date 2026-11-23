@@ -279,7 +279,8 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
       pathname === '/download/codegame.apk' ||
       pathname === '/download/CodeGame-v1.0.apk' ||
       lowerPath === '/download/codegame.apk' ||
-      lowerPath === '/download/codegame-v1.0.apk'
+      lowerPath === '/download/codegame-v1.0.apk' ||
+      (lowerPath.startsWith('/download/') && lowerPath.endsWith('.apk'))
     ) {
       return Response.redirect(
         'https://github.com/synqpe-jpg/web-code-game/releases/download/v1.0.0/CodeGame-v1.0.apk',

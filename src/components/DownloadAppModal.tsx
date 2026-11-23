@@ -53,7 +53,7 @@ export const DownloadAppModal: React.FC<DownloadAppModalProps> = ({
     }
 
     // Generate local QR Code with 0 external network requests
-    const targetUrl = typeof window !== 'undefined' ? window.location.origin : 'https://codegame.shop';
+    const targetUrl = typeof window !== 'undefined' ? window.location.origin : (branding.baseUrl || 'https://codegame.shop');
     QRCode.toDataURL(targetUrl, {
       width: 280,
       margin: 2,
@@ -70,7 +70,7 @@ export const DownloadAppModal: React.FC<DownloadAppModalProps> = ({
       setCanPromptPwa(can);
     });
     return unsub;
-  }, [isOpen]);
+  }, [isOpen, branding.baseUrl]);
 
   if (!isOpen) return null;
 
@@ -85,7 +85,7 @@ export const DownloadAppModal: React.FC<DownloadAppModalProps> = ({
   };
 
   const handleCopyLink = () => {
-    const targetUrl = typeof window !== 'undefined' ? window.location.origin : 'https://codegame.shop';
+    const targetUrl = typeof window !== 'undefined' ? window.location.origin : (branding.baseUrl || 'https://codegame.shop');
     navigator.clipboard?.writeText(targetUrl).then(() => {
       setCopiedLink(true);
       setTimeout(() => setCopiedLink(false), 2000);
@@ -323,7 +323,7 @@ export const DownloadAppModal: React.FC<DownloadAppModalProps> = ({
                 </div>
 
                 <a
-                  href="/download/codegame.apk"
+                  href={`/download/${(brandName || 'codegame').toLowerCase().replace(/[^a-z0-9_-]/g, '') || 'codegame'}.apk`}
                   download={`${brandName}-v1.0.apk`}
                   className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-sm shadow-sm active:scale-98 transition-all flex items-center justify-center gap-2 cursor-pointer no-underline"
                 >

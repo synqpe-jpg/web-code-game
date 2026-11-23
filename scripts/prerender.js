@@ -1,12 +1,26 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { DEFAULT_BRANDING_CONFIG } from '../src/services/brandingService.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const BASE_URL = (process.env.BASE_URL || 'https://codegame.shop').replace(/\/+$/, '');
-const BRAND_DISPLAY = process.env.BRAND_DISPLAY || 'CodeGame.Shop';
+let BASE_URL = (process.env.BASE_URL || DEFAULT_BRANDING_CONFIG.baseUrl || 'https://codegame.shop').replace(/\/+$/, '');
+let BRAND_DISPLAY = process.env.BRAND_DISPLAY || DEFAULT_BRANDING_CONFIG.brandDisplay || 'CodeGame.Shop';
+let BRAND_NAME = process.env.BRAND_NAME || DEFAULT_BRANDING_CONFIG.brandName || 'CodeGame';
+let SITE_TITLE = process.env.SITE_TITLE || DEFAULT_BRANDING_CONFIG.siteTitle || `${BRAND_DISPLAY} - Săn Giftcode Miễn Phí & Giao Dịch Mã Game Uy Tín`;
+let FAQ_LIST = DEFAULT_BRANDING_CONFIG.faqList || [];
+
+function formatFaqText(text = '') {
+  if (!text) return '';
+  let formatted = text.replace(/\{brand\}/g, BRAND_DISPLAY);
+  if (BRAND_DISPLAY && BRAND_DISPLAY.toLowerCase() !== 'codegame.shop') {
+    formatted = formatted.replace(/CodeGame\.shop/gi, BRAND_DISPLAY);
+    formatted = formatted.replace(/CodeGame/gi, BRAND_NAME);
+  }
+  return formatted;
+}
 
 const GAME_CANONICAL_ALIASES = {
   'dau-truong-chan-ly-mobile': 'dau-truong-chan-ly',
@@ -156,7 +170,7 @@ function parseHowToSteps(instructions, gameName) {
       '@type': 'HowToStep',
       position: 3,
       name: 'Nhập mã giftcode',
-      text: `Sao chép mã giftcode từ CodeGame.shop và dán chính xác vào ô nhập mã quà tặng.`,
+      text: `Sao chép mã giftcode từ ${BRAND_DISPLAY} và dán chính xác vào ô nhập mã quà tặng.`,
     },
     {
       '@type': 'HowToStep',
@@ -175,6 +189,37 @@ async function runPrerender() {
     console.error('[Prerender] Không tìm thấy dist/index.html. Hãy chạy vite build trước!');
     process.exit(1);
   }
+
+  // Load and sync dynamic branding configuration
+  let branding = { ...DEFAULT_BRANDING_CONFIG };
+  try {
+    const liveApiUrl = `${BASE_URL}/api/branding`;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 3000);
+    const res = await fetch(liveApiUrl, { signal: controller.signal });
+    clearTimeout(timer);
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.success && data.branding) {
+        branding = { ...branding, ...data.branding };
+      }
+    }
+  } catch (err) {
+    // Offline / build-time fallback to DEFAULT_BRANDING_CONFIG
+  }
+
+  if (process.env.BRAND_DISPLAY) branding.brandDisplay = process.env.BRAND_DISPLAY;
+  if (process.env.BRAND_NAME) branding.brandName = process.env.BRAND_NAME;
+  if (process.env.BASE_URL) branding.baseUrl = process.env.BASE_URL.replace(/\/+$/, '');
+  if (process.env.SITE_TITLE) branding.siteTitle = process.env.SITE_TITLE;
+
+  BASE_URL = (branding.baseUrl || BASE_URL).replace(/\/+$/, '');
+  BRAND_DISPLAY = branding.brandDisplay || BRAND_DISPLAY;
+  BRAND_NAME = branding.brandName || BRAND_NAME;
+  SITE_TITLE = branding.siteTitle || `${BRAND_DISPLAY} - Săn Giftcode Miễn Phí & Giao Dịch Mã Game Uy Tín`;
+  FAQ_LIST = Array.isArray(branding.faqList) && branding.faqList.length > 0 ? branding.faqList : DEFAULT_BRANDING_CONFIG.faqList;
+
+  console.log(`[Prerender] Áp dụng cấu hình thương hiệu: "${BRAND_DISPLAY}" (${BASE_URL}) với ${FAQ_LIST.length} câu hỏi FAQ`);
 
   const templateHtml = fs.readFileSync(templatePath, 'utf8');
 
@@ -198,7 +243,7 @@ async function runPrerender() {
     title,
     description,
     canonicalPath,
-    ogImage = 'https://codegame.shop/og-image.jpg',
+    ogImage = `${BASE_URL}/og-image.jpg`,
     ogType = 'website',
     noindex = false,
     jsonLd = [],
@@ -217,7 +262,7 @@ async function runPrerender() {
     ${noindex ? '<meta name="robots" content="noindex, nofollow, noarchive">' : '<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">'}
     
     <!-- Open Graph Tags -->
-    <meta property="og:site_name" content="CodeGame.shop">
+    <meta property="og:site_name" content="${escapeHtml(BRAND_DISPLAY)}">
     <meta property="og:type" content="${escapeHtml(ogType)}">
     <meta property="og:title" content="${escapeHtml(title)}">
     <meta property="og:description" content="${escapeHtml(description)}">
@@ -373,7 +418,7 @@ async function runPrerender() {
   }).join('');
 
   const homeHtml = buildPageHtml({
-    title: 'CodeGame.shop - Săn Giftcode Miễn Phí & Giao Dịch Mã Game Uy Tín',
+    title: SITE_TITLE || `${BRAND_DISPLAY} - Săn Giftcode Miễn Phí & Giao Dịch Mã Game Uy Tín`,
     description: homeDescription,
     canonicalPath: '/',
     ogType: 'website',
@@ -381,13 +426,13 @@ async function runPrerender() {
       {
         '@context': 'https://schema.org',
         '@type': 'WebSite',
-        name: 'CodeGame.shop',
-        url: 'https://codegame.shop/',
+        name: BRAND_DISPLAY,
+        url: `${BASE_URL}/`,
         potentialAction: {
           '@type': 'SearchAction',
           target: {
             '@type': 'EntryPoint',
-            urlTemplate: 'https://codegame.shop/?q={search_term_string}',
+            urlTemplate: `${BASE_URL}/?q={search_term_string}`,
           },
           'query-input': 'required name=search_term_string',
         },
@@ -395,9 +440,9 @@ async function runPrerender() {
       {
         '@context': 'https://schema.org',
         '@type': 'Organization',
-        name: 'CodeGame.shop',
-        url: 'https://codegame.shop',
-        logo: 'https://codegame.shop/logo.webp',
+        name: BRAND_DISPLAY,
+        url: BASE_URL,
+        logo: `${BASE_URL}/logo.webp`,
         description: 'Cổng thông tin chia sẻ giftcode game mobile và giao dịch mã tự động.',
         sameAs: [
           'https://t.me/webcodegame_vn',
@@ -408,32 +453,14 @@ async function runPrerender() {
       {
         '@context': 'https://schema.org',
         '@type': 'FAQPage',
-        mainEntity: [
-          {
-            '@type': 'Question',
-            name: `Giftcode trên ${BRAND_DISPLAY} có miễn phí không?`,
-            acceptedAnswer: {
-              '@type': 'Answer',
-              text: 'Tất cả mã giftcode trong mục Mã Miễn Phí và Đợt Phát Code đều hoàn toàn miễn phí 100%, được tổng hợp và kiểm duyệt từ các Nhà phát hành game chính thức tại Việt Nam.',
-            },
+        mainEntity: FAQ_LIST.map((faq) => ({
+          '@type': 'Question',
+          name: formatFaqText(faq.q),
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: formatFaqText(faq.a),
           },
-          {
-            '@type': 'Question',
-            name: 'Làm thế nào để sao chép mã code nhanh chóng?',
-            acceptedAnswer: {
-              '@type': 'Answer',
-              text: 'Bạn chỉ cần nhấp vào nút Sao Chép bên cạnh mỗi mã giftcode hoặc chọn Sao Chép Toàn Bộ Mã Còn Hạn để lưu tất cả giftcode vào bộ nhớ tạm trong 1 giây.',
-            },
-          },
-          {
-            '@type': 'Question',
-            name: `Các tựa game trên ${BRAND_DISPLAY} có hợp pháp không?`,
-            acceptedAnswer: {
-              '@type': 'Answer',
-              text: 'Hệ thống cập nhật và đối soát thông tin pháp lý, Giấy phép phê duyệt nội dung kịch bản G1 từ Cục PTTH&TTĐT đối với từng tựa game phát hành tại Việt Nam.',
-            },
-          },
-        ],
+        })),
       },
       {
         '@context': 'https://schema.org',
@@ -459,17 +486,17 @@ async function runPrerender() {
             <div class="pointer-events-none absolute right-0 top-0 bottom-0 w-6 sm:w-10 bg-gradient-to-l from-purple-950 to-transparent z-10"></div>
             <div class="flex w-max animate-marquee hover:[animation-play-state:paused] active:[animation-play-state:paused] cursor-pointer" title="Rê chuột hoặc chạm để tạm dừng đọc thông báo">
               <div class="inline-flex items-center gap-3 px-6 whitespace-nowrap">
-                <span class="font-extrabold text-amber-200 tracking-wide drop-shadow-sm">Chào mừng đến với CodeGame.shop</span>
+                <span class="font-extrabold text-amber-200 tracking-wide drop-shadow-sm">Chào mừng đến với ${escapeHtml(BRAND_DISPLAY)}</span>
                 <span class="text-slate-100 font-medium">• Tra cứu và nhận mã giftcode miễn phí mới nhất.</span>
                 <span class="text-amber-400/70 font-bold px-2 select-none">✦</span>
               </div>
               <div class="inline-flex items-center gap-3 px-6 whitespace-nowrap">
-                <span class="font-extrabold text-amber-200 tracking-wide drop-shadow-sm">Chào mừng đến với CodeGame.shop</span>
+                <span class="font-extrabold text-amber-200 tracking-wide drop-shadow-sm">Chào mừng đến với ${escapeHtml(BRAND_DISPLAY)}</span>
                 <span class="text-slate-100 font-medium">• Tra cứu và nhận mã giftcode miễn phí mới nhất.</span>
                 <span class="text-amber-400/70 font-bold px-2 select-none">✦</span>
               </div>
               <div class="inline-flex items-center gap-3 px-6 whitespace-nowrap">
-                <span class="font-extrabold text-amber-200 tracking-wide drop-shadow-sm">Chào mừng đến với CodeGame.shop</span>
+                <span class="font-extrabold text-amber-200 tracking-wide drop-shadow-sm">Chào mừng đến với ${escapeHtml(BRAND_DISPLAY)}</span>
                 <span class="text-slate-100 font-medium">• Tra cứu và nhận mã giftcode miễn phí mới nhất.</span>
                 <span class="text-amber-400/70 font-bold px-2 select-none">✦</span>
               </div>
@@ -482,8 +509,8 @@ async function runPrerender() {
           <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
             <div class="flex items-center justify-between h-14 sm:h-16 gap-2 sm:gap-3">
               <a href="/" class="header-logo flex items-center gap-1.5 sm:gap-2 text-brand-400 font-extrabold text-base sm:text-lg">
-                <img src="/logo.webp" alt="CodeGame.shop" width="32" height="32" class="w-8 h-8 rounded-lg object-cover" />
-                <span class="text-white font-bold">CodeGame.Shop</span>
+                <img src="/logo.webp" alt="${escapeHtml(BRAND_DISPLAY)}" width="32" height="32" class="w-8 h-8 rounded-lg object-cover" />
+                <span class="text-white font-bold">${escapeHtml(BRAND_DISPLAY)}</span>
               </a>
               <nav class="header-nav-tabs hidden md:flex items-center space-x-3 sm:space-x-6 text-xs sm:text-sm font-bold text-gray-300">
                 <a href="/" class="text-brand-400 font-black">Mã Miễn Phí</a>
@@ -722,28 +749,20 @@ async function runPrerender() {
                 }).join('')}
               </div>
             </section>
-          </div>
-        </main>
 
-          <!-- FAQ Section -->
-          <section id="home-faq-section" aria-labelledby="faq-heading" class="mt-14 pt-8 border-t border-gray-800">
-            <h2 id="faq-heading" class="text-lg sm:text-xl font-bold text-white mb-2">Câu Hỏi Thường Gặp Khi Nhận Giftcode (FAQ)</h2>
-            <p class="text-xs text-gray-400 mb-6">Giải đáp các thắc mắc phổ biến về mã giftcode, bản quyền game và cách nhận quà tại ${BRAND_DISPLAY}</p>
-            <div class="grid md:grid-cols-3 gap-4 text-xs text-gray-300">
-              <div class="p-4 rounded-xl bg-dark-900 border border-gray-800">
-                <h3 class="font-bold text-gray-100 text-sm mb-2">1. Giftcode trên ${BRAND_DISPLAY} có miễn phí không?</h3>
-                <p>Tất cả mã giftcode trong mục Mã Miễn Phí và Đợt Phát Code đều hoàn toàn miễn phí 100%, được tổng hợp và kiểm duyệt từ các Nhà phát hành game chính thức tại Việt Nam.</p>
+            <!-- FAQ Section -->
+            <section id="home-faq-section" aria-labelledby="faq-heading" class="mt-14 pt-8 border-t border-gray-800">
+              <h2 id="faq-heading" class="text-lg sm:text-xl font-bold text-white mb-2">Câu Hỏi Thường Gặp Khi Nhận Giftcode (FAQ)</h2>
+              <p class="text-xs text-gray-400 mb-6">Giải đáp các thắc mắc phổ biến về mã giftcode, bản quyền game và cách nhận quà tại ${escapeHtml(BRAND_DISPLAY)}</p>
+              <div class="grid md:grid-cols-3 gap-4 text-xs text-gray-300">
+                ${FAQ_LIST.map((faq, idx) => `
+                <div class="p-4 rounded-xl bg-dark-900 border border-gray-800">
+                  <h3 class="font-bold text-gray-100 text-sm mb-2">${idx + 1}. ${escapeHtml(formatFaqText(faq.q))}</h3>
+                  <p>${escapeHtml(formatFaqText(faq.a))}</p>
+                </div>`).join('')}
               </div>
-              <div class="p-4 rounded-xl bg-dark-900 border border-gray-800">
-                <h3 class="font-bold text-gray-100 text-sm mb-2">2. Làm thế nào để sao chép mã code nhanh chóng?</h3>
-                <p>Bạn chỉ cần nhấp vào nút Sao Chép bên cạnh mỗi mã giftcode hoặc chọn Sao Chép Toàn Bộ Mã Còn Hạn để lưu tất cả giftcode vào bộ nhớ tạm trong 1 giây.</p>
-              </div>
-              <div class="p-4 rounded-xl bg-dark-900 border border-gray-800">
-                <h3 class="font-bold text-gray-100 text-sm mb-2">3. Các tựa game trên ${BRAND_DISPLAY} có hợp pháp không?</h3>
-                <p>Hệ thống cập nhật và đối soát thông tin pháp lý, Giấy phép phê duyệt nội dung kịch bản G1 từ Cục PTTH&TTĐT đối với từng tựa game phát hành tại Việt Nam.</p>
-              </div>
-            </div>
-          </section>
+            </section>
+          </div>
         </main>
 
         <!-- Footer -->
@@ -751,8 +770,8 @@ async function runPrerender() {
           <div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-6 mb-6 text-left">
             <div class="md:col-span-2 space-y-2">
               <div class="flex items-center gap-2">
-                <img src="/logo.webp" alt="${BRAND_DISPLAY}" width="24" height="24" loading="lazy" decoding="async" class="w-6 h-6 rounded-md" />
-                <span class="font-bold text-white text-sm">${BRAND_DISPLAY}</span>
+                <img src="/logo.webp" alt="${escapeHtml(BRAND_DISPLAY)}" width="24" height="24" loading="lazy" decoding="async" class="w-6 h-6 rounded-md" />
+                <span class="font-bold text-white text-sm">${escapeHtml(BRAND_DISPLAY)}</span>
               </div>
               <p class="text-gray-400 text-xs leading-relaxed">
                 Kho tổng hợp hơn ${totalCodesFormatted}+ giftcode game mobile và webgame mới nhất 2026 của ${canonicalGamesCount} tựa game chuẩn. Cập nhật liên tục 24/7 từ các NPH VNG, Garena, VTC, SohaGame, Funtap.
@@ -781,7 +800,7 @@ async function runPrerender() {
             </div>
           </div>
           <div class="pt-4 border-t border-gray-800/80 text-center text-[11px] text-gray-500">
-            <p>© 2026 CodeGame.shop. Nền tảng chia sẻ giftcode cộng đồng & đối chiếu minh bạch Giấy phép G1 theo Cục PTTH&TTĐT (giayphep.abei.gov.vn).</p>
+            <p>© 2026 ${escapeHtml(BRAND_DISPLAY)}. Nền tảng chia sẻ giftcode cộng đồng & đối chiếu minh bạch Giấy phép G1 theo Cục PTTH&TTĐT (giayphep.abei.gov.vn).</p>
           </div>
         </footer>
       </div>
@@ -796,7 +815,7 @@ async function runPrerender() {
   if (!fs.existsSync(newsDir)) fs.mkdirSync(newsDir, { recursive: true });
 
   const newsHtml = buildPageHtml({
-    title: 'Tin Tức Game & Sự Kiện Giftcode Mới Nhất 2026 | CodeGame.shop',
+    title: `Tin Tức Game & Sự Kiện Giftcode Mới Nhất 2026 | ${BRAND_DISPLAY}`,
     description: 'Tổng hợp tin tức làng game Việt, bản cập nhật mới nhất, sự kiện phát quà và danh sách giftcode game mobile, PC hot nhất 2026 cập nhật 24/7.',
     canonicalPath: '/news',
     ogType: 'website',
@@ -804,15 +823,15 @@ async function runPrerender() {
       {
         '@context': 'https://schema.org',
         '@type': 'NewsMediaOrganization',
-        name: 'CodeGame.shop - Chuyên Mục Tin Tức',
+        name: `${BRAND_DISPLAY} - Chuyên Mục Tin Tức`,
         url: `${BASE_URL}/news`,
       },
       {
         '@context': 'https://schema.org',
         '@type': 'BreadcrumbList',
         itemListElement: [
-          { '@type': 'ListItem', position: 1, name: 'Trang chủ', item: 'https://codegame.shop/' },
-          { '@type': 'ListItem', position: 2, name: 'Tin Tức Game', item: 'https://codegame.shop/news' },
+          { '@type': 'ListItem', position: 1, name: 'Trang chủ', item: `${BASE_URL}/` },
+          { '@type': 'ListItem', position: 2, name: 'Tin Tức Game', item: `${BASE_URL}/news` },
         ],
       },
     ],
@@ -820,8 +839,8 @@ async function runPrerender() {
       <div class="min-h-screen flex flex-col bg-slate-950 text-slate-100">
         <header class="site-header sticky top-0 z-40 w-full border-b border-slate-800 bg-slate-900/90 backdrop-blur-md px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 flex items-center justify-between">
           <a href="/" class="header-logo flex items-center gap-2 text-blue-500 font-extrabold text-base sm:text-lg">
-            <img src="/logo.webp" alt="CodeGame.shop" width="32" height="32" class="w-8 h-8 rounded-lg object-cover" />
-            <span class="text-white font-bold">CodeGame.Shop</span>
+            <img src="/logo.webp" alt="${escapeHtml(BRAND_DISPLAY)}" width="32" height="32" class="w-8 h-8 rounded-lg object-cover" />
+            <span class="text-white font-bold">${escapeHtml(BRAND_DISPLAY)}</span>
           </a>
           <nav class="header-nav-tabs hidden md:flex items-center space-x-3 sm:space-x-6 text-xs sm:text-sm font-bold text-slate-300">
             <a href="/" class="hover:text-blue-400 transition-colors">Tra Cứu Code</a>
@@ -852,7 +871,7 @@ async function runPrerender() {
 
   // 2.0.1. Prerender Game Events Page (dist/su-kien/index.html & dist/events/index.html)
   const eventsHtml = buildPageHtml({
-    title: 'Sự Kiện Game Mới Nhất 2026 & Lịch Khuyến Mãi | CodeGame.shop',
+    title: `Sự Kiện Game Mới Nhất 2026 & Lịch Khuyến Mãi | ${BRAND_DISPLAY}`,
     description: 'Tổng hợp sự kiện có thời hạn từ Fanpage, Group cộng đồng và Website chính thức của game. Tóm tắt nhanh cách tham gia, hạn nhận quà và link tham gia trực tiếp.',
     canonicalPath: '/su-kien',
     ogType: 'website',
@@ -869,8 +888,8 @@ async function runPrerender() {
       <div class="min-h-screen flex flex-col bg-slate-950 text-slate-100 font-sans">
         <header class="site-header sticky top-0 z-40 w-full border-b border-slate-800 bg-slate-950/85 backdrop-blur-md px-4 py-3 flex items-center justify-between">
           <a href="/" class="flex items-center gap-2 text-primary font-bold">
-            <img src="/logo.webp" alt="CodeGame.shop" width="32" height="32" class="w-8 h-8 rounded-lg" />
-            <span class="text-white">CodeGame.Shop</span>
+            <img src="/logo.webp" alt="${escapeHtml(BRAND_DISPLAY)}" width="32" height="32" class="w-8 h-8 rounded-lg" />
+            <span class="text-white">${escapeHtml(BRAND_DISPLAY)}</span>
           </a>
           <nav class="flex items-center gap-4 text-xs font-bold text-slate-300">
             <a href="/" class="hover:text-white">Trang Chủ</a>
@@ -905,8 +924,8 @@ async function runPrerender() {
 
   // 2.0.2. Prerender Telegram Community Page (dist/telegram/index.html)
   const tgHtml = buildPageHtml({
-    title: 'Cộng Đồng Telegram & Nhận Giftcode Tự Động | CodeGame.shop',
-    description: 'Tham gia nhóm Telegram CodeGame.Shop để nhận Giftcode mới nhất, thông báo sự kiện hot và theo dõi mã quà tặng riêng tư tự động.',
+    title: `Cộng Đồng Telegram & Nhận Giftcode Tự Động | ${BRAND_DISPLAY}`,
+    description: `Tham gia nhóm Telegram ${BRAND_DISPLAY} để nhận Giftcode mới nhất, thông báo sự kiện hot và theo dõi mã quà tặng riêng tư tự động.`,
     canonicalPath: '/telegram',
     ogType: 'website',
     jsonLd: [
@@ -914,8 +933,8 @@ async function runPrerender() {
         '@context': 'https://schema.org',
         '@type': 'BreadcrumbList',
         itemListElement: [
-          { '@type': 'ListItem', position: 1, name: 'Trang chủ', item: 'https://codegame.shop/' },
-          { '@type': 'ListItem', position: 2, name: 'Cộng Đồng Telegram', item: 'https://codegame.shop/telegram' },
+          { '@type': 'ListItem', position: 1, name: 'Trang chủ', item: `${BASE_URL}/` },
+          { '@type': 'ListItem', position: 2, name: 'Cộng Đồng Telegram', item: `${BASE_URL}/telegram` },
         ],
       },
     ],
@@ -923,8 +942,8 @@ async function runPrerender() {
       <div class="min-h-screen flex flex-col bg-slate-950 text-slate-100">
         <header class="site-header sticky top-0 z-40 w-full border-b border-slate-800 bg-slate-900/90 backdrop-blur-md px-4 py-3 flex items-center justify-between">
           <a href="/" class="flex items-center gap-2 text-primary font-bold">
-            <img src="/logo.webp" alt="CodeGame.shop" width="32" height="32" class="w-8 h-8 rounded-lg" />
-            <span class="text-white">CodeGame.Shop</span>
+            <img src="/logo.webp" alt="${escapeHtml(BRAND_DISPLAY)}" width="32" height="32" class="w-8 h-8 rounded-lg" />
+            <span class="text-white">${escapeHtml(BRAND_DISPLAY)}</span>
           </a>
           <nav class="flex items-center gap-4 text-xs font-bold text-slate-300">
             <a href="/" class="hover:text-white">Trang Chủ</a>
@@ -938,7 +957,7 @@ async function runPrerender() {
             ✈️ KÊNH THÔNG BÁO & NHÓM THẢO LUẬN TELEGRAM
           </div>
           <h1 class="text-3xl sm:text-5xl font-black text-white tracking-tight">
-            Cộng Đồng CodeGame.Shop Trên Telegram
+            Cộng Đồng ${escapeHtml(BRAND_DISPLAY)} Trên Telegram
           </h1>
           <p class="text-sm sm:text-base text-slate-300 max-w-xl mx-auto leading-relaxed">
             Nhận thông báo Giftcode mới nhất, theo dõi sự kiện game hot và trao đổi kinh nghiệm cùng hàng nghìn game thủ.
@@ -955,7 +974,7 @@ async function runPrerender() {
 
   // 2.0.2. Prerender Today Codes Page (/ma-hom-nay)
   const todayCodesHtml = buildPageHtml({
-    title: 'Giftcode Hôm Nay - Tổng Hợp Mã Code Game Có Hạn Trong Ngày 2026 | CodeGame.shop',
+    title: `Giftcode Hôm Nay - Tổng Hợp Mã Code Game Có Hạn Trong Ngày 2026 | ${BRAND_DISPLAY}`,
     description: 'Danh sách giftcode game chỉ có hiệu lực hôm nay, hết hạn lúc 22:30 tối nay. Nhận trọn bộ mã code mới nhất, không bỏ lỡ quà tặng giới hạn.',
     canonicalPath: '/ma-hom-nay',
     ogType: 'website',
@@ -963,8 +982,8 @@ async function runPrerender() {
       <div class="min-h-screen flex flex-col bg-slate-950 text-slate-100">
         <header class="site-header sticky top-0 z-40 w-full border-b border-slate-800 bg-slate-900/90 backdrop-blur-md px-4 py-3 flex items-center justify-between">
           <a href="/" class="flex items-center gap-2 text-primary font-bold">
-            <img src="/logo.webp" alt="CodeGame.shop" width="32" height="32" class="w-8 h-8 rounded-lg" />
-            <span class="text-white">CodeGame.Shop</span>
+            <img src="/logo.webp" alt="${escapeHtml(BRAND_DISPLAY)}" width="32" height="32" class="w-8 h-8 rounded-lg" />
+            <span class="text-white">${escapeHtml(BRAND_DISPLAY)}</span>
           </a>
           <nav class="flex items-center gap-4 text-xs font-bold text-slate-300">
             <a href="/" class="hover:text-white">Trang Chủ</a>
@@ -1012,7 +1031,7 @@ async function runPrerender() {
     const artDir = path.join(newsDir, artSlug);
     if (!fs.existsSync(artDir)) fs.mkdirSync(artDir, { recursive: true });
 
-    const artTitle = `${article.title} | CodeGame.shop`;
+    const artTitle = `${article.title} | ${BRAND_DISPLAY}`;
     const artDesc = article.excerpt || (article.content || '').slice(0, 160).replace(/\n/g, ' ').trim();
     const artCover = article.cover_url || (article.game_slug ? `/game_icons/${article.game_slug}.webp` : '/og-image.jpg');
     const artCanonical = `/news/${artSlug}`;
@@ -1034,11 +1053,11 @@ async function runPrerender() {
           dateModified: article.updated_at || article.published_at || '2026-10-13T00:00:00.000Z',
           author: {
             '@type': 'Person',
-            name: article.author || 'CodeGame Editorial',
+            name: article.author || `${BRAND_NAME} Editorial`,
           },
           publisher: {
             '@type': 'Organization',
-            name: 'CodeGame.shop',
+            name: BRAND_DISPLAY,
             logo: {
               '@type': 'ImageObject',
               url: `${BASE_URL}/logo.webp`,
@@ -1063,8 +1082,8 @@ async function runPrerender() {
         <div class="min-h-screen flex flex-col bg-slate-950 text-slate-100 font-sans">
           <header class="site-header sticky top-0 z-40 w-full border-b border-slate-800 bg-slate-900/90 backdrop-blur-md px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 flex items-center justify-between">
             <a href="/" class="header-logo flex items-center gap-2 text-blue-500 font-extrabold text-base sm:text-lg">
-              <img src="/logo.webp" alt="CodeGame.shop" width="32" height="32" class="w-8 h-8 rounded-lg object-cover" />
-              <span class="text-white font-bold">CodeGame.Shop</span>
+              <img src="/logo.webp" alt="${escapeHtml(BRAND_DISPLAY)}" width="32" height="32" class="w-8 h-8 rounded-lg object-cover" />
+              <span class="text-white font-bold">${escapeHtml(BRAND_DISPLAY)}</span>
             </a>
             <nav class="header-nav-tabs hidden md:flex items-center space-x-3 sm:space-x-6 text-xs sm:text-sm font-bold text-slate-300">
               <a href="/" class="hover:text-blue-400 transition-colors">Tra Cứu Code</a>
@@ -1095,7 +1114,7 @@ async function runPrerender() {
                 <div class="flex items-center gap-3 text-xs text-slate-400 border-b border-slate-800 pb-4">
                   <span>Đăng ngày: ${new Date(article.published_at || Date.now()).toLocaleDateString('vi-VN')}</span>
                   <span>•</span>
-                  <span>Tác giả: ${escapeHtml(article.author || 'Ban Biên Tập CodeGame')}</span>
+                  <span>Tác giả: ${escapeHtml(article.author || `Ban Biên Tập ${BRAND_NAME}`)}</span>
                   <span>•</span>
                   <span>${article.read_time_minutes || 3} phút đọc</span>
                 </div>
@@ -1147,7 +1166,7 @@ async function runPrerender() {
   if (!fs.existsSync(giveawaysDir)) fs.mkdirSync(giveawaysDir, { recursive: true });
 
   const giveawaysHtml = buildPageHtml({
-    title: 'Săn Code Phát & Giveaway Game Độc Quyền Miễn Phí | CodeGame.shop',
+    title: `Săn Code Phát & Giveaway Game Độc Quyền Miễn Phí | ${BRAND_DISPLAY}`,
     description: 'Nhận giftcode giới hạn độc quyền miễn phí từ các đợt phát triên game thủ. Hệ thống kiểm tra điều kiện tài khoản tự động và phát mã tức thì.',
     canonicalPath: '/giveaways',
     ogType: 'website',
@@ -1162,15 +1181,15 @@ async function runPrerender() {
         eventStatus: 'https://schema.org/EventScheduled',
         eventAttendanceMode: 'https://schema.org/OnlineEventAttendanceMode',
         location: { '@type': 'VirtualLocation', url: `${BASE_URL}/giveaways` },
-        organizer: { '@type': 'Organization', name: 'CodeGame.shop', url: BASE_URL },
+        organizer: { '@type': 'Organization', name: BRAND_DISPLAY, url: BASE_URL },
         offers: { '@type': 'Offer', price: '0', priceCurrency: 'VND', availability: 'https://schema.org/InStock', url: `${BASE_URL}/giveaways` },
       },
       {
         '@context': 'https://schema.org',
         '@type': 'BreadcrumbList',
         itemListElement: [
-          { '@type': 'ListItem', position: 1, name: 'Trang chủ', item: 'https://codegame.shop/' },
-          { '@type': 'ListItem', position: 2, name: 'Đợt Phát Code', item: 'https://codegame.shop/giveaways' },
+          { '@type': 'ListItem', position: 1, name: 'Trang chủ', item: `${BASE_URL}/` },
+          { '@type': 'ListItem', position: 2, name: 'Đợt Phát Code', item: `${BASE_URL}/giveaways` },
         ],
       },
     ],
@@ -1178,8 +1197,8 @@ async function runPrerender() {
       <div class="min-h-screen flex flex-col bg-dark-950 text-[#431407]" style="background-color: var(--bg-sourcecode, #FFF3E0);">
         <header class="site-header sticky top-0 z-40 w-full border-b border-orange-200 bg-white/90 backdrop-blur-md px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 flex items-center justify-between">
           <a href="/" class="header-logo flex items-center gap-2 text-orange-600 font-extrabold text-base sm:text-lg">
-            <img src="/logo.webp" alt="CodeGame.shop" width="32" height="32" class="w-8 h-8 rounded-lg object-cover" />
-            <span class="font-bold">CodeGame.Shop</span>
+            <img src="/logo.webp" alt="${escapeHtml(BRAND_DISPLAY)}" width="32" height="32" class="w-8 h-8 rounded-lg object-cover" />
+            <span class="font-bold">${escapeHtml(BRAND_DISPLAY)}</span>
           </a>
           <nav class="header-nav-tabs hidden md:flex items-center space-x-3 sm:space-x-6 text-xs sm:text-sm font-bold text-amber-900">
             <a href="/" class="hover:text-orange-600 transition-colors">Mã Miễn Phí</a>
@@ -1244,9 +1263,9 @@ async function runPrerender() {
     const jpgImage = rawImage.replace(/\.webp$/i, '.jpg');
     const ogGameIcon = jpgImage.startsWith('http') ? jpgImage : `${BASE_URL}${jpgImage.startsWith('/') ? jpgImage : `/${jpgImage}`}`;
 
-    const gwTitle = `🎁 Nhận Code: ${gw.title} - ${gameName} | CodeGame.shop`;
+    const gwTitle = `🎁 Nhận Code: ${gw.title} - ${gameName} | ${BRAND_DISPLAY}`;
     const gwDesc = gw.description
-      ? `${gw.description} Nhận mã quà tặng độc quyền ${gameName} miễn phí tại CodeGame.shop.`
+      ? `${gw.description} Nhận mã quà tặng độc quyền ${gameName} miễn phí tại ${BRAND_DISPLAY}.`
       : `Nhận ngay ${gw.title} cho tựa game ${gameName}. Số lượng có hạn, kiểm tra điều kiện tài khoản và nhận mã tức thì!`;
 
     const gwHtml = buildPageHtml({
@@ -1267,15 +1286,15 @@ async function runPrerender() {
           eventStatus: 'https://schema.org/EventScheduled',
           eventAttendanceMode: 'https://schema.org/OnlineEventAttendanceMode',
           location: { '@type': 'VirtualLocation', url: `${BASE_URL}/giveaways/${encodeURIComponent(gwId)}` },
-          organizer: { '@type': 'Organization', name: 'CodeGame.shop', url: BASE_URL },
+          organizer: { '@type': 'Organization', name: BRAND_DISPLAY, url: BASE_URL },
           offers: { '@type': 'Offer', price: '0', priceCurrency: 'VND', availability: 'https://schema.org/InStock', url: `${BASE_URL}/giveaways/${encodeURIComponent(gwId)}` },
         },
         {
           '@context': 'https://schema.org',
           '@type': 'BreadcrumbList',
           itemListElement: [
-            { '@type': 'ListItem', position: 1, name: 'Trang chủ', item: 'https://codegame.shop/' },
-            { '@type': 'ListItem', position: 2, name: 'Đợt Phát Code', item: 'https://codegame.shop/giveaways' },
+            { '@type': 'ListItem', position: 1, name: 'Trang chủ', item: `${BASE_URL}/` },
+            { '@type': 'ListItem', position: 2, name: 'Đợt Phát Code', item: `${BASE_URL}/giveaways` },
             { '@type': 'ListItem', position: 3, name: gameName, item: `${BASE_URL}/giveaways/${encodeURIComponent(gwId)}` },
           ],
         },
@@ -1284,8 +1303,8 @@ async function runPrerender() {
         <div class="min-h-screen flex flex-col bg-dark-950 text-[#431407]" style="background-color: var(--bg-sourcecode, #FFF3E0);">
           <header class="site-header sticky top-0 z-40 w-full border-b border-orange-200 bg-white/90 backdrop-blur-md px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 flex items-center justify-between">
             <a href="/" class="header-logo flex items-center gap-2 text-orange-600 font-extrabold text-base sm:text-lg">
-              <img src="/logo.webp" alt="CodeGame.shop" width="32" height="32" class="w-8 h-8 rounded-lg object-cover" />
-              <span class="font-bold">CodeGame.Shop</span>
+              <img src="/logo.webp" alt="${escapeHtml(BRAND_DISPLAY)}" width="32" height="32" class="w-8 h-8 rounded-lg object-cover" />
+              <span class="font-bold">${escapeHtml(BRAND_DISPLAY)}</span>
             </a>
             <nav class="header-nav-tabs hidden md:flex items-center space-x-3 sm:space-x-6 text-xs sm:text-sm font-bold text-amber-900">
               <a href="/" class="hover:text-orange-600 transition-colors">Mã Miễn Phí</a>
@@ -1328,7 +1347,7 @@ async function runPrerender() {
   if (!fs.existsSync(storeDir)) fs.mkdirSync(storeDir, { recursive: true });
 
   const storeHtml = buildPageHtml({
-    title: 'Cửa Hàng Giftcode VIP & Giao Dịch Mã Game Tự Động 24/7 | CodeGame.shop',
+    title: `Cửa Hàng Giftcode VIP & Giao Dịch Mã Game Tự Động 24/7 | ${BRAND_DISPLAY}`,
     description: 'Mua bán giftcode VIP, gói nạp game bản quyền chiết khấu tới 40%. Giao dịch tự động 24/7 qua SePay, nhận mã ngay trên màn hình trong 30 giây.',
     canonicalPath: '/store',
     ogType: 'website',
@@ -1336,7 +1355,7 @@ async function runPrerender() {
       {
         '@context': 'https://schema.org',
         '@type': 'Store',
-        name: 'Chợ Code VIP - CodeGame.shop',
+        name: `Chợ Code VIP - ${BRAND_DISPLAY}`,
         description: 'Cửa hàng giao dịch mã game bản quyền và giftcode VIP tự động 24/7 qua SePay.',
         url: `${BASE_URL}/store`,
         priceRange: '10.000 VND - 500.000 VND',
@@ -1347,8 +1366,8 @@ async function runPrerender() {
         '@context': 'https://schema.org',
         '@type': 'BreadcrumbList',
         itemListElement: [
-          { '@type': 'ListItem', position: 1, name: 'Trang chủ', item: 'https://codegame.shop/' },
-          { '@type': 'ListItem', position: 2, name: 'Chợ Code VIP', item: 'https://codegame.shop/store' },
+          { '@type': 'ListItem', position: 1, name: 'Trang chủ', item: `${BASE_URL}/` },
+          { '@type': 'ListItem', position: 2, name: 'Chợ Code VIP', item: `${BASE_URL}/store` },
         ],
       },
     ],
@@ -1356,8 +1375,8 @@ async function runPrerender() {
       <div class="min-h-screen flex flex-col bg-[var(--bg-market,#E3F2FD)] text-[#082f49]">
         <header class="site-header sticky top-0 z-40 w-full border-b border-sky-200 bg-white/90 backdrop-blur-md px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 flex items-center justify-between">
           <a href="/" class="header-logo flex items-center gap-2 text-sky-600 font-extrabold text-base sm:text-lg">
-            <img src="/logo.webp" alt="CodeGame.shop" width="32" height="32" class="w-8 h-8 rounded-lg object-cover" />
-            <span class="font-bold">CodeGame.Shop</span>
+            <img src="/logo.webp" alt="${escapeHtml(BRAND_DISPLAY)}" width="32" height="32" class="w-8 h-8 rounded-lg object-cover" />
+            <span class="font-bold">${escapeHtml(BRAND_DISPLAY)}</span>
           </a>
           <nav class="header-nav-tabs hidden md:flex items-center space-x-3 sm:space-x-6 text-xs sm:text-sm font-bold text-sky-950">
             <a href="/" class="hover:text-sky-600 transition-colors">Mã Miễn Phí</a>
@@ -1391,8 +1410,8 @@ async function runPrerender() {
   if (!fs.existsSync(adminDir)) fs.mkdirSync(adminDir, { recursive: true });
 
   const adminHtml = buildPageHtml({
-    title: 'Quản Trị Hệ Thống | CodeGame.shop',
-    description: 'Bảng điều khiển quản trị hệ thống CodeGame.shop.',
+    title: `Quản Trị Hệ Thống | ${BRAND_DISPLAY}`,
+    description: `Bảng điều khiển quản trị hệ thống ${BRAND_DISPLAY}.`,
     canonicalPath: '/admin',
     noindex: true,
     bodyContent: `
@@ -1415,16 +1434,16 @@ async function runPrerender() {
   if (!fs.existsSync(missionsEnDir)) fs.mkdirSync(missionsEnDir, { recursive: true });
 
   const missionsHtml = buildPageHtml({
-    title: 'Nhiệm Vụ Nhận Quà & Tiền Ví Miễn Phí 2026 | CodeGame.shop',
-    description: 'Tham gia làm nhiệm vụ chia sẻ bài viết, lan tỏa cộng đồng để nhận ngay Giftcode độc quyền và số dư ví mua sắm miễn phí trên sàn CodeGame.Shop.',
+    title: `Nhiệm Vụ Nhận Quà & Tiền Ví Miễn Phí 2026 | ${BRAND_DISPLAY}`,
+    description: `Tham gia làm nhiệm vụ chia sẻ bài viết, lan tỏa cộng đồng để nhận ngay Giftcode độc quyền và số dư ví mua sắm miễn phí trên sàn ${BRAND_DISPLAY}.`,
     canonicalPath: '/nhiem-vu',
     ogType: 'website',
     bodyContent: `
       <div class="min-h-screen flex flex-col bg-slate-900 text-white">
         <header class="site-header sticky top-0 z-40 w-full border-b border-slate-800 bg-slate-900/90 backdrop-blur-md px-4 py-3 flex items-center justify-between">
           <a href="/" class="header-logo flex items-center gap-2 text-primary font-bold text-lg">
-            <img src="/logo.webp" alt="CodeGame.shop" width="32" height="32" class="w-8 h-8 rounded-lg object-cover" />
-            <span>CodeGame.Shop</span>
+            <img src="/logo.webp" alt="${escapeHtml(BRAND_DISPLAY)}" width="32" height="32" class="w-8 h-8 rounded-lg object-cover" />
+            <span>${escapeHtml(BRAND_DISPLAY)}</span>
           </a>
           <nav class="hidden md:flex items-center space-x-6 text-sm font-semibold">
             <a href="/" class="hover:text-primary transition-colors">Tra Code</a>
@@ -1458,7 +1477,7 @@ async function runPrerender() {
   const test1Dir = path.join(distDir, 'test1');
   if (!fs.existsSync(test1Dir)) fs.mkdirSync(test1Dir, { recursive: true });
   const test1Html = buildPageHtml({
-    title: 'Sàn Thương Mại Điện Tử Tiện Ích & Code Game Phong Cách Shopee | CodeGame.shop',
+    title: `Sàn Thương Mại Điện Tử Tiện Ích & Code Game Phong Cách Shopee | ${BRAND_DISPLAY}`,
     description: 'Trải nghiệm sàn thương mại điện tử tiện ích và giftcode game phong cách Shopee độc quyền. Giao mã tự động 0 giây, nạp VietQR 3 giây, bảo chứng giữ tiền 168 giờ.',
     canonicalPath: '/test1',
     ogType: 'website',
@@ -1483,8 +1502,8 @@ async function runPrerender() {
   const cartEnDir = path.join(distDir, 'cart');
   if (!fs.existsSync(cartEnDir)) fs.mkdirSync(cartEnDir, { recursive: true });
   const cartHtml = buildPageHtml({
-    title: 'Giỏ Hàng Đa Gian Hàng | CodeGame.shop',
-    description: 'Giỏ hàng mua sắm mã giftcode, thẻ nạp, acc game và tiện ích đa gian hàng uy tín trên sàn CodeGame.Shop.',
+    title: `Giỏ Hàng Đa Gian Hàng | ${BRAND_DISPLAY}`,
+    description: `Giỏ hàng mua sắm mã giftcode, thẻ nạp, acc game và tiện ích đa gian hàng uy tín trên sàn ${BRAND_DISPLAY}.`,
     canonicalPath: '/gio-hang',
     ogType: 'website',
   });
@@ -1498,8 +1517,8 @@ async function runPrerender() {
   const sellerEnDir = path.join(distDir, 'seller');
   if (!fs.existsSync(sellerEnDir)) fs.mkdirSync(sellerEnDir, { recursive: true });
   const sellerHtml = buildPageHtml({
-    title: 'Kênh Người Bán & Quản Lý Gian Hàng | CodeGame.shop',
-    description: 'Kênh người bán chính thức trên sàn CodeGame.Shop. Đăng bán thẻ game, tài khoản và tiện ích với phí sàn chỉ 5%, quản lý đơn hàng tự động 24/7.',
+    title: `Kênh Người Bán & Quản Lý Gian Hàng | ${BRAND_DISPLAY}`,
+    description: `Kênh người bán chính thức trên sàn ${BRAND_DISPLAY}. Đăng bán thẻ game, tài khoản và tiện ích với phí sàn chỉ 5%, quản lý đơn hàng tự động 24/7.`,
     canonicalPath: '/ban-hang',
     ogType: 'website',
   });
@@ -1582,7 +1601,7 @@ async function runPrerender() {
     const countSuffix = codeCount > 0
       ? ` - Nhận ${codeCount} Mã Code`
       : ` - Hướng Dẫn Nhập & Nhận Quà`;
-    const title = `Giftcode ${game.name} Mới Nhất 2026${countSuffix} | CodeGame.shop`;
+    const title = `Giftcode ${game.name} Mới Nhất 2026${countSuffix} | ${BRAND_DISPLAY}`;
     const hasVerifiedLicense = Boolean(
       game.so_giay_phep &&
       game.co_quan_cap &&
@@ -1659,7 +1678,7 @@ async function runPrerender() {
               name: `Làm sao để nhận thêm mã code ${game.name} mới nhất 2026?`,
               acceptedAnswer: {
                 '@type': 'Answer',
-                text: `CodeGame.shop tự động theo dõi và cập nhật giftcode ${game.name} 24/7 từ các sự kiện bảo trì, ra mắt máy chủ và fanpage chính thức của ${game.publisher || 'NPH'}.`,
+                text: `${BRAND_DISPLAY} tự động theo dõi và cập nhật giftcode ${game.name} 24/7 từ các sự kiện bảo trì, ra mắt máy chủ và fanpage chính thức của ${game.publisher || 'NPH'}.`,
               },
             },
           ],
@@ -1679,8 +1698,8 @@ async function runPrerender() {
         <div class="min-h-screen flex flex-col bg-dark-950 text-gray-100">
           <header class="site-header sticky top-0 z-40 w-full border-b border-gray-800/80 bg-dark-950/85 backdrop-blur-md px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 flex items-center justify-between">
             <a href="/" class="header-logo flex items-center gap-2 text-brand-400 font-extrabold text-base sm:text-lg">
-              <img src="/logo.webp" alt="CodeGame.shop" width="32" height="32" class="w-8 h-8 rounded-lg object-cover" />
-              <span class="text-white font-bold">CodeGame.Shop</span>
+              <img src="/logo.webp" alt="${escapeHtml(BRAND_DISPLAY)}" width="32" height="32" class="w-8 h-8 rounded-lg object-cover" />
+              <span class="text-white font-bold">${escapeHtml(BRAND_DISPLAY)}</span>
             </a>
             <nav class="header-nav-tabs hidden md:flex items-center space-x-3 sm:space-x-6 text-xs sm:text-sm font-bold text-gray-300">
               <a href="/" class="text-brand-400 font-black">Mã Miễn Phí</a>
@@ -1781,7 +1800,7 @@ async function runPrerender() {
                     <div class="text-2xl">⏳</div>
                     <h3 class="text-sm sm:text-base font-bold text-gray-200">Hiện Chưa Có Mã Giftcode Mới Cho ${escapeHtml(game.name)}</h3>
                     <p class="text-xs text-gray-400 max-w-lg mx-auto leading-relaxed">
-                      Hệ thống CodeGame.shop đang tự động theo dõi và kiểm tra mã quà tặng mới từ nhà phát hành ${escapeHtml(game.publisher || 'chính thức')} 24/7.
+                      Hệ thống ${escapeHtml(BRAND_DISPLAY)} đang tự động theo dõi và kiểm tra mã quà tặng mới từ nhà phát hành ${escapeHtml(game.publisher || 'chính thức')} 24/7.
                       <br>📅 <strong>Kiểm tra lần cuối:</strong> ${formattedDate} (Chưa phát sinh mã mới).
                     </p>
                     <p class="text-xs text-brand-400 font-semibold pt-1">
@@ -1829,7 +1848,7 @@ async function runPrerender() {
                 </div>
                 <div class="p-4 rounded-xl bg-dark-850 border border-gray-800/80">
                   <h3 class="font-bold text-gray-100 mb-1">2. Làm sao để nhận thêm mã code ${escapeHtml(game.name)} mới nhất 2026?</h3>
-                  <p class="text-gray-400 leading-relaxed">Hệ thống CodeGame.shop tự động theo dõi và cập nhật mã mới 24/7 từ các sự kiện bảo trì, ra mắt máy chủ và fanpage chính thức của ${escapeHtml(game.publisher || 'NPH')}. Hãy lưu trang này để nhận thông báo sớm nhất.</p>
+                  <p class="text-gray-400 leading-relaxed">Hệ thống ${escapeHtml(BRAND_DISPLAY)} tự động theo dõi và cập nhật mã mới 24/7 từ các sự kiện bảo trì, ra mắt máy chủ và fanpage chính thức của ${escapeHtml(game.publisher || 'NPH')}. Hãy lưu trang này để nhận thông báo sớm nhất.</p>
                 </div>
               </div>
             </section>
@@ -1862,7 +1881,7 @@ async function runPrerender() {
 
           <footer class="mt-auto border-t border-gray-800/80 bg-dark-900/50 py-8 px-4 text-xs text-gray-400">
             <div class="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
-              <p>© 2026 CodeGame.shop. Cập nhật mã ${escapeHtml(game.name)}.</p>
+              <p>© 2026 ${escapeHtml(BRAND_DISPLAY)}. Cập nhật mã ${escapeHtml(game.name)}.</p>
               <div class="flex items-center gap-3 text-xs">
                 <a href="/danh-sach-game-a-z" class="text-brand-400 hover:underline">Danh Mục A-Z</a>
                 <span>•</span>
@@ -1891,8 +1910,8 @@ async function runPrerender() {
 
   // 5. Prerender 404 Page (dist/404.html)
   const notFoundHtml = buildPageHtml({
-    title: '404 - Không Tìm Thấy Trang | CodeGame.shop',
-    description: 'Trang bạn đang tìm kiếm không tồn tại trên CodeGame.shop.',
+    title: `404 - Không Tìm Thấy Trang | ${BRAND_DISPLAY}`,
+    description: `Trang bạn đang tìm kiếm không tồn tại trên ${BRAND_DISPLAY}.`,
     canonicalPath: '/404',
     noindex: true,
     bodyContent: `
@@ -1901,7 +1920,7 @@ async function runPrerender() {
         <h2 class="text-xl sm:text-2xl font-bold text-white mb-4">Không Tìm Thấy Trang</h2>
         <p class="text-gray-400 text-sm max-w-md mb-6">Nội dung bạn đang tìm kiếm không tồn tại hoặc đã thay đổi địa chỉ.</p>
         <a href="/" class="px-6 py-3 rounded-2xl bg-brand-600 text-white font-bold text-sm hover:bg-brand-500 transition-all">
-          Về Trang Chủ CodeGame.shop
+          Về Trang Chủ ${escapeHtml(BRAND_DISPLAY)}
         </a>
       </div>
     `,
@@ -1919,14 +1938,14 @@ async function runPrerender() {
     if (!fs.existsSync(clusterDir)) fs.mkdirSync(clusterDir, { recursive: true });
 
     const clusterGames = games.filter((g) => cluster.match(g.category || ''));
-    const clusterTitle = `Giftcode Game ${cluster.name} Mới Nhất 2026 - Nhận Mã Quà Tặng | CodeGame.shop`;
+    const clusterTitle = `Giftcode Game ${cluster.name} Mới Nhất 2026 - Nhận Mã Quà Tặng | ${BRAND_DISPLAY}`;
     const clusterDesc = `Tổng hợp giftcode mới nhất 2026 của ${clusterGames.length}+ tựa game ${cluster.name}. Mã code còn hạn, hướng dẫn nhập chi tiết và thông tin bản quyền G1.`;
 
     const clusterHtml = buildPageHtml({
       title: clusterTitle,
       description: clusterDesc,
       canonicalPath: `/the-loai/${cluster.slug}`,
-      ogImage: 'https://codegame.shop/og-image.jpg',
+      ogImage: `${BASE_URL}/og-image.jpg`,
       ogType: 'website',
       jsonLd: [
         {
@@ -1960,8 +1979,8 @@ async function runPrerender() {
         <div class="min-h-screen flex flex-col bg-dark-950 text-gray-100 font-sans">
           <header class="site-header sticky top-0 z-40 w-full border-b border-gray-800/80 bg-dark-950/85 backdrop-blur-md px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 flex items-center justify-between">
             <a href="/" class="header-logo flex items-center gap-2 text-brand-400 font-extrabold text-base sm:text-lg">
-              <img src="/logo.webp" alt="CodeGame.shop" width="32" height="32" class="w-8 h-8 rounded-lg object-cover" />
-              <span class="text-white font-bold">CodeGame.Shop</span>
+              <img src="/logo.webp" alt="${escapeHtml(BRAND_DISPLAY)}" width="32" height="32" class="w-8 h-8 rounded-lg object-cover" />
+              <span class="text-white font-bold">${escapeHtml(BRAND_DISPLAY)}</span>
             </a>
             <nav class="header-nav-tabs hidden md:flex items-center space-x-3 sm:space-x-6 text-xs sm:text-sm font-bold text-gray-300">
               <a href="/" class="hover:text-white transition-colors">Trang Chủ</a>
@@ -2053,7 +2072,7 @@ async function runPrerender() {
 
           <footer class="mt-auto border-t border-gray-800/80 bg-dark-900/50 py-8 px-4 text-xs text-gray-400">
             <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
-              <p>© 2026 CodeGame.shop. Chuyên mục game ${escapeHtml(cluster.name)}.</p>
+              <p>© 2026 ${escapeHtml(BRAND_DISPLAY)}. Chuyên mục game ${escapeHtml(cluster.name)}.</p>
               <div class="flex items-center gap-3 text-xs">
                 <a href="/danh-sach-game-a-z" class="text-brand-400 hover:underline">Danh Mục A-Z</a>
                 <span>•</span>
@@ -2087,16 +2106,16 @@ async function runPrerender() {
   const lettersList = ['#', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')].filter((l) => alphabetMap.has(l));
 
   const azHtml = buildPageHtml({
-    title: 'Danh Sách Tựa Game A-Z & Tra Cứu Giftcode Toàn Diện | CodeGame.shop',
+    title: `Danh Sách Tựa Game A-Z & Tra Cứu Giftcode Toàn Diện | ${BRAND_DISPLAY}`,
     description: `Tra cứu danh bạ toàn bộ ${sortedGames.length} tựa game mobile và webgame theo bảng chữ cái A-Z. Cập nhật giftcode còn hạn, hướng dẫn nhập và bản quyền G1.`,
     canonicalPath: '/danh-sach-game-a-z',
-    ogImage: 'https://codegame.shop/og-image.jpg',
+    ogImage: `${BASE_URL}/og-image.jpg`,
     ogType: 'website',
     jsonLd: [
       {
         '@context': 'https://schema.org',
         '@type': 'CollectionPage',
-        name: 'Danh Sách Tựa Game A-Z - CodeGame.shop',
+        name: `Danh Sách Tựa Game A-Z - ${BRAND_DISPLAY}`,
         description: `Danh bạ ${sortedGames.length} tựa game cập nhật giftcode mới nhất 2026.`,
         url: `${BASE_URL}/danh-sach-game-a-z`,
       },
@@ -2113,8 +2132,8 @@ async function runPrerender() {
       <div class="min-h-screen flex flex-col bg-dark-950 text-gray-100 font-sans">
         <header class="site-header sticky top-0 z-40 w-full border-b border-gray-800/80 bg-dark-950/85 backdrop-blur-md px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 flex items-center justify-between">
           <a href="/" class="header-logo flex items-center gap-2 text-brand-400 font-extrabold text-base sm:text-lg">
-            <img src="/logo.webp" alt="CodeGame.shop" width="32" height="32" class="w-8 h-8 rounded-lg object-cover" />
-            <span class="text-white font-bold">CodeGame.Shop</span>
+            <img src="/logo.webp" alt="${escapeHtml(BRAND_DISPLAY)}" width="32" height="32" class="w-8 h-8 rounded-lg object-cover" />
+            <span class="text-white font-bold">${escapeHtml(BRAND_DISPLAY)}</span>
           </a>
           <nav class="header-nav-tabs hidden md:flex items-center space-x-3 sm:space-x-6 text-xs sm:text-sm font-bold text-gray-300">
             <a href="/" class="hover:text-white transition-colors">Trang Chủ</a>
@@ -2180,7 +2199,7 @@ async function runPrerender() {
 
         <footer class="mt-auto border-t border-gray-800/80 bg-dark-900/50 py-8 px-4 text-xs text-gray-400">
           <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
-            <p>© 2026 CodeGame.shop. Toàn bộ ${games.length}+ tựa game A-Z.</p>
+            <p>© 2026 ${escapeHtml(BRAND_DISPLAY)}. Toàn bộ ${games.length}+ tựa game A-Z.</p>
             <div class="flex items-center gap-3 text-xs">
               <a href="#letter-${lettersList[0] === '#' ? 'num' : lettersList[0]}" class="text-brand-400 hover:underline">↑ Lên đầu trang</a>
               <span>•</span>

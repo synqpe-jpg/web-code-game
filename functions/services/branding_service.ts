@@ -181,6 +181,17 @@ export async function saveBrandingConfig(
     updated_by: actorName,
   };
 
+  // Auto-sync siteTitle if brandDisplay changed without explicit new siteTitle
+  if (update.brandDisplay && update.brandDisplay !== current.brandDisplay) {
+    if (!update.siteTitle || update.siteTitle === current.siteTitle) {
+      if (merged.siteTitle && /CodeGame/i.test(merged.siteTitle)) {
+        merged.siteTitle = merged.siteTitle
+          .replace(/CodeGame\.shop/gi, update.brandDisplay)
+          .replace(/CodeGame/gi, update.brandName || update.brandDisplay);
+      }
+    }
+  }
+
   const strVal = JSON.stringify(merged);
 
   if (db) {

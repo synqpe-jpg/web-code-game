@@ -892,7 +892,13 @@ export const App: React.FC = () => {
     if (currentTab === 'admin') return;
 
     const brandSuffix = brandingConfig.brandDisplay || 'CodeGame.shop';
-    const brandDefaultTitle = brandingConfig.siteTitle || 'CodeGame.shop - Cổng Tra Cứu Giftcode & Game Bản Quyền Hàng Đầu';
+    const rawSiteTitle = brandingConfig.siteTitle || `${brandSuffix} - Cổng Tra Cứu Giftcode & Game Bản Quyền Hàng Đầu`;
+    let brandDefaultTitle = rawSiteTitle;
+    if (brandingConfig.brandDisplay && brandingConfig.brandDisplay.toLowerCase() !== 'codegame.shop') {
+      brandDefaultTitle = rawSiteTitle
+        .replace(/CodeGame\.shop/gi, brandingConfig.brandDisplay)
+        .replace(/CodeGame/gi, brandingConfig.brandName || brandingConfig.brandDisplay);
+    }
 
     if (selectedGame && typeof selectedGame === 'object' && selectedGame.slug && selectedGame.slug !== 'undefined') {
       const effectiveSlug = (selectedGame.slug === 'where-winds-meet-mobile' || selectedGame.slug === 'yen-van-thap-luc-thanh')
