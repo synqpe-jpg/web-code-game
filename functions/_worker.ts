@@ -1826,7 +1826,7 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
           status: 200,
           headers: {
             'Content-Type': 'text/plain; charset=utf-8',
-            'Cache-Control': 'public, max-age=60, s-maxage=120, stale-while-revalidate=86400',
+            'Cache-Control': 'public, max-age=0, must-revalidate',
           },
         });
       }
@@ -1865,7 +1865,7 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
           status: 200,
           headers: {
             'Content-Type': 'application/manifest+json; charset=utf-8',
-            'Cache-Control': 'public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400',
+            'Cache-Control': 'public, max-age=0, must-revalidate',
           },
         });
       }
