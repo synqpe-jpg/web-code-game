@@ -10,6 +10,18 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-304: Xung Đột Thứ Tự Ưu Tiên Branding Cũ/Mới, Hiển Thị Khối FAQ Trang Chủ & Làm Sạch Chuỗi Thương Hiệu Còn Sót
+- **Triệu chứng & Rủi ro**:
+  - Khi người dùng đổi tên thương hiệu qua API hoặc Admin Branding, tiêu đề tab và footer hiển thị tên mới nhưng Header và Banner chào mừng vẫn cố chấp hiển thị tên thương hiệu cũ. Nguyên nhân do `Header.tsx` ưu tiên prop `branding.siteTitle` từ kho CMS cũ `wcg_admin_content_v4` trước `brandingServiceConfig.brandDisplay`.
+  - Khối FAQ "Câu Hỏi Thường Gặp Khi Nhận Giftcode" tuy đã có trong prerender và D1 `wcg_branding_v1` nhưng không xuất hiện trên giao diện trang chủ React client do chưa mount component hiển thị FAQ dưới danh mục game.
+  - Các modal/nút thao tác khách như nút tải App ở Header/Footer, modal PWA/APK (`DownloadAppModal.tsx`), watermark sao chép mã code (`GameDetailModal.tsx`, `GiveawaysView.tsx`), modal thử vận may (`CodePlaygroundModal.tsx`), modal thông báo email (`EmailSubscriptionModal.tsx`), kênh người bán (`PublicStoreView.tsx`, `SellerCenterView.tsx`) và banner Telegram chứa các chuỗi tĩnh ghi cứng "CodeGame" / "CodeGame.shop".
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Đảo ngược thứ tự ưu tiên: luôn lấy `brandingServiceConfig.brandDisplay` từ SSOT `wcg_branding_v1` làm nguồn duy nhất; kho CMS cũ chỉ đóng vai trò dự phòng khi cấu hình branding mới chưa có.
+  - Tạo component chuyên biệt `HomeFaqSection.tsx` đọc trực tiếp `faqList` từ hook `useBranding()`, thiết kế responsive cyberpunk card/accordion, gắn vào ngay dưới `GameGrid` trên trang chủ (`src/App.tsx`). Đồng bộ cấu trúc `#home-faq-section` trong `scripts/prerender.js`.
+  - Thay thế toàn bộ chuỗi thương hiệu tĩnh trên giao diện khách thành dynamic `{branding.brandName}` và `{branding.brandDisplay}`.
+  - Thêm đầy đủ key song ngữ `faq.sectionTitle` và `faq.sectionSubtitle` vào `vi.json` và `en.json` (Rule 8).
+  - Không xóa hay sửa giá trị trong kho nội dung cũ `wcg_admin_content_v4`; đảm bảo tính tương thích ngược hoàn hảo.
+
 ### ISSUE-303: Hệ Thống Quản Lý Thương Hiệu & Tên Miền Tập Trung (Branding & Domain System - Live 0-Rebuild)
 - **Triệu chứng & Rủi ro**:
   - Khi chủ sàn thay đổi thương hiệu hoặc tên miền, việc tên thương hiệu và tên miền bị ghi cứng (hardcoded) rải rác trong mã nguồn (`src/App.tsx`, `Footer.tsx`, `Header.tsx`, `LanguageSeoHead.tsx`, `prerender.js`, `_worker.ts`, `webhook.ts`, `_emailHelper.ts`) buộc lập trình viên phải sửa code thủ công và chạy build/deploy lại toàn bộ web.

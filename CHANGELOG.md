@@ -7,6 +7,43 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-23]
 
+### 426. Khắc Phục Thứ Tự Ưu Tiên Header/Banner, Thêm Khối FAQ Trang Chủ & Làm Sạch Chuỗi Thương Hiệu Còn Sót (23/11/2026)
+- **Bối cảnh & Yêu cầu của Chủ sở hữu (Prompt 10 Follow-up)**:
+  - Khi đổi cấu hình thương hiệu sang tên mới qua Admin hoặc API, tiêu đề tab và footer đổi theo tên mới nhưng Header vẫn hiển thị chuỗi cũ từ kho nội dung cũ `wcg_admin_content_v4`, và Banner chào mừng vẫn hiển thị chuỗi cũ.
+  - Mục "Câu hỏi thường gặp" (FAQ) không hiển thị trên giao diện trang chủ của khách dù dữ liệu đã có trong D1 `wcg_branding_v1` và module Admin Branding.
+  - Rà soát toàn bộ các chuỗi tên cũ còn sót trên giao diện khách (nút tải app ở header/footer, modal cài app PWA/APK, watermark sao chép mã code, liên kết chia sẻ Telegram, các modal người bán/thông báo...).
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Header & Banner*: `src/components/Header.tsx:93–95` ưu tiên `branding.siteTitle` từ kho CMS cũ `wcg_admin_content_v4` thay vì cấu hình mới `brandingServiceConfig.brandDisplay`. `AnnouncementBar.tsx` và `FloatingAnnouncement.tsx` chưa áp dụng logic thay thế động cho các trường tiêu đề/nội dung.
+  2. *Khối FAQ Trang Chủ*: `scripts/prerender.js` có render khối HTML FAQ nhưng trong React client `src/App.tsx` chưa mount component hiển thị FAQ dưới danh mục game, khiến khi React hydrate, nội dung FAQ không xuất hiện trên màn hình.
+  3. *Chuỗi Ghi Cứng Còn Sót*: Các file modal cài app (`DownloadAppModal.tsx`), modal chi tiết game (`GameDetailModal.tsx`), modal săn quà (`GiveawaysView.tsx`), modal thử vận may (`CodePlaygroundModal.tsx`), modal thông báo email (`EmailSubscriptionModal.tsx`), kênh người bán (`PublicStoreView.tsx`, `SellerCenterView.tsx`), banner Telegram (`TelegramHomeBanner.tsx`, `TelegramView.tsx`) và `UserProfileModal.tsx` còn chứa chuỗi tĩnh ghi cứng "CodeGame" / "CodeGame.shop".
+- **Giải pháp áp dụng (Solution)**:
+  1. *Header & Banner & Thông Báo Nổi*:
+     - `src/components/Header.tsx`: Đảo ngược thứ tự ưu tiên, luôn lấy `brandingServiceConfig.brandDisplay` từ `wcg_branding_v1` làm nguồn SSOT duy nhất; kho cũ chỉ là fallback. Cập nhật title nút Tải App thành dynamic `{brandName}`.
+     - `src/components/AnnouncementBar.tsx`: Tích hợp `useBranding()`, áp dụng replace động chuỗi cũ bằng `brandDisplay` / `brandName`.
+     - `src/components/FloatingAnnouncement.tsx`: Tích hợp `useBranding()`, replace động toàn bộ modal, bar và corner toast.
+  2. *Khối FAQ Trang Chủ (HomeFaqSection)*:
+     - Tạo `src/components/faq/HomeFaqSection.tsx`: Đọc trực tiếp `faqList` từ `useBranding()`, giao diện responsive dark cyberpunk với thẻ badge "FAQ & HỖ TRỢ", tiêu đề chuẩn song ngữ `t('faq.sectionTitle')` và phụ đề động `t('faq.sectionSubtitle', { brand: brandDisplay })`. Thiết kế dạng card 3 cột trên desktop và accordion tương tác có thể mở/đóng từng câu trên mobile.
+     - Mount `<HomeFaqSection />` ngay dưới `<GameGrid />` trên trang chủ (`src/App.tsx`).
+     - Đồng bộ `scripts/prerender.js` với ID `#home-faq-section`, đảm bảo Google/Bing bot đọc được 100% nội dung câu hỏi/trả lời chuẩn xác kể cả khi chưa thực thi JavaScript.
+     - Bổ sung key song ngữ `faq.sectionTitle` và `faq.sectionSubtitle` vào cả `src/locales/vi.json` và `src/locales/en.json` (Rule 8).
+  3. *Làm Sạch 100% Chuỗi Thương Hiệu Trên Giao Diện*:
+     - `Footer.tsx`: Nút "Cài Đặt App {brandName} (Android & iOS)".
+     - `DownloadAppModal.tsx`: Logo alt, tiêu đề modal, thông báo cài đặt PWA, nút tải file `{brandName}.apk`, hướng dẫn cài đặt và alt mã QR đều dùng dynamic `brandName`.
+     - `GameDetailModal.tsx`: Watermark sao chép danh sách mã code và liên kết chia sẻ Telegram đọc động `branding.baseUrl` và `branding.brandDisplay`.
+     - `GiveawaysView.tsx`: Watermark sao chép toàn bộ code và tiêu đề file TXT xuất dữ liệu đọc động `brandDisplay` và `baseUrl`.
+     - `CodePlaygroundModal.tsx`: Tiêu đề "Thử Vận May Cùng {brandDisplay}".
+     - `EmailSubscriptionModal.tsx`: Nguồn chia sẻ giftcode, thông báo toast, modal xác nhận hủy đăng ký và link nguồn đọc động `brandDisplay`.
+     - `PublicStoreView.tsx` & `SellerCenterView.tsx`: Tiêu đề sàn TMĐT và trung tâm người bán đọc động `brandDisplay`.
+     - `TelegramHomeBanner.tsx` & `TelegramView.tsx`: Tiêu đề nhóm và cam kết bảo mật đọc động `brandDisplay`.
+     - `UserProfileModal.tsx`: Lời giới thiệu liên kết bot Telegram đọc động `brandName`.
+     - `App.tsx` & `AdminApp.tsx` & `AdminLoginGuard.tsx`: Nút quay về trang web khách và chuyển hướng đọc động `branding.baseUrl` và `branding.brandDisplay`.
+- **Kiểm thử & Nghiệm thu Thực Tế**:
+  - `npm run build` thành công 100% (Zero test artifacts pass, 2.156 modules transformed, Cloudflare Worker bundle compiled).
+  - Triển khai thành công đồng thời cả 2 dự án Cloudflare Pages qua `npm run deploy:all` (Web khách: `web-code-game`, Web quản trị: `admin-code-game-shop`).
+  - Đồng bộ mã nguồn lên GitHub qua `git push origin main` (commit `1c76ae9`).
+  - Kiểm thử trực tiếp qua Browser Subagent trên `https://codegame.shop/`: Header hiện "CodeGame.Shop", Banner hiện "Chào mừng đến với CodeGame.Shop", Khối FAQ `#home-faq-section` hiển thị hoàn hảo 3 câu hỏi/trả lời, Footer hiện nút "Cài Đặt App CodeGame (Android & iOS)" và dòng bản quyền chuẩn mực (ảnh chứng thực: `final_step_8.png`).
+  - Kiểm thử đổi thương hiệu qua API `PUT /api/admin/branding` sang `TestBrand.Shop`: Cập nhật tức thì trên public `/api/branding` đạt HTTP 200 không cần rebuild; khôi phục thành công 100% về `CodeGame.Shop` và ghi log kiểm toán đầy đủ vào `security_logs`.
+
 ### 425. Hệ Thống Quản Lý Thương Hiệu & Tên Miền Tập Trung (Branding & Domain System - Live 0-Rebuild) (23/11/2026)
 - **Bối cảnh & Yêu cầu của Chủ sở hữu**:
   - Khi chủ sàn đổi tên miền hoặc đổi thương hiệu, website phải đổi toàn bộ tên hiển thị qua 2 cách đồng nhất: sửa trực tiếp trong Admin (Module "Thương hiệu & Tên miền", có xem trước, kiểm tra tính hợp lệ và ghi log kiểm toán) hoặc gọi API (`GET /api/admin/branding`, `PUT /api/admin/branding`) bằng khóa quản trị.
