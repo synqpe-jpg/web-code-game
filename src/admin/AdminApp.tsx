@@ -39,12 +39,14 @@ import { TranslationsModule } from './modules/TranslationsModule';
 import { VouchersModule } from './modules/VouchersModule';
 import { BrandingModule } from './modules/BrandingModule';
 import { MarketingNotificationToast } from '../components/MarketingNotificationToast';
+import { useBranding } from '../services/brandingService';
 
 interface AdminAppProps {
   onBackToClient?: () => void;
 }
 
 export const AdminApp: React.FC<AdminAppProps> = ({ onBackToClient }) => {
+  const branding = useBranding();
   // Navigation State
   const [currentTab, setCurrentTab] = useState<AdminModuleTab>(() => {
     const raw = window.location.hash.replace(/^#\/?/, '');
@@ -462,9 +464,10 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToClient }) => {
       }
       const isDedicatedAdmin = typeof window !== 'undefined' && window.location.hostname.includes('admin-code-game-shop');
       if (isDedicatedAdmin) {
-        const newWin = window.open('https://codegame.shop', '_blank');
+        const targetUrl = branding.baseUrl || 'https://codegame.shop';
+        const newWin = window.open(targetUrl, '_blank');
         if (!newWin || newWin.closed || typeof newWin.closed === 'undefined') {
-          window.location.href = 'https://codegame.shop';
+          window.location.href = targetUrl;
         }
       } else {
         if (window.location.pathname.toLowerCase().startsWith('/admin')) {

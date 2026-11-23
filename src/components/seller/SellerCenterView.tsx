@@ -32,6 +32,7 @@ import {
   Layers,
 } from 'lucide-react';
 import { Game } from '../../types/game';
+import { useBranding } from '../../services/brandingService';
 
 interface SellerCenterViewProps {
   currentUser: any;
@@ -46,6 +47,7 @@ export const SellerCenterView: React.FC<SellerCenterViewProps> = ({
   games,
   onNavigateHome,
 }) => {
+  const branding = useBranding();
   const [loading, setLoading] = useState<boolean>(true);
   const [sellerData, setSellerData] = useState<any>(null);
   const [stats, setStats] = useState<any>(null);
@@ -562,7 +564,7 @@ export const SellerCenterView: React.FC<SellerCenterViewProps> = ({
         <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-4 text-amber-500">
           <Store className="w-8 h-8" />
         </div>
-        <h2 className="text-2xl font-bold mb-2">Trung Tâm Người Bán CodeGame.shop</h2>
+        <h2 className="text-2xl font-bold mb-2">{`Trung Tâm Người Bán ${branding.brandDisplay || 'CodeGame.Shop'}`}</h2>
         <p className="text-muted-foreground max-w-md mb-6">
           Vui lòng đăng nhập tài khoản thành viên để đăng ký mở gian hàng và quản lý kinh doanh.
         </p>
@@ -781,7 +783,7 @@ export const SellerCenterView: React.FC<SellerCenterViewProps> = ({
         </div>
         <h2 className="text-2xl font-bold mb-2">Hồ Sơ Đang Chờ Xét Duyệt</h2>
         <p className="text-muted-foreground text-sm mb-6">
-          Gian hàng <strong>{sellerData.name}</strong> (/gian-hang/{sellerData.slug}) đã được tiếp nhận và đang trong hàng chờ thẩm định của Quản trị viên CodeGame.shop.
+          Gian hàng <strong>{sellerData.name}</strong> (/gian-hang/{sellerData.slug}) đã được tiếp nhận và đang trong hàng chờ thẩm định của Quản trị viên {branding.brandDisplay || 'CodeGame.Shop'}.
         </p>
         {sellerData.request_info_note && (
           <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-500 text-xs text-left mb-6">

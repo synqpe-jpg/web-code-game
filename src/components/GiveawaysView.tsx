@@ -46,6 +46,7 @@ import { EventCountdownBadge } from './countdown/EventCountdownBadge';
 import { useEventCountdown } from '../hooks/useEventCountdown';
 import { eventSchedulerService } from '../services/eventSchedulerService';
 import { templateService } from '../services/templateService';
+import { useBranding } from '../services/brandingService';
 
 interface GiveawaysViewProps {
   onShowToast: (title: string, message?: string, type?: 'success' | 'error' | 'info') => void;
@@ -1054,6 +1055,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
   initialGiveawayId,
   onClearInitialGiveawayId,
 }) => {
+  const branding = useBranding();
   const [giveaways, setGiveaways] = useState<GiveawayCampaign[]>([]);
   // Gom nhóm các chiến dịch Giveaway cùng Tựa Game thành chiến dịch đại diện
   const groupedCampaigns = useMemo(() => groupGiveawaysByGame(giveaways), [giveaways]);
@@ -1426,7 +1428,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
           (c, idx) =>
             `${idx + 1}. [${c.game_name}] Mã: ${c.code_value} | Thưởng: ${c.rewards} (Nhận: ${formatFullDateTime(c.claimed_at)})`
         )
-        .join('\n') + '\n\n📌 Nguồn: CodeGame.shop - Săn Giftcode VIP Miễn Phí tại https://codegame.shop';
+        .join('\n') + `\n\n📌 Nguồn: ${branding.brandDisplay || 'CodeGame.Shop'} - Săn Giftcode VIP Miễn Phí tại ${branding.baseUrl || 'https://codegame.shop'}`;
     navigator.clipboard.writeText(text);
     marketingService.recordRealCopy('Giveaway Giftcode', '', uniqueClaimedList.length);
     onShowToast('Đã sao chép tất cả mã!', `Đã chép toàn bộ ${uniqueClaimedList.length} giftcode vào clipboard.`, 'success');
@@ -1434,7 +1436,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
 
   const handleExportTxtFile = () => {
     if (uniqueClaimedList.length === 0) return;
-    const header = `=== DANH SÁCH GIFTCODE ĐÃ SĂN - CODEGAME.SHOP ===\nThời gian xuất: ${new Date().toLocaleString('vi-VN')}\nTổng số mã: ${uniqueClaimedList.length}\nTra cứu thêm mã mới: https://codegame.shop\n\n`;
+    const header = `=== DANH SÁCH GIFTCODE ĐÃ SĂN - ${(branding.brandDisplay || 'CodeGame.Shop').toUpperCase()} ===\nThời gian xuất: ${new Date().toLocaleString('vi-VN')}\nTổng số mã: ${uniqueClaimedList.length}\nTra cứu thêm mã mới: ${branding.baseUrl || 'https://codegame.shop'}\n\n`;
     const body = uniqueClaimedList
       .map(
         (c, idx) =>

@@ -16,6 +16,7 @@ import { Footer } from './components/Footer';
 import { ToastContainer, type ToastMessage } from './components/Toast';
 import { GameGridSkeleton } from './components/GameCardSkeleton';
 import { LanguageSeoHead } from './components/seo/LanguageSeoHead';
+import { HomeFaqSection } from './components/faq/HomeFaqSection';
 
 // P4: Code Splitting & Lazy Loaded Views / Modals with auto-recovery on stale deployment chunks
 const FloatingAnnouncement = lazyWithRetry(() => import('./components/FloatingAnnouncement').then((m) => ({ default: m.FloatingAnnouncement })));
@@ -1838,9 +1839,10 @@ export const App: React.FC = () => {
             }
             const isDedicatedAdmin = host.includes('admin-code-game-shop');
             if (isDedicatedAdmin) {
-              const newWin = window.open('https://codegame.shop', '_blank');
+              const targetHomeUrl = brandingConfig.baseUrl || 'https://codegame.shop';
+              const newWin = window.open(targetHomeUrl, '_blank');
               if (!newWin || newWin.closed || typeof newWin.closed === 'undefined') {
-                window.location.href = 'https://codegame.shop';
+                window.location.href = targetHomeUrl;
               }
             } else {
               if (window.location.pathname.toLowerCase().startsWith('/admin')) {
@@ -2053,6 +2055,9 @@ export const App: React.FC = () => {
                     useInfiniteScroll={paginationConfig.mode === 'infinite'}
                   />
                 )}
+
+                {/* Khối Hỏi Đáp FAQ Trang Chủ */}
+                <HomeFaqSection />
               </div>
             </>
           )}

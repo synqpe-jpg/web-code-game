@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { telegramService, TelegramPublicConfig } from '../services/telegramService';
 import { authService } from '../services/authService';
+import { useBranding } from '../services/brandingService';
 
 interface TelegramViewProps {
   onOpenAuth?: () => void;
@@ -27,6 +28,7 @@ export const TelegramView: React.FC<TelegramViewProps> = ({
   onOpenProfile,
   onShowToast,
 }) => {
+  const branding = useBranding();
   const [config, setConfig] = useState<TelegramPublicConfig>({
     enabled: false,
     bot_username: null,
@@ -96,7 +98,7 @@ export const TelegramView: React.FC<TelegramViewProps> = ({
           </div>
 
           <h1 className="text-3xl sm:text-5xl font-black text-white tracking-tight leading-tight">
-            Cộng Đồng Game Thủ <span className="text-transparent bg-clip-text bg-gradient-to-r from-sky-400 via-blue-400 to-indigo-400">CodeGame.Shop</span>
+            Cộng Đồng Game Thủ <span className="text-transparent bg-clip-text bg-gradient-to-r from-sky-400 via-blue-400 to-indigo-400">{branding.brandDisplay || 'CodeGame.Shop'}</span>
           </h1>
 
           <p className="text-sm sm:text-base text-slate-300 max-w-2xl mx-auto mt-3 leading-relaxed font-normal">
@@ -221,7 +223,7 @@ export const TelegramView: React.FC<TelegramViewProps> = ({
         <div className="p-5 rounded-2xl bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs text-slate-600 dark:text-slate-400">
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-            <span>CodeGame.Shop cam kết bảo mật thông tin tài khoản và không gửi tin nhắn rác.</span>
+            <span>{`${branding.brandDisplay || 'CodeGame.Shop'} cam kết bảo mật thông tin tài khoản và không gửi tin nhắn rác.`}</span>
           </div>
           <button
             type="button"

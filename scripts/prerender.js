@@ -439,8 +439,8 @@ async function runPrerender() {
         '@context': 'https://schema.org',
         '@type': 'BreadcrumbList',
         itemListElement: [
-          { '@type': 'ListItem', position: 1, name: 'Trang chủ', item: 'https://codegame.shop/' },
-          { '@type': 'ListItem', position: 2, name: 'Mã Miễn Phí', item: 'https://codegame.shop/' },
+          { '@type': 'ListItem', position: 1, name: 'Trang chủ', item: `${BASE_URL}/` },
+          { '@type': 'ListItem', position: 2, name: 'Mã Miễn Phí', item: `${BASE_URL}/` },
         ],
       },
     ],
@@ -726,12 +726,13 @@ async function runPrerender() {
         </main>
 
           <!-- FAQ Section -->
-          <section class="mt-14 pt-8 border-t border-gray-800">
-            <h2 class="text-lg sm:text-xl font-bold text-white mb-4">Câu Hỏi Thường Gặp Khi Nhận Giftcode (FAQ)</h2>
+          <section id="home-faq-section" aria-labelledby="faq-heading" class="mt-14 pt-8 border-t border-gray-800">
+            <h2 id="faq-heading" class="text-lg sm:text-xl font-bold text-white mb-2">Câu Hỏi Thường Gặp Khi Nhận Giftcode (FAQ)</h2>
+            <p class="text-xs text-gray-400 mb-6">Giải đáp các thắc mắc phổ biến về mã giftcode, bản quyền game và cách nhận quà tại ${BRAND_DISPLAY}</p>
             <div class="grid md:grid-cols-3 gap-4 text-xs text-gray-300">
               <div class="p-4 rounded-xl bg-dark-900 border border-gray-800">
                 <h3 class="font-bold text-gray-100 text-sm mb-2">1. Giftcode trên ${BRAND_DISPLAY} có miễn phí không?</h3>
-                <p>Tất cả mã giftcode trong mục Mã Miễn Phí và Đợt Phát Code đều hoàn toàn miễn phí 100%, được tổng hợp và kiểm duyệt từ các Nhà phát hành game chính thức.</p>
+                <p>Tất cả mã giftcode trong mục Mã Miễn Phí và Đợt Phát Code đều hoàn toàn miễn phí 100%, được tổng hợp và kiểm duyệt từ các Nhà phát hành game chính thức tại Việt Nam.</p>
               </div>
               <div class="p-4 rounded-xl bg-dark-900 border border-gray-800">
                 <h3 class="font-bold text-gray-100 text-sm mb-2">2. Làm thế nào để sao chép mã code nhanh chóng?</h3>
@@ -739,7 +740,7 @@ async function runPrerender() {
               </div>
               <div class="p-4 rounded-xl bg-dark-900 border border-gray-800">
                 <h3 class="font-bold text-gray-100 text-sm mb-2">3. Các tựa game trên ${BRAND_DISPLAY} có hợp pháp không?</h3>
-                <p>Hệ thống cập nhật thông tin pháp lý và giấy phép phê duyệt nội dung kịch bản trò chơi G1 được cấp bởi Cục PTTH&TTĐT cho từng game theo dữ liệu công khai.</p>
+                <p>Hệ thống cập nhật và đối soát thông tin pháp lý, Giấy phép phê duyệt nội dung kịch bản G1 từ Cục PTTH&TTĐT đối với từng tựa game phát hành tại Việt Nam.</p>
               </div>
             </div>
           </section>

@@ -45,6 +45,7 @@ import { authService } from '../services/authService';
 import { dataService } from '../services/dataService';
 import { telegramService, type TelegramUserStatus } from '../services/telegramService';
 import { missionService } from '../services/missionService';
+import { useBranding } from '../services/brandingService';
 import type { Mission } from '../types/mission';
 import { MissionDetailModal } from './MissionDetailModal';
 import { formatCore, formatFullDateTime } from '../utils/textUtils';
@@ -97,6 +98,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   onOpenAuth,
   onNavigateToSellerCenter,
 }) => {
+  const branding = useBranding();
   const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'telegram' | 'missions'>(initialTab);
 
   // Sync initialTab when modal opens
@@ -1319,7 +1321,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                             Liên Kết Telegram Nhận Mã Tức Thì
                           </h4>
                           <p className="text-xs text-muted-foreground mt-1 max-w-md mx-auto leading-relaxed">
-                            Kết nối tài khoản của bạn với Bot Telegram CodeGame để nhận mã giftcode riêng tự động, cảnh báo mã sắp hết hạn và quản lý game yêu thích 24/7.
+                            {`Kết nối tài khoản của bạn với Bot Telegram ${branding.brandName || 'CodeGame'} để nhận mã giftcode riêng tự động, cảnh báo mã sắp hết hạn và quản lý game yêu thích 24/7.`}
                           </p>
                         </div>
 

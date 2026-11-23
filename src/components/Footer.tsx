@@ -133,7 +133,7 @@ export const Footer: React.FC<FooterProps> = ({ onSelectCategory, categories, on
                     className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-gradient-to-r from-primary/15 via-purple-500/15 to-accent/15 hover:from-primary/25 hover:to-accent/25 border border-primary/40 text-primary-light font-bold text-xs transition-all active:scale-95 cursor-pointer shadow-sm"
                   >
                     <Smartphone className="w-4 h-4 text-primary-light" />
-                    <span>Cài Đặt App CodeGame (Android & iOS)</span>
+                    <span>{`Cài Đặt App ${brandingServiceConfig.brandName || 'CodeGame'} (Android & iOS)`}</span>
                     <span className="px-1.5 py-0.2 rounded-full text-[9px] font-black bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                       FREE
                     </span>

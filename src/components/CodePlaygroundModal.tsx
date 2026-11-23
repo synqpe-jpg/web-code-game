@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { X, Code2, Dices, Copy, Check, Sparkles } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
+import { useBranding } from '../services/brandingService';
 import type { GameItem } from '../types/game';
 
 interface CodePlaygroundModalProps {
@@ -20,6 +21,7 @@ export const CodePlaygroundModal: React.FC<CodePlaygroundModalProps> = ({
   onSelectGame,
   onShowToast,
 }) => {
+  const branding = useBranding();
   const [luckyResult, setLuckyResult] = useState<{
     game: GameItem;
     code: string;
@@ -111,7 +113,7 @@ export const CodePlaygroundModal: React.FC<CodePlaygroundModalProps> = ({
             </div>
 
             <h4 className="font-heading font-bold text-base text-foreground mb-1">
-              Thử Vận May Cùng CodeGame.Shop
+              {`Thử Vận May Cùng ${branding.brandDisplay || 'CodeGame.Shop'}`}
             </h4>
             <p className="text-xs text-muted-foreground max-w-xs mx-auto mb-4">
               Nhấn nút bên dưới để hệ thống chọn ngẫu nhiên 1 mã giftcode đặc biệt kèm phần thưởng cho bạn!

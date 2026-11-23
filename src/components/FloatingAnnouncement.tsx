@@ -12,6 +12,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { dataService } from '../services/dataService';
+import { useBranding } from '../services/brandingService';
 import {
   FloatingNotificationConfig,
   DEFAULT_FLOATING_NOTIFICATION,
@@ -25,6 +26,7 @@ interface FloatingAnnouncementProps {
 }
 
 export const FloatingAnnouncement: React.FC<FloatingAnnouncementProps> = ({ onNavigateTab }) => {
+  const branding = useBranding();
   const [config, setConfig] = useState<FloatingNotificationConfig>(() =>
     dataService.getFloatingNotificationConfig()
   );
@@ -398,6 +400,15 @@ export const FloatingAnnouncement: React.FC<FloatingAnnouncementProps> = ({ onNa
     );
   };
 
+  const brandDisplay = branding.brandDisplay || 'CodeGame.Shop';
+  const brandName = branding.brandName || 'CodeGame';
+  const displayTitle = (config.title || `🎁 Chào Mừng Đến Với ${brandDisplay}`)
+    .replace(/CodeGame\.shop/gi, brandDisplay)
+    .replace(/CodeGame/gi, brandName);
+  const displayMessage = (config.message || '')
+    .replace(/CodeGame\.shop/gi, brandDisplay)
+    .replace(/CodeGame/gi, brandName);
+
   // Position 1: CENTER MODAL POPUP (with backdrop overlay)
   if (config.position === 'center_modal') {
     return (
@@ -424,13 +435,13 @@ export const FloatingAnnouncement: React.FC<FloatingAnnouncementProps> = ({ onNa
                 Thông Báo Nổi Bật
               </span>
               <h3 className={`text-base sm:text-lg font-bold leading-snug ${themeStyles.title}`}>
-                {config.title}
+                {displayTitle}
               </h3>
             </div>
           </div>
 
           <div className="text-xs sm:text-sm text-zinc-300 leading-relaxed space-y-2 mb-4 whitespace-pre-line">
-            <RichTextRenderer content={config.message} />
+            <RichTextRenderer content={displayMessage} />
           </div>
 
           {/* Thẻ Sự Kiện Đang Diễn Ra (Event Spotlight) */}
@@ -498,10 +509,10 @@ export const FloatingAnnouncement: React.FC<FloatingAnnouncementProps> = ({ onNa
             </div>
             <div className="truncate text-left">
               <span className={`text-xs sm:text-sm font-bold mr-2 ${themeStyles.title}`}>
-                {config.title}
+                {displayTitle}
               </span>
               <span className="text-xs text-zinc-300 truncate hidden md:inline">
-                <RichTextRenderer content={config.message} />
+                <RichTextRenderer content={displayMessage} />
               </span>
             </div>
           </div>
@@ -572,13 +583,13 @@ export const FloatingAnnouncement: React.FC<FloatingAnnouncementProps> = ({ onNa
               Thông Báo Mới
             </span>
             <h4 className={`text-xs sm:text-sm font-bold leading-tight ${themeStyles.title}`}>
-              {config.title}
+              {displayTitle}
             </h4>
           </div>
         </div>
 
         <div className="text-xs text-zinc-300 leading-relaxed mb-3 line-clamp-3">
-          <RichTextRenderer content={config.message} />
+          <RichTextRenderer content={displayMessage} />
         </div>
 
         {/* Thẻ Sự Kiện Đang Diễn Ra (Event Spotlight) */}

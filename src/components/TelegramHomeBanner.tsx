@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Send, Users, Bell, ExternalLink, ArrowRight } from 'lucide-react';
 import { telegramService, TelegramPublicConfig } from '../services/telegramService';
 import { authService } from '../services/authService';
+import { useBranding } from '../services/brandingService';
 
 interface TelegramHomeBannerProps {
   onOpenAuth?: () => void;
@@ -12,6 +13,7 @@ export const TelegramHomeBanner: React.FC<TelegramHomeBannerProps> = ({
   onOpenAuth,
   onOpenProfile,
 }) => {
+  const branding = useBranding();
   const [config, setConfig] = useState<TelegramPublicConfig>({
     enabled: false,
     bot_username: null,
@@ -62,7 +64,7 @@ export const TelegramHomeBanner: React.FC<TelegramHomeBannerProps> = ({
           <div>
             <div className="flex items-center justify-center sm:justify-start gap-2">
               <h4 className="text-sm sm:text-base font-black text-white tracking-tight">
-                Nhóm Telegram CodeGame.Shop
+                {`Nhóm Telegram ${branding.brandDisplay || 'CodeGame.Shop'}`}
               </h4>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-500/15 text-sky-300 border border-sky-500/30">
                 Official

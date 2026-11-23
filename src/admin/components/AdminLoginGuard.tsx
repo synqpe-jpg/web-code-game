@@ -13,6 +13,7 @@ import {
 import { AdminUser } from '../types/adminTypes';
 import { adminDataService } from '../services/adminDataService';
 import { authService } from '../../services/authService';
+import { useBranding } from '../../services/brandingService';
 
 interface AdminLoginGuardProps {
   onLoginSuccess: (user: AdminUser) => void;
@@ -23,6 +24,7 @@ export const AdminLoginGuard: React.FC<AdminLoginGuardProps> = ({
   onLoginSuccess,
   onGoToClientSite,
 }) => {
+  const branding = useBranding();
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -133,7 +135,7 @@ export const AdminLoginGuard: React.FC<AdminLoginGuardProps> = ({
             ADMIN CONSOLE <span className="text-xs px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-semibold">v4.0 SECURE</span>
           </h1>
           <p className="text-xs text-slate-400 mt-1 font-medium">
-            Hệ thống Quản trị & Điều hành Dữ liệu CodeGame.Shop
+            {`Hệ thống Quản trị & Điều hành Dữ liệu ${branding.brandDisplay || 'CodeGame.Shop'}`}
           </p>
         </div>
 
@@ -232,7 +234,7 @@ export const AdminLoginGuard: React.FC<AdminLoginGuardProps> = ({
             <span>
               {typeof window !== 'undefined' && window.location.hostname.includes('admin-test-code-game-shop')
                 ? 'Quay về trang web khách (Bản Test Shopee)'
-                : 'Quay về trang web khách (CodeGame.Shop)'}
+                : `Quay về trang web khách (${branding.brandDisplay || 'CodeGame.Shop'})`}
             </span>
           </button>
         </div>

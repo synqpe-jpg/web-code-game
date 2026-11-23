@@ -19,6 +19,7 @@ import {
 import { gameEventService } from '../services/gameEventService';
 import type { GameEventItem, GameEventTimeStatus, GameEventSourceType } from '../types/gameEvent';
 import { getGameEventTimeStatus, sortGameEvents } from '../types/gameEvent';
+import { useBranding } from '../services/brandingService';
 
 interface GameEventsListProps {
   onShowToast: (title: string, message?: string, type?: 'success' | 'error' | 'info') => void;
@@ -29,6 +30,7 @@ export const GameEventsList: React.FC<GameEventsListProps> = ({
   onShowToast,
   onSelectGameSlug,
 }) => {
+  const branding = useBranding();
   const [events, setEvents] = useState<GameEventItem[]>(() => {
     try {
       return gameEventService.getPublishedEvents();
@@ -469,7 +471,7 @@ export const GameEventsList: React.FC<GameEventsListProps> = ({
                       }
                     }}
                     className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 text-xs font-bold transition-all active:scale-95 cursor-pointer truncate"
-                    title={`Xem danh sách giftcode game ${event.game_name} trên CodeGame.shop`}
+                    title={`Xem danh sách giftcode game ${event.game_name} trên ${branding.brandDisplay || 'CodeGame.Shop'}`}
                   >
                     <Gift className="w-3.5 h-3.5 shrink-0" />
                     <span className="truncate">Xem code trên web</span>

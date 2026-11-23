@@ -50,6 +50,7 @@ import { isCodeExpired, decodeHtmlEntities } from '../utils/codeUtils';
 import { GameDownloadSection } from './game/GameDownloadSection';
 import { generateFomoComments } from '../services/fomoCommentsService';
 import { templateService } from '../services/templateService';
+import { useBranding } from '../services/brandingService';
 
 interface GameDetailModalProps {
   game: GameItem | null;
@@ -73,6 +74,7 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
   onOpenAuth,
 }) => {
   const { t } = useLanguage();
+  const branding = useBranding();
   useLockBodyScroll(true);
   const activeUser = currentUser || (typeof window !== 'undefined' ? dataService.getCurrentUser() : null);
   const [liveGame, setLiveGame] = useState<GameItem | null>(game);
@@ -622,8 +624,8 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
     }
 
     const codeList = targetCodes.map((c) => c.code.trim()).filter(Boolean);
-    const gameLink = `https://codegame.shop/game/${currentGame.slug || currentGame.id || ''}`;
-    const watermark = `\n\n📌 Nguồn: CodeGame.shop - Cổng Tra Cứu Giftcode Bản Quyền G1\n👉 Nhận thêm mã VIP miễn phí tại: ${gameLink}`;
+    const gameLink = `${branding.baseUrl || 'https://codegame.shop'}/game/${currentGame.slug || currentGame.id || ''}`;
+    const watermark = `\n\n📌 Nguồn: ${branding.brandDisplay || 'CodeGame.Shop'} - Cổng Tra Cứu Giftcode Bản Quyền G1\n👉 Nhận thêm mã VIP miễn phí tại: ${gameLink}`;
     const codeString = codeList.join('\n') + watermark;
 
     const ok = await copyToClipboard(codeString);
@@ -866,8 +868,8 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
               {/* Nút Chia Sẻ Qua Telegram (Mục 3.1) */}
               <a
                 href={telegramService.getShareUrl(
-                  `https://codegame.shop/game/${currentGame.slug || currentGame.id}`,
-                  `Nhận trọn bộ Giftcode ${currentGame.name} mới nhất 2026 tại CodeGame.Shop`
+                  `${branding.baseUrl || 'https://codegame.shop'}/game/${currentGame.slug || currentGame.id}`,
+                  `Nhận trọn bộ Giftcode ${currentGame.name} mới nhất 2026 tại ${branding.brandDisplay || 'CodeGame.Shop'}`
                 )}
                 target="_blank"
                 rel="noopener noreferrer"

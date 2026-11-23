@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Megaphone } from 'lucide-react';
 import { dataService } from '../services/dataService';
+import { useBranding } from '../services/brandingService';
 
 export const AnnouncementBar: React.FC = () => {
+  const branding = useBranding();
   const [announcement, setAnnouncement] = useState<{
     id: string;
     title: string;
@@ -43,15 +45,28 @@ export const AnnouncementBar: React.FC = () => {
     return null;
   }
 
+  const brandDisplay = branding.brandDisplay || 'CodeGame.Shop';
+  const brandName = branding.brandName || 'CodeGame';
+
+  const rawTitle = announcement.title || `Chào mừng đến với ${brandDisplay}`;
+  const displayTitle = rawTitle
+    .replace(/CodeGame\.shop/gi, brandDisplay)
+    .replace(/CodeGame/gi, brandName);
+
+  const rawContent = announcement.content || '';
+  const displayContent = rawContent
+    ? rawContent.replace(/CodeGame\.shop/gi, brandDisplay).replace(/CodeGame/gi, brandName)
+    : '';
+
   // Khối thông báo đơn lẻ
   const renderMessageContent = (keyPrefix: string) => (
     <div key={keyPrefix} className="inline-flex items-center gap-3 px-6 whitespace-nowrap">
       <span className="font-extrabold text-amber-200 tracking-wide drop-shadow-sm">
-        {announcement.title}
+        {displayTitle}
       </span>
-      {announcement.content && (
+      {displayContent && (
         <span className="text-slate-100 font-medium">
-          • {announcement.content}
+          • {displayContent}
         </span>
       )}
       <span className="text-amber-400/70 font-bold px-2 select-none">✦</span>

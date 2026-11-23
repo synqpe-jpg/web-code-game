@@ -337,6 +337,10 @@
     "termsOfService": "Terms of Service",
     "contactSupport": "Technical Support"
   },
+  "faq": {
+    "sectionTitle": "Frequently Asked Questions (FAQ)",
+    "sectionSubtitle": "Common questions and answers about giftcodes, game licenses, and redemption on {brand}"
+  },
   "common": {
     "loading": "Loading data...",
     "success": "Success!",

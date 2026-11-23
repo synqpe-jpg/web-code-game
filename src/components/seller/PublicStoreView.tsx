@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { dataService } from '../../services/dataService';
 import { cartService } from '../../services/cartService';
+import { useBranding } from '../../services/brandingService';
 
 interface PublicStoreViewProps {
   slug: string;
@@ -38,6 +39,7 @@ export const PublicStoreView: React.FC<PublicStoreViewProps> = ({
   onOpenProfile,
   onOpenCart,
 }) => {
+  const branding = useBranding();
   const [loading, setLoading] = useState<boolean>(true);
   const [store, setStore] = useState<any>(null);
   const [products, setProducts] = useState<any[]>([]);
@@ -252,7 +254,7 @@ export const PublicStoreView: React.FC<PublicStoreViewProps> = ({
                     <Clock className="w-3.5 h-3.5" /> Giờ hỗ trợ: {store.support_hours || '08:00 - 22:00'}
                   </span>
                   <span>•</span>
-                  <span>Sàn TMĐT Số CodeGame.shop</span>
+                  <span>{`Sàn TMĐT Số ${branding.brandDisplay || 'CodeGame.Shop'}`}</span>
                 </div>
               </div>
             </div>

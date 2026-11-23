@@ -337,6 +337,10 @@
     "termsOfService": "Điều Khoản Dịch Vụ",
     "contactSupport": "Hỗ Trợ Kỹ Thuật"
   },
+  "faq": {
+    "sectionTitle": "Câu Hỏi Thường Gặp Khi Nhận Giftcode (FAQ)",
+    "sectionSubtitle": "Giải đáp các thắc mắc phổ biến về mã giftcode, bản quyền game và cách nhận quà tại {brand}"
+  },
   "common": {
     "loading": "Đang tải dữ liệu...",
     "success": "Thành công!",

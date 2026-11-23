@@ -14,6 +14,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { pwaService } from '../services/pwaService';
+import { useBranding } from '../services/brandingService';
 import QRCode from 'qrcode';
 
 interface DownloadAppModalProps {
@@ -25,6 +26,8 @@ export const DownloadAppModal: React.FC<DownloadAppModalProps> = ({
   isOpen,
   onClose,
 }) => {
+  const branding = useBranding();
+  const brandName = branding.brandName || 'CodeGame';
   const [platform, setPlatform] = useState<'ios' | 'android' | 'desktop'>('android');
   const [canPromptPwa, setCanPromptPwa] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
@@ -104,7 +107,7 @@ export const DownloadAppModal: React.FC<DownloadAppModalProps> = ({
             <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary via-primary-hover to-accent flex items-center justify-center shadow-glow-primary shrink-0 overflow-hidden border border-white/20">
               <img
                 src="/logo.png"
-                alt="CodeGame App"
+                alt={`${brandName} App`}
                 className="w-full h-full object-cover"
                 onError={(e) => {
                   (e.target as HTMLImageElement).style.display = 'none';
@@ -114,7 +117,7 @@ export const DownloadAppModal: React.FC<DownloadAppModalProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-base sm:text-lg font-bold text-foreground font-display">
-                  Cài Đặt App CodeGame
+                  {`Cài Đặt App ${brandName}`}
                 </h3>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                   FREE
@@ -206,7 +209,7 @@ export const DownloadAppModal: React.FC<DownloadAppModalProps> = ({
                   <div className="text-xs">
                     <p className="font-bold">Ứng dụng đã được cài đặt!</p>
                     <p className="text-slate-400 mt-0.5">
-                      Bạn có thể mở CodeGame trực tiếp từ màn hình chính của thiết bị.
+                      {`Bạn có thể mở ${brandName} trực tiếp từ màn hình chính của thiết bị.`}
                     </p>
                   </div>
                 </div>
@@ -216,7 +219,7 @@ export const DownloadAppModal: React.FC<DownloadAppModalProps> = ({
                   <div className="text-xs">
                     <p className="font-bold">Cài đặt thành công!</p>
                     <p className="text-slate-300 mt-0.5">
-                      Icon CodeGame đã xuất hiện trên màn hình điện thoại của bạn.
+                      {`Icon ${brandName} đã xuất hiện trên màn hình điện thoại của bạn.`}
                     </p>
                   </div>
                 </div>
@@ -321,11 +324,11 @@ export const DownloadAppModal: React.FC<DownloadAppModalProps> = ({
 
                 <a
                   href="/download/codegame.apk"
-                  download="CodeGame-v1.0.apk"
+                  download={`${brandName}-v1.0.apk`}
                   className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-sm shadow-sm active:scale-98 transition-all flex items-center justify-center gap-2 cursor-pointer no-underline"
                 >
                   <Download className="w-4 h-4" />
-                  <span>Tải File CodeGame.apk (2.8 MB)</span>
+                  <span>{`Tải File ${brandName}.apk (2.8 MB)`}</span>
                 </a>
 
                 {/* Instant PWA Shortcut Alternative */}
@@ -357,7 +360,7 @@ export const DownloadAppModal: React.FC<DownloadAppModalProps> = ({
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="w-4 h-4 rounded-full bg-primary/20 text-primary-light flex items-center justify-center text-[10px] font-bold shrink-0">3</span>
-                    <span>Nhấn <strong>Cài đặt</strong> và mở app CodeGame trải nghiệm!</span>
+                    <span>Nhấn <strong>Cài đặt</strong> và mở app {brandName} trải nghiệm!</span>
                   </div>
                 </div>
               </div>
@@ -372,7 +375,7 @@ export const DownloadAppModal: React.FC<DownloadAppModalProps> = ({
                   <div className="relative w-full h-full flex items-center justify-center">
                     <img
                       src={qrDataUrl}
-                      alt="Mã QR Cài Đặt App CodeGame"
+                      alt={`Mã QR Cài Đặt App ${brandName}`}
                       className="w-full h-full object-contain"
                     />
                     {/* Micro Brand Badge in center of QR */}
