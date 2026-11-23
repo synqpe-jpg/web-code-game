@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
+import { useBranding } from '../../services/brandingService';
 
 interface LanguageSeoHeadProps {
   title?: string;
@@ -13,19 +14,21 @@ export const LanguageSeoHead: React.FC<LanguageSeoHeadProps> = ({
   path = '',
 }) => {
   const { language } = useLanguage();
+  const branding = useBranding();
   const isEn = language === 'en';
 
   useEffect(() => {
     if (typeof document === 'undefined') return;
 
+    const brandDisplay = branding.brandDisplay || 'CodeGame.shop';
     // 1. Cập nhật document.title theo ngôn ngữ
-    const defaultViTitle = 'CodeGame.shop - Kho Giftcode Game Mobile & Sàn TMĐT Đa Ngành #1 Việt Nam';
-    const defaultEnTitle = 'CodeGame.shop - Latest Verified Game Giftcodes & Universal E-Commerce Platform';
+    const defaultViTitle = branding.siteTitle || `${brandDisplay} - Kho Giftcode Game Mobile & Sàn TMĐT Đa Ngành #1 Việt Nam`;
+    const defaultEnTitle = `${brandDisplay} - Latest Verified Game Giftcodes & Universal E-Commerce Platform`;
     const finalTitle = title || (isEn ? defaultEnTitle : defaultViTitle);
     document.title = finalTitle;
 
     // 2. Cập nhật meta description
-    const defaultViDesc = 'Tra cứu giftcode game mobile, webgame bản quyền chính hãng ABEI/G1 tại Việt Nam. Nền tảng thương mại điện tử đa ngành, thanh toán VietQR tự động 0s.';
+    const defaultViDesc = branding.seoDescription || 'Tra cứu giftcode game mobile, webgame bản quyền chính hãng ABEI/G1 tại Việt Nam. Nền tảng thương mại điện tử đa ngành, thanh toán VietQR tự động 0s.';
     const defaultEnDesc = 'Discover and redeem 100% verified official game giftcodes in Vietnam. Multi-industry e-commerce store with instant 0s digital delivery.';
     const finalDesc = description || (isEn ? defaultEnDesc : defaultViDesc);
 
@@ -63,7 +66,7 @@ export const LanguageSeoHead: React.FC<LanguageSeoHeadProps> = ({
     updateLinkTag('alternate', 'vi', `${origin}${cleanPath}`);
     updateLinkTag('alternate', 'en', `${origin}/en${cleanPath.startsWith('/') ? cleanPath : `/${cleanPath}`}`);
     updateLinkTag('alternate', 'x-default', `${origin}${cleanPath}`);
-  }, [language, isEn, title, description, path]);
+  }, [language, isEn, title, description, path, branding]);
 
   return null;
 };

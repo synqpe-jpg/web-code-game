@@ -37,6 +37,7 @@ import { SellerModerationModule } from './modules/SellerModerationModule';
 import { PlatformLeadsModule } from './modules/PlatformLeadsModule';
 import { TranslationsModule } from './modules/TranslationsModule';
 import { VouchersModule } from './modules/VouchersModule';
+import { BrandingModule } from './modules/BrandingModule';
 import { MarketingNotificationToast } from '../components/MarketingNotificationToast';
 
 interface AdminAppProps {
@@ -76,6 +77,7 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToClient }) => {
       'first-purchase',
       'sepay',
       'content',
+      'branding',
       'api-keys',
       'security-logs',
       'profile',
@@ -655,6 +657,10 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToClient }) => {
 
         {currentTab === 'missions' && (
           <MissionsModule />
+        )}
+
+        {currentTab === 'branding' && (
+          <BrandingModule onShowToast={showToast} />
         )}
 
         {currentTab === 'api-keys' && (

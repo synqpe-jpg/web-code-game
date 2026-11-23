@@ -5,7 +5,8 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const BASE_URL = 'https://codegame.shop';
+const BASE_URL = (process.env.BASE_URL || 'https://codegame.shop').replace(/\/+$/, '');
+const BRAND_DISPLAY = process.env.BRAND_DISPLAY || 'CodeGame.Shop';
 
 const GAME_CANONICAL_ALIASES = {
   'dau-truong-chan-ly-mobile': 'dau-truong-chan-ly',
@@ -410,7 +411,7 @@ async function runPrerender() {
         mainEntity: [
           {
             '@type': 'Question',
-            name: 'Giftcode trên CodeGame.shop có miễn phí không?',
+            name: `Giftcode trên ${BRAND_DISPLAY} có miễn phí không?`,
             acceptedAnswer: {
               '@type': 'Answer',
               text: 'Tất cả mã giftcode trong mục Mã Miễn Phí và Đợt Phát Code đều hoàn toàn miễn phí 100%, được tổng hợp và kiểm duyệt từ các Nhà phát hành game chính thức tại Việt Nam.',
@@ -426,7 +427,7 @@ async function runPrerender() {
           },
           {
             '@type': 'Question',
-            name: 'Các tựa game trên CodeGame.shop có hợp pháp không?',
+            name: `Các tựa game trên ${BRAND_DISPLAY} có hợp pháp không?`,
             acceptedAnswer: {
               '@type': 'Answer',
               text: 'Hệ thống cập nhật và đối soát thông tin pháp lý, Giấy phép phê duyệt nội dung kịch bản G1 từ Cục PTTH&TTĐT đối với từng tựa game phát hành tại Việt Nam.',
@@ -729,7 +730,7 @@ async function runPrerender() {
             <h2 class="text-lg sm:text-xl font-bold text-white mb-4">Câu Hỏi Thường Gặp Khi Nhận Giftcode (FAQ)</h2>
             <div class="grid md:grid-cols-3 gap-4 text-xs text-gray-300">
               <div class="p-4 rounded-xl bg-dark-900 border border-gray-800">
-                <h3 class="font-bold text-gray-100 text-sm mb-2">1. Giftcode trên CodeGame.shop có miễn phí không?</h3>
+                <h3 class="font-bold text-gray-100 text-sm mb-2">1. Giftcode trên ${BRAND_DISPLAY} có miễn phí không?</h3>
                 <p>Tất cả mã giftcode trong mục Mã Miễn Phí và Đợt Phát Code đều hoàn toàn miễn phí 100%, được tổng hợp và kiểm duyệt từ các Nhà phát hành game chính thức.</p>
               </div>
               <div class="p-4 rounded-xl bg-dark-900 border border-gray-800">
@@ -737,7 +738,7 @@ async function runPrerender() {
                 <p>Bạn chỉ cần nhấp vào nút Sao Chép bên cạnh mỗi mã giftcode hoặc chọn Sao Chép Toàn Bộ Mã Còn Hạn để lưu tất cả giftcode vào bộ nhớ tạm trong 1 giây.</p>
               </div>
               <div class="p-4 rounded-xl bg-dark-900 border border-gray-800">
-                <h3 class="font-bold text-gray-100 text-sm mb-2">3. Các tựa game trên CodeGame.shop có hợp pháp không?</h3>
+                <h3 class="font-bold text-gray-100 text-sm mb-2">3. Các tựa game trên ${BRAND_DISPLAY} có hợp pháp không?</h3>
                 <p>Hệ thống cập nhật thông tin pháp lý và giấy phép phê duyệt nội dung kịch bản trò chơi G1 được cấp bởi Cục PTTH&TTĐT cho từng game theo dữ liệu công khai.</p>
               </div>
             </div>
@@ -749,8 +750,8 @@ async function runPrerender() {
           <div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-6 mb-6 text-left">
             <div class="md:col-span-2 space-y-2">
               <div class="flex items-center gap-2">
-                <img src="/logo.webp" alt="CodeGame.shop" width="24" height="24" loading="lazy" decoding="async" class="w-6 h-6 rounded-md" />
-                <span class="font-bold text-white text-sm">CodeGame.Shop</span>
+                <img src="/logo.webp" alt="${BRAND_DISPLAY}" width="24" height="24" loading="lazy" decoding="async" class="w-6 h-6 rounded-md" />
+                <span class="font-bold text-white text-sm">${BRAND_DISPLAY}</span>
               </div>
               <p class="text-gray-400 text-xs leading-relaxed">
                 Kho tổng hợp hơn ${totalCodesFormatted}+ giftcode game mobile và webgame mới nhất 2026 của ${canonicalGamesCount} tựa game chuẩn. Cập nhật liên tục 24/7 từ các NPH VNG, Garena, VTC, SohaGame, Funtap.

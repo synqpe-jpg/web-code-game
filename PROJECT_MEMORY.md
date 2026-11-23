@@ -381,3 +381,35 @@
     2. Khi người dùng vãng lai vào web (`dataService.syncWithCloudflareKV` khối `!isAdmin`).
     3. Khi Quản trị viên mở Module Tin Tức (`NewsModule.tsx` mount) hoặc bấm "🔄 Làm mới".
     4. Khi người dùng truy cập trực tiếp qua đường dẫn slug bài viết (`/news/:slug`), hệ thống tự động kiểm tra bài viết sau khi sync và mở modal xem bài ngay lập tức.
+
+---
+
+## 8. KIẾN TRÚC HỆ THỐNG THƯƠNG HIỆU & TÊN MIỀN TẬP TRUNG (BRANDING & DOMAIN - LIVE 0-REBUILD)
+
+### 8.1. Single Source of Truth (SSOT) & Cơ Chế Bộ Nhớ Đệm RAM Isolate
+- **Khóa CSDL D1 duy nhất**:
+  - Toàn bộ tham số thương hiệu và tên miền được lưu trữ tại khóa `wcg_branding_v1` trong bảng `system_settings` của CSDL Cloudflare D1.
+  - Bao gồm: `brandName`, `brandDisplay`, `baseUrl`, `siteTitle`, `tagline`, `portalSubtitle`, `footerCopyright`, `faqList` (`[{ q, a }]`), `emailFromName`, `emailFromAddress`, `telegramBotName`, `seoTitle`, `seoDescription`, `logoAlt`, `manifestName`, `manifestShortName`.
+  - Giá trị mặc định an toàn (`DEFAULT_BRANDING_CONFIG`) bảo đảm trang web chạy 100% bình thường ngay cả khi D1 chưa khởi tạo bản ghi.
+- **Bộ nhớ đệm RAM Isolate 30 giây (Isolate Memory Cache)**:
+  - Hàm `getBrandingConfig(db)` lưu đệm kết quả trong RAM isolate 30 giây để tối ưu tốc độ phản hồi trên Edge (< 1ms).
+  - Khi quản trị viên cập nhật qua `saveBrandingConfig(db, config)`, biến `_cachedBranding` lập tức bị xóa (invalidation), áp dụng cấu hình mới ngay lượt truy cập kế tiếp mà không cần khởi động lại Worker hay build lại source code (Zero-Rebuild).
+  - Tự động đồng bộ hai chiều với `wcg_email_provider_config_v1` cho thông tin người gửi email hệ thống.
+
+### 8.2. Kiến Trúc Phục Vụ Động Trên Cloudflare Edge Worker
+- **Phục vụ động `/robots.txt`**: Worker tự động trỏ chỉ thị `Sitemap:` về `${baseUrl}/sitemap.xml` theo tên miền đang hoạt động trong `wcg_branding_v1`.
+- **Phục vụ động `/manifest.json` và `/manifest.webmanifest`**: Cung cấp tệp kê khai PWA theo đúng tên thương hiệu và mô tả mới.
+- **Sitemap động**: `handleDynamicSitemap` & `generateDynamicSitemapXml` sinh toàn bộ URL sitemap dựa trên `branding.baseUrl`.
+- **Dynamic Content-Security-Policy (CSP)**: `attachBuildHeaders` tự động nối `baseUrl` và wildcard domain vào các chỉ thị `connect-src`, `frame-src`, và `frame-ancestors` trên mọi phản hồi HTTP.
+- **Telegram & Email thông báo**: Tự động sử dụng tên thương hiệu, tên bot và liên kết từ `wcg_branding_v1`.
+
+### 8.3. Quản Trị & Thay Thế Hàng Loạt
+- **Module Quản Trị `BrandingModule.tsx`**:
+  - Giao diện 4 tab trực quan: Chung, SEO & PWA, Câu Hỏi Thường Gặp (FAQ), Thay Thế Hàng Loạt.
+  - Trực quan hóa Live Preview: Tab trình duyệt, Header, Footer, Kết quả tìm kiếm Google SERP.
+  - Tuân thủ nghiêm ngặt Quy chuẩn Single-Screen First (Rule 9) và Song ngữ VI/EN (Rule 8).
+  - Tích hợp kiểm toán an ninh: Mọi thao tác cập nhật đều ghi log `UPDATE_BRANDING_SETTINGS`.
+- **Endpoint Thay Thế Hàng Loạt 1 Lần (`POST /api/admin/branding/bulk-replace`)**:
+  - Quét và thay thế an toàn chuỗi tên miền / thương hiệu cũ sang mới trong: `wcg_news_articles_v1`, `wcg_master_state_v1`, `wcg_admin_custom_free_codes_v1`, `wcg_admin_free_codes_v5`, cột `source` trong bảng `codes` và các khối nội dung CMS (`wcg_admin_content_v4`).
+  - Yêu cầu quyền `BRANDING_MANAGE` hoặc `ADMIN_FULL` và ghi log kiểm toán `BULK_REPLACE_BRANDING` (severity: WARN).
+

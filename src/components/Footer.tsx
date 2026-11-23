@@ -4,6 +4,7 @@ import { dataService } from '../services/dataService';
 import { telegramService } from '../services/telegramService';
 import { useLanguage } from '../context/LanguageContext';
 import { LanguageSelector } from './LanguageSelector';
+import { useBranding, formatCopyright } from '../services/brandingService';
 
 interface FooterProps {
   onSelectCategory: (cat: string) => void;
@@ -52,18 +53,21 @@ export const Footer: React.FC<FooterProps> = ({ onSelectCategory, categories, on
     content: '1. Chúng tôi tôn trọng và cam kết bảo vệ thông tin tài khoản và dữ liệu cá nhân của người dùng.\n2. Thông tin số dư và mã giao dịch ví được bảo vệ và lưu trữ mã hóa trên hạ tầng bảo mật Cloudflare Edge Network.\n3. Chúng tôi tuyệt đối không bán hoặc cung cấp thông tin của bạn cho bên thứ ba vì bất kỳ mục đích thương mại nào.',
   };
 
+  const brandingServiceConfig = useBranding();
   const branding = dataService.getWebsiteBranding();
-  const rawBrand = (footerData?.extraData?.brandTitle || branding.siteTitle || 'CodeGame.Shop').trim();
+  const rawBrand = (brandingServiceConfig.brandDisplay || footerData?.extraData?.brandTitle || branding.siteTitle || 'CodeGame.Shop').trim();
   const brandTitle = (!rawBrand || rawBrand.toUpperCase() === 'WEB CODE GAME' || rawBrand.toUpperCase() === 'WEB CODE') ? 'CodeGame.Shop' : rawBrand;
   const brandLogo = (footerData?.extraData?.brandLogo || branding.logoUrl || '/logo.webp').trim();
+  const brandLogoAlt = brandingServiceConfig.logoAlt || `${brandTitle} Logo`;
   const badge1Text = (footerData?.extraData?.badge1Text ?? 'Cloudflare Pages & D1').trim();
   const badge1Visible = footerData?.extraData?.badge1Visible !== false;
   const badge2Text = (footerData?.extraData?.badge2Text ?? '24/7 Realtime Sync').trim();
   const badge2Visible = footerData?.extraData?.badge2Visible !== false;
   const rawIntro = (footerData?.content || '').trim();
   const siteIntro = (!rawIntro || rawIntro.startsWith('Web Code Game'))
-    ? 'CodeGame.Shop — Nền tảng tổng hợp và chia sẻ giftcode game mobile & PC hàng đầu Việt Nam. Cập nhật mã quà tặng mới nhất mỗi ngày từ NPH chính thức.'
+    ? `${brandTitle} — Nền tảng tổng hợp và chia sẻ giftcode game mobile & PC hàng đầu Việt Nam. Cập nhật mã quà tặng mới nhất mỗi ngày từ NPH chính thức.`
     : rawIntro;
+  const formattedRights = formatCopyright(brandingServiceConfig.footerCopyright || t.footer.rights, brandTitle);
   const supportTelegram = footerData?.extraData?.telegram || 'https://t.me/webcodegame_vn';
   const supportZalo = footerData?.extraData?.zalo || 'https://zalo.me/0386767888';
   const supportHotline = footerData?.extraData?.hotline || '0386.767.888';
@@ -80,7 +84,7 @@ export const Footer: React.FC<FooterProps> = ({ onSelectCategory, categories, on
                 <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white shadow-glow-primary overflow-hidden">
                   <img
                     src={brandLogo}
-                    alt={brandTitle}
+                    alt={brandLogoAlt}
                     className="w-full h-full object-cover"
                     onError={(e) => {
                       const target = e.target as HTMLImageElement;
@@ -250,7 +254,7 @@ export const Footer: React.FC<FooterProps> = ({ onSelectCategory, categories, on
                 </li>
                 <li className="flex items-start gap-1.5 pt-1 text-muted-foreground text-[11px]">
                   <Globe2 className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                  <span>{t.footer.rights}</span>
+                  <span>{formattedRights}</span>
                 </li>
               </ul>
             </div>
@@ -258,7 +262,7 @@ export const Footer: React.FC<FooterProps> = ({ onSelectCategory, categories, on
 
           {/* Bottom Bar (§2.3: Đảm bảo khoảng trắng sau © 2026 và sau dấu chấm) */}
           <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-muted-foreground">
-            <p>{`© ${new Date().getFullYear()} ${brandTitle || 'CodeGame.Shop'}. ${t.footer.rights}`}</p>
+            <p>{`© ${new Date().getFullYear()} ${brandTitle || 'CodeGame.Shop'}. ${formattedRights}`}</p>
             <p className="flex items-center gap-1">
               {siteIntro}
             </p>

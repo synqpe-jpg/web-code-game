@@ -48,6 +48,7 @@ const CartDrawerModal = lazyWithRetry(() => import('./components/cart/CartDrawer
 const ShopeeTestView = lazyWithRetry(() => import('./components/shopee/ShopeeTestView').then((m) => ({ default: m.ShopeeTestView })));
 const PlatformSolutionsView = lazyWithRetry(() => import('./components/showcase/PlatformSolutionsView').then((m) => ({ default: m.PlatformSolutionsView })));
 import { dataService } from './services/dataService';
+import { useBranding } from './services/brandingService';
 import fallbackGamesData from './data/games188.json';
 import { marketingService } from './services/marketingService';
 import { authService } from './services/authService';
@@ -85,12 +86,14 @@ const ADMIN_HASH_PREFIXES = [
   '#/orders',
   '#/sepay',
   '#/content',
+  '#/branding',
   '#/security-logs',
   '#/profile',
 ];
 
 export const App: React.FC = () => {
   const [, startTransition] = useTransition();
+  const brandingConfig = useBranding();
 
   // Navigation Tab State (Decoupled Frontends Domain Detection & Hash Routing)
   const [currentTab, setCurrentTab] = useState<'catalog' | 'news' | 'giveaways' | 'store' | 'utilities' | 'missions' | 'telegram' | 'today-codes' | 'seller-center' | 'store-detail' | 'admin' | 'shopee-test' | 'platform-solutions'>(() => {
@@ -887,6 +890,9 @@ export const App: React.FC = () => {
   useEffect(() => {
     if (currentTab === 'admin') return;
 
+    const brandSuffix = brandingConfig.brandDisplay || 'CodeGame.shop';
+    const brandDefaultTitle = brandingConfig.siteTitle || 'CodeGame.shop - Cổng Tra Cứu Giftcode & Game Bản Quyền Hàng Đầu';
+
     if (selectedGame && typeof selectedGame === 'object' && selectedGame.slug && selectedGame.slug !== 'undefined') {
       const effectiveSlug = (selectedGame.slug === 'where-winds-meet-mobile' || selectedGame.slug === 'yen-van-thap-luc-thanh')
         ? 'where-winds-meet'
@@ -895,7 +901,7 @@ export const App: React.FC = () => {
         ? selectedGame.active_codes_count
         : (selectedGame.codes_count || selectedGame.codes?.filter((c: any) => !isCodeExpired(c))?.length || 0);
       const countSuffix = codeCount > 0 ? `Nhận ${codeCount} Mã Code ` : '';
-      document.title = `Giftcode ${selectedGame.name || effectiveSlug} Mới Nhất 2026 - ${countSuffix}| CodeGame.shop`;
+      document.title = `Giftcode ${selectedGame.name || effectiveSlug} Mới Nhất 2026 - ${countSuffix}| ${brandSuffix}`;
       const isTestClientDomain = typeof window !== 'undefined' && (window.location.hostname.includes('test-code-game-shop') || window.location.hostname.includes('test-shopee'));
       const inTest1 = currentTab === 'shopee-test' || (typeof window !== 'undefined' && window.location.pathname.startsWith('/test1')) || isTestClientDomain;
       if (inTest1) {
@@ -944,59 +950,59 @@ export const App: React.FC = () => {
         if (window.location.pathname.startsWith('/news/') && window.location.pathname.length > 6) {
           // Viewing a specific news article full page: preserve /news/<slug> in address bar!
         } else if (isTodayCodesPath) {
-          document.title = 'Giftcode Hôm Nay - Tổng Hợp Mã Code Game Có Hạn Trong Ngày 2026 | CodeGame.shop';
+          document.title = `Giftcode Hôm Nay - Tổng Hợp Mã Code Game Có Hạn Trong Ngày 2026 | ${brandSuffix}`;
           if (path !== '/ma-hom-nay') {
             window.history.replaceState(null, '', '/ma-hom-nay');
           }
         } else if (isEventsPath) {
-          document.title = 'Sự Kiện Game & Lịch Khởi Tranh Mới Nhất 2026 | CodeGame.shop';
+          document.title = `Sự Kiện Game & Lịch Khởi Tranh Mới Nhất 2026 | ${brandSuffix}`;
           if (path !== '/su-kien' && path !== '/events') {
             window.history.replaceState(null, '', '/su-kien');
           }
         } else {
-          document.title = 'Tin Tức Game & Sự Kiện Giftcode Mới Nhất 2026 | CodeGame.shop';
+          document.title = `Tin Tức Game & Sự Kiện Giftcode Mới Nhất 2026 | ${brandSuffix}`;
           if (window.location.pathname !== '/news' || window.location.hash) {
             window.history.replaceState(null, '', '/news');
           }
         }
       } else if (currentTab === 'giveaways') {
-        document.title = 'Sự Kiện Giveaway Game Miễn Phí 2026 | CodeGame.shop';
+        document.title = `Sự Kiện Giveaway Game Miễn Phí 2026 | ${brandSuffix}`;
         if (window.location.pathname !== '/giveaways' || window.location.hash) {
           window.history.replaceState(null, '', '/giveaways');
         }
       } else if (currentTab === 'store') {
-        document.title = 'Cửa Hàng Thẻ Game & Robux Giá Rẻ | CodeGame.shop';
+        document.title = `Cửa Hàng Thẻ Game & Robux Giá Rẻ | ${brandSuffix}`;
         if (window.location.pathname !== '/store' || window.location.hash) {
           window.history.replaceState(null, '', '/store');
         }
       } else if (currentTab === 'utilities') {
-        document.title = 'Tiện Ích Nạp Game & Key Bản Quyền | CodeGame.shop';
+        document.title = `Tiện Ích Nạp Game & Key Bản Quyền | ${brandSuffix}`;
         if (window.location.pathname !== '/utilities' || window.location.hash) {
           window.history.replaceState(null, '', '/utilities');
         }
       } else if (currentTab === 'missions') {
-        document.title = 'Nhiệm Vụ Nhận Quà & Tiền Ví Miễn Phí | CodeGame.shop';
+        document.title = `Nhiệm Vụ Nhận Quà & Tiền Ví Miễn Phí | ${brandSuffix}`;
         const normPath = window.location.pathname.replace(/\/$/, '');
         if (normPath !== '/nhiem-vu' || window.location.hash || window.location.pathname.endsWith('/')) {
           window.history.replaceState(null, '', '/nhiem-vu');
         }
       } else if (currentTab === 'telegram') {
-        document.title = 'Cộng Đồng Telegram & Nhận Giftcode Tự Động | CodeGame.shop';
+        document.title = `Cộng Đồng Telegram & Nhận Giftcode Tự Động | ${brandSuffix}`;
         if (window.location.pathname !== '/telegram' || window.location.hash) {
           window.history.replaceState(null, '', '/telegram');
         }
       } else if (currentTab === 'today-codes') {
-        document.title = 'Giftcode Hôm Nay - Tổng Hợp Mã Code Game Có Hạn Trong Ngày 2026 | CodeGame.shop';
+        document.title = `Giftcode Hôm Nay - Tổng Hợp Mã Code Game Có Hạn Trong Ngày 2026 | ${brandSuffix}`;
         if (window.location.pathname !== '/ma-hom-nay' || window.location.hash) {
           window.history.replaceState(null, '', '/ma-hom-nay');
         }
       } else if (currentTab === 'seller-center') {
-        document.title = 'Kênh Người Bán & Quản Lý Gian Hàng | CodeGame.shop';
+        document.title = `Kênh Người Bán & Quản Lý Gian Hàng | ${brandSuffix}`;
         if (window.location.pathname !== '/ban-hang' || window.location.hash) {
           window.history.replaceState(null, '', '/ban-hang');
         }
       } else if (currentTab === 'store-detail') {
-        document.title = 'Gian Hàng Số | CodeGame.shop';
+        document.title = `Gian Hàng Số | ${brandSuffix}`;
         if (currentStoreSlug && (window.location.pathname !== `/gian-hang/${currentStoreSlug}` || window.location.hash)) {
           window.history.replaceState(null, '', `/gian-hang/${currentStoreSlug}`);
         }
@@ -1004,7 +1010,7 @@ export const App: React.FC = () => {
         const isTestClientDomain = typeof window !== 'undefined' && (window.location.hostname.includes('test-code-game-shop') || window.location.hostname.includes('test-shopee'));
         document.title = isTestClientDomain
           ? 'Sàn Thương Mại Điện Tử & Tiện Ích Game | Bản Mẫu Trực Tuyến'
-          : 'Giao Diện Thử Nghiệm Phong Cách Shopee Game (Test 1) | CodeGame.shop';
+          : `Giao Diện Thử Nghiệm Phong Cách Shopee Game (Test 1) | ${brandSuffix}`;
         const isDeepLink = window.location.pathname.startsWith('/test1/game/') || window.location.pathname.startsWith('/test1/g/') || (isTestClientDomain && window.location.pathname.startsWith('/game/'));
         if (!isDeepLink) {
           if (isTestClientDomain) {
@@ -1016,13 +1022,13 @@ export const App: React.FC = () => {
           }
         }
       } else {
-        document.title = 'CodeGame.shop - Cổng Tra Cứu Giftcode & Game Bản Quyền Hàng Đầu';
+        document.title = brandDefaultTitle;
         if (window.location.pathname !== '/' || window.location.hash) {
           window.history.replaceState(null, '', '/');
         }
       }
     }
-  }, [selectedGame, currentTab, isInitialLoadDone]);
+  }, [selectedGame, currentTab, isInitialLoadDone, brandingConfig]);
 
   // Handle browser popstate and hashchange navigation (Back / Forward buttons & anchors)
   useEffect(() => {
@@ -1683,13 +1689,14 @@ export const App: React.FC = () => {
   };
 
   // Share Handlers for Universal Share Modal
-  // Share Handlers for Universal Share Modal
   const getShareOrigin = () => {
-    if (typeof window === 'undefined') return 'https://codegame.shop';
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    if (typeof window !== 'undefined' && window.location.origin) {
+      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        return window.location.origin;
+      }
       return window.location.origin;
     }
-    return 'https://codegame.shop';
+    return brandingConfig.baseUrl || 'https://codegame.shop';
   };
 
   const handleOpenShareGame = (game: GameItem, e?: React.MouseEvent) => {

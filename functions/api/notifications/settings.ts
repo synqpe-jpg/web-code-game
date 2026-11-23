@@ -1,5 +1,6 @@
 import { verifyToken } from '../../services/auth_service';
 import { DEFAULT_EMAIL_CONFIG, EmailProviderConfig } from './_emailHelper';
+import { getBrandingConfig, saveBrandingConfig } from '../../services/branding_service';
 
 interface Env {
   DB?: any;
@@ -66,6 +67,17 @@ export const onRequestGet = async (context: { request: Request; env: Env }) => {
         try { config = { ...DEFAULT_EMAIL_CONFIG, ...JSON.parse(row.value) }; } catch {}
       }
 
+      // Nối đồng bộ với cấu hình Branding tập trung
+      const branding = await getBrandingConfig(env.DB);
+      if (branding) {
+        if (branding.emailFromAddress && config.senderEmail === DEFAULT_EMAIL_CONFIG.senderEmail) {
+          config.senderEmail = branding.emailFromAddress;
+        }
+        if (branding.emailFromName && config.senderName === DEFAULT_EMAIL_CONFIG.senderName) {
+          config.senderName = branding.emailFromName;
+        }
+      }
+
       return new Response(
         JSON.stringify({ success: true, config }),
         { headers: CORS_HEADERS }
@@ -114,6 +126,12 @@ export const onRequestPost = async (context: { request: Request; env: Env }) => 
         VALUES ('wcg_email_provider_config_v1', ?, ?)
         ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
       `).bind(JSON.stringify(newConfig), new Date().toISOString()).run();
+
+      // Đồng bộ sang cấu hình Branding tập trung
+      await saveBrandingConfig(env.DB, {
+        emailFromAddress: newConfig.senderEmail,
+        emailFromName: newConfig.senderName,
+      }, 'admin_email_settings').catch(() => {});
 
       return new Response(
         JSON.stringify({ success: true, message: 'Đã lưu cấu hình email thành công!', config: newConfig }),

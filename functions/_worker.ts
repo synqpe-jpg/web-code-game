@@ -182,6 +182,10 @@ import * as adminNotificationsBroadcastApi from './api/admin/notifications/broad
 import * as adminNotificationsSettingsApi from './api/admin/notifications/settings';
 import * as adminSecurityLogsIndexApi from './api/admin/security-logs/index';
 import * as adminSettingsIndexApi from './api/admin/settings/index';
+import * as brandingApi from './api/branding';
+import * as adminBrandingApi from './api/admin/branding/index';
+import * as adminBrandingBulkReplaceApi from './api/admin/branding/bulk-replace';
+import { getBrandingConfig } from './services/branding_service';
 import { getMultipleSettingsD1 } from './services/d1_service';
 import { invalidateCatalogEdgeCache } from './services/cache_service';
 import fallbackGiveawaysData from '../src/data/giveaways.json';
@@ -189,7 +193,7 @@ import fallbackGamesData from '../src/data/games188.json';
 import fallbackCodesData from '../src/data/crawled_codes_188.json';
 import { isCodeExpired } from '../src/utils/codeUtils';
 
-function attachBuildHeaders(res: Response): Response {
+function attachBuildHeaders(res: Response, baseUrl?: string): Response {
   try {
     const headers = new Headers(res.headers);
     if (typeof __BUILD_ID__ !== 'undefined' && __BUILD_ID__) {
@@ -198,6 +202,17 @@ function attachBuildHeaders(res: Response): Response {
     }
     if (typeof __BUILD_TIME__ !== 'undefined' && __BUILD_TIME__) {
       headers.set('X-Build-Time', __BUILD_TIME__);
+    }
+    if (baseUrl && baseUrl !== 'https://codegame.shop') {
+      const cleanDomain = baseUrl.replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+      const existingCsp = headers.get('Content-Security-Policy');
+      if (existingCsp && !existingCsp.includes(cleanDomain)) {
+        const updatedCsp = existingCsp
+          .replace(/connect-src([^;]+)/i, `$1 ${baseUrl} https://*.${cleanDomain}`)
+          .replace(/frame-src([^;]+)/i, `$1 ${baseUrl} https://*.${cleanDomain}`)
+          .replace(/frame-ancestors([^;]+)/i, `$1 ${baseUrl} https://*.${cleanDomain}`);
+        headers.set('Content-Security-Policy', updatedCsp);
+      }
     }
     return new Response(res.body, {
       status: res.status,
@@ -231,7 +246,7 @@ interface Env {
 
 let lastGiveawaySimulationTick = 0;
 
-async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionContext, branding?: any): Promise<Response> {
     const url = new URL(request.url);
     const pathname = url.pathname.replace(/\/$/, '') || '/';
     const method = request.method.toUpperCase();
@@ -1746,6 +1761,26 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
         return new Response('Method Not Allowed', { status: 405 });
       }
 
+      // Centralized Branding API Endpoints
+      if (pathname === '/api/branding') {
+        if (method === 'OPTIONS') return await brandingApi.onRequestOptions();
+        if (method === 'GET') return await brandingApi.onRequestGet(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      if (pathname === '/api/admin/branding') {
+        if (method === 'OPTIONS') return await adminBrandingApi.onRequestOptions();
+        if (method === 'GET') return await adminBrandingApi.onRequestGet(context);
+        if (method === 'PUT') return await adminBrandingApi.onRequestPut(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      if (pathname === '/api/admin/branding/bulk-replace') {
+        if (method === 'OPTIONS') return await adminBrandingBulkReplaceApi.onRequestOptions();
+        if (method === 'POST') return await adminBrandingBulkReplaceApi.onRequestPost(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
       // Fallback for any unknown /api route
       if (pathname.startsWith('/api')) {
         return new Response(
@@ -1780,12 +1815,64 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
       ) && (pathname === '/store' || pathname.startsWith('/store/'));
 
       if (request.method === 'GET' && (isStoreShareQuery || (isCrawler && isGiveawayShareQuery))) {
-        return await renderSeoHtml(request, env, pathname);
+        return await renderSeoHtml(request, env, pathname, branding);
+      }
+
+      // Dynamic robots.txt pointing to the current domain sitemap
+      if (pathname === '/robots.txt' && (request.method === 'GET' || request.method === 'HEAD')) {
+        const currentBase = branding?.baseUrl || 'https://codegame.shop';
+        const robotsTxt = `User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /api/\n\nSitemap: ${currentBase}/sitemap.xml\n`;
+        return new Response(request.method === 'HEAD' ? null : robotsTxt, {
+          status: 200,
+          headers: {
+            'Content-Type': 'text/plain; charset=utf-8',
+            'Cache-Control': 'public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400',
+          },
+        });
+      }
+
+      // Dynamic manifest.json reflecting brand display and SEO description
+      if ((pathname === '/manifest.json' || pathname === '/manifest.webmanifest') && (request.method === 'GET' || request.method === 'HEAD')) {
+        const name = branding?.manifestName || 'CodeGame - Cổng Tra Cứu Giftcode & Game Bản Quyền';
+        const shortName = branding?.manifestShortName || 'CodeGame';
+        const description = branding?.seoDescription || 'Kho tổng hợp mã giftcode game mobile & PC miễn phí mới nhất 2026. Nhận quà tân thủ, tra cứu code game bản quyền G1.';
+        const manifestObj = {
+          id: '/',
+          name,
+          short_name: shortName,
+          description,
+          start_url: '/',
+          scope: '/',
+          display: 'standalone',
+          orientation: 'portrait-primary',
+          background_color: '#0B0D19',
+          theme_color: '#0B0D19',
+          categories: ['games', 'entertainment', 'utilities'],
+          icons: [
+            { src: '/favicon.png', sizes: '64x64', type: 'image/png', purpose: 'any' },
+            { src: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png', purpose: 'any maskable' },
+            { src: '/logo.png', sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
+            { src: '/logo.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' }
+          ],
+          shortcuts: [
+            { name: 'Tra Cứu Giftcode', short_name: 'Code Game', description: 'Kho giftcode 486+ tựa game mới nhất', url: '/', icons: [{ src: '/logo.png', sizes: '192x192' }] },
+            { name: 'Săn Giveaway Free', short_name: 'Giveaway', description: 'Nhận giftcode giới hạn miễn phí', url: '/giveaways', icons: [{ src: '/logo.png', sizes: '192x192' }] },
+            { name: 'Cửa Hàng Code', short_name: 'Cửa Hàng', description: 'Gói quà VIP & Thẻ game chiết khấu cao', url: '/store', icons: [{ src: '/logo.png', sizes: '192x192' }] }
+          ],
+          prefer_related_applications: false
+        };
+        return new Response(request.method === 'HEAD' ? null : JSON.stringify(manifestObj, null, 2), {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/manifest+json; charset=utf-8',
+            'Cache-Control': 'public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400',
+          },
+        });
       }
 
       // Dynamic Server-Side Sitemap (XML) with real-time lastmod calculation
       if ((pathname === '/sitemap.xml' || pathname === '/sitemap') && (request.method === 'GET' || request.method === 'HEAD')) {
-        return await handleDynamicSitemap(request, env, ctx);
+        return await handleDynamicSitemap(request, env, ctx, branding);
       }
 
       // Root Homepage HTML - Edge Cache TTL 3600s
@@ -1802,7 +1889,7 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
         const pageParam = url.searchParams.get('page');
         const pageNum = pageParam ? parseInt(pageParam, 10) : 1;
         if (pageNum > 1) {
-          return await renderSeoHtml(request, env, pathname);
+          return await renderSeoHtml(request, env, pathname, branding);
         }
         const isFresh = url.searchParams.has('fresh') || url.searchParams.has('nocache') || url.searchParams.has('_t');
         const cfCache = (typeof caches !== 'undefined' && !isFresh) ? (caches as any).default : null;
@@ -1909,7 +1996,7 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
           } catch {}
         }
 
-        const seoRes = await renderSeoHtml(request, env, pathname);
+        const seoRes = await renderSeoHtml(request, env, pathname, branding);
         const seoHtml = await seoRes.text();
         const edgeDur = (performance.now() - reqStart).toFixed(1);
         const d1Dur = (globalThis as any).__wcg_last_d1_dur || 0;
@@ -1994,7 +2081,7 @@ export default {};
 
       const assetResponse = await env.ASSETS.fetch(request);
       if (assetResponse.status === 404 && request.method === 'GET' && !pathname.match(/\.[a-zA-Z0-9]+$/)) {
-        return await renderSeoHtml(request, env, pathname);
+        return await renderSeoHtml(request, env, pathname, branding);
       }
       return assetResponse;
     } catch (err: any) {
@@ -2014,8 +2101,9 @@ export default {};
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    const res = await handleWorkerRequest(request, env, ctx);
-    return attachBuildHeaders(res);
+    const branding = await getBrandingConfig(env?.DB);
+    const res = await handleWorkerRequest(request, env, ctx, branding);
+    return attachBuildHeaders(res, branding?.baseUrl);
   },
 };
 
@@ -2074,7 +2162,7 @@ function getClusterSlug(category: string = ''): string {
   return 'nhap-vai-mmorpg';
 }
 
-function parseHowToSteps(instructions: string = '', gameName: string = '') {
+function parseHowToSteps(instructions: string = '', gameName: string = '', brandDisplay: string = 'CodeGame.shop') {
   const text = (instructions || '').trim();
   if (text) {
     const lines = text.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 5);
@@ -2108,7 +2196,7 @@ function parseHowToSteps(instructions: string = '', gameName: string = '') {
       '@type': 'HowToStep',
       position: 3,
       name: 'Nhập mã giftcode',
-      text: `Sao chép mã giftcode từ CodeGame.shop và dán chính xác vào ô nhập mã quà tặng.`,
+      text: `Sao chép mã giftcode từ ${brandDisplay || 'CodeGame.shop'} và dán chính xác vào ô nhập mã quà tặng.`,
     },
     {
       '@type': 'HowToStep',
@@ -2143,7 +2231,8 @@ function formatDate(ms: number, todayStr: string): string {
 async function handleDynamicSitemap(
   request: Request,
   env: Env,
-  ctx: ExecutionContext
+  ctx: ExecutionContext,
+  branding?: any
 ): Promise<Response> {
   const url = new URL(request.url);
   const isHead = request.method === 'HEAD';
@@ -2151,7 +2240,8 @@ async function handleDynamicSitemap(
 
   const cfCache = typeof caches !== 'undefined' ? (caches as any).default : null;
   const buildTag = typeof __BUILD_ID__ !== 'undefined' && __BUILD_ID__ ? __BUILD_ID__ : 'live';
-  const cacheKey = new Request(`https://codegame.shop/__edge_cache_v/${buildTag}/sitemap.xml`, { method: 'GET' });
+  const baseOrigin = branding?.baseUrl || 'https://codegame.shop';
+  const cacheKey = new Request(`${baseOrigin}/__edge_cache_v/${buildTag}/sitemap.xml`, { method: 'GET' });
 
   // 1. Kiểm tra Cloudflare Edge Cache nếu không yêu cầu fresh
   if (cfCache && !forceFresh) {
@@ -2192,7 +2282,7 @@ async function handleDynamicSitemap(
 
   // 3. Tái tạo sitemap XML thời gian thực từ D1 + Fallback State
   try {
-    const xml = await generateDynamicSitemapXml(env);
+    const xml = await generateDynamicSitemapXml(env, branding);
     gScope.__wcg_sitemap_xml = xml;
     gScope.__wcg_sitemap_time = now;
 
@@ -2225,8 +2315,8 @@ async function handleDynamicSitemap(
 /**
  * Tạo nội dung sitemap XML động với lastmod thực tế từ D1 và fallbacks
  */
-async function generateDynamicSitemapXml(env: Env): Promise<string> {
-  const BASE_URL = 'https://codegame.shop';
+async function generateDynamicSitemapXml(env: Env, branding?: any): Promise<string> {
+  const BASE_URL = branding?.baseUrl || 'https://codegame.shop';
   const todayStr = new Date().toISOString().slice(0, 10);
 
   const maxCodeTimeBySlug = new Map<string, number>();
@@ -2529,9 +2619,10 @@ async function generateDynamicSitemapXml(env: Env): Promise<string> {
 async function renderSeoHtml(
   request: Request,
   env: Env,
-  pathname: string
+  pathname: string,
+  branding?: any
 ): Promise<Response> {
-  const origin = 'https://codegame.shop';
+  const origin = branding?.baseUrl || 'https://codegame.shop';
   const url = new URL(request.url);
 
   // 1. Chuyển hướng 301 chuẩn hóa cho /g/:slug -> /game/:slug hoặc slug chính
@@ -2653,6 +2744,9 @@ async function renderSeoHtml(
     html = html.replace(/<meta\s+name="twitter:image[^>]*\/?>\s*/gi, '');
 
     // 5. Open Graph tags
+    if (branding?.brandDisplay) {
+      html = html.replace(/<meta\s+property="og:site_name"\s+content=".*?"\s*\/?>/i, `<meta property="og:site_name" content="${branding.brandDisplay}">`);
+    }
     html = html.replace(/<meta\s+property="og:title"\s+content=".*?"\s*\/?>/i, `<meta property="og:title" content="${title}">`);
     html = html.replace(/<meta\s+property="og:description"\s+content=".*?"\s*\/?>/i, `<meta property="og:description" content="${description}">`);
     html = html.replace(/<meta\s+property="og:url"\s+content=".*?"\s*\/?>/i, `<meta property="og:url" content="${fullCanonical}">`);
@@ -2925,7 +3019,7 @@ async function renderSeoHtml(
           "name": `Cách nhập Giftcode ${game.name} nhận quà tân thủ`,
           "description": `Hướng dẫn từng bước cách nhập mã giftcode ${game.name} thành công 100% để nhận Kim Cương, KNB và quà VIP.`,
           "image": iconUrl,
-          "step": parseHowToSteps(instructions, game.name)
+          "step": parseHowToSteps(instructions, game.name, branding?.brandDisplay || 'CodeGame.shop')
         }
       ];
 

@@ -10,6 +10,20 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-303: Hệ Thống Quản Lý Thương Hiệu & Tên Miền Tập Trung (Branding & Domain System - Live 0-Rebuild)
+- **Triệu chứng & Rủi ro**:
+  - Khi chủ sàn thay đổi thương hiệu hoặc tên miền, việc tên thương hiệu và tên miền bị ghi cứng (hardcoded) rải rác trong mã nguồn (`src/App.tsx`, `Footer.tsx`, `Header.tsx`, `LanguageSeoHead.tsx`, `prerender.js`, `_worker.ts`, `webhook.ts`, `_emailHelper.ts`) buộc lập trình viên phải sửa code thủ công và chạy build/deploy lại toàn bộ web.
+  - Tên tab trình duyệt ở 13 route, dòng bản quyền footer, danh sách câu hỏi FAQ, meta tags canonical/OG, header bảo mật CSP, file `robots.txt` và `manifest.json` không đồng bộ dẫn đến việc SEO nhận tên miền cũ trong khi giao diện hiển thị tên miền mới.
+  - Các bài viết tin tức, nội dung CMS và mã code tự tạo chứa link tuyệt đối đến domain cũ gây liên kết hỏng sau khi đổi tên miền.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Tập trung hóa toàn bộ cấu hình thương hiệu vào 1 khóa SSOT duy nhất `wcg_branding_v1` trong bảng `system_settings` của CSDL Cloudflare D1.
+  - Thiết kế `DEFAULT_BRANDING_CONFIG` đầy đủ làm lớp phòng thủ dự phòng (fallback), đảm bảo trang web hoạt động bình thường ngay cả khi CSDL chưa có dữ liệu cấu hình.
+  - Áp dụng bộ đệm RAM isolate 30 giây kèm cơ chế vô hiệu hóa tức thì (memory cache invalidation) ngay khi có thao tác lưu, cho phép áp dụng thay đổi thương hiệu ngay lập tức trên Cloudflare Edge Worker mà không cần build hay deploy lại (Live 0-Rebuild).
+  - Phục vụ động `/robots.txt` và `/manifest.json` từ Edge Worker, cập nhật tự động `Sitemap:` directive và thông tin PWA tương ứng với `baseUrl` mới.
+  - Bổ sung tự động tên miền mới vào header CSP (`connect-src`, `frame-src`, `frame-ancestors`) qua hàm `attachBuildHeaders`.
+  - Cung cấp công cụ thay thế hàng loạt 1 lần (`POST /api/admin/branding/bulk-replace`) với quyền `BRANDING_MANAGE` để cập nhật đồng bộ các bài tin, nội dung CMS và mã code.
+  - Xây dựng module quản trị chuyên biệt `BrandingModule.tsx` chuẩn Single-Screen First (Rule 9) với form cấu hình, live preview (tab trình duyệt, header, footer, Google SERP) và hỗ trợ song ngữ 100% VI/EN (Rule 8).
+
 ### ISSUE-302: Thuật Toán Chống Trùng Bình Luận FOMO Reviews, Mở Rộng 100 Mẫu Phân Biệt, Đăng Ký DELETE Route Admin Comments & Ẩn Bình Luận Game 0 Mã
 - **Triệu chứng & Rủi ro**:
   - Khi sinh bình luận tự động cho các game có số lượng bình luận lớn (85-102 bình luận), nếu kho mẫu chỉ có 51 câu và thuật toán chọn mẫu dùng `(itemSeed + i) % length` cùng với hash chuỗi gây ra hiện tượng 4-10 câu liên tiếp bị trùng lặp y hệt nhau (ví dụ: *"vừa nhập xong dc bao nhiêu đồ ngon"* lặp 10/10 lần ở Stickman).

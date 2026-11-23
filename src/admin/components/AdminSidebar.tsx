@@ -61,6 +61,7 @@ export type AdminModuleTab =
   | 'first-purchase'
   | 'sepay'
   | 'content'
+  | 'branding'
   | 'api-keys'
   | 'security-logs'
   | 'profile';
@@ -279,6 +280,13 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     {
       title: 'HỆ THỐNG & BẢO MẬT',
       items: [
+        {
+          id: 'branding',
+          label: 'Thương Hiệu & Tên Miền',
+          icon: Globe,
+          badge: 'DNS',
+          badgeColor: 'bg-emerald-500 text-neutral-950 font-bold',
+        },
         {
           id: 'api-keys',
           label: 'Quản Lý Khóa API',

@@ -99,6 +99,7 @@ export type ApiKeyScope =
   | 'NOTIFICATIONS_FULL'
   | 'SECURITY_LOGS_FULL'
   | 'SYSTEM_SETTINGS_FULL'
+  | 'BRANDING_MANAGE'
   | 'SYNC_FULL' 
   | 'API_KEYS_FULL'
   | 'HISTORY_FULL'
@@ -502,6 +503,17 @@ export const ALL_API_SCOPES: ScopeOption[] = [
     badgeText: 'text-blue-500',
     badgeBorder: 'border-blue-500/20',
     icon: Settings,
+  },
+  {
+    id: 'BRANDING_MANAGE',
+    name: 'Quản Lý Thương Hiệu & Tên Miền (Branding & Domain Management API)',
+    category: 'Hệ Thống',
+    description: 'Đọc và chỉnh sửa toàn bộ nhận diện thương hiệu, tên hiển thị, URL gốc (Domain), email người gửi, bot Telegram, tiêu đề SEO, FAQ và thay thế hàng loạt tên cũ qua /api/admin/branding.',
+    color: 'emerald',
+    badgeBg: 'bg-emerald-500/10',
+    badgeText: 'text-emerald-500',
+    badgeBorder: 'border-emerald-500/20',
+    icon: Globe,
   },
   {
     id: 'SYNC_FULL',

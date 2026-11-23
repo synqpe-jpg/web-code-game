@@ -5,6 +5,41 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ---
 
+## [2026-11-23]
+
+### 425. Hệ Thống Quản Lý Thương Hiệu & Tên Miền Tập Trung (Branding & Domain System - Live 0-Rebuild) (23/11/2026)
+- **Bối cảnh & Yêu cầu của Chủ sở hữu**:
+  - Khi chủ sàn đổi tên miền hoặc đổi thương hiệu, website phải đổi toàn bộ tên hiển thị qua 2 cách đồng nhất: sửa trực tiếp trong Admin (Module "Thương hiệu & Tên miền", có xem trước, kiểm tra tính hợp lệ và ghi log kiểm toán) hoặc gọi API (`GET /api/admin/branding`, `PUT /api/admin/branding`) bằng khóa quản trị.
+  - Loại bỏ hoàn toàn các chuỗi tên miền `codegame.shop` và thương hiệu `CodeGame.Shop` bị ghi cứng trong code hiển thị; chuyển toàn bộ sang đọc từ nhóm cài đặt `wcg_branding_v1` trong CSDL D1 `system_settings`.
+  - Cung cấp công cụ thay thế hàng loạt 1 lần (`POST /api/admin/branding/bulk-replace`) để cập nhật toàn bộ bài tin, mã code miễn phí và các mục cấu hình CMS khi đổi tên miền/thương hiệu mới.
+  - Cơ chế Live 0-Rebuild: Thay đổi qua Admin hoặc API có hiệu lực ngay lập tức trên Edge Worker, tự động cập nhật robots.txt, manifest.json, dynamic sitemap.xml, CSP headers, tin nhắn Telegram và email hệ thống.
+  - Tuân thủ nghiêm ngặt Quy tắc Song ngữ VI/EN (Rule 8) và Giao diện 100% không tràn ngang chuẩn Single-Screen First (Rule 9).
+- **Giải pháp áp dụng (Solution)**:
+  1. *Backend Service & CSDL D1*:
+     - Tạo `functions/services/branding_service.ts`: quản lý cấu hình `wcg_branding_v1` với `DEFAULT_BRANDING_CONFIG`, bộ đệm RAM isolate 30s tự động vô hiệu hóa khi ghi, hàm kiểm tra tính hợp lệ `validateBrandingConfig`, và tiện ích `bulkReplaceBrandAndDomain`.
+     - Đồng bộ hai chiều với `wcg_email_provider_config_v1` cho thông tin người gửi email.
+  2. *API Endpoints & Phân Quyền API*:
+     - `GET /api/branding`: Endpoint công khai có cache phục vụ client frontend.
+     - `GET /api/admin/branding` & `PUT /api/admin/branding`: Quản trị toàn diện thông số thương hiệu, kiểm tra hợp lệ, ghi `UPDATE_BRANDING_SETTINGS` vào `security_logs`.
+     - `POST /api/admin/branding/bulk-replace`: Thay thế chuỗi hàng loạt trong `wcg_news_articles_v1`, `wcg_master_state_v1`, `wcg_admin_custom_free_codes_v1`, `wcg_admin_free_codes_v5`, bảng `codes` (cột `source`) và CMS content, ghi log `BULK_REPLACE_BRANDING` (severity: WARN).
+     - Đăng ký scope `BRANDING_MANAGE` vào `hasScope` trong `functions/services/mission_service.ts` và `ALL_API_SCOPES` trong `src/admin/modules/ApiKeysModule.tsx` (Rule 8).
+  3. *Cloudflare Edge Worker Dynamic Handlers*:
+     - Phục vụ động `/robots.txt` trỏ chính xác sitemap URL của tên miền mới.
+     - Phục vụ động `/manifest.json` và `/manifest.webmanifest` phản ánh đúng tên app và mô tả SEO mới.
+     - `handleDynamicSitemap` & `generateDynamicSitemapXml` sinh URL sitemap theo `branding.baseUrl`.
+     - Bổ sung động tên miền mới vào header `Content-Security-Policy` (`connect-src`, `frame-src`, `frame-ancestors`) qua `attachBuildHeaders`.
+     - Cập nhật `_emailHelper.ts` và Telegram `webhook.ts` sử dụng tên và tên miền động từ branding.
+  4. *Frontend Client & Admin Console*:
+     - Tạo `src/services/brandingService.ts` với hook `useBranding()` và hàm định dạng `formatCopyright`.
+     - Cập nhật `src/App.tsx` (13 route document.title và `getShareOrigin()`), `src/components/Header.tsx`, `src/components/Footer.tsx`, `src/components/seo/LanguageSeoHead.tsx`, `scripts/prerender.js`.
+     - Xây dựng module quản trị chuyên dụng `src/admin/modules/BrandingModule.tsx` chuẩn Single-Screen First (Rule 9) với form cấu hình, live preview (tab trình duyệt, header, footer, Google SERP) và công cụ thay thế hàng loạt.
+     - Bổ sung đầy đủ 59 key song ngữ `admin.branding.*` cho cả `src/locales/vi.json` và `src/locales/en.json`.
+- **Kiểm thử & Nghiệm thu**:
+  - `npm run build` vượt qua 100% (Zero test artifacts pass, 2.155 modules transform, prerender 591 games + 253 news + 32 giveaways, worker bundle compiled).
+  - Kiểm thử hồi quy và đối soát song ngữ pass 100%.
+
+---
+
 ## [2026-11-18]
 
 ### 424. Sửa Lỗi Thiếu Dòng Log Kiểm Toán DELETE_GAME_COMMENT (SQLite Severity CHECK Constraint) (18/11/2026)

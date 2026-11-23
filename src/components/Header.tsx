@@ -29,6 +29,7 @@ import { LanguageSelector } from './LanguageSelector';
 import { growthService } from '../services/growthService';
 import { telegramService } from '../services/telegramService';
 import { cartService } from '../services/cartService';
+import { useBranding } from '../services/brandingService';
 
 interface HeaderProps {
   currentTab: 'catalog' | 'news' | 'giveaways' | 'store' | 'utilities' | 'missions' | 'telegram' | 'today-codes' | 'seller-center' | 'store-detail';
@@ -84,9 +85,15 @@ export const Header: React.FC<HeaderProps> = ({
   branding,
 }) => {
   const { t } = useLanguage();
+  const brandingServiceConfig = useBranding();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const [cartCount, setCartCount] = useState<number>(() => cartService.getCartCount());
+
+  const effectiveBrandTitle = (branding?.siteTitle && branding.siteTitle.toUpperCase() !== 'WEB CODE GAME' && branding.siteTitle.toUpperCase() !== 'WEB CODE')
+    ? branding.siteTitle
+    : (brandingServiceConfig.brandDisplay || 'CodeGame.Shop');
+  const effectiveLogoAlt = branding?.logoAlt || brandingServiceConfig.logoAlt || `${effectiveBrandTitle} Logo`;
 
   useEffect(() => {
     const handleCartUpdate = (e: any) => {
@@ -172,7 +179,7 @@ export const Header: React.FC<HeaderProps> = ({
               {branding?.logoUrl ? (
                 <img
                   src={branding.logoUrl}
-                  alt="Logo"
+                  alt={effectiveLogoAlt}
                   width={40}
                   height={40}
                   loading="eager"
@@ -188,7 +195,7 @@ export const Header: React.FC<HeaderProps> = ({
               ) : (
                 <img
                   src="/logo.webp"
-                  alt="Logo"
+                  alt={effectiveLogoAlt}
                   width={40}
                   height={40}
                   loading="eager"
@@ -206,9 +213,7 @@ export const Header: React.FC<HeaderProps> = ({
             <div className="flex flex-col min-w-0">
               <div className="flex items-center gap-1">
                 <span className="font-display font-bold text-xs sm:text-base tracking-normal sm:tracking-wider text-foreground group-hover:text-primary-light transition-colors whitespace-nowrap">
-                  {branding?.siteTitle && branding.siteTitle.toUpperCase() !== 'WEB CODE GAME' && branding.siteTitle.toUpperCase() !== 'WEB CODE'
-                    ? branding.siteTitle
-                    : 'CodeGame.Shop'}
+                  {effectiveBrandTitle}
                 </span>
                 {branding?.siteTitle === 'WEB CODE' && (
                   <span className="text-[9px] sm:text-xs px-1 sm:px-1.5 py-0.2 rounded-md bg-accent/20 text-accent font-mono font-bold tracking-tight border border-accent/30">

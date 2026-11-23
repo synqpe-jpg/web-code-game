@@ -24,6 +24,7 @@ import {
   TenantLeadRecord,
 } from '../types/adminTypes';
 import type { GiveawayCampaign, StoreProduct, UtilityProduct, UtilityCategory, StoreCategory, CrawlerSource, ProductCategoriesConfig, ProductCategoryItem } from '../../types/game';
+import { BrandingConfig, DEFAULT_BRANDING_CONFIG } from '../../services/brandingService';
 import { dataService } from '../../services/dataService';
 import { getDefaultCategoriesConfig, INDUSTRY_PRESETS } from '../../data/industryPresets';
 import defaultCrawlerSources from '../../data/crawler_sources.json';
@@ -5749,6 +5750,66 @@ class AdminDataService {
     message?: string;
   }> {
     return dataService.submitTenantLead(leadInput);
+  }
+
+  // ==================== BRANDING & DOMAIN MANAGEMENT ====================
+  public async getBrandingConfig(): Promise<BrandingConfig> {
+    try {
+      const res = await fetch('/api/admin/branding', {
+        headers: this.getAuthHeaders(),
+      });
+      if (res.ok) {
+        const data: any = await res.json();
+        if (data && data.success && data.branding) {
+          return data.branding;
+        }
+      }
+    } catch (e) {
+      console.warn('[AdminDataService] Error fetching branding config:', e);
+    }
+    return DEFAULT_BRANDING_CONFIG;
+  }
+
+  public async updateBrandingConfig(update: Partial<BrandingConfig>): Promise<{
+    success: boolean;
+    branding?: BrandingConfig;
+    message?: string;
+    errors?: Record<string, string>;
+  }> {
+    try {
+      const res = await fetch('/api/admin/branding', {
+        method: 'PUT',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify(update),
+      });
+      const data: any = await res.json().catch(() => ({}));
+      return data;
+    } catch (e: any) {
+      return { success: false, message: e?.message || 'Lỗi mạng khi cập nhật cấu hình thương hiệu' };
+    }
+  }
+
+  public async bulkReplaceBranding(params: {
+    oldDomain: string;
+    newDomain: string;
+    oldBrand: string;
+    newBrand: string;
+  }): Promise<{
+    success: boolean;
+    affected?: any;
+    message?: string;
+  }> {
+    try {
+      const res = await fetch('/api/admin/branding/bulk-replace', {
+        method: 'POST',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify(params),
+      });
+      const data: any = await res.json().catch(() => ({}));
+      return data;
+    } catch (e: any) {
+      return { success: false, message: e?.message || 'Lỗi mạng khi thay thế hàng loạt' };
+    }
   }
 }
 
