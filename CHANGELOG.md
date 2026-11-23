@@ -7,6 +7,25 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-23]
 
+### 428. Khắc Phục Chuỗi Fallback Ghi Cứng Cuối Trong Modal Tải App (23/11/2026)
+- **Bối cảnh & Yêu cầu của Chủ sở hữu**:
+  - Trong `src/components/DownloadAppModal.tsx`, dòng 56 và dòng 88 trước đây dùng biểu thức fallback cuối:
+    `const targetUrl = typeof window !== 'undefined' ? window.location.origin : (branding.baseUrl || 'https://codegame.shop');`
+    và dòng 30: `const brandName = branding.brandName || 'CodeGame';`.
+  - Chuỗi `'https://codegame.shop'` và `'CodeGame'` còn ghi cứng trực tiếp trong code.
+  - Yêu cầu loại bỏ toàn bộ chuỗi ghi cứng này, chuyển sang dùng hằng số chuẩn `DEFAULT_BRANDING_CONFIG.baseUrl` và `DEFAULT_BRANDING_CONFIG.brandName`. Quét toàn file không còn chuỗi `codegame.shop` hay `CodeGame` ghi cứng (ngoại trừ slug fallback `'codegame'` ở dòng 326 cho tên file apk).
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Khi triển khai đợt trước, logic fallback cuối cùng khi không có `window` và không có `branding.baseUrl` được viết cố định bằng string literal thay vì tham chiếu đến SSOT `DEFAULT_BRANDING_CONFIG`.
+- **Giải pháp áp dụng (Solution)**:
+  - Import `DEFAULT_BRANDING_CONFIG` từ `../services/brandingService`.
+  - Dòng 30: `const brandName = branding.brandName || DEFAULT_BRANDING_CONFIG.brandName;`.
+  - Dòng 56 & dòng 88: `const targetUrl = typeof window !== 'undefined' ? window.location.origin : (branding.baseUrl || DEFAULT_BRANDING_CONFIG.baseUrl);`.
+  - Rà soát toàn bộ file `DownloadAppModal.tsx`: Đảm bảo 0 chuỗi `codegame.shop` hoặc `CodeGame` ghi cứng còn sót lại (chỉ bảo lưu duy nhất slug `'codegame'` ở dòng 326 cho tên file APK theo đúng đặc tả).
+- **Kiểm thử & Nghiệm thu Thực Tế**:
+  - `Select-String -Path "src\components\DownloadAppModal.tsx" -Pattern "codegame"`: Xác nhận chỉ còn đúng 1 kết quả tại dòng 326.
+  - `Select-String -Path "src\components\DownloadAppModal.tsx" -Pattern "CodeGame" -CaseSensitive`: Xác nhận 0 kết quả (sạch 100%).
+  - `npm.cmd run build`: Biên dịch Vite frontend, Prerender 607 file HTML, kiểm toán test artifacts hoàn tất với Exit Code 0.
+
 ### 427. Hoàn Thiện Prerender Tĩnh Động Hóa 100%, Tiêu Đề Tab Trang Chủ Phản Ứng Tức Thì & Nút Tải App Động (23/11/2026)
 - **Bối cảnh & Yêu cầu của Chủ sở hữu (Prompt 10 Final Polish)**:
   - *Nhóm 1 — Bản prerender tĩnh vẫn ghi cứng tên thương hiệu và FAQ*: Khối `#home-faq-section` trong `scripts/prerender.js` trước đây ghi cứng 3 câu hỏi/đáp và tiêu đề tiếng Việt; thẻ đóng `</main>` bị trùng lặp ở dòng 726 khiến khối FAQ nằm ngoài `<main>`. Prerender phải đọc động cấu hình branding hiện tại (`faqList`, `brandDisplay`, `brandName`, `siteTitle`, `baseUrl`), đưa khối FAQ vào trong `<main>` và xóa thẻ `</main>` thừa.

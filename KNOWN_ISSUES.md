@@ -10,6 +10,16 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-306: Chuỗi Fallback Ghi Cứng Tên Cũ Trong Modal Tải App
+- **Triệu chứng & Rủi ro**:
+  - Trong `src/components/DownloadAppModal.tsx`, tại dòng 30, dòng 56 và dòng 88, các giá trị fallback cuối cùng khi khởi tạo URL mã QR, liên kết chia sẻ cài đặt và tên ứng dụng vẫn dùng string literal `'CodeGame'` và `'https://codegame.shop'`.
+  - Dù thứ tự ưu tiên `window.location.origin` và `branding.baseUrl` đã chạy đúng, việc ghi cứng literal gây lệch chuẩn quản lý cấu hình tập trung (SSOT).
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Import `DEFAULT_BRANDING_CONFIG` từ `src/services/brandingService.ts`.
+  - Thay thế toàn bộ fallback cuối cùng bằng `DEFAULT_BRANDING_CONFIG.brandName` và `DEFAULT_BRANDING_CONFIG.baseUrl`.
+  - Giữ nguyên thứ tự ưu tiên hành vi: `window.location.origin` -> `branding.baseUrl` -> `DEFAULT_BRANDING_CONFIG.baseUrl`.
+  - Đảm bảo quét sạch 100% các chuỗi `codegame.shop` / `CodeGame` trong component (ngoại trừ slug fallback `'codegame'` cho định danh file APK).
+
 ### ISSUE-305: Bản Prerender Ghi Cứng Tên/FAQ, Tiêu Đề Tab Trang Chủ Không Phản Ứng & Nút Tải App Ghi Cứng
 - **Triệu chứng & Rủi ro**:
   - Bản vẽ đầu tiên (Initial Paint) hoặc crawler bot tìm kiếm (Googlebot, Bingbot) chỉ nhận được nội dung FAQ và tên thương hiệu cũ được ghi cứng trong `scripts/prerender.js`. Thẻ đóng `</main>` bị ghi đúp ở dòng 726 và 747 làm khối FAQ nằm ngoài `<main>` gây lỗi cấu trúc DOM.

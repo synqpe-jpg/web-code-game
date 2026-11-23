@@ -14,7 +14,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { pwaService } from '../services/pwaService';
-import { useBranding } from '../services/brandingService';
+import { useBranding, DEFAULT_BRANDING_CONFIG } from '../services/brandingService';
 import QRCode from 'qrcode';
 
 interface DownloadAppModalProps {
@@ -27,7 +27,7 @@ export const DownloadAppModal: React.FC<DownloadAppModalProps> = ({
   onClose,
 }) => {
   const branding = useBranding();
-  const brandName = branding.brandName || 'CodeGame';
+  const brandName = branding.brandName || DEFAULT_BRANDING_CONFIG.brandName;
   const [platform, setPlatform] = useState<'ios' | 'android' | 'desktop'>('android');
   const [canPromptPwa, setCanPromptPwa] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
@@ -53,7 +53,7 @@ export const DownloadAppModal: React.FC<DownloadAppModalProps> = ({
     }
 
     // Generate local QR Code with 0 external network requests
-    const targetUrl = typeof window !== 'undefined' ? window.location.origin : (branding.baseUrl || 'https://codegame.shop');
+    const targetUrl = typeof window !== 'undefined' ? window.location.origin : (branding.baseUrl || DEFAULT_BRANDING_CONFIG.baseUrl);
     QRCode.toDataURL(targetUrl, {
       width: 280,
       margin: 2,
@@ -85,7 +85,7 @@ export const DownloadAppModal: React.FC<DownloadAppModalProps> = ({
   };
 
   const handleCopyLink = () => {
-    const targetUrl = typeof window !== 'undefined' ? window.location.origin : (branding.baseUrl || 'https://codegame.shop');
+    const targetUrl = typeof window !== 'undefined' ? window.location.origin : (branding.baseUrl || DEFAULT_BRANDING_CONFIG.baseUrl);
     navigator.clipboard?.writeText(targetUrl).then(() => {
       setCopiedLink(true);
       setTimeout(() => setCopiedLink(false), 2000);
