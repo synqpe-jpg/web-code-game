@@ -1821,20 +1821,20 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
       // Dynamic robots.txt pointing to the current domain sitemap
       if (pathname === '/robots.txt' && (request.method === 'GET' || request.method === 'HEAD')) {
         const currentBase = branding?.baseUrl || 'https://codegame.shop';
-        const robotsTxt = `User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /api/\n\nSitemap: ${currentBase}/sitemap.xml\n`;
+        const robotsTxt = `User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /api/\nDisallow: /sync-bridge.html\n\nSitemap: ${currentBase}/sitemap.xml\n`;
         return new Response(request.method === 'HEAD' ? null : robotsTxt, {
           status: 200,
           headers: {
             'Content-Type': 'text/plain; charset=utf-8',
-            'Cache-Control': 'public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400',
+            'Cache-Control': 'public, max-age=60, s-maxage=120, stale-while-revalidate=86400',
           },
         });
       }
 
       // Dynamic manifest.json reflecting brand display and SEO description
       if ((pathname === '/manifest.json' || pathname === '/manifest.webmanifest') && (request.method === 'GET' || request.method === 'HEAD')) {
-        const name = branding?.manifestName || 'CodeGame - Cổng Tra Cứu Giftcode & Game Bản Quyền';
-        const shortName = branding?.manifestShortName || 'CodeGame';
+        const name = branding?.manifestName || `${branding?.brandDisplay || 'CodeGame'} - Cổng Tra Cứu Giftcode & Game Bản Quyền`;
+        const shortName = branding?.manifestShortName || branding?.brandDisplay || 'CodeGame';
         const description = branding?.seoDescription || 'Kho tổng hợp mã giftcode game mobile & PC miễn phí mới nhất 2026. Nhận quà tân thủ, tra cứu code game bản quyền G1.';
         const manifestObj = {
           id: '/',

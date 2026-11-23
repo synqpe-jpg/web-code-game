@@ -26,7 +26,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     return new Response(
       JSON.stringify({
         success: true,
+        ...branding,
         branding,
+        data: branding,
       }),
       {
         status: 200,

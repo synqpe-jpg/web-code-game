@@ -52,7 +52,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     return new Response(
       JSON.stringify({
         success: true,
+        ...branding,
         branding,
+        data: branding,
       }),
       { status: 200, headers: CORS_HEADERS }
     );
@@ -125,7 +127,9 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
       JSON.stringify({
         success: true,
         message: 'Cập nhật cấu hình thương hiệu và tên miền thành công!',
+        ...saved,
         branding: saved,
+        data: saved,
       }),
       { status: 200, headers: CORS_HEADERS }
     );
