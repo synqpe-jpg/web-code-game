@@ -1,5 +1,6 @@
 import { ensureSchemaUpgrades, logAdminAudit } from '../../../services/d1_service';
 import { verifyAdminAuth } from '../../../services/mission_service';
+import { PROMOTIONAL_REWARD_REGEX, DEFAULT_REWARD_VI } from '../../games';
 
 interface Env {
   DB: D1Database;
@@ -81,7 +82,8 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
     }
 
     const newCode = body.code !== undefined ? String(body.code).trim() : existing.code;
-    const newRewards = body.rewards !== undefined ? String(body.rewards).trim() : existing.rewards;
+    const rawRewards = body.rewards !== undefined ? String(body.rewards).trim() : existing.rewards;
+    const newRewards = PROMOTIONAL_REWARD_REGEX.test(rawRewards) ? DEFAULT_REWARD_VI : rawRewards;
     const newStatus = body.status !== undefined ? String(body.status).toLowerCase().trim() : existing.status;
     const newExpiresAt = body.expires_at !== undefined ? body.expires_at : (body.expiresAt !== undefined ? body.expiresAt : existing.expires_at);
     const newGameSlug = body.game_slug !== undefined ? String(body.game_slug).trim() : existing.game_slug;

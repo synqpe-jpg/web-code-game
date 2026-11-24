@@ -14,7 +14,7 @@ import { getSettingD1, setSettingD1, getMultipleSettingsD1 } from '../../service
 import { recordSoftDelete, isRecordTombstoned, getActiveTombstonesMap, filterOutTombstones } from '../../services/soft_delete_service';
 import { normalizeVietnamese, stripAccents, GAME_ACRONYM_MAP, invalidateGamesCatalogCache, isJunkCode, SQL_JUNK_CODE_CONDITION } from '../games';
 import { invalidateCatalogEdgeCache } from '../../services/cache_service';
-import { parseExpirationDate, isCodeExpired, decodeHtmlEntities } from '../../../src/utils/codeUtils';
+import { parseExpirationDate, isCodeExpired, decodeHtmlEntities, PROMOTIONAL_REWARD_REGEX, DEFAULT_REWARD_VI, cleanRewardText } from '../../../src/utils/codeUtils';
 import fallbackGamesData from '../../../src/data/games188.json';
 import fallbackCodesData from '../../../src/data/crawled_codes_188.json';
 import {
@@ -632,7 +632,7 @@ interface ExtractedCodeItem {
 function extractCodesFromPayload(item: any, droppedCodes?: Array<{ code: string; reason: string }>): Array<ExtractedCodeItem> {
   const result: Array<ExtractedCodeItem> = [];
 
-  const defaultReward = item.rewards || item.description || 'Thưởng của NPH';
+  const defaultReward = item.rewards || item.description || DEFAULT_REWARD_VI;
   const defaultRawExp =
     item.expiresAt ||
     item.expires_at ||
@@ -686,7 +686,7 @@ function extractCodesFromPayload(item: any, droppedCodes?: Array<{ code: string;
 
     result.push({
       code: val,
-      rewards: decodeHtmlEntities(rawReward || defaultReward),
+      rewards: cleanRewardText(rawReward || defaultReward),
       expiresAt: formattedExpiry,
       isExpired,
       rawStatus: explicitStatus ? String(explicitStatus) : undefined,

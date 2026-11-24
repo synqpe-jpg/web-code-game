@@ -46,7 +46,7 @@ import { EmailSubscriptionModal } from './notification/EmailSubscriptionModal';
 import { useLanguage } from '../context/LanguageContext';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import { isG1Licensed } from '../utils/licenseUtils';
-import { isCodeExpired, decodeHtmlEntities } from '../utils/codeUtils';
+import { isCodeExpired, decodeHtmlEntities, formatRewardTranslation, PROMOTIONAL_REWARD_REGEX } from '../utils/codeUtils';
 import { GameDownloadSection } from './game/GameDownloadSection';
 import { generateFomoComments } from '../services/fomoCommentsService';
 import { templateService } from '../services/templateService';
@@ -73,7 +73,7 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
   currentUser,
   onOpenAuth,
 }) => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const branding = useBranding();
   useLockBodyScroll(true);
   const activeUser = currentUser || (typeof window !== 'undefined' ? dataService.getCurrentUser() : null);
@@ -566,14 +566,20 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
   const activeCodes = useMemo(() => {
     if (!codeSearchQuery.trim()) return rawActiveCodes;
     const q = codeSearchQuery.toLowerCase().trim();
-    return rawActiveCodes.filter((c) => c.code.toLowerCase().includes(q) || (c.rewards || '').toLowerCase().includes(q));
-  }, [rawActiveCodes, codeSearchQuery]);
+    return rawActiveCodes.filter((c) => {
+      const displayRew = formatRewardTranslation(c.rewards, t, language).toLowerCase();
+      return c.code.toLowerCase().includes(q) || displayRew.includes(q) || (c.rewards || '').toLowerCase().includes(q);
+    });
+  }, [rawActiveCodes, codeSearchQuery, t, language]);
 
   const expiredCodes = useMemo(() => {
     if (!codeSearchQuery.trim()) return rawExpiredCodes;
     const q = codeSearchQuery.toLowerCase().trim();
-    return rawExpiredCodes.filter((c) => c.code.toLowerCase().includes(q) || (c.rewards || '').toLowerCase().includes(q));
-  }, [rawExpiredCodes, codeSearchQuery]);
+    return rawExpiredCodes.filter((c) => {
+      const displayRew = formatRewardTranslation(c.rewards, t, language).toLowerCase();
+      return c.code.toLowerCase().includes(q) || displayRew.includes(q) || (c.rewards || '').toLowerCase().includes(q);
+    });
+  }, [rawExpiredCodes, codeSearchQuery, t, language]);
 
   const formatMaskedCode = (code: string): string => {
     if (!code) return '';
@@ -1165,7 +1171,7 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
                             <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5 text-[11px] sm:text-xs text-muted-foreground">
                               {codeItem.rewards && (
                                 <span className="truncate max-w-[160px] xs:max-w-[220px] sm:max-w-md text-slate-300 font-sans">
-                                  🎁 {decodeHtmlEntities(codeItem.rewards)}
+                                  🎁 {formatRewardTranslation(codeItem.rewards, t, language)}
                                 </span>
                               )}
                               {codeItem.expiry && codeItem.expiry.trim() !== '' && codeItem.expiry.trim().toLowerCase() !== 'null' ? (
@@ -1359,7 +1365,7 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
                           </div>
                           {codeItem.rewards && (
                             <p className="text-[11px] sm:text-xs text-muted-foreground mt-1 truncate">
-                              🎁 {decodeHtmlEntities(codeItem.rewards)}
+                              🎁 {formatRewardTranslation(codeItem.rewards, t, language)}
                             </p>
                           )}
                         </div>

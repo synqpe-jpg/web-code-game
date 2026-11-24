@@ -57,8 +57,7 @@ export function decodeHtmlEntities(raw: any): string {
     .replace(/&quot;/gi, '"')
     .replace(/&#39;/gi, "'")
     .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
-    .replace(/https:\/\/codegame\.store\/?/g, 'https://codegame.shop/');
+    .replace(/&gt;/gi, '>');
 
   // Chữa lành tự động các mẫu phần thưởng tiếng Việt bị hỏng font (mojibake / uFFFD / ?)
   if (/qu[^\s]*.*t[^\s]*n\s+th[^\s]*.*v[^\s]*t\s+ph[^\s]*m|qu[^\s]*.*ingame/i.test(str)) {
@@ -84,6 +83,69 @@ export function decodeHtmlEntities(raw: any): string {
     .replace(/[\uFFFD]+/g, '')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+/**
+ * Chuỗi nhãn trung lập mặc định khi mã không có phần thưởng cụ thể hoặc mang mẫu câu quảng bá tên miền
+ */
+export const DEFAULT_REWARD_VI = 'Quà tặng từ nhà phát hành';
+export const DEFAULT_REWARD_EN = 'Rewards from the publisher';
+
+/**
+ * Regex nhận diện mẫu câu quảng bá tên miền cũ cần chuẩn hóa về nhãn trung lập
+ * Khớp: "Giftcode độc quyền cập nhật từ https://..." hoặc "Giftcode độc quyền cập nhật từ" (bất kể tên miền nào, có hoặc không có dấu gạch chéo cuối)
+ */
+export const PROMOTIONAL_REWARD_REGEX = /^Giftcode độc quyền cập nhật từ(?:\s+https?:\/\/[^\s]+)?\/?$/i;
+
+/**
+ * Kiểm tra xem chuỗi phần thưởng có phải là mẫu quảng bá tên miền cần chuẩn hóa
+ */
+export function isPromotionalReward(raw: any): boolean {
+  if (!raw || typeof raw !== 'string') return false;
+  return PROMOTIONAL_REWARD_REGEX.test(raw.trim());
+}
+
+/**
+ * Chuẩn hóa chuỗi phần thưởng cho tầng API / Worker / Database:
+ * - Nếu trùng mẫu quảng bá tên miền -> chuyển thành nhãn trung lập "Quà tặng từ nhà phát hành" (hoặc tiếng Anh nếu lang === 'en')
+ * - Nếu là generic text rác -> "Chưa rõ phần thưởng"
+ * - Nếu là phần thưởng thật -> giữ nguyên vẹn
+ */
+export function cleanRewardText(raw: any, lang: string = 'vi'): string {
+  const text = decodeHtmlEntities(String(raw || '').trim());
+  if (PROMOTIONAL_REWARD_REGEX.test(text)) {
+    return lang === 'en' ? DEFAULT_REWARD_EN : DEFAULT_REWARD_VI;
+  }
+  if (!text || /^(?:quà (?:tặng )?tân thủ(?: & vật phẩm ingame)?|phần thưởng từ nhà phát hành|thưởng của nph|🎁 phần thưởng từ nhà phát hành|quà mừng game ra mắt)$/i.test(text)) {
+    return 'Chưa rõ phần thưởng';
+  }
+  return text;
+}
+
+/**
+ * Hàm định dạng hiển thị phần thưởng trên giao diện đa ngôn ngữ (Frontend / SSR):
+ * - Tự động đối chiếu với hàm dịch `t.modal.publisherReward` nếu là nhãn trung lập
+ * - Nếu là nội dung thưởng thật (Primogems, Mora, KNB, v.v...) -> giữ nguyên vẹn
+ */
+export function formatRewardTranslation(
+  rawReward: any,
+  t?: { modal?: { publisherReward?: string } },
+  lang: string = 'vi'
+): string {
+  if (!rawReward) return '';
+  const text = decodeHtmlEntities(String(rawReward || '').trim());
+  if (
+    text === DEFAULT_REWARD_VI ||
+    text === DEFAULT_REWARD_EN ||
+    text === '🎁 Quà tặng từ nhà phát hành' ||
+    PROMOTIONAL_REWARD_REGEX.test(text)
+  ) {
+    if (t?.modal?.publisherReward) {
+      return t.modal.publisherReward;
+    }
+    return lang === 'en' ? DEFAULT_REWARD_EN : DEFAULT_REWARD_VI;
+  }
+  return text;
 }
 
 /**

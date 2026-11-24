@@ -113,6 +113,7 @@ export interface TranslationSchema {
     copyAll: string;
     copyAllSuccess: string;
     copiedAll: string;
+    publisherReward: string;
   };
   giveaways: {
     title: string;
@@ -278,6 +279,7 @@ export const translations: Record<Language, TranslationSchema> = {
       copyAll: 'Copy tất cả',
       copyAllSuccess: 'Đã sao chép tất cả mã code!',
       copiedAll: 'Đã sao chép tất cả',
+      publisherReward: 'Quà tặng từ nhà phát hành',
     },
     giveaways: {
       title: 'Sự Kiện Săn Mã Giveaway',
@@ -442,6 +444,7 @@ export const translations: Record<Language, TranslationSchema> = {
       copyAll: 'Copy All',
       copyAllSuccess: 'All codes copied to clipboard!',
       copiedAll: 'Copied All',
+      publisherReward: 'Rewards from the publisher',
     },
     giveaways: {
       title: 'Exclusive Giveaway Drops',
@@ -606,6 +609,7 @@ export const translations: Record<Language, TranslationSchema> = {
       copyAll: '复制全部',
       copyAllSuccess: '已复制所有礼包码！',
       copiedAll: '已全部复制',
+      publisherReward: '官方发行商礼包',
     },
     giveaways: {
       title: '独家限时免费抽奖',
@@ -770,6 +774,7 @@ export const translations: Record<Language, TranslationSchema> = {
       copyAll: 'คัดลอกทั้งหมด',
       copyAllSuccess: 'คัดลอกโค้ดทั้งหมดแล้ว!',
       copiedAll: 'คัดลอกทั้งหมดแล้ว',
+      publisherReward: 'ของรางวัลจากผู้พัฒนา',
     },
     giveaways: {
       title: 'กิจกรรมแจกโค้ดพิเศษ',

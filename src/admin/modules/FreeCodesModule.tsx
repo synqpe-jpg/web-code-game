@@ -201,7 +201,7 @@ export const FreeCodesModule: React.FC<FreeCodesModuleProps> = ({
     for (const line of lines) {
       const parts = line.split(/[|,\t-]+/).map((p) => p.trim());
       const code = parts[0];
-      const rewards = parts[1] || 'Quà tặng tân thủ';
+      const rewards = parts[1] || 'Quà tặng từ nhà phát hành';
       const expiresAt = parts[2] ? parts[2].trim() : '';
       if (code) {
         itemsToImport.push({ code, rewards, expiresAt });

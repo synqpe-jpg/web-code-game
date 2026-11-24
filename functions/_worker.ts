@@ -191,7 +191,7 @@ import { invalidateCatalogEdgeCache } from './services/cache_service';
 import fallbackGiveawaysData from '../src/data/giveaways.json';
 import fallbackGamesData from '../src/data/games188.json';
 import fallbackCodesData from '../src/data/crawled_codes_188.json';
-import { isCodeExpired } from '../src/utils/codeUtils';
+import { isCodeExpired, cleanRewardText } from '../src/utils/codeUtils';
 
 function attachBuildHeaders(res: Response, baseUrl?: string): Response {
   try {
@@ -3127,7 +3127,8 @@ async function renderSeoHtml(
             <div class="space-y-2">
               ${displayCodes.length > 0 ? displayCodes.map((c: any) => {
                 const val = escape(c.code || c.codeValue || c.code_value);
-                const rew = c.rewards ? `🎁 ${escape(c.rewards)}` : `🎁 Chưa rõ phần thưởng`;
+                const cleanRew = cleanRewardText(c.rewards);
+                const rew = cleanRew ? `🎁 ${escape(cleanRew)}` : `🎁 Chưa rõ phần thưởng`;
                 const exp = String(c.expires_at || c.expiresAt || c.expiry || '').trim();
                 const isDummy = exp.includes('2026-12-31') || exp.includes('31/12/2026');
                 const expText = exp && !isDummy ? `⏱️ HSD: ${escape(exp)}` : `⏱️ HSD: Chưa rõ hạn dùng`;

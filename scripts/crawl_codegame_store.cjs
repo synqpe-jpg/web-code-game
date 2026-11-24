@@ -187,7 +187,7 @@ async function run() {
                 codeValue: codeVal,
                 code_value: codeVal,
                 code: codeVal,
-                rewards: 'Giftcode độc quyền cập nhật từ https://codegame.store/',
+                rewards: 'Quà tặng từ nhà phát hành',
                 status: 'verified',
                 is_active: true,
                 is_verified: true,

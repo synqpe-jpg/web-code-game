@@ -23,7 +23,7 @@ import { marketingService } from '../services/marketingService';
 import { useLanguage } from '../context/LanguageContext';
 import { isG1Licensed } from '../utils/licenseUtils';
 import { calculateGameSearchScore } from '../utils/textUtils';
-import { isCodeExpired, decodeHtmlEntities } from '../utils/codeUtils';
+import { isCodeExpired, decodeHtmlEntities, formatRewardTranslation } from '../utils/codeUtils';
 import {
   getRecentSearches,
   saveRecentSearch,
@@ -144,7 +144,7 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
   isActive = true,
   placeholder,
 }) => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
   const [copiedCodeKey, setCopiedCodeKey] = useState<string | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(-1);
@@ -903,7 +903,7 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
                               </span>
                               {item.code.rewards && (
                                 <span className="text-[11px] text-slate-400 truncate max-w-[180px] sm:max-w-[260px]">
-                                  • {decodeHtmlEntities(item.code.rewards)}
+                                  • {formatRewardTranslation(item.code.rewards, t, language)}
                                 </span>
                               )}
                             </div>
@@ -1298,7 +1298,7 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
                                 </span>
                                 {item.code.rewards && (
                                   <span className="text-[11px] text-slate-400 truncate max-w-[150px]">
-                                    • {decodeHtmlEntities(item.code.rewards)}
+                                    • {formatRewardTranslation(item.code.rewards, t, language)}
                                   </span>
                                 )}
                               </div>

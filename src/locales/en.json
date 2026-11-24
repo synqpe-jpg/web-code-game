@@ -116,7 +116,8 @@
     "expiredCount": "Expired Codes",
     "copyAll": "Copy All Codes",
     "copyAllSuccess": "All codes copied successfully!",
-    "copiedAll": "Copied All"
+    "copiedAll": "Copied All",
+    "publisherReward": "Rewards from the publisher"
   },
   "giveaways": {
     "title": "Exclusive Giveaway Events",

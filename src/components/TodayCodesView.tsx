@@ -14,6 +14,8 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import type { GameItem } from '../types/game';
+import { formatRewardTranslation } from '../utils/codeUtils';
+import { useLanguage } from '../context/LanguageContext';
 
 interface TodayCodeItem {
   code: string;
@@ -58,6 +60,7 @@ export const TodayCodesView: React.FC<TodayCodesViewProps> = ({
   onShowToast,
   embedded = false,
 }) => {
+  const { t, language } = useLanguage();
   const [data, setData] = useState<TodayCodesResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [copiedCodes, setCopiedCodes] = useState<Record<string, boolean>>({});
@@ -334,7 +337,7 @@ export const TodayCodesView: React.FC<TodayCodesViewProps> = ({
                           </div>
                           {c.rewards && (
                             <p className="text-[11px] text-muted-foreground truncate mt-0.5">
-                              🎁 {c.rewards}
+                              🎁 {formatRewardTranslation(c.rewards, t, language)}
                             </p>
                           )}
                         </div>

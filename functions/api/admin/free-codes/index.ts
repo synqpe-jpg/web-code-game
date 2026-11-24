@@ -1,6 +1,6 @@
 import { ensureSchemaUpgrades, logAdminAudit } from '../../../services/d1_service';
 import { verifyAdminAuth } from '../../../services/mission_service';
-import { isJunkCode, SQL_JUNK_CODE_CONDITION } from '../../games';
+import { isJunkCode, SQL_JUNK_CODE_CONDITION, cleanRewardText, PROMOTIONAL_REWARD_REGEX, DEFAULT_REWARD_VI } from '../../games';
 
 interface Env {
   DB: D1Database;
@@ -157,7 +157,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     const code = String(body.code || body.codeValue || '').trim();
     const gameSlug = String(body.game_slug || body.gameSlug || '').trim();
     const gameName = String(body.game_name || body.gameName || gameSlug).trim();
-    const rewards = String(body.rewards || '').trim();
+    const rewardsInput = String(body.rewards || '').trim();
+    const rewards = (!rewardsInput || PROMOTIONAL_REWARD_REGEX.test(rewardsInput))
+      ? DEFAULT_REWARD_VI
+      : rewardsInput;
     const expiresAt = body.expires_at || body.expiresAt || null;
     const status = String(body.status || 'active').toLowerCase().trim();
     const isHot = body.is_hot === true || body.isHot === true ? 1 : 0;

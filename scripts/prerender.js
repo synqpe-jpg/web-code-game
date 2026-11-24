@@ -42,6 +42,15 @@ function escapeHtml(unsafe = '') {
     .replace(/'/g, '&#039;');
 }
 
+function cleanRewardText(raw) {
+  if (!raw) return '';
+  const text = String(raw).trim();
+  if (/^Giftcode độc quyền cập nhật từ(?:\s+https?:\/\/[^\s]+)?\/?$/i.test(text)) {
+    return 'Quà tặng từ nhà phát hành';
+  }
+  return text;
+}
+
 function isCodeExpired(c) {
   if (!c) return false;
   const status = String(c.status || '').toLowerCase();
@@ -1781,7 +1790,8 @@ async function runPrerender() {
                     ? displayCodes
                         .map((c) => {
                           const val = escapeHtml(c.codeValue || c.code_value || c.code);
-                          const rew = c.rewards ? `🎁 ${escapeHtml(c.rewards)}` : `🎁 Chưa rõ phần thưởng`;
+                          const cleanRew = cleanRewardText(c.rewards);
+                          const rew = cleanRew ? `🎁 ${escapeHtml(cleanRew)}` : `🎁 Chưa rõ phần thưởng`;
                           const exp = (c.expiresAt || c.expires_at || c.expiry || '').trim();
                           const isDummyExp = exp.includes('2026-12-31') || exp.includes('31/12/2026');
                           const expText = exp && !isDummyExp ? `⏱️ HSD: ${escapeHtml(exp)}` : `⏱️ HSD: Chưa rõ hạn dùng`;

@@ -6,19 +6,25 @@ import {
   JUNK_CODE_REGEX,
   isJunkCode,
   SQL_JUNK_CODE_CONDITION,
+  DEFAULT_REWARD_VI,
+  DEFAULT_REWARD_EN,
+  PROMOTIONAL_REWARD_REGEX,
+  isPromotionalReward,
+  cleanRewardText,
 } from '../../src/utils/codeUtils';
 import fallbackGamesData from '../../src/data/games188.json';
 import fallbackCodesData from '../../src/data/crawled_codes_188.json';
 
-export { JUNK_CODE_REGEX, isJunkCode, SQL_JUNK_CODE_CONDITION };
-
-export function cleanRewardText(raw: any): string {
-  const text = decodeHtmlEntities(String(raw || '').trim());
-  if (!text || /^(?:quà (?:tặng )?tân thủ(?: & vật phẩm ingame)?|phần thưởng từ nhà phát hành|thưởng của nph|🎁 phần thưởng từ nhà phát hành|quà mừng game ra mắt)$/i.test(text)) {
-    return 'Chưa rõ phần thưởng';
-  }
-  return text;
-}
+export {
+  JUNK_CODE_REGEX,
+  isJunkCode,
+  SQL_JUNK_CODE_CONDITION,
+  DEFAULT_REWARD_VI,
+  DEFAULT_REWARD_EN,
+  PROMOTIONAL_REWARD_REGEX,
+  isPromotionalReward,
+  cleanRewardText,
+};
 
 // Pre-index fallback codes by game slug for instant O(1) retrieval without array scanning
 const fallbackCodesBySlug = new Map<string, GiftCode[]>();
@@ -678,6 +684,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     const url = new URL(request.url);
     const forceFresh = url.searchParams.has('nocache') || url.searchParams.has('fresh');
     const requestedSlug = url.searchParams.get('slug') || url.searchParams.get('id');
+    const lang = (url.searchParams.get('lang') || url.searchParams.get('language') || (request.headers.get('accept-language')?.toLowerCase().includes('en') ? 'en' : 'vi')).toLowerCase();
 
     // 1. Single Game Details Query (?slug=... or ?id=...)
     // Tối ưu hóa D1 Direct SQL trước, fallback in-memory nếu chưa nạp vào table games
@@ -823,7 +830,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             const status = isCodeExpired(c) ? 'expired' : (c.status || 'active');
             return {
               code: c.code,
-              rewards: cleanRewardText(c.rewards),
+              rewards: cleanRewardText(c.rewards, lang),
               status,
               expiry: isFakeExp ? '' : rawExp,
               source: c.source || '',
@@ -839,7 +846,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           if (Array.isArray(fallbackList) && fallbackList.length > 0) {
             codesList = fallbackList.map((c: any) => ({
               code: c.code,
-              rewards: cleanRewardText(c.rewards),
+              rewards: cleanRewardText(c.rewards, lang),
               status: isCodeExpired(c) ? 'expired' : (c.status || 'active'),
               expiry: c.expiry || '',
               source: c.source || 'Fallback Catalog',
@@ -1261,7 +1268,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
               },
               code: {
                 code: codeVal,
-                rewards: cleanRewardText(item.rewards || item.description),
+                rewards: cleanRewardText(item.rewards || item.description, lang),
                 status: isCodeExpired(item) ? 'expired' : (item.status || 'active'),
                 expiry: item.expiry || '',
               },

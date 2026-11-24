@@ -21,7 +21,7 @@ import { getIndustryPresetProducts, INDUSTRY_PRESET_PRODUCTS } from '../data/ind
 import { getUpcomingGameIconUrl } from '../utils/upcomingGameIconUtils';
 import { calculateEffectiveOrder } from '../utils/upcomingGameGrowthUtils';
 import { smartVietnameseMatch, calculateGameSearchScore, matchGameSearch } from '../utils/textUtils';
-import { isCodeExpired, parseExpirationDate } from '../utils/codeUtils';
+import { isCodeExpired, parseExpirationDate, cleanRewardText, PROMOTIONAL_REWARD_REGEX } from '../utils/codeUtils';
 
 import { DEFAULT_STORE_PRODUCTS, DEFAULT_UTILITY_PRODUCTS, DEFAULT_GIVEAWAYS } from '../data/seedData';
 import { marketingService } from './marketingService';
@@ -1874,10 +1874,7 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
           if (!cd || /^(?:IN-.*-\d+X\d+|REDEMPTION(?:-SCREEN)?-\d+X\d+)$/i.test(cd)) return;
           const upper = cd.toUpperCase();
           if (!mergedMap.has(upper)) {
-            let rew = c.rewards || (c as any).description || '';
-            if (!rew || /^(?:quà (?:tặng )?tân thủ(?: & vật phẩm ingame)?|phần thưởng từ nhà phát hành|thưởng của nph|🎁 phần thưởng từ nhà phát hành|quà mừng game ra mắt)$/i.test(rew.trim())) {
-              rew = 'Chưa rõ phần thưởng';
-            }
+            let rew = cleanRewardText(c.rewards || (c as any).description || '');
             mergedMap.set(upper, { ...c, code: cd, rewards: rew, description: rew });
           }
         });
