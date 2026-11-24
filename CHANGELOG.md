@@ -11,16 +11,25 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 - **Bối cảnh & Yêu cầu của Chủ sở hữu**:
   - Chuyển `giftcodefree.com` thành tên miền chính thức của website.
   - Xóa quy tắc chuyển hướng cũ trên zone `giftcodefree.com`.
+  - Khắc phục lỗi 522 (Connection timed out) trên `giftcodefree.com` và lỗi 525 (SSL handshake failed) trên `www.giftcodefree.com`.
   - Thiết lập chuyển hướng ngược: khi người dùng truy cập `codegame.shop` (hoặc `www.codegame.shop`), tự động chuyển hướng 301 sang `https://giftcodefree.com` bảo toàn đường dẫn con.
   - YÊU CẦU CỐT LÕI: Tuyệt đối loại trừ đường dẫn bắt đầu bằng `/api/` (và `/sync-bridge/`) trên `codegame.shop` để đảm bảo toàn bộ vòng quét code, xuất bản tin tức, Telegram webhook và các lệnh gọi API quản trị đang dùng `https://codegame.shop/api/...` không bị gián đoạn.
 - **Giải pháp áp dụng (Solution)**:
   - 1. *Xóa Worker Routes Cũ*: Gọi Cloudflare API xóa hoàn toàn 2 routes `giftcodefree.com/*` và `www.giftcodefree.com/*` cùng worker script `giftcodefree-redirect` trên zone `e84832c0663d81e4498976404f43126e`.
-  - 2. *Đồng bộ Custom Domain Pages*: Xác nhận `giftcodefree.com` và `www.giftcodefree.com` đã được gắn vào dự án Pages `web-code-game`.
-  - 3. *Cấu hình 301 Redirect tại Edge Worker `functions/_worker.ts`*: Khai báo tập `REDIRECT_TO_GIFTCODEFREE` chuyển hướng toàn bộ lượt truy cập trang web (GET HTML/page) từ `codegame.shop`, `www.codegame.shop`, `web-code-game.pages.dev`, v.v. sang `https://giftcodefree.com`, đồng thời loại trừ 100% mọi request tới `/api/*` và `/sync-bridge/*`.
+  - 2. *Sửa Bản Ghi DNS Loại Bỏ Lỗi 522 & 525*:
+       - Xóa bản ghi A cũ của Namecheap (`162.255.119.88`) trên zone `giftcodefree.com` (nguyên nhân gây lỗi 522).
+       - Cập nhật và tạo bản ghi CNAME `@` và `www` trỏ về `web-code-game.pages.dev` với `proxied: true` (bật Cloudflare CDN/SSL).
+  - 3. *Kích Hoạt Custom Domain & Universal SSL trên Cloudflare Pages*:
+       - Kích hoạt xác thực Pages domain cho `giftcodefree.com` và `www.giftcodefree.com`, cả 2 tên miền đã chuyển sang trạng thái `active` 100%.
+       - Cấp phát chứng chỉ SSL Universal (Google Trust Services / Let's Encrypt) an toàn.
+  - 4. *Cấu hình 301 Redirect tại Edge Worker `functions/_worker.ts`*: Khai báo tập `REDIRECT_TO_GIFTCODEFREE` chuyển hướng toàn bộ lượt truy cập trang web (GET HTML/page) từ `codegame.shop`, `www.codegame.shop`, `web-code-game.pages.dev`, v.v. sang `https://giftcodefree.com`, đồng thời loại trừ 100% mọi request tới `/api/*` và `/sync-bridge/*`.
 - **Kiểm thử & Nghiệm thu Thực Tế**:
-  - `GET /` trên `codegame.shop`: Trả về HTTP 301 `Location: https://giftcodefree.com/`.
-  - `GET /game/genshin-impact` trên `codegame.shop`: Trả về HTTP 301 `Location: https://giftcodefree.com/game/genshin-impact`.
-  - `GET /api/branding` trên `codegame.shop`: Trả về HTTP 200 OK (không bị chuyển hướng, hoạt động bình thường).
+  - `GET https://giftcodefree.com/`: Trả về HTTP 200 OK, SSL an toàn, tải đầy đủ giao diện trang chủ GiftCodeFree.
+  - `GET https://www.giftcodefree.com/`: Trả về HTTP 301 canonical sang `https://giftcodefree.com/`.
+  - `GET https://codegame.shop/`: Trả về HTTP 301 `Location: https://giftcodefree.com/`.
+  - `GET https://codegame.shop/game/genshin-impact`: Trả về HTTP 301 `Location: https://giftcodefree.com/game/genshin-impact`.
+  - `GET https://codegame.shop/api/branding`: Trả về HTTP 200 OK (không bị chuyển hướng, dữ liệu trả về bình thường).
+  - Trình duyệt thực tế (Browser Subagent): Mở `https://giftcodefree.com/` hiển thị đầy đủ tiêu đề, logo thương hiệu, và test chuyển hướng từ `codegame.shop/game/genshin-impact` thành công sang `giftcodefree.com/game/genshin-impact`.
 
 ### 429. Kết Nối Tên Miền Phụ giftcodefree.com & Chuyển Hướng 301 Canonical Về codegame.shop (24/11/2026)
 - **Bối cảnh & Yêu cầu của Chủ sở hữu**:

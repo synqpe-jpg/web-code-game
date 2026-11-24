@@ -13,7 +13,12 @@
 ### ISSUE-308: Đảo Chiều Tên Miền Chính Sang giftcodefree.com & Bảo Lưu Hoạt Động Của API Trên codegame.shop
 - **Triệu chứng & Rủi ro**:
   - Khi đảo chiều chuyển hướng từ tên miền cũ (`codegame.shop`) sang tên miền mới (`giftcodefree.com`), nếu chuyển hướng toàn bộ cả cụm API `/api/*`: các crawler ngầm, bot xuất bản tự động, webhook ngân hàng SePay và bot Telegram đang dùng endpoint `https://codegame.shop/api/...` sẽ bị chuyển hướng thành phương thức GET (301 redirect biến POST thành GET), gây hỏng toàn bộ hệ thống thu thập mã và báo tin tự động.
+  - Lỗi 522 (Connection timed out) trên `giftcodefree.com`: do bản ghi DNS A cũ trỏ vào IP Namecheap parking (`162.255.119.88`) không phản hồi kết nối HTTP.
+  - Lỗi 525 (SSL handshake failed) trên `www.giftcodefree.com`: do CNAME trỏ về `parkingpage.namecheap.com` không thể hoàn tất chứng chỉ SSL với Cloudflare Edge.
 - **Giải pháp chuẩn đã kiểm chứng**:
+  - Xóa sạch bản ghi A và CNAME cũ của Namecheap trên zone Cloudflare.
+  - Tạo mới bản ghi CNAME `@` và `www` trỏ về `web-code-game.pages.dev` với `proxied: true` (bật proxy Cloudflare).
+  - Kích hoạt xác thực Pages custom domain trên Cloudflare Pages project, đảm bảo cả 2 domain chuyển sang trạng thái `active` kèm chứng chỉ Universal SSL an toàn.
   - Luôn đặt điều kiện lọc nghiêm ngặt `!pathname.startsWith('/api') && !pathname.startsWith('/sync-bridge')` trước mọi logic 301 redirect tại Edge Worker.
   - Cung cấp cú pháp filter chuẩn cho Cloudflare Redirect Rules trong Dashboard: `(http.host eq "codegame.shop" or http.host eq "www.codegame.shop") and not starts_with(http.request.uri.path, "/api") and not starts_with(http.request.uri.path, "/sync-bridge")`.
 
