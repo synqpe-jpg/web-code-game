@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { Smartphone, QrCode, Info, ExternalLink, Download, Monitor } from 'lucide-react';
 import type { GameItem } from '../../types/game';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface GameDownloadSectionProps {
   game: GameItem;
@@ -49,7 +50,7 @@ function detectPlatform(): Platform {
 
 /**
  * Builds final store URL by appending tracking parameters without clobbering existing parameters
- * Android: referrer=utm_source%3Dcodegame.shop%26utm_medium%3Ddownload_button (or download_qr)
+ * Android: referrer=utm_source%3Dgiftcodefree.com%26utm_medium%3Ddownload_button (or download_qr)
  * iOS: mt=8 (and via=qr if via QR scan)
  */
 export function buildStoreUrl(
@@ -65,13 +66,20 @@ export function buildStoreUrl(
 
     if (store === 'google_play') {
       const medium = via === 'qr_scan' ? 'download_qr' : 'download_button';
-      const trackingReferrer = `utm_source=codegame.shop&utm_medium=${medium}`;
-      const existingRef = url.searchParams.get('referrer');
+      const trackingReferrer = `utm_source=giftcodefree.com&utm_medium=${medium}`;
+      let existingRef = url.searchParams.get('referrer');
 
       if (!existingRef) {
         url.searchParams.set('referrer', trackingReferrer);
-      } else if (!existingRef.includes('utm_source=')) {
-        url.searchParams.set('referrer', `${existingRef}&${trackingReferrer}`);
+      } else {
+        if (existingRef.includes('codegame.shop')) {
+          existingRef = existingRef.replace(/codegame\.shop/gi, 'giftcodefree.com');
+        }
+        if (!existingRef.includes('utm_source=')) {
+          url.searchParams.set('referrer', `${existingRef}&${trackingReferrer}`);
+        } else {
+          url.searchParams.set('referrer', existingRef);
+        }
       }
     } else if (store === 'app_store') {
       if (!url.searchParams.has('mt')) {
@@ -160,6 +168,7 @@ export const AppleSvg: React.FC<{ className?: string }> = ({ className = 'w-5 h-
 );
 
 export const GameDownloadSection: React.FC<GameDownloadSectionProps> = ({ game, className = '' }) => {
+  const { t, language } = useLanguage();
   const [platform, setPlatform] = useState<Platform>('desktop');
   const [isMounted, setIsMounted] = useState(false);
   const [selectedQrTab, setSelectedQrTab] = useState<'google_play' | 'app_store'>('google_play');
@@ -306,7 +315,7 @@ export const GameDownloadSection: React.FC<GameDownloadSectionProps> = ({ game, 
             className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-heading font-black text-sm shadow-md shadow-emerald-500/20 active:scale-[0.98] transition-all cursor-pointer"
           >
             <GooglePlaySvg className="w-5 h-5 shrink-0" />
-            <span>Tải trên CH Play</span>
+            <span>{t.download?.downloadPlayStore || (language === 'vi' ? 'Tải trên CH Play' : 'Get it on Google Play')}</span>
           </a>
 
           {hasIos && (
@@ -319,7 +328,7 @@ export const GameDownloadSection: React.FC<GameDownloadSectionProps> = ({ game, 
                 className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 transition-colors cursor-pointer py-0.5"
               >
                 <AppleSvg className="w-3.5 h-3.5 text-slate-400" />
-                <span>Cũng có trên iOS (App Store) &rarr;</span>
+                <span>{t.download?.alsoOnIos || (language === 'vi' ? 'Cũng có trên iOS (App Store) →' : 'Also on iOS (App Store) →')}</span>
               </a>
             </div>
           )}
@@ -333,7 +342,7 @@ export const GameDownloadSection: React.FC<GameDownloadSectionProps> = ({ game, 
                 className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 transition-colors cursor-pointer py-0.5"
               >
                 <Monitor className="w-3.5 h-3.5 text-sky-400" />
-                <span>Có bản PC / Windows &rarr;</span>
+                <span>{language === 'vi' ? 'Có bản PC / Windows →' : 'Available for PC / Windows →'}</span>
               </a>
             </div>
           )}
@@ -353,7 +362,7 @@ export const GameDownloadSection: React.FC<GameDownloadSectionProps> = ({ game, 
             className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl bg-slate-100 hover:bg-white text-slate-950 font-heading font-black text-sm shadow-md active:scale-[0.98] transition-all cursor-pointer"
           >
             <AppleSvg className="w-5 h-5 shrink-0 text-slate-950" />
-            <span>Tải trên App Store</span>
+            <span>{t.download?.downloadAppStore || (language === 'vi' ? 'Tải trên App Store' : 'Download on App Store')}</span>
           </a>
 
           {hasPlay && (
@@ -366,7 +375,7 @@ export const GameDownloadSection: React.FC<GameDownloadSectionProps> = ({ game, 
                 className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 transition-colors cursor-pointer py-0.5"
               >
                 <GooglePlaySvg className="w-3.5 h-3.5 shrink-0" />
-                <span>Cũng có trên Android (CH Play) &rarr;</span>
+                <span>{t.download?.alsoOnAndroid || (language === 'vi' ? 'Cũng có trên Android (CH Play) →' : 'Also on Android (Google Play) →')}</span>
               </a>
             </div>
           )}
@@ -380,7 +389,7 @@ export const GameDownloadSection: React.FC<GameDownloadSectionProps> = ({ game, 
                 className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 transition-colors cursor-pointer py-0.5"
               >
                 <Monitor className="w-3.5 h-3.5 text-sky-400" />
-                <span>Có bản PC / Windows &rarr;</span>
+                <span>{language === 'vi' ? 'Có bản PC / Windows →' : 'Available for PC / Windows →'}</span>
               </a>
             </div>
           )}
@@ -398,7 +407,7 @@ export const GameDownloadSection: React.FC<GameDownloadSectionProps> = ({ game, 
             className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl bg-slate-100 hover:bg-white text-slate-950 font-heading font-black text-sm shadow-md active:scale-[0.98] transition-all cursor-pointer"
           >
             <AppleSvg className="w-5 h-5 shrink-0 text-slate-950" />
-            <span>Tải trên App Store</span>
+            <span>{t.download?.downloadAppStore || (language === 'vi' ? 'Tải trên App Store' : 'Download on App Store')}</span>
           </a>
         </div>
       )}
@@ -414,7 +423,7 @@ export const GameDownloadSection: React.FC<GameDownloadSectionProps> = ({ game, 
             className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-heading font-black text-sm shadow-md shadow-emerald-500/20 active:scale-[0.98] transition-all cursor-pointer"
           >
             <GooglePlaySvg className="w-5 h-5 shrink-0" />
-            <span>Tải trên CH Play</span>
+            <span>{t.download?.downloadPlayStore || (language === 'vi' ? 'Tải trên CH Play' : 'Get it on Google Play')}</span>
           </a>
         </div>
       )}
@@ -429,7 +438,7 @@ export const GameDownloadSection: React.FC<GameDownloadSectionProps> = ({ game, 
             className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-heading font-black text-sm shadow-md active:scale-[0.98] transition-all cursor-pointer"
           >
             <Monitor className="w-5 h-5 shrink-0 text-white" />
-            <span>Tải bản PC (Windows)</span>
+            <span>{language === 'vi' ? 'Tải bản PC (Windows)' : 'Download PC (Windows)'}</span>
             <ExternalLink className="w-4 h-4 text-sky-200 ml-auto" />
           </a>
         </div>
@@ -454,7 +463,7 @@ export const GameDownloadSection: React.FC<GameDownloadSectionProps> = ({ game, 
                 title="Mở Google Play Store trong tab mới"
               >
                 <GooglePlaySvg className="w-4 h-4 sm:w-5 sm:h-5 shrink-0 group-hover:scale-110 transition-transform" />
-                <span>Tải trên CH Play</span>
+                <span>{t.download?.downloadPlayStore || (language === 'vi' ? 'Tải trên CH Play' : 'Get it on Google Play')}</span>
                 <ExternalLink className="w-3 h-3 text-slate-500 group-hover:text-emerald-400 ml-auto" />
               </a>
             )}
@@ -471,7 +480,7 @@ export const GameDownloadSection: React.FC<GameDownloadSectionProps> = ({ game, 
                 title="Mở Apple App Store trong tab mới"
               >
                 <AppleSvg className="w-4 h-4 sm:w-5 sm:h-5 shrink-0 group-hover:scale-110 transition-transform text-white" />
-                <span>Tải trên App Store</span>
+                <span>{t.download?.downloadAppStore || (language === 'vi' ? 'Tải trên App Store' : 'Download on App Store')}</span>
                 <ExternalLink className="w-3 h-3 text-slate-500 group-hover:text-cyan-400 ml-auto" />
               </a>
             )}
@@ -487,7 +496,7 @@ export const GameDownloadSection: React.FC<GameDownloadSectionProps> = ({ game, 
                 title="Mở website tải bản PC / Windows chính thức"
               >
                 <Monitor className="w-4 h-4 sm:w-5 sm:h-5 shrink-0 text-sky-400 group-hover:scale-110 transition-transform" />
-                <span>Bản PC (Windows)</span>
+                <span>{language === 'vi' ? 'Bản PC (Windows)' : 'PC (Windows)'}</span>
                 <ExternalLink className="w-3 h-3 text-slate-500 group-hover:text-sky-400 ml-auto" />
               </a>
             )}
@@ -509,7 +518,7 @@ export const GameDownloadSection: React.FC<GameDownloadSectionProps> = ({ game, 
                   }`}
                 >
                   <GooglePlaySvg className="w-3 h-3 shrink-0" />
-                  <span>CH Play (Android)</span>
+                  <span>{language === 'vi' ? 'CH Play (Android)' : 'Google Play (Android)'}</span>
                 </button>
 
                 <button
@@ -532,7 +541,7 @@ export const GameDownloadSection: React.FC<GameDownloadSectionProps> = ({ game, 
               {isQrLoading || !qrDataUrl ? (
                 <div className="w-[140px] h-[140px] flex flex-col items-center justify-center bg-slate-50 text-slate-400 rounded-lg">
                   <QrCode className="w-8 h-8 animate-pulse text-slate-400 mb-1" />
-                  <span className="text-[10px] font-semibold">Đang tạo mã QR...</span>
+                  <span className="text-[10px] font-semibold">{language === 'vi' ? 'Đang tạo mã QR...' : 'Generating QR...'}</span>
                 </div>
               ) : (
                 <img
@@ -545,7 +554,7 @@ export const GameDownloadSection: React.FC<GameDownloadSectionProps> = ({ game, 
             </div>
 
             <p className="text-[11px] text-slate-400 mt-2 text-center font-medium">
-              Quét bằng Camera điện thoại để mở thẳng trang tải game
+              {language === 'vi' ? 'Quét bằng Camera điện thoại để mở thẳng trang tải game' : 'Scan with phone camera to open store download page'}
             </p>
           </div>
           )}
@@ -558,7 +567,7 @@ export const GameDownloadSection: React.FC<GameDownloadSectionProps> = ({ game, 
       <div className="mt-2.5 pt-2 border-t border-slate-800/80 flex items-start gap-1.5 text-[11px] text-slate-400 leading-relaxed">
         <Info className="w-3.5 h-3.5 text-amber-400/90 shrink-0 mt-0.5" />
         <p className="flex-1">
-          Nếu CH Play/App Store báo &quot;không có ở quốc gia của bạn&quot;, đó là giới hạn vùng theo tài khoản của bạn — link tải vẫn đúng. Hãy thử tài khoản thuộc vùng game đã phát hành.
+          {t.download?.regionNote || (language === 'vi' ? 'Nếu CH Play/App Store báo "không có ở quốc gia của bạn", đó là giới hạn vùng theo tài khoản của bạn — link tải vẫn đúng. Hãy thử tài khoản thuộc vùng game đã phát hành.' : 'If Google Play/App Store shows "not available in your country", this is an account region restriction — the store link is correct. Please try an account matching the game\'s released region.')}
         </p>
       </div>
     </div>

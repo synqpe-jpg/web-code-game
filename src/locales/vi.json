@@ -123,7 +123,11 @@
     "publisherReward": "Quà tặng từ nhà phát hành",
     "copyArticleLinkSuccess": "Đã sao chép liên kết bài viết!",
     "copyProductLinkSuccess": "Đã sao chép link sản phẩm!",
-    "copyUtilityLinkSuccess": "Đã sao chép link tiện ích!"
+    "copyUtilityLinkSuccess": "Đã sao chép link tiện ích!",
+    "shareArticleTooltip": "Chia sẻ liên kết bài viết",
+    "shareTelegramTooltip": "Chia sẻ bài viết này qua Telegram",
+    "shareProductTooltip": "Chia sẻ gói đang chọn",
+    "sharePackageTooltip": "Chia sẻ gói {name}"
   },
   "giveaways": {
     "title": "Sự Kiện Săn Mã Giveaway",
@@ -361,5 +365,51 @@
     "save": "Lưu",
     "all": "Tất cả",
     "currencyVND": "VNĐ"
+  },
+  "shareModal": {
+    "shareGameTitle": "Chia Sẻ Giftcode Game",
+    "shareGiveawayTitle": "Chia Sẻ Sự Kiện Giveaway",
+    "shareProductTitle": "Chia Sẻ Gói Cửa Hàng",
+    "shareUtilityTitle": "Chia Sẻ Sản Phẩm Tiện Ích",
+    "shareLinkTitle": "Chia Sẻ Liên Kết",
+    "sharePackageTitle": "Chia Sẻ Gói Sản Phẩm",
+    "deepLink": "Liên Kết Chia Sẻ (Deep Link)",
+    "packageDeepLink": "Liên Kết Gói (Deep Link)",
+    "quickCopy": "Copy nhanh link",
+    "copied": "Đã copy link ✓",
+    "copiedToast": "Đã sao chép liên kết!",
+    "savedToClipboard": "Đã lưu vào bộ nhớ tạm!",
+    "officialAvatar": "Ảnh đại diện chuẩn",
+    "avatarTooltip": "Đã gắn ảnh đại diện game chính xác",
+    "hotEvent": "Sự Kiện Hot",
+    "standardGame": "Game Chuẩn",
+    "codeCountBadge": "{count} MÃ CODE",
+    "newbieCodeBadge": "Code Tân Thủ",
+    "officialPublisher": "Nhà phát hành chính thức",
+    "shareToApps": "Chia Sẻ Lên Ứng Dụng (Zalo, Messenger...)",
+    "shareToAppsShort": "Chia Sẻ Ứng Dụng...",
+    "close": "Đóng",
+    "buyNow": "Mua ngay",
+    "inStock": "Còn hàng",
+    "outOfStock": "Hết hàng",
+    "packageBadge": "Gói Code",
+    "priceEscalating": "Nâng Giá (+{step}/lượt)",
+    "firstPurchase": "Mua lần đầu {price}",
+    "copyPackageSuccess": "Đã chép link gói!",
+    "copyPackageDetail": "Đã sao chép liên kết gói \"{name}\"."
+  },
+  "download": {
+    "downloadPlayStore": "Tải trên CH Play",
+    "downloadAppStore": "Tải trên App Store",
+    "alsoOnAndroid": "Cũng có trên Android (CH Play) →",
+    "alsoOnIos": "Cũng có trên iOS (App Store) →",
+    "scanQrToDownload": "Quét QR để tải nhanh",
+    "downloadDirectApk": "Tải trực tiếp APK / PC",
+    "regionNote": "Nếu CH Play/App Store báo \"không có ở quốc gia của bạn\", đó là giới hạn vùng theo tài khoản của bạn — link tải vẫn đúng. Hãy thử tài khoản thuộc vùng game đã phát hành."
+  },
+  "growth": {
+    "copyRefLinkSuccess": "Đã sao chép link giới thiệu!",
+    "copyRefCodeSuccess": "Đã sao chép mã mời!",
+    "shareLabel": "Chia sẻ:"
   }
 }

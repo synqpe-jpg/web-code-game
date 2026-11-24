@@ -123,7 +123,11 @@
     "publisherReward": "Rewards from the publisher",
     "copyArticleLinkSuccess": "Article link copied!",
     "copyProductLinkSuccess": "Product link copied!",
-    "copyUtilityLinkSuccess": "Utility link copied!"
+    "copyUtilityLinkSuccess": "Utility link copied!",
+    "shareArticleTooltip": "Share article link",
+    "shareTelegramTooltip": "Share this article via Telegram",
+    "shareProductTooltip": "Share selected package",
+    "sharePackageTooltip": "Share package {name}"
   },
   "giveaways": {
     "title": "Exclusive Giveaway Events",
@@ -361,5 +365,51 @@
     "save": "Save",
     "all": "All",
     "currencyVND": "VND"
+  },
+  "shareModal": {
+    "shareGameTitle": "Share Game Giftcodes",
+    "shareGiveawayTitle": "Share Giveaway Event",
+    "shareProductTitle": "Share Store Package",
+    "shareUtilityTitle": "Share Game Utility",
+    "shareLinkTitle": "Share Link",
+    "sharePackageTitle": "Share Product Package",
+    "deepLink": "Share Link (Deep Link)",
+    "packageDeepLink": "Package Link (Deep Link)",
+    "quickCopy": "Quick copy link",
+    "copied": "Link copied ✓",
+    "copiedToast": "Link copied successfully!",
+    "savedToClipboard": "Saved to clipboard!",
+    "officialAvatar": "Verified Avatar",
+    "avatarTooltip": "Accurate game avatar attached",
+    "hotEvent": "Hot Event",
+    "standardGame": "Verified Game",
+    "codeCountBadge": "{count} CODES",
+    "newbieCodeBadge": "Starter Codes",
+    "officialPublisher": "Official Publisher",
+    "shareToApps": "Share via Apps (Zalo, Messenger...)",
+    "shareToAppsShort": "Share via App...",
+    "close": "Close",
+    "buyNow": "Buy Now",
+    "inStock": "In Stock",
+    "outOfStock": "Out of Stock",
+    "packageBadge": "Code Pack",
+    "priceEscalating": "Escalating (+{step}/turn)",
+    "firstPurchase": "First purchase {price}",
+    "copyPackageSuccess": "Package link copied!",
+    "copyPackageDetail": "Copied link for package \"{name}\"."
+  },
+  "download": {
+    "downloadPlayStore": "Get it on Google Play",
+    "downloadAppStore": "Download on App Store",
+    "alsoOnAndroid": "Also on Android (Google Play) →",
+    "alsoOnIos": "Also on iOS (App Store) →",
+    "scanQrToDownload": "Scan QR to Download",
+    "downloadDirectApk": "Download Direct APK / PC",
+    "regionNote": "If Google Play/App Store shows \"not available in your country\", this is an account region restriction — the store link is correct. Please try an account matching the game's released region."
+  },
+  "growth": {
+    "copyRefLinkSuccess": "Referral link copied!",
+    "copyRefCodeSuccess": "Referral code copied!",
+    "shareLabel": "Share:"
   }
 }

@@ -50,6 +50,7 @@ const ShopeeTestView = lazyWithRetry(() => import('./components/shopee/ShopeeTes
 const PlatformSolutionsView = lazyWithRetry(() => import('./components/showcase/PlatformSolutionsView').then((m) => ({ default: m.PlatformSolutionsView })));
 import { dataService } from './services/dataService';
 import { useBranding } from './services/brandingService';
+import { useLanguage } from './context/LanguageContext';
 import fallbackGamesData from './data/games188.json';
 import { marketingService } from './services/marketingService';
 import { authService } from './services/authService';
@@ -95,6 +96,7 @@ const ADMIN_HASH_PREFIXES = [
 export const App: React.FC = () => {
   const [, startTransition] = useTransition();
   const brandingConfig = useBranding();
+  const { t } = useLanguage();
 
   // Navigation Tab State (Decoupled Frontends Domain Detection & Hash Routing)
   const [currentTab, setCurrentTab] = useState<'catalog' | 'news' | 'giveaways' | 'store' | 'utilities' | 'missions' | 'telegram' | 'today-codes' | 'seller-center' | 'store-detail' | 'admin' | 'shopee-test' | 'platform-solutions'>(() => {
@@ -1710,13 +1712,16 @@ export const App: React.FC = () => {
     const jpgIcon = rawIcon.replace(/\.webp$/i, '.jpg');
     const fullIcon = jpgIcon.startsWith('http') ? jpgIcon : `${origin}${jpgIcon.startsWith('/') ? jpgIcon : `/${jpgIcon}`}`;
     const codeCount = game.codes_count || game.codes?.length || 0;
+    const badgeText = codeCount > 0
+      ? (t.shareModal?.codeCountBadge ? t.shareModal.codeCountBadge.replace('{count}', String(codeCount)) : `${codeCount} MÃ CODE`)
+      : (t.shareModal?.newbieCodeBadge || 'Code Tân Thủ');
     setSharePayload({
       title: `Giftcode ${game.name}`,
-      subtitle: game.publisher || 'Nhà phát hành chính thức',
+      subtitle: game.publisher || (t.shareModal?.officialPublisher || 'Nhà phát hành chính thức'),
       shareUrl: `${origin}/game/${game.slug}`,
       itemType: 'game',
       imageUrl: fullIcon,
-      badge: codeCount > 0 ? `${codeCount} Mã Code` : 'Code Tân Thủ',
+      badge: badgeText,
     });
   };
 

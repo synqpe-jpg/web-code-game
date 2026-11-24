@@ -120,6 +120,56 @@ export interface TranslationSchema {
     copyArticleLinkSuccess: string;
     copyProductLinkSuccess: string;
     copyUtilityLinkSuccess: string;
+    shareArticleTooltip?: string;
+    shareTelegramTooltip?: string;
+    shareProductTooltip?: string;
+    sharePackageTooltip?: string;
+  };
+  shareModal: {
+    shareGameTitle: string;
+    shareGiveawayTitle: string;
+    shareProductTitle: string;
+    shareUtilityTitle: string;
+    shareLinkTitle: string;
+    sharePackageTitle: string;
+    deepLink: string;
+    packageDeepLink: string;
+    quickCopy: string;
+    copied: string;
+    copiedToast: string;
+    savedToClipboard: string;
+    officialAvatar: string;
+    avatarTooltip: string;
+    hotEvent: string;
+    standardGame: string;
+    codeCountBadge: string;
+    newbieCodeBadge: string;
+    officialPublisher: string;
+    shareToApps: string;
+    shareToAppsShort: string;
+    close: string;
+    buyNow: string;
+    inStock: string;
+    outOfStock: string;
+    packageBadge: string;
+    priceEscalating: string;
+    firstPurchase: string;
+    copyPackageSuccess: string;
+    copyPackageDetail: string;
+  };
+  download: {
+    downloadPlayStore: string;
+    downloadAppStore: string;
+    alsoOnAndroid: string;
+    alsoOnIos: string;
+    scanQrToDownload: string;
+    downloadDirectApk: string;
+    regionNote: string;
+  };
+  growth: {
+    copyRefLinkSuccess: string;
+    copyRefCodeSuccess: string;
+    shareLabel: string;
   };
   giveaways: {
     title: string;
@@ -292,6 +342,10 @@ export const translations: Record<Language, TranslationSchema> = {
       copyArticleLinkSuccess: 'Đã sao chép liên kết bài viết!',
       copyProductLinkSuccess: 'Đã sao chép link sản phẩm!',
       copyUtilityLinkSuccess: 'Đã sao chép link tiện ích!',
+      shareArticleTooltip: 'Chia sẻ liên kết bài viết',
+      shareTelegramTooltip: 'Chia sẻ bài viết này qua Telegram',
+      shareProductTooltip: 'Chia sẻ gói đang chọn',
+      sharePackageTooltip: 'Chia sẻ gói {name}',
     },
     giveaways: {
       title: 'Sự Kiện Săn Mã Giveaway',
@@ -340,6 +394,52 @@ export const translations: Record<Language, TranslationSchema> = {
       error: 'Có lỗi xảy ra',
       confirm: 'Xác nhận',
       cancel: 'Hủy bỏ',
+    },
+    shareModal: {
+      shareGameTitle: 'Chia Sẻ Giftcode Game',
+      shareGiveawayTitle: 'Chia Sẻ Sự Kiện Giveaway',
+      shareProductTitle: 'Chia Sẻ Gói Cửa Hàng',
+      shareUtilityTitle: 'Chia Sẻ Sản Phẩm Tiện Ích',
+      shareLinkTitle: 'Chia Sẻ Liên Kết',
+      sharePackageTitle: 'Chia Sẻ Gói Sản Phẩm',
+      deepLink: 'Liên Kết Chia Sẻ (Deep Link)',
+      packageDeepLink: 'Liên Kết Gói (Deep Link)',
+      quickCopy: 'Copy nhanh link',
+      copied: 'Đã copy link ✓',
+      copiedToast: 'Đã sao chép liên kết!',
+      savedToClipboard: 'Đã lưu vào bộ nhớ tạm!',
+      officialAvatar: 'Ảnh đại diện chuẩn',
+      avatarTooltip: 'Đã gắn ảnh đại diện game chính xác',
+      hotEvent: 'Sự Kiện Hot',
+      standardGame: 'Game Chuẩn',
+      codeCountBadge: '{count} MÃ CODE',
+      newbieCodeBadge: 'Code Tân Thủ',
+      officialPublisher: 'Nhà phát hành chính thức',
+      shareToApps: 'Chia Sẻ Lên Ứng Dụng (Zalo, Messenger...)',
+      shareToAppsShort: 'Chia Sẻ Ứng Dụng...',
+      close: 'Đóng',
+      buyNow: 'Mua ngay',
+      inStock: 'Còn hàng',
+      outOfStock: 'Hết hàng',
+      packageBadge: 'Gói Code',
+      priceEscalating: 'Nâng Giá (+{step}/lượt)',
+      firstPurchase: 'Mua lần đầu {price}',
+      copyPackageSuccess: 'Đã chép link gói!',
+      copyPackageDetail: 'Đã sao chép liên kết gói "{name}".',
+    },
+    download: {
+      downloadPlayStore: 'Tải trên CH Play',
+      downloadAppStore: 'Tải trên App Store',
+      alsoOnAndroid: 'Cũng có trên Android (CH Play) →',
+      alsoOnIos: 'Cũng có trên iOS (App Store) →',
+      scanQrToDownload: 'Quét QR để tải nhanh',
+      downloadDirectApk: 'Tải trực tiếp APK / PC',
+      regionNote: 'Nếu CH Play/App Store báo "không có ở quốc gia của bạn", đó là giới hạn vùng theo tài khoản của bạn — link tải vẫn đúng. Hãy thử tài khoản thuộc vùng game đã phát hành.',
+    },
+    growth: {
+      copyRefLinkSuccess: 'Đã sao chép link giới thiệu!',
+      copyRefCodeSuccess: 'Đã sao chép mã mời!',
+      shareLabel: 'Chia sẻ:',
     },
   },
 
@@ -463,6 +563,10 @@ export const translations: Record<Language, TranslationSchema> = {
       copyArticleLinkSuccess: 'Article link copied!',
       copyProductLinkSuccess: 'Product link copied!',
       copyUtilityLinkSuccess: 'Utility link copied!',
+      shareArticleTooltip: 'Share article link',
+      shareTelegramTooltip: 'Share this article via Telegram',
+      shareProductTooltip: 'Share selected package',
+      sharePackageTooltip: 'Share package {name}',
     },
     giveaways: {
       title: 'Exclusive Giveaway Drops',
@@ -511,6 +615,52 @@ export const translations: Record<Language, TranslationSchema> = {
       error: 'An error occurred',
       confirm: 'Confirm',
       cancel: 'Cancel',
+    },
+    shareModal: {
+      shareGameTitle: 'Share Game Giftcodes',
+      shareGiveawayTitle: 'Share Giveaway Event',
+      shareProductTitle: 'Share Store Package',
+      shareUtilityTitle: 'Share Game Utility',
+      shareLinkTitle: 'Share Link',
+      sharePackageTitle: 'Share Product Package',
+      deepLink: 'Share Link (Deep Link)',
+      packageDeepLink: 'Package Link (Deep Link)',
+      quickCopy: 'Quick copy link',
+      copied: 'Link copied ✓',
+      copiedToast: 'Link copied successfully!',
+      savedToClipboard: 'Saved to clipboard!',
+      officialAvatar: 'Verified Avatar',
+      avatarTooltip: 'Accurate game avatar attached',
+      hotEvent: 'Hot Event',
+      standardGame: 'Verified Game',
+      codeCountBadge: '{count} CODES',
+      newbieCodeBadge: 'Starter Codes',
+      officialPublisher: 'Official Publisher',
+      shareToApps: 'Share via Apps (Zalo, Messenger...)',
+      shareToAppsShort: 'Share via App...',
+      close: 'Close',
+      buyNow: 'Buy Now',
+      inStock: 'In Stock',
+      outOfStock: 'Out of Stock',
+      packageBadge: 'Code Pack',
+      priceEscalating: 'Escalating (+{step}/turn)',
+      firstPurchase: 'First purchase {price}',
+      copyPackageSuccess: 'Package link copied!',
+      copyPackageDetail: 'Copied link for package "{name}".',
+    },
+    download: {
+      downloadPlayStore: 'Get it on Google Play',
+      downloadAppStore: 'Download on App Store',
+      alsoOnAndroid: 'Also on Android (Google Play) →',
+      alsoOnIos: 'Also on iOS (App Store) →',
+      scanQrToDownload: 'Scan QR to Download',
+      downloadDirectApk: 'Download Direct APK / PC',
+      regionNote: 'If Google Play/App Store shows "not available in your country", this is an account region restriction — the store link is correct. Please try an account matching the game\'s released region.',
+    },
+    growth: {
+      copyRefLinkSuccess: 'Referral link copied!',
+      copyRefCodeSuccess: 'Referral code copied!',
+      shareLabel: 'Share:',
     },
   },
 
@@ -634,6 +784,10 @@ export const translations: Record<Language, TranslationSchema> = {
       copyArticleLinkSuccess: '已复制文章链接！',
       copyProductLinkSuccess: '已复制商品链接！',
       copyUtilityLinkSuccess: '已复制工具链接！',
+      shareArticleTooltip: '分享文章链接',
+      shareTelegramTooltip: '通过 Telegram 分享此文章',
+      shareProductTooltip: '分享所选套餐',
+      sharePackageTooltip: '分享套餐 {name}',
     },
     giveaways: {
       title: '独家限时免费抽奖',
@@ -682,6 +836,52 @@ export const translations: Record<Language, TranslationSchema> = {
       error: '发生错误',
       confirm: '确认',
       cancel: '取消',
+    },
+    shareModal: {
+      shareGameTitle: '分享游戏礼包码',
+      shareGiveawayTitle: '分享限时抽奖活动',
+      shareProductTitle: '分享商店礼包',
+      shareUtilityTitle: '分享游戏实用工具',
+      shareLinkTitle: '分享链接',
+      sharePackageTitle: '分享商品礼包',
+      deepLink: '分享专属链接 (Deep Link)',
+      packageDeepLink: '礼包专属链接 (Deep Link)',
+      quickCopy: '一键复制链接',
+      copied: '链接已复制 ✓',
+      copiedToast: '链接复制成功！',
+      savedToClipboard: '已保存到剪贴板！',
+      officialAvatar: '官方认证头像',
+      avatarTooltip: '已附加准确的游戏图标',
+      hotEvent: '热门活动',
+      standardGame: '正版游戏',
+      codeCountBadge: '{count} 个礼包码',
+      newbieCodeBadge: '新手礼包码',
+      officialPublisher: '官方发行商',
+      shareToApps: '分享到应用 (Zalo, Messenger...)',
+      shareToAppsShort: '分享应用...',
+      close: '关闭',
+      buyNow: '立即购买',
+      inStock: '有货',
+      outOfStock: '已售罄',
+      packageBadge: '礼包套餐',
+      priceEscalating: '阶梯加价 (+{step}/次)',
+      firstPurchase: '首购特惠 {price}',
+      copyPackageSuccess: '已复制礼包链接！',
+      copyPackageDetail: '已复制礼包 "{name}" 的专属链接。',
+    },
+    download: {
+      downloadPlayStore: '在 Google Play 下载',
+      downloadAppStore: '在 App Store 下载',
+      alsoOnAndroid: '安卓端也可下载 (Google Play) →',
+      alsoOnIos: 'iOS 端也可下载 (App Store) →',
+      scanQrToDownload: '扫描二维码快捷下载',
+      downloadDirectApk: '直接下载 APK / PC 客户端',
+      regionNote: '如果 Google Play/App Store 提示“所在地区不提供”，这是您的账户区域限制 — 下载链接是正确的。请切换到该游戏发行的地区账户重试。',
+    },
+    growth: {
+      copyRefLinkSuccess: '邀请链接已复制！',
+      copyRefCodeSuccess: '邀请码已复制！',
+      shareLabel: '分享：',
     },
   },
 
@@ -805,6 +1005,10 @@ export const translations: Record<Language, TranslationSchema> = {
       copyArticleLinkSuccess: 'คัดลอกลิงก์บทความแล้ว!',
       copyProductLinkSuccess: 'คัดลอกลิงก์สินค้าแล้ว!',
       copyUtilityLinkSuccess: 'คัดลอกลิงก์บริการแล้ว!',
+      shareArticleTooltip: 'แชร์ลิงก์บทความ',
+      shareTelegramTooltip: 'แชร์บทความนี้ผ่าน Telegram',
+      shareProductTooltip: 'แชร์แพ็กเกจที่เลือก',
+      sharePackageTooltip: 'แชร์แพ็กเกจ {name}',
     },
     giveaways: {
       title: 'กิจกรรมแจกโค้ดพิเศษ',
@@ -853,6 +1057,52 @@ export const translations: Record<Language, TranslationSchema> = {
       error: 'เกิดข้อผิดพลาด',
       confirm: 'ยืนยัน',
       cancel: 'ยกเลิก',
+    },
+    shareModal: {
+      shareGameTitle: 'แชร์กิฟต์โค้ดเกม',
+      shareGiveawayTitle: 'แชร์กิจกรรมแจกโค้ด',
+      shareProductTitle: 'แชร์แพ็กเกจร้านค้า',
+      shareUtilityTitle: 'แชร์เครื่องมือเกม',
+      shareLinkTitle: 'แชร์ลิงก์',
+      sharePackageTitle: 'แชร์แพ็กเกจสินค้า',
+      deepLink: 'ลิงก์แชร์โดยตรง (Deep Link)',
+      packageDeepLink: 'ลิงก์แพ็กเกจ (Deep Link)',
+      quickCopy: 'คัดลอกลิงก์ด่วน',
+      copied: 'คัดลอกลิงก์แล้ว ✓',
+      copiedToast: 'คัดลอกลิงก์สำเร็จ!',
+      savedToClipboard: 'บันทึกไปยังคลิปบอร์ดแล้ว!',
+      officialAvatar: 'รูปโปรไฟล์ทางการ',
+      avatarTooltip: 'แนบรูปประจำตัวเกมที่ถูกต้องแล้ว',
+      hotEvent: 'กิจกรรมยอดนิยม',
+      standardGame: 'เกมทางการ',
+      codeCountBadge: '{count} โค้ด',
+      newbieCodeBadge: 'โค้ดผู้เล่นใหม่',
+      officialPublisher: 'ผู้ให้บริการอย่างเป็นทางการ',
+      shareToApps: 'แชร์ไปยังแอป (Zalo, Messenger...)',
+      shareToAppsShort: 'แชร์แอป...',
+      close: 'ปิด',
+      buyNow: 'ซื้อทันที',
+      inStock: 'มีสินค้า',
+      outOfStock: 'สินค้าหมด',
+      packageBadge: 'แพ็กเกจโค้ด',
+      priceEscalating: 'ปรับราคาขึ้น (+{step}/รอบ)',
+      firstPurchase: 'ซื้อครั้งแรก {price}',
+      copyPackageSuccess: 'คัดลอกลิงก์แพ็กเกจแล้ว!',
+      copyPackageDetail: 'คัดลอกลิงก์สำหรับแพ็กเกจ "{name}" แล้ว',
+    },
+    download: {
+      downloadPlayStore: 'ดาวน์โหลดบน Google Play',
+      downloadAppStore: 'ดาวน์โหลดบน App Store',
+      alsoOnAndroid: 'มีบน Android เช่นกัน (Google Play) →',
+      alsoOnIos: 'มีบน iOS เช่นกัน (App Store) →',
+      scanQrToDownload: 'สแกน QR เพื่อดาวน์โหลดทันที',
+      downloadDirectApk: 'ดาวน์โหลดตรง APK / PC',
+      regionNote: 'หาก Google Play/App Store แสดง "ไม่มีในประเทศของคุณ" นี่เป็นข้อจำกัดตามภูมิภาคของบัญชีคุณ — ลิงก์ดาวน์โหลดยังคงถูกต้อง โปรดลองใช้บัญชีในภูมิภาคที่เกมเปิดให้บริการ',
+    },
+    growth: {
+      copyRefLinkSuccess: 'คัดลอกลิงก์แนะนำแล้ว!',
+      copyRefCodeSuccess: 'คัดลอกรหัสเชิญแล้ว!',
+      shareLabel: 'แชร์:',
     },
   },
 };

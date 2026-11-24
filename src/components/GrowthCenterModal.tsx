@@ -28,6 +28,8 @@ import { growthService, DEFAULT_WHEEL_SLICES } from '../services/growthService';
 import { formatCore, formatVnd } from '../utils/textUtils';
 import type { UserProfile } from '../types/game';
 import type { WheelSlice } from '../types/growth';
+import { useLanguage } from '../context/LanguageContext';
+import { useBranding } from '../services/brandingService';
 
 interface GrowthCenterModalProps {
   isOpen: boolean;
@@ -48,6 +50,10 @@ export const GrowthCenterModal: React.FC<GrowthCenterModalProps> = ({
   onShowToast,
   initialTab = 'wheel',
 }) => {
+  const { t } = useLanguage();
+  const branding = useBranding();
+  const brandDisplay = branding.brandDisplay || 'GiftCodeFree.com';
+
   const [activeTab, setActiveTab] = useState<'wheel' | 'welcome' | 'referral' | 'checkin' | 'leaderboard'>(initialTab);
   const [config, setConfig] = useState(() => growthService.getConfig());
   const [growthData, setGrowthData] = useState(() =>
@@ -296,20 +302,22 @@ export const GrowthCenterModal: React.FC<GrowthCenterModalProps> = ({
   const copyRefLink = () => {
     navigator.clipboard.writeText(referralLink);
     setIsCopiedRefLink(true);
-    onShowToast('Đã sao chép link giới thiệu!', referralLink, 'success');
+    const toastTitle = t.growth?.copyRefLinkSuccess || 'Đã sao chép link giới thiệu!';
+    onShowToast(toastTitle, referralLink, 'success');
     setTimeout(() => setIsCopiedRefLink(false), 2500);
   };
 
   const copyRefCode = () => {
     navigator.clipboard.writeText(referralCode);
     setIsCopiedRefCode(true);
-    onShowToast('Đã sao chép mã mời!', referralCode, 'success');
+    const toastTitle = t.growth?.copyRefCodeSuccess || 'Đã sao chép mã mời!';
+    onShowToast(toastTitle, referralCode, 'success');
     setTimeout(() => setIsCopiedRefCode(false), 2500);
   };
 
   const shareSocial = (platform: 'fb' | 'tg' | 'zalo') => {
     const text = encodeURIComponent(
-      `Vào săn Giftcode Game và quay vòng quay nhận quà miễn phí tại Shop Code Game! Đăng ký qua link nhận ngay +10,000 Core:`
+      `Vào săn Giftcode Game và quay vòng quay nhận quà miễn phí tại ${brandDisplay}! Đăng ký qua link nhận ngay +10,000 Core:`
     );
     const url = encodeURIComponent(referralLink);
 
@@ -677,7 +685,7 @@ export const GrowthCenterModal: React.FC<GrowthCenterModalProps> = ({
                 </div>
 
                 <div className="flex items-center gap-2 w-full sm:w-auto">
-                  <span className="text-[11px] text-muted-foreground">Chia sẻ:</span>
+                  <span className="text-[11px] text-muted-foreground">{t.growth?.shareLabel || 'Chia sẻ:'}</span>
                   <button
                     type="button"
                     onClick={() => shareSocial('fb')}

@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Copy, Check, Share2, Globe, Send, MessageCircle, Gift, Sparkles, ShoppingBag, Wrench } from 'lucide-react';
 import { useBranding } from '../services/brandingService';
+import { useLanguage } from '../context/LanguageContext';
 
 export interface ShareModalProps {
   isOpen: boolean;
@@ -26,36 +27,63 @@ export const ShareModal: React.FC<ShareModalProps> = ({
   badge,
   onShowToast,
 }) => {
+  const { t, language } = useLanguage();
   const branding = useBranding();
   const brandDisplay = branding.brandDisplay || 'GiftCodeFree.com';
   const displayHost = typeof window !== 'undefined' && window.location.host ? window.location.host : 'giftcodefree.com';
   const [copied, setCopied] = useState(false);
 
+  const displayBadge = useMemo(() => {
+    if (!badge) {
+      return itemType === 'giveaway'
+        ? (t.shareModal?.hotEvent || 'Hot Event')
+        : (t.shareModal?.standardGame || 'Verified Game');
+    }
+    const match = badge.match(/^(\d+)\s*(?:Mã Code|MÃ CODE|Codes|Code)$/i);
+    if (match) {
+      const count = match[1];
+      return t.shareModal?.codeCountBadge
+        ? t.shareModal.codeCountBadge.replace('{count}', count)
+        : (language === 'vi' ? `${count} MÃ CODE` : `${count} CODES`);
+    }
+    if (badge.toLowerCase().includes('tân thủ') || badge.toLowerCase().includes('starter')) {
+      return t.shareModal?.newbieCodeBadge || (language === 'vi' ? 'Code Tân Thủ' : 'Starter Codes');
+    }
+    return badge;
+  }, [badge, itemType, t, language]);
+
+  const displaySubtitle = useMemo(() => {
+    if (!subtitle || subtitle === 'Nhà phát hành chính thức' || subtitle === 'Official Publisher') {
+      return t.shareModal?.officialPublisher || (language === 'vi' ? 'Nhà phát hành chính thức' : 'Official Publisher');
+    }
+    return subtitle;
+  }, [subtitle, t, language]);
+
   if (!isOpen || typeof document === 'undefined') return null;
 
   const headerConfig = {
     game: {
-      label: 'Chia Sẻ Giftcode Game',
+      label: t.shareModal?.shareGameTitle || (language === 'vi' ? 'Chia Sẻ Giftcode Game' : 'Share Game Giftcodes'),
       icon: Gift,
       color: 'text-primary-light bg-primary/20',
     },
     giveaway: {
-      label: 'Chia Sẻ Sự Kiện Giveaway',
+      label: t.shareModal?.shareGiveawayTitle || (language === 'vi' ? 'Chia Sẻ Sự Kiện Giveaway' : 'Share Giveaway Event'),
       icon: Sparkles,
       color: 'text-accent bg-accent/20',
     },
     product: {
-      label: 'Chia Sẻ Gói Cửa Hàng',
+      label: t.shareModal?.shareProductTitle || (language === 'vi' ? 'Chia Sẻ Gói Cửa Hàng' : 'Share Store Package'),
       icon: ShoppingBag,
       color: 'text-secondary bg-secondary/20',
     },
     utility: {
-      label: 'Chia Sẻ Sản Phẩm Tiện Ích',
+      label: t.shareModal?.shareUtilityTitle || (language === 'vi' ? 'Chia Sẻ Sản Phẩm Tiện Ích' : 'Share Game Utility'),
       icon: Wrench,
       color: 'text-teal-400 bg-teal-500/20',
     },
   }[itemType] || {
-    label: 'Chia Sẻ Liên Kết',
+    label: t.shareModal?.shareLinkTitle || (language === 'vi' ? 'Chia Sẻ Liên Kết' : 'Share Link'),
     icon: Share2,
     color: 'text-primary-light bg-primary/20',
   };
@@ -94,7 +122,11 @@ export const ShareModal: React.FC<ShareModalProps> = ({
       success = fallbackCopyText(shareUrl);
     }
     setCopied(true);
-    onShowToast('Đã sao chép liên kết!', shareUrl, 'success');
+    onShowToast(
+      t.shareModal?.copiedToast || (language === 'vi' ? 'Đã sao chép liên kết!' : 'Link copied successfully!'),
+      shareUrl,
+      'success'
+    );
     setTimeout(() => setCopied(false), 2200);
   };
 
@@ -166,8 +198,8 @@ export const ShareModal: React.FC<ShareModalProps> = ({
           <button
             onClick={onClose}
             className="p-2 sm:p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 hover:border-slate-600 shadow-md cursor-pointer transition-all active:scale-90 flex items-center justify-center shrink-0"
-            aria-label="Đóng"
-            title="Đóng"
+            aria-label={t.shareModal?.close || (language === 'vi' ? 'Đóng' : 'Close')}
+            title={t.shareModal?.close || (language === 'vi' ? 'Đóng' : 'Close')}
           >
             <X className="w-5 h-5 text-white" />
           </button>
@@ -187,23 +219,23 @@ export const ShareModal: React.FC<ShareModalProps> = ({
               />
               <div
                 className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-background"
-                title="Đã gắn ảnh đại diện game chính xác"
+                title={t.shareModal?.avatarTooltip || (language === 'vi' ? 'Đã gắn ảnh đại diện game chính xác' : 'Accurate game avatar attached')}
               />
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5 mb-0.5">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-primary bg-primary/10 px-1.5 py-0.5 rounded">
-                  {badge || (itemType === 'giveaway' ? 'Sự Kiện Hot' : 'Game Chuẩn')}
+                  {displayBadge}
                 </span>
                 <span className="text-[10px] text-emerald-400 font-semibold flex items-center gap-0.5">
-                  <Check className="w-3 h-3" /> Ảnh đại diện chuẩn
+                  <Check className="w-3 h-3" /> {t.shareModal?.officialAvatar || (language === 'vi' ? 'Ảnh đại diện chuẩn' : 'Verified Avatar')}
                 </span>
               </div>
               <h4 className="font-heading font-bold text-xs sm:text-sm text-foreground truncate">
                 {title}
               </h4>
               <p className="text-[11px] text-muted-foreground truncate">
-                {subtitle || displayHost}
+                {displaySubtitle}
               </p>
             </div>
           </div>
@@ -216,7 +248,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
             className="w-full mt-3 py-2.5 px-4 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:opacity-95 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all cursor-pointer active:scale-95"
           >
             <Share2 className="w-4 h-4" />
-            <span>Chia Sẻ Lên Ứng Dụng (Zalo, Messenger...)</span>
+            <span>{t.shareModal?.shareToApps || (language === 'vi' ? 'Chia Sẻ Lên Ứng Dụng (Zalo, Messenger...)' : 'Share via Apps (Zalo, Messenger...)')}</span>
           </button>
         )}
 
@@ -283,11 +315,11 @@ export const ShareModal: React.FC<ShareModalProps> = ({
           <div className="flex items-center justify-between mb-1.5">
             <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
               <Globe className="w-3.5 h-3.5 text-accent" />
-              <span>Liên Kết Chia Sẻ (Deep Link)</span>
+              <span>{t.shareModal?.deepLink || (language === 'vi' ? 'Liên Kết Chia Sẻ (Deep Link)' : 'Share Link (Deep Link)')}</span>
             </label>
             {copied && (
               <span className="text-[11px] font-bold text-emerald-400 animate-fade-in flex items-center gap-1">
-                <Check className="w-3 h-3" /> Đã lưu vào bộ nhớ tạm!
+                <Check className="w-3 h-3" /> {t.shareModal?.savedToClipboard || (language === 'vi' ? 'Đã lưu vào bộ nhớ tạm!' : 'Saved to clipboard!')}
               </span>
             )}
           </div>
@@ -307,17 +339,17 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                   ? 'bg-emerald-500 text-white'
                   : 'bg-gradient-to-r from-primary to-accent hover:opacity-90 text-white shadow-glow-primary'
               }`}
-              title="Copy nhanh link"
+              title={t.shareModal?.quickCopy || (language === 'vi' ? 'Copy nhanh link' : 'Quick copy link')}
             >
               {copied ? (
                 <>
                   <Check className="w-3.5 h-3.5" />
-                  <span>Đã copy link ✓</span>
+                  <span>{t.shareModal?.copied || (language === 'vi' ? 'Đã copy link ✓' : 'Link copied ✓')}</span>
                 </>
               ) : (
                 <>
                   <Copy className="w-3.5 h-3.5" />
-                  <span>Copy nhanh link</span>
+                  <span>{t.shareModal?.quickCopy || (language === 'vi' ? 'Copy nhanh link' : 'Quick copy link')}</span>
                 </>
               )}
             </button>

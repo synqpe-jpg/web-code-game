@@ -182,5 +182,51 @@
     "outOfStock": "สินค้าหมด",
     "inStock": "มีสินค้า",
     "comprehensiveMarketplace": "แพลตฟอร์มเต็มรูปแบบ"
+  },
+  "shareModal": {
+    "shareGameTitle": "แชร์กิฟต์โค้ดเกม",
+    "shareGiveawayTitle": "แชร์กิจกรรมแจกโค้ด",
+    "shareProductTitle": "แชร์แพ็กเกจร้านค้า",
+    "shareUtilityTitle": "แชร์เครื่องมือเกม",
+    "shareLinkTitle": "แชร์ลิงก์",
+    "sharePackageTitle": "แชร์แพ็กเกจสินค้า",
+    "deepLink": "ลิงก์แชร์โดยตรง (Deep Link)",
+    "packageDeepLink": "ลิงก์แพ็กเกจ (Deep Link)",
+    "quickCopy": "คัดลอกลิงก์ด่วน",
+    "copied": "คัดลอกลิงก์แล้ว ✓",
+    "copiedToast": "คัดลอกลิงก์สำเร็จ!",
+    "savedToClipboard": "บันทึกไปยังคลิปบอร์ดแล้ว!",
+    "officialAvatar": "รูปโปรไฟล์ทางการ",
+    "avatarTooltip": "แนบรูปประจำตัวเกมที่ถูกต้องแล้ว",
+    "hotEvent": "กิจกรรมยอดนิยม",
+    "standardGame": "เกมทางการ",
+    "codeCountBadge": "{count} โค้ด",
+    "newbieCodeBadge": "โค้ดผู้เล่นใหม่",
+    "officialPublisher": "ผู้ให้บริการอย่างเป็นทางการ",
+    "shareToApps": "แชร์ไปยังแอป (Zalo, Messenger...)",
+    "shareToAppsShort": "แชร์แอป...",
+    "close": "ปิด",
+    "buyNow": "ซื้อทันที",
+    "inStock": "มีสินค้า",
+    "outOfStock": "สินค้าหมด",
+    "packageBadge": "แพ็กเกจโค้ด",
+    "priceEscalating": "ปรับราคาขึ้น (+{step}/รอบ)",
+    "firstPurchase": "ซื้อครั้งแรก {price}",
+    "copyPackageSuccess": "คัดลอกลิงก์แพ็กเกจแล้ว!",
+    "copyPackageDetail": "คัดลอกลิงก์สำหรับแพ็กเกจ \"{name}\" แล้ว"
+  },
+  "download": {
+    "downloadPlayStore": "ดาวน์โหลดบน Google Play",
+    "downloadAppStore": "ดาวน์โหลดบน App Store",
+    "alsoOnAndroid": "มีบน Android เช่นกัน (Google Play) →",
+    "alsoOnIos": "มีบน iOS เช่นกัน (App Store) →",
+    "scanQrToDownload": "สแกน QR เพื่อดาวน์โหลดทันที",
+    "downloadDirectApk": "ดาวน์โหลดตรง APK / PC",
+    "regionNote": "หาก Google Play/App Store แสดง \"ไม่มีในประเทศของคุณ\" นี่เป็นข้อจำกัดตามภูมิภาคของบัญชีคุณ — ลิงก์ดาวน์โหลดยังคงถูกต้อง โปรดลองใช้บัญชีในภูมิภาคที่เกมเปิดให้บริการ"
+  },
+  "growth": {
+    "copyRefLinkSuccess": "คัดลอกลิงก์แนะนำแล้ว!",
+    "copyRefCodeSuccess": "คัดลอกรหัสเชิญแล้ว!",
+    "shareLabel": "แชร์:"
   }
 }

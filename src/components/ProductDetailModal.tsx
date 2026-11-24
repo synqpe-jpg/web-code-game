@@ -495,8 +495,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   }
                 }}
                 className="p-2 sm:p-2.5 rounded-xl bg-muted/60 hover:bg-muted text-slate-300 hover:text-foreground cursor-pointer transition-all active:scale-95"
-                title="Chia sẻ gói đang chọn"
-                aria-label="Chia sẻ gói đang chọn"
+                title={t.modal?.shareProductTooltip || 'Chia sẻ gói đang chọn'}
+                aria-label={t.modal?.shareProductTooltip || 'Chia sẻ gói đang chọn'}
               >
                 <Share2 className="w-4 h-4" />
               </button>
@@ -1242,8 +1242,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                                 setPackageToShare(pkg);
                               }}
                               className="p-1.5 sm:p-2 rounded-lg bg-slate-800/80 hover:bg-secondary/20 text-slate-400 hover:text-secondary border border-slate-700/60 hover:border-secondary/40 transition-all cursor-pointer active:scale-90 shrink-0 ml-auto sm:ml-0"
-                              title={`Chia sẻ gói ${pkg.name}`}
-                              aria-label={`Chia sẻ gói ${pkg.name}`}
+                              title={t.modal?.sharePackageTooltip ? t.modal.sharePackageTooltip.replace('{name}', pkg.name) : `Chia sẻ gói ${pkg.name}`}
+                              aria-label={t.modal?.sharePackageTooltip ? t.modal.sharePackageTooltip.replace('{name}', pkg.name) : `Chia sẻ gói ${pkg.name}`}
                             >
                               <Share2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                             </button>
