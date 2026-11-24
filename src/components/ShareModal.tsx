@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Copy, Check, Share2, Globe, Send, MessageCircle, Gift, Sparkles, ShoppingBag, Wrench } from 'lucide-react';
+import { useBranding } from '../services/brandingService';
 
 export interface ShareModalProps {
   isOpen: boolean;
@@ -25,6 +26,9 @@ export const ShareModal: React.FC<ShareModalProps> = ({
   badge,
   onShowToast,
 }) => {
+  const branding = useBranding();
+  const brandDisplay = branding.brandDisplay || 'GiftCodeFree.com';
+  const displayHost = typeof window !== 'undefined' && window.location.host ? window.location.host : 'giftcodefree.com';
   const [copied, setCopied] = useState(false);
 
   if (!isOpen || typeof document === 'undefined') return null;
@@ -57,7 +61,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
   };
 
   const HeaderIcon = headerConfig.icon;
-  const shareTitle = `${title} | CodeGame.Shop 2026`;
+  const shareTitle = `${title} | ${brandDisplay} 2026`;
 
   const fallbackCopyText = (text: string): boolean => {
     try {
@@ -199,7 +203,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                 {title}
               </h4>
               <p className="text-[11px] text-muted-foreground truncate">
-                {subtitle || 'codegame.shop'}
+                {subtitle || displayHost}
               </p>
             </div>
           </div>

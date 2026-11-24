@@ -306,7 +306,7 @@ class ShippingService {
       senderName: params.senderName || 'CodeGame Mall Official Store',
       senderAddress: params.senderAddress || 'Kho Vận Trung Tâm CodeGame, Cầu Giấy, Hà Nội',
       timeline,
-      labelUrl: `https://codegame.shop/shipping-label/${trackingCode}`,
+      labelUrl: `${typeof window !== 'undefined' && window.location.origin ? window.location.origin : 'https://giftcodefree.com'}/shipping-label/${trackingCode}`,
       createdAt: nowIso,
       updatedAt: nowIso,
     };

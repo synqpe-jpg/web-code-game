@@ -464,7 +464,7 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToClient }) => {
       }
       const isDedicatedAdmin = typeof window !== 'undefined' && window.location.hostname.includes('admin-code-game-shop');
       if (isDedicatedAdmin) {
-        const targetUrl = branding.baseUrl || 'https://codegame.shop';
+        const targetUrl = branding.baseUrl || (typeof window !== 'undefined' && window.location.origin ? window.location.origin : 'https://giftcodefree.com');
         const newWin = window.open(targetUrl, '_blank');
         if (!newWin || newWin.closed || typeof newWin.closed === 'undefined') {
           window.location.href = targetUrl;

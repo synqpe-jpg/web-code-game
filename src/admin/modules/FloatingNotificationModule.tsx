@@ -60,7 +60,7 @@ export const FloatingNotificationModule: React.FC<FloatingNotificationModuleProp
     const text = linkText.trim() || 'Tại đây';
     const url = linkUrl.trim();
     if (!url) {
-      onShowToast('Vui lòng nhập đường dẫn URL', 'Ví dụ: https://codegame.shop hoặc /store, /news', 'error');
+      onShowToast('Vui lòng nhập đường dẫn URL', 'Ví dụ: https://giftcodefree.com hoặc /store, /news', 'error');
       return;
     }
 
@@ -640,7 +640,7 @@ export const FloatingNotificationModule: React.FC<FloatingNotificationModuleProp
                 rows={3}
                 value={config.message}
                 onChange={(e) => setConfig({ ...config, message: e.target.value })}
-                placeholder="Nhập nội dung thông báo nổi... (Ví dụ: Nhận quà VIP ngay [Tại đây](https://codegame.shop))"
+                placeholder="Nhập nội dung thông báo nổi... (Ví dụ: Nhận quà VIP ngay [Tại đây](https://giftcodefree.com))"
                 className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-cyan-500 transition-colors"
               />
 

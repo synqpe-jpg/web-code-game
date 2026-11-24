@@ -386,10 +386,10 @@ export const FreeCodesModule: React.FC<FreeCodesModuleProps> = ({
       render: (item) => (
         <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
           <a
-            href={`https://codegame.shop/game/${item.gameSlug}`}
+            href={`https://giftcodefree.com/game/${item.gameSlug}`}
             target="_blank"
             rel="noreferrer"
-            title="Mở xem trên Web Khách (codegame.shop)"
+            title="Mở xem trên Web Khách (giftcodefree.com)"
             className="rounded-lg p-1.5 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400"
           >
             <Globe className="h-3.5 w-3.5" />

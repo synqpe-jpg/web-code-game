@@ -35,6 +35,7 @@ async function verify() {
   console.log(`\n🔍 [Post-Deploy Verify] Checking production hosts against expected commit: ${expectedHash}`);
 
   const hosts = [
+    'https://giftcodefree.com/',
     'https://codegame.shop/',
     'https://web-code-game.pages.dev/',
     'https://admin-code-game-shop.pages.dev/admin'

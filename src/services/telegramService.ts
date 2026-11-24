@@ -242,7 +242,10 @@ class TelegramService {
    * Tạo link chia sẻ qua Telegram theo chuẩn https://t.me/share/url
    */
   getShareUrl(url: string, text?: string): string {
-    const fullUrl = url.startsWith('http') ? url : `https://codegame.shop${url}`;
+    const origin = typeof window !== 'undefined' && window.location.origin
+      ? window.location.origin
+      : 'https://giftcodefree.com';
+    const fullUrl = url.startsWith('http') ? url : `${origin}${url.startsWith('/') ? url : `/${url}`}`;
     const params = new URLSearchParams();
     params.set('url', fullUrl);
     if (text) {

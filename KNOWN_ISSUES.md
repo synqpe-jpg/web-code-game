@@ -10,6 +10,17 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-310: Hardcode Tên Miền Cũ Trong Logic Tạo Link Chia Sẻ Thay Vì Dùng window.location.origin
+- **Triệu chứng & Rủi ro**:
+  - Khi website chuyển tên miền chính (ví dụ từ `codegame.shop` sang `giftcodefree.com`), các thẻ meta canonical/og:url trên server có thể đã đổi sang tên miền mới, nhưng trong mã nguồn client (React components) vẫn còn tồn tại các đoạn mã kiểm tra: `location.hostname === '127.0.0.1' ? window.location.origin : 'https://codegame.shop'`.
+  - Hậu quả: Khi người dùng bấm nút "Chia sẻ game", "Sao chép link code", "Chia sẻ bài viết tin tức", link tạo ra trong bộ nhớ tạm (clipboard) hoặc gửi qua Telegram/Facebook vẫn mang tên miền cũ `codegame.shop`. Người nhận khi click vào link phải đi qua 301 redirect, làm giảm trải nghiệm và không chuyên nghiệp.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Tuyệt đối không kiểm tra điều kiện `hostname === '127.0.0.1'` để phân biệt môi trường dev và production khi tạo link chia sẻ cho người dùng.
+  - Sử dụng cơ chế tự thích ứng linh hoạt:
+    `const origin = typeof window !== 'undefined' && window.location.origin ? window.location.origin : (branding.baseUrl || 'https://giftcodefree.com');`
+  - Giúp website tự động thích ứng với bất kỳ tên miền hoặc môi trường nào mà người dùng đang mở trang (dù là `giftcodefree.com`, `codegame.shop`, hay tên miền tùy biến sau này).
+  - Khai báo đầy đủ các chuỗi thông báo copy link vào hệ thống đa ngôn ngữ `i18n` (`t.gameCard`, `t.modal`), tránh hardcode tiếng Việt.
+
 ### ISSUE-309: Chèn Tên Miền Cũ/Mới Vào Trường Rewards Của Giftcode & Ghi Đè Ngầm Dữ Liệu Gốc
 - **Triệu chứng & Rủi ro**:
   - Hơn 2.500 giftcode trong kho dữ liệu có trường phần thưởng mang mẫu câu quảng bá `"Giftcode độc quyền cập nhật từ https://..."`.

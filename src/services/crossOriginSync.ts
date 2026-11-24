@@ -9,8 +9,8 @@ class CrossOriginSync {
 
     const hostname = window.location.hostname;
     if (hostname.includes('admin-code-game-shop')) {
-      this.targetOrigin = 'https://codegame.shop';
-    } else if (hostname.includes('web-code-game') || hostname.includes('codegame.shop')) {
+      this.targetOrigin = 'https://giftcodefree.com';
+    } else if (hostname.includes('web-code-game') || hostname.includes('codegame.shop') || hostname.includes('giftcodefree.com')) {
       this.targetOrigin = 'https://admin-code-game-shop.pages.dev';
     }
 

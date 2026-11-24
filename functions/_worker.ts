@@ -203,7 +203,7 @@ function attachBuildHeaders(res: Response, baseUrl?: string): Response {
     if (typeof __BUILD_TIME__ !== 'undefined' && __BUILD_TIME__) {
       headers.set('X-Build-Time', __BUILD_TIME__);
     }
-    if (baseUrl && baseUrl !== 'https://codegame.shop') {
+    if (baseUrl && baseUrl !== 'https://giftcodefree.com' && baseUrl !== 'https://codegame.shop') {
       const cleanDomain = baseUrl.replace(/^https?:\/\//i, '').replace(/\/+$/, '');
       const existingCsp = headers.get('Content-Security-Policy');
       if (existingCsp && !existingCsp.includes(cleanDomain)) {
@@ -1833,7 +1833,7 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
 
       // Dynamic robots.txt pointing to the current domain sitemap
       if (pathname === '/robots.txt' && (request.method === 'GET' || request.method === 'HEAD')) {
-        const currentBase = branding?.baseUrl || 'https://codegame.shop';
+        const currentBase = branding?.baseUrl || 'https://giftcodefree.com';
         const robotsTxt = `User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /api/\nDisallow: /sync-bridge.html\n\nSitemap: ${currentBase}/sitemap.xml\n`;
         return new Response(request.method === 'HEAD' ? null : robotsTxt, {
           status: 200,
@@ -2175,7 +2175,7 @@ function getClusterSlug(category: string = ''): string {
   return 'nhap-vai-mmorpg';
 }
 
-function parseHowToSteps(instructions: string = '', gameName: string = '', brandDisplay: string = 'CodeGame.shop') {
+function parseHowToSteps(instructions: string = '', gameName: string = '', brandDisplay: string = 'GiftCodeFree.com') {
   const text = (instructions || '').trim();
   if (text) {
     const lines = text.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 5);
@@ -2209,7 +2209,7 @@ function parseHowToSteps(instructions: string = '', gameName: string = '', brand
       '@type': 'HowToStep',
       position: 3,
       name: 'Nhập mã giftcode',
-      text: `Sao chép mã giftcode từ ${brandDisplay || 'CodeGame.shop'} và dán chính xác vào ô nhập mã quà tặng.`,
+      text: `Sao chép mã giftcode từ ${brandDisplay || 'GiftCodeFree.com'} và dán chính xác vào ô nhập mã quà tặng.`,
     },
     {
       '@type': 'HowToStep',
@@ -2253,7 +2253,7 @@ async function handleDynamicSitemap(
 
   const cfCache = typeof caches !== 'undefined' ? (caches as any).default : null;
   const buildTag = typeof __BUILD_ID__ !== 'undefined' && __BUILD_ID__ ? __BUILD_ID__ : 'live';
-  const baseOrigin = branding?.baseUrl || 'https://codegame.shop';
+  const baseOrigin = branding?.baseUrl || 'https://giftcodefree.com';
   const cacheKey = new Request(`${baseOrigin}/__edge_cache_v/${buildTag}/sitemap.xml`, { method: 'GET' });
 
   // 1. Kiểm tra Cloudflare Edge Cache nếu không yêu cầu fresh
@@ -2329,7 +2329,7 @@ async function handleDynamicSitemap(
  * Tạo nội dung sitemap XML động với lastmod thực tế từ D1 và fallbacks
  */
 async function generateDynamicSitemapXml(env: Env, branding?: any): Promise<string> {
-  const BASE_URL = branding?.baseUrl || 'https://codegame.shop';
+  const BASE_URL = branding?.baseUrl || 'https://giftcodefree.com';
   const todayStr = new Date().toISOString().slice(0, 10);
 
   const maxCodeTimeBySlug = new Map<string, number>();
@@ -2635,7 +2635,8 @@ async function renderSeoHtml(
   pathname: string,
   branding?: any
 ): Promise<Response> {
-  const origin = branding?.baseUrl || 'https://codegame.shop';
+  const origin = branding?.baseUrl || 'https://giftcodefree.com';
+  const brandDisplay = branding?.brandDisplay || 'GiftCodeFree.com';
   const url = new URL(request.url);
 
   // 1. Chuyển hướng 301 chuẩn hóa cho /g/:slug -> /game/:slug hoặc slug chính
@@ -2927,7 +2928,7 @@ async function renderSeoHtml(
       const countSuffix = codeCount > 0
         ? ` - Nhận ${codeCount} Mã Code`
         : ` - Hướng Dẫn Nhập & Nhận Quà`;
-      const title = `Giftcode ${game.name} Mới Nhất 2026${countSuffix} | CodeGame.shop`;
+      const title = `Giftcode ${game.name} Mới Nhất 2026${countSuffix} | ${brandDisplay}`;
       const hasVerifiedLicense = Boolean(
         game.so_giay_phep &&
         game.co_quan_cap &&
@@ -3021,7 +3022,7 @@ async function renderSeoHtml(
               "name": `Làm sao để nhận thêm mã code ${game.name} mới nhất 2026?`,
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": `CodeGame.shop tự động theo dõi và cập nhật giftcode ${game.name} 24/7 từ các sự kiện bảo trì, ra mắt máy chủ và fanpage chính thức của ${game.publisher || 'NPH'}.`
+                "text": `${brandDisplay} tự động theo dõi và cập nhật giftcode ${game.name} 24/7 từ các sự kiện bảo trì, ra mắt máy chủ và fanpage chính thức của ${game.publisher || 'NPH'}.`
               }
             }
           ]
@@ -3032,7 +3033,7 @@ async function renderSeoHtml(
           "name": `Cách nhập Giftcode ${game.name} nhận quà tân thủ`,
           "description": `Hướng dẫn từng bước cách nhập mã giftcode ${game.name} thành công 100% để nhận Kim Cương, KNB và quà VIP.`,
           "image": iconUrl,
-          "step": parseHowToSteps(instructions, game.name, branding?.brandDisplay || 'CodeGame.shop')
+          "step": parseHowToSteps(instructions, game.name, brandDisplay)
         }
       ];
 
@@ -3145,7 +3146,7 @@ async function renderSeoHtml(
                   <div class="text-2xl">⏳</div>
                   <h3 class="text-sm sm:text-base font-bold text-gray-200">Hiện Chưa Có Mã Giftcode Mới Cho ${escape(game.name)}</h3>
                   <p class="text-xs text-gray-400 max-w-lg mx-auto leading-relaxed">
-                    Hệ thống CodeGame.shop đang tự động theo dõi và kiểm tra mã quà tặng mới từ nhà phát hành ${escape(game.publisher || 'chính thức')} 24/7.
+                    Hệ thống ${brandDisplay} đang tự động theo dõi và kiểm tra mã quà tặng mới từ nhà phát hành ${escape(game.publisher || 'chính thức')} 24/7.
                     <br>📅 <strong>Kiểm tra lần cuối:</strong> ${formattedDate} (Chưa phát sinh mã mới).
                   </p>
                   <p class="text-xs text-brand-400 font-semibold pt-1">
@@ -3184,7 +3185,7 @@ async function renderSeoHtml(
               </div>
               <div class="p-4 rounded-xl bg-dark-850 border border-gray-800/80">
                 <h3 class="font-bold text-gray-100 mb-1">2. Làm sao để nhận thêm mã code ${escape(game.name)} mới nhất 2026?</h3>
-                <p class="text-gray-400 leading-relaxed">Hệ thống CodeGame.shop tự động theo dõi và cập nhật mã mới 24/7 từ các sự kiện bảo trì, ra mắt máy chủ và fanpage chính thức của ${escape(game.publisher || 'NPH')}. Hãy lưu trang này để nhận thông báo sớm nhất.</p>
+                <p class="text-gray-400 leading-relaxed">Hệ thống ${brandDisplay} tự động theo dõi và cập nhật mã mới 24/7 từ các sự kiện bảo trì, ra mắt máy chủ và fanpage chính thức của ${escape(game.publisher || 'NPH')}. Hãy lưu trang này để nhận thông báo sớm nhất.</p>
               </div>
             </div>
           </section>
@@ -3219,7 +3220,7 @@ async function renderSeoHtml(
           </div>
 
           <footer class="mt-8 pt-6 border-t border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-gray-400">
-            <p>© 2026 CodeGame.shop. Cập nhật mã ${escape(game.name)}.</p>
+            <p>© 2026 ${brandDisplay}. Cập nhật mã ${escape(game.name)}.</p>
             <div class="flex items-center gap-3">
               <a href="/danh-sach-game-a-z" class="text-brand-400 hover:underline">Danh Mục A-Z</a>
               <span>•</span>
@@ -3274,7 +3275,7 @@ async function renderSeoHtml(
     }
 
     if (article) {
-      const title = `${article.title} | CodeGame.shop`;
+      const title = `${article.title} | ${brandDisplay}`;
       const description = article.summary || article.content?.slice(0, 160) || 'Tin tức game và sự kiện giftcode mới nhất.';
       const thumb = (article.cover_url && article.cover_url.trim()) || article.thumbnail_url || (article.game_slug ? `/game_icons/${article.game_slug}-thumb.webp` : '/og-image-thumb.webp');
       const artCover = thumb.startsWith('http') ? thumb : `${origin}${thumb.startsWith('/') ? thumb : `/${thumb}`}`;
@@ -3290,11 +3291,11 @@ async function renderSeoHtml(
           "dateModified": article.updated_at || article.published_at || article.created_at || "2026-10-13T00:00:00.000Z",
           "author": {
             "@type": "Person",
-            "name": article.author || "Ban Biên Tập CodeGame.shop"
+            "name": article.author || `Ban Biên Tập ${brandDisplay}`
           },
           "publisher": {
             "@type": "Organization",
-            "name": "CodeGame.shop",
+            "name": brandDisplay,
             "logo": {
               "@type": "ImageObject",
               "url": `${origin}/logo.webp`
@@ -3318,8 +3319,8 @@ async function renderSeoHtml(
 
       replaceTitleAndMeta(title, description, `/news/${article.slug || article.id}`, thumb, newsSchema);
     } else {
-      const title = 'Tin Tức Game & Sự Kiện Giftcode Mới Nhất 2026 | CodeGame.shop';
-      const description = 'Cập nhật tin tức game mobile, giftcode tân thủ và sự kiện nhận quà hot nhất 2026 tại CodeGame.shop.';
+      const title = `Tin Tức Game & Sự Kiện Giftcode Mới Nhất 2026 | ${brandDisplay}`;
+      const description = `Cập nhật tin tức game mobile, giftcode tân thủ và sự kiện nhận quà hot nhất 2026 tại ${brandDisplay}.`;
       const newsListSchema = [
         {
           "@context": "https://schema.org",
@@ -3338,7 +3339,7 @@ async function renderSeoHtml(
     pathname === '/events' ||
     pathname.startsWith('/events/')
   ) {
-    const title = 'Sự Kiện Game & Lịch Khởi Tranh Mới Nhất 2026 | CodeGame.shop';
+    const title = `Sự Kiện Game & Lịch Khởi Tranh Mới Nhất 2026 | ${brandDisplay}`;
     const description = 'Tổng hợp sự kiện game mobile, giải đấu, lịch khởi tranh và quà tặng chính thức từ Fanpage, Group, Web game 2026.';
     const eventsListSchema = [
       {
@@ -3355,8 +3356,8 @@ async function renderSeoHtml(
     pathname === '/telegram' ||
     pathname.startsWith('/telegram/')
   ) {
-    const title = 'Cộng Đồng Telegram & Nhận Giftcode Tự Động | CodeGame.shop';
-    const description = 'Tham gia nhóm Telegram CodeGame.Shop để nhận Giftcode mới nhất, sự kiện hot và theo dõi mã quà tặng tự động.';
+    const title = `Cộng Đồng Telegram & Nhận Giftcode Tự Động | ${brandDisplay}`;
+    const description = `Tham gia nhóm Telegram ${brandDisplay} để nhận Giftcode mới nhất, sự kiện hot và theo dõi mã quà tặng tự động.`;
     const telegramSchema = [
       {
         "@context": "https://schema.org",
@@ -3378,7 +3379,7 @@ async function renderSeoHtml(
       month: '2-digit',
       year: 'numeric',
     }).format(new Date());
-    const title = `Mã Giftcode Hôm Nay ${todayVNFormatted} — Tổng Hợp Code Ngày Mới Nhất | CodeGame.shop`;
+    const title = `Mã Giftcode Hôm Nay ${todayVNFormatted} — Tổng Hợp Code Ngày Mới Nhất | ${brandDisplay}`;
     const description = `Tổng hợp toàn bộ mã giftcode còn hạn phát hành và có hiệu lực hôm nay ${todayVNFormatted} của các tựa game hot tại Việt Nam. Cập nhật liên tục, kiểm tra thực tế, lấy mã nhanh trong ngày.`;
     const todaySchema = [
       {
@@ -3434,9 +3435,9 @@ async function renderSeoHtml(
     if (campaign) {
       const gameName = campaign.game_name || 'Game Mobile';
       const gameSlug = campaign.game_slug || '';
-      const title = `🎁 Nhận Code: ${campaign.title} - ${gameName} | CodeGame.shop`;
+      const title = `🎁 Nhận Code: ${campaign.title} - ${gameName} | ${brandDisplay}`;
       const description = campaign.description
-        ? `${campaign.description} Nhận mã quà tặng độc quyền ${gameName} miễn phí tại CodeGame.shop.`
+        ? `${campaign.description} Nhận mã quà tặng độc quyền ${gameName} miễn phí tại ${brandDisplay}.`
         : `Nhận ngay ${campaign.title} cho tựa game ${gameName}. Số lượng có hạn, kiểm tra điều kiện tài khoản và nhận mã tức thì!`;
 
       // Thuật toán xác định ảnh đại diện chính xác 100% cho Giveaway
@@ -3467,7 +3468,7 @@ async function renderSeoHtml(
           "eventStatus": "https://schema.org/EventScheduled",
           "eventAttendanceMode": "https://schema.org/OnlineEventAttendanceMode",
           "location": { "@type": "VirtualLocation", "url": `${origin}/giveaways/${campaign.id}` },
-          "organizer": { "@type": "Organization", "name": "CodeGame.shop", "url": origin },
+          "organizer": { "@type": "Organization", "name": brandDisplay, "url": origin },
           "offers": { "@type": "Offer", "price": "0", "priceCurrency": "VND", "availability": "https://schema.org/InStock" }
         },
         {
@@ -3483,8 +3484,8 @@ async function renderSeoHtml(
 
       replaceTitleAndMeta(title, description, `/giveaways/${campaign.id}`, iconUrl, giveawaySchema);
     } else {
-      const title = 'Sự Kiện Giveaway Nhận Giftcode Game Miễn Phí 2026 | CodeGame.shop';
-      const description = 'Tham gia sự kiện giveaway nhận quà tân thủ, giftcode VIP độc quyền và thẻ game miễn phí mỗi ngày tại CodeGame.shop.';
+      const title = `Sự Kiện Giveaway Nhận Giftcode Game Miễn Phí 2026 | ${brandDisplay}`;
+      const description = `Tham gia sự kiện giveaway nhận quà tân thủ, giftcode VIP độc quyền và thẻ game miễn phí mỗi ngày tại ${brandDisplay}.`;
       const giveawayListSchema = [
         {
           "@context": "https://schema.org",
@@ -3501,7 +3502,7 @@ async function renderSeoHtml(
     const gameSlugParam = (url.searchParams.get('game') || url.searchParams.get('g') || '').trim();
     const pkgIdParam = (url.searchParams.get('pkg') || url.searchParams.get('package') || url.searchParams.get('product') || url.searchParams.get('prod') || '').trim();
 
-    let title = 'Cửa Hàng Giftcode VIP & Giao Dịch Mã Game Tự Động 24/7 | CodeGame.shop';
+    let title = `Cửa Hàng Giftcode VIP & Giao Dịch Mã Game Tự Động 24/7 | ${brandDisplay}`;
     let description = 'Mua bán giftcode VIP, gói nạp game bản quyền chiết khấu tới 40%. Giao dịch tự động 24/7 qua SePay, nhận mã ngay trên màn hình trong 30 giây.';
     let canonical = '/store';
     let ogImage = '/og-image.jpg';
@@ -3518,8 +3519,8 @@ async function renderSeoHtml(
         if (matchedPkg) {
           const priceStr = matchedPkg.current_price ? `${Number(matchedPkg.current_price).toLocaleString('vi-VN')} Core` : 'Giá tốt';
           const gName = matchedPkg.game_name || '';
-          title = `${matchedPkg.title} — ${priceStr} | ${gName} | CodeGame.shop`;
-          description = `Mua ngay gói ${matchedPkg.title} game ${gName} giá chỉ ${priceStr}${matchedPkg.discount_percent ? ` (giảm ${matchedPkg.discount_percent}%)` : ''}. Tình trạng: ${matchedPkg.stock_quantity > 0 ? 'Còn hàng' : 'Hết hàng'}. Nhận mã tự động 100% trong 30 giây tại CodeGame.shop.`;
+          title = `${matchedPkg.title} — ${priceStr} | ${gName} | ${brandDisplay}`;
+          description = `Mua ngay gói ${matchedPkg.title} game ${gName} giá chỉ ${priceStr}${matchedPkg.discount_percent ? ` (giảm ${matchedPkg.discount_percent}%)` : ''}. Tình trạng: ${matchedPkg.stock_quantity > 0 ? 'Còn hàng' : 'Hết hàng'}. Nhận mã tự động 100% trong 30 giây tại ${brandDisplay}.`;
           canonical = `/store?game=${encodeURIComponent(gameSlugParam || matchedPkg.game_slug || '')}&pkg=${encodeURIComponent(matchedPkg.id)}`;
           ogImage = matchedPkg.game_icon_url || (matchedPkg.game_slug ? `/game_icons/${matchedPkg.game_slug}.webp` : '') || matchedPkg.cover_image_url || '/og-image.jpg';
         } else if (gameSlugParam) {
@@ -3528,8 +3529,8 @@ async function renderSeoHtml(
           ).bind(gameSlugParam, gameSlugParam).first<any>().catch(() => null);
 
           if (matchedGame) {
-            title = `Gói Nạp & Code VIP ${matchedGame.name} | CodeGame.shop`;
-            description = `Danh sách gói nạp, code VIP và mã quà tặng game ${matchedGame.name} chiết khấu tốt nhất. Nhận mã tự động 100% tại CodeGame.shop.`;
+            title = `Gói Nạp & Code VIP ${matchedGame.name} | ${brandDisplay}`;
+            description = `Danh sách gói nạp, code VIP và mã quà tặng game ${matchedGame.name} chiết khấu tốt nhất. Nhận mã tự động 100% tại ${brandDisplay}.`;
             canonical = `/store?game=${encodeURIComponent(matchedGame.slug)}`;
             ogImage = matchedGame.icon_url || `/game_icons/${matchedGame.slug}.webp` || '/og-image.jpg';
           }
@@ -3543,7 +3544,7 @@ async function renderSeoHtml(
       {
         "@context": "https://schema.org",
         "@type": "Store",
-        "name": "Chợ Code VIP - CodeGame.shop",
+        "name": `Chợ Code VIP - ${brandDisplay}`,
         "description": "Cửa hàng giao dịch mã game bản quyền và giftcode VIP tự động 24/7 qua SePay.",
         "url": `${origin}/store`,
         "priceRange": "10.000 VND - 500.000 VND",
@@ -3561,8 +3562,8 @@ async function renderSeoHtml(
     ];
     replaceTitleAndMeta(title, description, canonical, ogImage, storeSchema);
   } else if (pathname === '/utilities' || pathname.startsWith('/utilities/')) {
-    const title = 'Tiện Ích & Tool Hỗ Trợ Game Số 1 Việt Nam | CodeGame.shop';
-    const description = 'Dịch vụ tiện ích game, hỗ trợ game thủ tối ưu trải nghiệm chơi game an toàn, tốc độ và bảo mật cao tại CodeGame.shop.';
+    const title = `Tiện Ích & Tool Hỗ Trợ Game Số 1 Việt Nam | ${brandDisplay}`;
+    const description = `Dịch vụ tiện ích game, hỗ trợ game thủ tối ưu trải nghiệm chơi game an toàn, tốc độ và bảo mật cao tại ${brandDisplay}.`;
     const utilSchema = [
       {
         "@context": "https://schema.org",
@@ -3579,7 +3580,7 @@ async function renderSeoHtml(
     const pageParam = urlObj.searchParams.get('page');
     const pageNum = pageParam ? parseInt(pageParam, 10) : 1;
     const canonicalPath = pageNum > 1 ? `/?page=${pageNum}` : '/';
-    const title = 'CodeGame.shop - Săn Giftcode Miễn Phí & Giao Dịch Mã Game Uy Tín';
+    const title = `${brandDisplay} - Săn Giftcode Miễn Phí & Giao Dịch Mã Game Uy Tín`;
     const description = 'Kho tổng hợp hơn 14.739+ giftcode game mobile và webgame mới nhất 2026 của 595 tựa game chuẩn. Cập nhật liên tục 24/7 từ các NPH VNG, Garena, VTC, SohaGame, Funtap.';
     const homeSchema = [
       {
@@ -3587,7 +3588,7 @@ async function renderSeoHtml(
         "@type": "WebSite",
         "@id": `${origin}/#website`,
         "url": `${origin}/`,
-        "name": "CodeGame.shop",
+        "name": brandDisplay,
         "description": "Cổng tra cứu giftcode game mobile và webgame số 1 Việt Nam",
         "potentialAction": {
           "@type": "SearchAction",
@@ -3603,7 +3604,7 @@ async function renderSeoHtml(
         "@context": "https://schema.org",
         "@type": "Organization",
         "@id": `${origin}/#organization`,
-        "name": "CodeGame.shop",
+        "name": brandDisplay,
         "url": `${origin}/`,
         "logo": {
           "@type": "ImageObject",
@@ -3629,7 +3630,7 @@ async function renderSeoHtml(
         "mainEntity": [
           {
             "@type": "Question",
-            "name": "Giftcode trên CodeGame.shop có miễn phí không?",
+            "name": `Giftcode trên ${brandDisplay} có miễn phí không?`,
             "acceptedAnswer": {
               "@type": "Answer",
               "text": "Tất cả mã giftcode trong mục Mã Miễn Phí và Đợt Phát Code đều hoàn toàn miễn phí 100%, được tổng hợp và kiểm duyệt từ các Nhà phát hành game chính thức tại Việt Nam."
@@ -3645,7 +3646,7 @@ async function renderSeoHtml(
           },
           {
             "@type": "Question",
-            "name": "Các tựa game trên CodeGame.shop có hợp pháp không?",
+            "name": `Các tựa game trên ${brandDisplay} có hợp pháp không?`,
             "acceptedAnswer": {
               "@type": "Answer",
               "text": "Hệ thống cập nhật và đối soát thông tin phát hành game công khai đối với từng tựa game phát hành tại Việt Nam."

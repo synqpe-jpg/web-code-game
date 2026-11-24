@@ -137,7 +137,7 @@ export const UpcomingGamesSection: React.FC<UpcomingGamesSectionProps> = ({ onSh
   const [isSyncingServer, setIsSyncingServer] = useState(false);
 
   const crawlerConfig = adminDataService.getCrawlerApiConfig();
-  const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://codegame.shop';
+  const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://giftcodefree.com';
   const apiEndpointUrl = `${currentOrigin}/api/crawler/ingest-upcoming-games`;
   const displayedApiKey = showApiKey
     ? (crawlerConfig.apiKey || 'YOUR_API_KEY')

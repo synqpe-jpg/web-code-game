@@ -1,6 +1,6 @@
 const https = require('https');
 
-const TARGET_HOST = 'https://codegame.shop';
+const TARGET_HOST = process.env.TARGET_HOST || 'https://giftcodefree.com';
 const URLS_TO_WARM = [
   '/',
   '/danh-sach-game-a-z',

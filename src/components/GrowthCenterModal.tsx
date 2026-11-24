@@ -173,7 +173,7 @@ export const GrowthCenterModal: React.FC<GrowthCenterModalProps> = ({
   if (!isOpen || typeof document === 'undefined') return null;
 
   const currentUserId = currentUser?.id || 'guest_user';
-  const siteUrl = typeof window !== 'undefined' ? window.location.origin : 'https://codegame.shop';
+  const siteUrl = typeof window !== 'undefined' && window.location.origin ? window.location.origin : 'https://giftcodefree.com';
   const referralCode = growthData.referralCode;
   const referralLink = `${siteUrl}?ref=${referralCode}`;
 

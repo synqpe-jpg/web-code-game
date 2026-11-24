@@ -713,7 +713,7 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
       codes: editingArticle.codes || [],
       author: 'CodeGame.Shop',
       source_name: 'CodeGame.Shop',
-      source_url: editingArticle.source_url || 'https://codegame.shop',
+      source_url: editingArticle.source_url || 'https://giftcodefree.com',
       views: editingArticle.views || 0,
       read_time_minutes: editingArticle.read_time_minutes || 3,
       is_featured: Boolean(editingArticle.is_featured),

@@ -38,6 +38,8 @@ import { getProductPackages } from '../utils/productPackageUtils';
 import { GuideLinksBanner } from './GuideLinksBanner';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import { PackageShareModal } from './PackageShareModal';
+import { useLanguage } from '../context/LanguageContext';
+import { useBranding } from '../services/brandingService';
 
 export interface ProductDetailModalProps {
   product: StoreProduct | UtilityProduct | null;
@@ -60,6 +62,10 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   onOpenShare,
   onShowToast,
 }) => {
+  const { t } = useLanguage();
+  const branding = useBranding();
+  const brandDisplay = branding.brandDisplay || 'GiftCodeFree.com';
+
   const [activeImageIdx, setActiveImageIdx] = useState(0);
   const [isZoomed, setIsZoomed] = useState(false);
   const [isDescExpanded, setIsDescExpanded] = useState(false);
@@ -341,9 +347,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
   const handleShare = async () => {
     const origin =
-      typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+      typeof window !== 'undefined' && window.location.origin
         ? window.location.origin
-        : 'https://codegame.shop';
+        : (branding.baseUrl || 'https://giftcodefree.com');
     const pathPrefix = isStoreProduct ? 'store#product' : 'utilities#utility';
     const shareUrl = `${origin}/${pathPrefix}=${product.id}`;
 
@@ -351,7 +357,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       try {
         await navigator.share({
           title: product.title,
-          text: `Mua ngay ${product.title} (${gameName}) uy tín, giá rẻ tại CodeGame.shop`,
+          text: `Mua ngay ${product.title} (${gameName}) uy tín, giá rẻ tại ${brandDisplay}`,
           url: shareUrl,
         });
         return;
@@ -365,7 +371,10 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     } else if (navigator.clipboard) {
       navigator.clipboard.writeText(shareUrl);
       if (onShowToast) {
-        onShowToast('Đã sao chép link sản phẩm!', `Đường dẫn: ${shareUrl}`, 'success');
+        const toastTitle = isStoreProduct
+          ? (t?.modal?.copyProductLinkSuccess || 'Đã sao chép link sản phẩm!')
+          : (t?.modal?.copyUtilityLinkSuccess || 'Đã sao chép link tiện ích!');
+        onShowToast(toastTitle, `Đường dẫn: ${shareUrl}`, 'success');
       }
     }
   };

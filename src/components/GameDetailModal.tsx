@@ -630,8 +630,9 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
     }
 
     const codeList = targetCodes.map((c) => c.code.trim()).filter(Boolean);
-    const gameLink = `${branding.baseUrl || 'https://codegame.shop'}/game/${currentGame.slug || currentGame.id || ''}`;
-    const watermark = `\n\n📌 Nguồn: ${branding.brandDisplay || 'CodeGame.Shop'} - Cổng Tra Cứu Giftcode Bản Quyền G1\n👉 Nhận thêm mã VIP miễn phí tại: ${gameLink}`;
+    const shareOrigin = typeof window !== 'undefined' && window.location.origin ? window.location.origin : (branding.baseUrl || 'https://giftcodefree.com');
+    const gameLink = `${shareOrigin}/game/${currentGame.slug || currentGame.id || ''}`;
+    const watermark = `\n\n📌 Nguồn: ${branding.brandDisplay || 'GiftCodeFree.com'} - Cổng Tra Cứu Giftcode Bản Quyền G1\n👉 Nhận thêm mã VIP miễn phí tại: ${gameLink}`;
     const codeString = codeList.join('\n') + watermark;
 
     const ok = await copyToClipboard(codeString);
@@ -874,8 +875,8 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
               {/* Nút Chia Sẻ Qua Telegram (Mục 3.1) */}
               <a
                 href={telegramService.getShareUrl(
-                  `${branding.baseUrl || 'https://codegame.shop'}/game/${currentGame.slug || currentGame.id}`,
-                  `Nhận trọn bộ Giftcode ${currentGame.name} mới nhất 2026 tại ${branding.brandDisplay || 'CodeGame.Shop'}`
+                  `${typeof window !== 'undefined' && window.location.origin ? window.location.origin : (branding.baseUrl || 'https://giftcodefree.com')}/game/${currentGame.slug || currentGame.id}`,
+                  `Nhận trọn bộ Giftcode ${currentGame.name} mới nhất 2026 tại ${branding.brandDisplay || 'GiftCodeFree.com'}`
                 )}
                 target="_blank"
                 rel="noopener noreferrer"

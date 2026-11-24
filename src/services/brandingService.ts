@@ -27,16 +27,16 @@ export interface BrandingConfig {
 }
 
 export const DEFAULT_BRANDING_CONFIG: BrandingConfig = {
-  brandName: 'CodeGame',
-  brandDisplay: 'CodeGame.Shop',
-  baseUrl: 'https://codegame.shop',
-  siteTitle: 'CodeGame.shop - Săn Giftcode Miễn Phí & Giao Dịch Mã Game Uy Tín',
+  brandName: 'GiftCodeFree',
+  brandDisplay: 'GiftCodeFree.com',
+  baseUrl: 'https://giftcodefree.com',
+  siteTitle: 'GiftCodeFree.com - Cổng Tra Cứu Giftcode & Game Bản Quyền Hàng Đầu',
   tagline: 'Kho Giftcode Game Mobile & Webgame Mới Nhất 2026',
   portalSubtitle: 'Cổng Tra Cứu Giftcode',
-  footerCopyright: 'Toàn bộ bản quyền thuộc về {brand}.',
+  footerCopyright: 'Toàn bộ bản quyền thuộc về {brand}. All rights reserved.',
   faqList: [
     {
-      q: 'Giftcode trên CodeGame.shop có miễn phí không?',
+      q: 'Giftcode trên GiftCodeFree.com có miễn phí không?',
       a: 'Tất cả mã giftcode trong mục Mã Miễn Phí và Đợt Phát Code đều hoàn toàn miễn phí 100%, được tổng hợp và kiểm duyệt từ các Nhà phát hành game chính thức tại Việt Nam.',
     },
     {
@@ -44,19 +44,35 @@ export const DEFAULT_BRANDING_CONFIG: BrandingConfig = {
       a: 'Bạn chỉ cần nhấp vào nút Sao Chép bên cạnh mỗi mã giftcode hoặc chọn Sao Chép Toàn Bộ Mã Còn Hạn để lưu tất cả giftcode vào bộ nhớ tạm trong 1 giây.',
     },
     {
-      q: 'Các tựa game trên CodeGame.shop có hợp pháp không?',
+      q: 'Các tựa game trên GiftCodeFree.com có hợp pháp không?',
       a: 'Hệ thống cập nhật và đối soát thông tin pháp lý, Giấy phép phê duyệt nội dung kịch bản G1 từ Cục PTTH&TTĐT đối với từng tựa game phát hành tại Việt Nam.',
     },
   ],
-  emailFromName: 'CodeGame.shop - Thông Báo Sự Kiện & Code Game',
-  emailFromAddress: 'notifications@codegame.shop',
-  telegramBotName: 'CodeGame.Shop Bot',
-  seoTitle: 'CodeGame.shop - Săn Giftcode Miễn Phí & Giao Dịch Mã Game Uy Tín',
+  emailFromName: 'GiftCodeFree.com - Thông Báo Sự Kiện & Code Game',
+  emailFromAddress: 'notifications@giftcodefree.com',
+  telegramBotName: 'GiftCodeFree Bot',
+  seoTitle: 'GiftCodeFree.com - Cổng Tra Cứu Giftcode & Game Bản Quyền Hàng Đầu',
   seoDescription: 'Kho tổng hợp hơn 14.739+ giftcode game mobile và webgame mới nhất 2026 của 595 tựa game chuẩn. Cập nhật liên tục 24/7 từ các NPH VNG, Garena, VTC, SohaGame, Funtap.',
-  logoAlt: 'CodeGame.Shop Logo',
-  manifestName: 'CodeGame - Cổng Tra Cứu Giftcode & Game Bản Quyền',
-  manifestShortName: 'CodeGame',
+  logoAlt: 'GiftCodeFree Logo',
+  manifestName: 'GiftCodeFree - Cổng Tra Cứu Giftcode & Game Bản Quyền',
+  manifestShortName: 'GiftCodeFree',
 };
+
+/**
+ * Lấy origin chuẩn cho việc chia sẻ, canonical link và sao chép URL:
+ * 1. window.location.origin (nếu đang chạy trên trình duyệt web của người dùng)
+ * 2. customBaseUrl hoặc brandingConfig.baseUrl (nếu có cấu hình động từ Admin/D1)
+ * 3. 'https://giftcodefree.com' (giá trị dự phòng an toàn cuối cùng)
+ */
+export function getSiteOrigin(customBaseUrl?: string): string {
+  if (typeof window !== 'undefined' && window.location.origin) {
+    return window.location.origin;
+  }
+  if (customBaseUrl && customBaseUrl.startsWith('http')) {
+    return customBaseUrl.replace(/\/+$/, '');
+  }
+  return DEFAULT_BRANDING_CONFIG.baseUrl || 'https://giftcodefree.com';
+}
 
 const STORAGE_KEY = 'wcg_branding_client_cache_v1';
 

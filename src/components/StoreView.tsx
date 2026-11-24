@@ -106,9 +106,9 @@ export const StoreView: React.FC<StoreViewProps> = ({
     if (onOpenShare) {
       onOpenShare(product);
     } else {
-      const origin = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+      const origin = typeof window !== 'undefined' && window.location.origin
         ? window.location.origin
-        : 'https://codegame.shop';
+        : 'https://giftcodefree.com';
       const shareUrl = `${origin}/store#product=${product.id}`;
       if (navigator.clipboard) {
         navigator.clipboard.writeText(shareUrl);

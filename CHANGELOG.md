@@ -7,6 +7,41 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-24]
 
+### 432. Chuẩn Hóa Toàn Diện Bộ Tạo Link Chia Sẻ Sang giftcodefree.com & Cơ Chế window.location.origin Tự Thích Ứng (24/11/2026)
+- **Bối cảnh & Yêu cầu của Chủ sở hữu**:
+  - Trang web đã chuyển hướng chính thức sang `https://giftcodefree.com`, canonical và og:url đều là `giftcodefree.com`.
+  - Tuy nhiên các nút chia sẻ trên web (nút Chia sẻ game, Sao chép link danh sách code, chia sẻ tin tức, chia sẻ sản phẩm, chia sẻ tiện ích...) trong bundle chính vẫn còn logic tạo link: `location.hostname==="127.0.0.1" ? window.location.origin : "https://codegame.shop" + /game/${slug}`. Mọi link chia sẻ ra ngoài người dùng nhận được đều mang tên miền cũ `codegame.shop` và phải đi qua 301.
+  - Yêu cầu:
+    1. Sửa toàn bộ bộ tạo link chia sẻ: thay base URL hardcode `"https://codegame.shop"` thành `window.location.origin` (với fallback `branding.baseUrl || 'https://giftcodefree.com'`) để tự thích ứng linh hoạt theo đúng origin người dùng đang truy cập.
+    2. Áp dụng cho MỌI chỗ chia sẻ: thẻ GameCard, modal chi tiết game GameDetailModal, modal bài viết tin tức NewsDetailModal, modal gói nạp ProductDetailModal / PackageShareModal, modal chia sẻ chung ShareModal, các view Cửa hàng StoreView / Tiện ích UtilitiesView, và Trung tâm phát triển GrowthCenterModal.
+    3. Rà soát toàn bộ mã nguồn: cập nhật fallback mặc định trong `DEFAULT_BRANDING_CONFIG`, `index.html` (canonical, og:url, og:image, title, Schema.org), `functions/_worker.ts` (SEO meta, schema.org), `scripts/prerender.js`, `scripts/ping-search-engines.js`, `scripts/warmup_cache.cjs`, `scripts/verify_deploy.cjs`.
+    4. Song ngữ đầy đủ (VI/EN) qua `translations.ts` và cả 2 file locales JSON, không hardcode tiếng Việt.
+    5. Tuyệt đối không thay đổi các API nội bộ đang hoạt động ổn định (`/api/sync`, `/api/giveaways/claim`, `/api/crawler/*`).
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Các hàm chia sẻ kiểm tra cứng biểu thức `hostname === '127.0.0.1' || hostname === 'localhost'`. Khi chạy trên môi trường live `giftcodefree.com`, điều kiện này trả về `false`, khiến code nhảy vào nhánh fallback hardcode `"https://codegame.shop"`.
+- **Giải pháp áp dụng (Solution)**:
+  - 1. *Cơ chế `window.location.origin` tự thích ứng*: Thay thế toàn bộ bằng biểu thức an toàn `typeof window !== 'undefined' && window.location.origin ? window.location.origin : (branding.baseUrl || 'https://giftcodefree.com')` và cung cấp helper `getSiteOrigin(customBaseUrl)`.
+  - 2. *Đồng bộ toàn bộ các component chia sẻ*:
+       - `src/components/GameCard.tsx`: Sửa `handleCopyShareLink`, i18n tooltip & toast.
+       - `src/components/GameDetailModal.tsx`: Sửa watermark và link Telegram share.
+       - `src/components/NewsDetailModal.tsx`: Sửa link share và Telegram link sang `window.location.origin`.
+       - `src/components/ProductDetailModal.tsx` & `PackageShareModal.tsx`: Sửa link share sản phẩm sang `window.location.origin`.
+       - `src/components/StoreView.tsx` & `UtilitiesView.tsx`: Sửa chia sẻ link sản phẩm/tiện ích.
+       - `src/components/GrowthCenterModal.tsx`: Sửa `siteUrl` sang `window.location.origin`.
+       - `src/components/ShareModal.tsx`: Sửa chia sẻ chung và preview host.
+       - `src/App.tsx`: Sửa `getShareOrigin()`.
+       - `src/services/brandingService.ts`: Cập nhật `DEFAULT_BRANDING_CONFIG` sang `giftcodefree.com`.
+  - 3. *Hệ thống i18n song ngữ chuẩn*:
+       - Bổ sung các key `copyShareLinkTooltip`, `shareLinkCopiedTitle`, `shareLinkCopiedMsg` vào `t.gameCard`.
+       - Bổ sung `copyArticleLinkSuccess`, `copyProductLinkSuccess`, `copyUtilityLinkSuccess` vào `t.modal`.
+       - Khai báo đầy đủ trong `translations.ts` và 2 tệp `vi.json`, `en.json`.
+  - 4. *SEO Meta & Worker Bundle*:
+       - Cập nhật `index.html` và `scripts/prerender.js` đồng bộ `giftcodefree.com`.
+       - Cập nhật `functions/_worker.ts` dùng `${brandDisplay}` và `origin` động cho toàn bộ Schema.org và Open Graph.
+- **Kiểm thử & Nghiệm thu Thực Tế**:
+  - `npm run build`: Exit code 0, 0 lỗi, audit Rule 7 zero test artifacts passed 100%, prerender 591 games & sitemap 883 links.
+  - Quét bundle client `dist/assets/index-*.js`: Toàn bộ logic tạo link chia sẻ mang tên miền cũ `codegame.shop` đã được xóa sạch 100%, thay bằng `window.location.origin` và fallback `giftcodefree.com`.
+
 ### 431. Loại Bỏ Cơ Chế Chèn Tên Miền Vào Rewards, Chuẩn Hóa Nhãn Trung Lập Song Ngữ "Quà Tặng Từ Nhà Phát Hành" (24/11/2026)
 - **Bối cảnh & Yêu cầu của Chủ sở hữu**:
   - Hơn 2.559 mã giftcode (riêng Genshin Impact có 69 mã) trong cơ sở dữ liệu có trường phần thưởng mang mẫu câu quảng bá `"Giftcode độc quyền cập nhật từ https://..."`.

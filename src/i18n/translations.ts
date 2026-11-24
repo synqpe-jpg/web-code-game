@@ -85,6 +85,9 @@ export interface TranslationSchema {
     bookmarked: string;
     addBookmark: string;
     publisher: string;
+    copyShareLinkTooltip: string;
+    shareLinkCopiedTitle: string;
+    shareLinkCopiedMsg: string;
   };
   modal: {
     allCodes: string;
@@ -114,6 +117,9 @@ export interface TranslationSchema {
     copyAllSuccess: string;
     copiedAll: string;
     publisherReward: string;
+    copyArticleLinkSuccess: string;
+    copyProductLinkSuccess: string;
+    copyUtilityLinkSuccess: string;
   };
   giveaways: {
     title: string;
@@ -251,6 +257,9 @@ export const translations: Record<Language, TranslationSchema> = {
       bookmarked: 'Đã lưu',
       addBookmark: 'Lưu game',
       publisher: 'NPH:',
+      copyShareLinkTooltip: 'Sao chép link danh sách code game',
+      shareLinkCopiedTitle: 'Đã sao chép link game!',
+      shareLinkCopiedMsg: 'Link xem code {game}: {url}',
     },
     modal: {
       allCodes: 'Tất cả',
@@ -280,6 +289,9 @@ export const translations: Record<Language, TranslationSchema> = {
       copyAllSuccess: 'Đã sao chép tất cả mã code!',
       copiedAll: 'Đã sao chép tất cả',
       publisherReward: 'Quà tặng từ nhà phát hành',
+      copyArticleLinkSuccess: 'Đã sao chép liên kết bài viết!',
+      copyProductLinkSuccess: 'Đã sao chép link sản phẩm!',
+      copyUtilityLinkSuccess: 'Đã sao chép link tiện ích!',
     },
     giveaways: {
       title: 'Sự Kiện Săn Mã Giveaway',
@@ -416,6 +428,9 @@ export const translations: Record<Language, TranslationSchema> = {
       bookmarked: 'Saved',
       addBookmark: 'Save Game',
       publisher: 'Pub:',
+      copyShareLinkTooltip: 'Copy game code list link',
+      shareLinkCopiedTitle: 'Game link copied!',
+      shareLinkCopiedMsg: 'Code list link for {game}: {url}',
     },
     modal: {
       allCodes: 'All Codes',
@@ -445,6 +460,9 @@ export const translations: Record<Language, TranslationSchema> = {
       copyAllSuccess: 'All codes copied to clipboard!',
       copiedAll: 'Copied All',
       publisherReward: 'Rewards from the publisher',
+      copyArticleLinkSuccess: 'Article link copied!',
+      copyProductLinkSuccess: 'Product link copied!',
+      copyUtilityLinkSuccess: 'Utility link copied!',
     },
     giveaways: {
       title: 'Exclusive Giveaway Drops',
@@ -581,6 +599,9 @@ export const translations: Record<Language, TranslationSchema> = {
       bookmarked: '已收藏',
       addBookmark: '收藏游戏',
       publisher: '厂商:',
+      copyShareLinkTooltip: '复制游戏礼包列表链接',
+      shareLinkCopiedTitle: '已复制游戏链接！',
+      shareLinkCopiedMsg: '{game} 礼包列表链接: {url}',
     },
     modal: {
       allCodes: '全部',
@@ -610,6 +631,9 @@ export const translations: Record<Language, TranslationSchema> = {
       copyAllSuccess: '已复制所有礼包码！',
       copiedAll: '已全部复制',
       publisherReward: '官方发行商礼包',
+      copyArticleLinkSuccess: '已复制文章链接！',
+      copyProductLinkSuccess: '已复制商品链接！',
+      copyUtilityLinkSuccess: '已复制工具链接！',
     },
     giveaways: {
       title: '独家限时免费抽奖',
@@ -746,6 +770,9 @@ export const translations: Record<Language, TranslationSchema> = {
       bookmarked: 'บันทึกแล้ว',
       addBookmark: 'บันทึกเกม',
       publisher: 'ผู้ให้บริการ:',
+      copyShareLinkTooltip: 'คัดลอกลิงก์รายการโค้ดเกม',
+      shareLinkCopiedTitle: 'คัดลอกลิงก์เกมแล้ว!',
+      shareLinkCopiedMsg: 'ลิงก์ดูโค้ด {game}: {url}',
     },
     modal: {
       allCodes: 'ทั้งหมด',
@@ -775,6 +802,9 @@ export const translations: Record<Language, TranslationSchema> = {
       copyAllSuccess: 'คัดลอกโค้ดทั้งหมดแล้ว!',
       copiedAll: 'คัดลอกทั้งหมดแล้ว',
       publisherReward: 'ของรางวัลจากผู้พัฒนา',
+      copyArticleLinkSuccess: 'คัดลอกลิงก์บทความแล้ว!',
+      copyProductLinkSuccess: 'คัดลอกลิงก์สินค้าแล้ว!',
+      copyUtilityLinkSuccess: 'คัดลอกลิงก์บริการแล้ว!',
     },
     giveaways: {
       title: 'กิจกรรมแจกโค้ดพิเศษ',

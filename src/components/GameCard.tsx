@@ -151,9 +151,9 @@ export const GameCard: React.FC<GameCardProps> = ({
   // Instant Copy Share Link to clipboard & trigger floating toast
   const handleCopyShareLink = (e: React.MouseEvent) => {
     e.stopPropagation();
-    const origin = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    const origin = typeof window !== 'undefined' && window.location.origin
       ? window.location.origin
-      : 'https://codegame.shop';
+      : 'https://giftcodefree.com';
     const shareUrl = `${origin}/game/${game.slug}`;
 
     // 1. Copy to clipboard
@@ -175,8 +175,10 @@ export const GameCard: React.FC<GameCardProps> = ({
     setTimeout(() => setCopiedLink(false), 2200);
 
     // 3. Show floating toast notification
-    const toastTitle = 'Đã sao chép link game!';
-    const toastMsg = `Link xem code ${game.name}: ${shareUrl}`;
+    const toastTitle = t.gameCard.shareLinkCopiedTitle || 'Đã sao chép link game!';
+    const toastMsg = (t.gameCard.shareLinkCopiedMsg || 'Link xem code {game}: {url}')
+      .replace('{game}', game.name)
+      .replace('{url}', shareUrl);
     if (onShowToast) {
       onShowToast(toastTitle, toastMsg, 'success');
     }
@@ -542,7 +544,7 @@ export const GameCard: React.FC<GameCardProps> = ({
                 ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400'
                 : 'bg-muted/40 hover:bg-muted border-border/80 text-muted-foreground hover:text-foreground'
             }`}
-            title="Sao chép link danh sách code game"
+            title={t.gameCard.copyShareLinkTooltip || 'Sao chép link danh sách code game'}
           >
             {copiedLink ? (
               <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400" />
@@ -552,7 +554,7 @@ export const GameCard: React.FC<GameCardProps> = ({
             {copiedLink && (
               <div className="absolute right-0 -bottom-7 z-30 flex items-center gap-1 bg-emerald-600 text-white font-bold text-[9px] px-2 py-0.5 rounded-md shadow-lg pointer-events-none animate-fade-in whitespace-nowrap">
                 <Check className="w-2.5 h-2.5" />
-                <span>Đã chép link!</span>
+                <span>{t.gameCard.copied || 'Đã chép link!'}</span>
               </div>
             )}
           </button>

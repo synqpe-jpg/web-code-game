@@ -235,9 +235,9 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
     if (onOpenShare) {
       onOpenShare(item);
     } else {
-      const origin = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+      const origin = typeof window !== 'undefined' && window.location.origin
         ? window.location.origin
-        : 'https://codegame.shop';
+        : 'https://giftcodefree.com';
       const shareUrl = `${origin}/utilities#utility=${item.id}`;
       if (navigator.clipboard) {
         navigator.clipboard.writeText(shareUrl);

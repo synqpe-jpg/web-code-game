@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const HOST = 'codegame.shop';
+const HOST = process.env.HOST || 'giftcodefree.com';
 const KEY = 'e47e8c3bf4d84f8db27da7c55cb8e30b';
 const KEY_LOCATION = `https://${HOST}/${KEY}.txt`;
 const SITEMAP_URL = `https://${HOST}/sitemap.xml`;
@@ -44,7 +44,7 @@ async function loadSitemapUrls() {
     if (fs.existsSync(p)) {
       try {
         const sitemapXml = fs.readFileSync(p, 'utf8');
-        const locRegex = /<loc>(https:\/\/codegame\.shop[^<]+)<\/loc>/g;
+        const locRegex = /<loc>(https:\/\/[^<]+)<\/loc>/g;
         const urls = [];
         let match;
         while ((match = locRegex.exec(sitemapXml)) !== null) {
@@ -66,7 +66,7 @@ async function loadSitemapUrls() {
     const res = await safeFetch(SITEMAP_URL);
     if (res.ok) {
       const xml = await res.text();
-      const locRegex = /<loc>(https:\/\/codegame\.shop[^<]+)<\/loc>/g;
+      const locRegex = /<loc>(https:\/\/[^<]+)<\/loc>/g;
       const urls = [];
       let match;
       while ((match = locRegex.exec(xml)) !== null) {

@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import type { StoreProduct, ProductPackageVariant } from '../types/game';
 import { formatCore } from '../utils/textUtils';
+import { useBranding } from '../services/brandingService';
 
 export interface PackageShareModalProps {
   isOpen: boolean;
@@ -44,14 +45,16 @@ export const PackageShareModal: React.FC<PackageShareModalProps> = ({
   onBuyNow,
   onShowToast,
 }) => {
+  const branding = useBranding();
+  const brandDisplay = branding.brandDisplay || 'GiftCodeFree.com';
   const [copied, setCopied] = useState(false);
 
   if (!isOpen || !packageItem || typeof document === 'undefined') return null;
 
   const origin =
-    typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    typeof window !== 'undefined' && window.location.origin
       ? window.location.origin
-      : 'https://codegame.shop';
+      : (branding.baseUrl || 'https://giftcodefree.com');
 
   const gameSlug =
     product?.game_slug ||
@@ -90,7 +93,7 @@ export const PackageShareModal: React.FC<PackageShareModalProps> = ({
   const isOutOfStock = pkgStock <= 0;
 
   const shareTitle = `${packageItem.name} — ${formatCore(currentPrice)} | ${gameName}`;
-  const shareText = `Mua ngay ${packageItem.name} (${gameName}) giá chỉ ${formatCore(currentPrice)} tại CodeGame.shop`;
+  const shareText = `Mua ngay ${packageItem.name} (${gameName}) giá chỉ ${formatCore(currentPrice)} tại ${brandDisplay}`;
 
   const fallbackCopyText = (text: string): boolean => {
     try {

@@ -717,10 +717,10 @@ export const GamesModule: React.FC<GamesModuleProps> = ({ onShowToast, onOpenGam
       render: (item) => (
         <div className="flex items-center justify-end gap-1 flex-nowrap" onClick={(e) => e.stopPropagation()}>
           <a
-            href={`https://codegame.shop/game/${item.slug}`}
+            href={`https://giftcodefree.com/game/${item.slug}`}
             target="_blank"
             rel="noreferrer"
-            title="Mở xem trên Web Khách (codegame.shop)"
+            title="Mở xem trên Web Khách (giftcodefree.com)"
             className="rounded-lg p-1.5 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400 transition-colors"
           >
             <Globe className="h-4 w-4" />
@@ -1899,7 +1899,7 @@ export const GamesModule: React.FC<GamesModuleProps> = ({ onShowToast, onOpenGam
                 </div>
               </div>
               <a
-                href={`https://codegame.shop/game/${viewingGame.slug}`}
+                href={`https://giftcodefree.com/game/${viewingGame.slug}`}
                 target="_blank"
                 rel="noreferrer"
                 className="px-3 py-1.5 rounded-xl bg-emerald-600 text-white font-bold text-xs flex items-center gap-1.5 hover:bg-emerald-700 transition-all shrink-0 cursor-pointer"

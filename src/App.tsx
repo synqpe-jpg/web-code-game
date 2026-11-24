@@ -891,7 +891,7 @@ export const App: React.FC = () => {
   useEffect(() => {
     if (currentTab === 'admin') return;
 
-    const brandSuffix = brandingConfig.brandDisplay || 'CodeGame.shop';
+    const brandSuffix = brandingConfig.brandDisplay || 'GiftCodeFree.com';
     const rawSiteTitle = brandingConfig.siteTitle || `${brandSuffix} - Cổng Tra Cứu Giftcode & Game Bản Quyền Hàng Đầu`;
     let brandDefaultTitle = rawSiteTitle;
     if (brandingConfig.brandDisplay && brandingConfig.brandDisplay.toLowerCase() !== 'codegame.shop') {
@@ -1698,12 +1698,9 @@ export const App: React.FC = () => {
   // Share Handlers for Universal Share Modal
   const getShareOrigin = () => {
     if (typeof window !== 'undefined' && window.location.origin) {
-      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-        return window.location.origin;
-      }
       return window.location.origin;
     }
-    return brandingConfig.baseUrl || 'https://codegame.shop';
+    return brandingConfig.baseUrl || 'https://giftcodefree.com';
   };
 
   const handleOpenShareGame = (game: GameItem, e?: React.MouseEvent) => {
@@ -1845,7 +1842,7 @@ export const App: React.FC = () => {
             }
             const isDedicatedAdmin = host.includes('admin-code-game-shop');
             if (isDedicatedAdmin) {
-              const targetHomeUrl = brandingConfig.baseUrl || 'https://codegame.shop';
+              const targetHomeUrl = brandingConfig.baseUrl || (typeof window !== 'undefined' && window.location.origin ? window.location.origin : 'https://giftcodefree.com');
               const newWin = window.open(targetHomeUrl, '_blank');
               if (!newWin || newWin.closed || typeof newWin.closed === 'undefined') {
                 window.location.href = targetHomeUrl;

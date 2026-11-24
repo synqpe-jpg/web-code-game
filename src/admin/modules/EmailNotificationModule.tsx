@@ -74,11 +74,11 @@ export const EmailNotificationModule: React.FC<EmailNotificationModuleProps> = (
   const [broadcastType, setBroadcastType] = useState<'BROADCAST' | 'GIVEAWAY' | 'FLASH_SALE' | 'CODE_DROP'>('BROADCAST');
   const [targetGroup, setTargetGroup] = useState<'ALL' | 'GIVEAWAY' | 'SALE' | 'GAME'>('ALL');
   const [selectedGameSlug, setSelectedGameSlug] = useState('');
-  const [emailSubject, setEmailSubject] = useState('🎁 Nhận Ngay Mã Giftcode Mới Nhất Tại CodeGame.shop');
+  const [emailSubject, setEmailSubject] = useState('🎁 Nhận Ngay Mã Giftcode Mới Nhất Tại GiftCodeFree.com');
   const [emailTitle, setEmailTitle] = useState('Thông Báo Quà Tặng Mới Dành Cho Bạn');
   const [emailDescription, setEmailDescription] = useState('Hệ thống vừa cập nhật danh sách mã code độc quyền mới. Bấm nút bên dưới để mở web và nhận quà ngay!');
   const [ctaText, setCtaText] = useState('Mở Trang Nhận Quà Ngay');
-  const [ctaUrl, setCtaUrl] = useState('https://codegame.shop');
+  const [ctaUrl, setCtaUrl] = useState('https://giftcodefree.com');
   const [isSendingBroadcast, setIsSendingBroadcast] = useState(false);
   const [allGames, setAllGames] = useState<GameItem[]>([]);
 

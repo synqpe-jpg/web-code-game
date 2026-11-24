@@ -6,10 +6,10 @@ import { DEFAULT_BRANDING_CONFIG } from '../src/services/brandingService.ts';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-let BASE_URL = (process.env.BASE_URL || DEFAULT_BRANDING_CONFIG.baseUrl || 'https://codegame.shop').replace(/\/+$/, '');
-let BRAND_DISPLAY = process.env.BRAND_DISPLAY || DEFAULT_BRANDING_CONFIG.brandDisplay || 'CodeGame.Shop';
-let BRAND_NAME = process.env.BRAND_NAME || DEFAULT_BRANDING_CONFIG.brandName || 'CodeGame';
-let SITE_TITLE = process.env.SITE_TITLE || DEFAULT_BRANDING_CONFIG.siteTitle || `${BRAND_DISPLAY} - Săn Giftcode Miễn Phí & Giao Dịch Mã Game Uy Tín`;
+let BASE_URL = (process.env.BASE_URL || DEFAULT_BRANDING_CONFIG.baseUrl || 'https://giftcodefree.com').replace(/\/+$/, '');
+let BRAND_DISPLAY = process.env.BRAND_DISPLAY || DEFAULT_BRANDING_CONFIG.brandDisplay || 'GiftCodeFree.com';
+let BRAND_NAME = process.env.BRAND_NAME || DEFAULT_BRANDING_CONFIG.brandName || 'GiftCodeFree';
+let SITE_TITLE = process.env.SITE_TITLE || DEFAULT_BRANDING_CONFIG.siteTitle || `${BRAND_DISPLAY} - Cổng Tra Cứu Giftcode & Game Bản Quyền Hàng Đầu`;
 let FAQ_LIST = DEFAULT_BRANDING_CONFIG.faqList || [];
 
 function formatFaqText(text = '') {

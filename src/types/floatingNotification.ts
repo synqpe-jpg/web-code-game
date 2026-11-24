@@ -84,7 +84,7 @@ export interface FloatingNotificationConfig {
 
 export const DEFAULT_FLOATING_NOTIFICATION: FloatingNotificationConfig = {
   enabled: true,
-  title: '🎁 Chào Mừng Đến Với CodeGame.Shop',
+  title: '🎁 Chào Mừng Đến Với GiftCodeFree.com',
   message: 'Cập nhật hàng ngàn Giftcode VIP và mã bản quyền chính hãng mỗi ngày. Chia sẻ trang để mọi người cùng biết nhé.',
   iconType: 'gift',
   position: 'center_modal',
