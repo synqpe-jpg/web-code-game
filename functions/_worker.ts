@@ -303,7 +303,7 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
     ]);
     if (
       REDIRECT_TO_GIFTCODEFREE.has(url.hostname) &&
-      method === 'GET' &&
+      (method === 'GET' || method === 'HEAD') &&
       !pathname.startsWith('/api') &&
       !pathname.startsWith('/sync-bridge') &&
       !pathname.match(/\.(js|css|json|webp|png|jpg|jpeg|svg|ico|txt|xml|woff2?|map|apk)$/i)
