@@ -10,6 +10,16 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-311: Bỏ Sót Chuỗi Tiếng Việt Hardcode Trong Modal Chia Sẻ & Tham Số Tracking Store Chưa Đổi Theo Tên Miền
+- **Triệu chứng & Rủi ro**:
+  - Khi ứng dụng chuyển đổi ngôn ngữ sang English hoặc các ngôn ngữ khác, các modal con được render qua Portal (như `ShareModal`, `PackageShareModal`) nếu không kết nối với context `useLanguage()` sẽ tiếp tục hiển thị toàn bộ văn bản tiếng Việt hardcode ("Chia Sẻ Giftcode Game", "Ảnh đại diện chuẩn", "Copy nhanh link", "Đóng").
+  - Tham số tracking referrer trong link Google Play Store nếu hardcode domain cũ (`utm_source=codegame.shop`) sẽ khiến hệ thống thống kê lượt cài đặt bị phân mảnh hoặc tính sai kênh chuyển đổi.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - 1. Mọi popup/modal bắt buộc phải gọi hook `useLanguage()` và sử dụng từ điển `t` qua `TranslationSchema` thay vì viết chuỗi tĩnh.
+  - 2. Khai báo đầy đủ 4 ngôn ngữ chuẩn (`VI`, `EN`, `ZH`, `TH`) trong `translations.ts` và các tệp JSON tương ứng.
+  - 3. Trong các hàm tạo link tải ứng dụng (`buildStoreUrl`), luôn chuẩn hóa tham số `utm_source=giftcodefree.com` và chủ động lọc khử các chuỗi tên miền cũ có thể còn sót lại trong CSDL.
+  - 4. Kiểm chứng trực quan 2 chiều (VI ⇋ EN) bằng trình duyệt thật trên production trước khi nghiệm thu.
+
 ### ISSUE-310: Hardcode Tên Miền Cũ Trong Logic Tạo Link Chia Sẻ Thay Vì Dùng window.location.origin
 - **Triệu chứng & Rủi ro**:
   - Khi website chuyển tên miền chính (ví dụ từ `codegame.shop` sang `giftcodefree.com`), các thẻ meta canonical/og:url trên server có thể đã đổi sang tên miền mới, nhưng trong mã nguồn client (React components) vẫn còn tồn tại các đoạn mã kiểm tra: `location.hostname === '127.0.0.1' ? window.location.origin : 'https://codegame.shop'`.

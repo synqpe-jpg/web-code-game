@@ -7,6 +7,41 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-24]
 
+### 433. Đa Ngôn Ngữ Hóa Toàn Diện Popup Chia Sẻ & Chuẩn Hóa Tham Số Tracking Store Sang giftcodefree.com (24/11/2026)
+- **Bối cảnh & Yêu cầu của Chủ sở hữu**:
+  - Sau đợt chuẩn hóa link chia sẻ tại commit `99e943d`, phát hiện 2 điểm tồn đọng:
+    1. *Popup chia sẻ không đổi ngôn ngữ*: Khi người dùng chuyển sang English, popup chia sẻ game (`ShareModal`) vẫn hiển thị tiếng Việt hardcode ("Chia Sẻ Giftcode Game", "Liên Kết Chia Sẻ (Deep Link)", "Copy nhanh link", "Đóng", "106 MÃ CODE", "Ảnh đại diện chuẩn").
+    2. *Tham số tracking trong link tải Google Play còn tên miền cũ*: Link "Tải trên CH Play" có href dạng `https://play.google.com/store/apps/details?id=...&referrer=utm_source%3Dcodegame.shop...`.
+  - Yêu cầu:
+    1. Popup chia sẻ phải dịch đầy đủ: Mọi chuỗi trong popup chia sẻ (`ShareModal`, `PackageShareModal`, `GameDetailModal`, `NewsDetailModal`, `ProductDetailModal`, `GrowthCenterModal`) phải qua hàm dịch `t` của i18n với đủ 4 ngôn ngữ `VI`, `EN`, `ZH`, `TH`.
+    2. Link "Tải trên CH Play": Đổi `utm_source=codegame.shop` thành `utm_source=giftcodefree.com`. Tự động bóc tách và thay thế sạch `codegame.shop` nếu dữ liệu gốc từ CSDL có chứa URL cũ.
+    3. Kiểm chứng visual QA thực tế trên live production `https://giftcodefree.com` bằng trình duyệt thật.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - 1. `ShareModal.tsx`, `PackageShareModal.tsx` và `GameDownloadSection.tsx` ban đầu được code với các nhãn tiếng Việt tĩnh, chưa kết nối với context `useLanguage()`.
+  - 2. Trong `GameDownloadSection.tsx:68`, hàm `buildStoreUrl()` gán cứng `const trackingReferrer = 'utm_source=codegame.shop&utm_medium=' + medium;`.
+- **Giải pháp áp dụng (Solution)**:
+  - 1. *Hệ thống i18n 4 ngôn ngữ (`VI/EN/ZH/TH`)*:
+       - Mở rộng `TranslationSchema` trong `src/i18n/translations.ts` với 3 namespace mới: `shareModal` (28 trường), `download` (5 trường), `growth` (3 trường) và 4 trường tooltip trong `modal`.
+       - Đồng bộ đầy đủ 100% bản dịch trong `translations.ts`, `src/locales/vi.json`, `src/locales/en.json`, `src/locales/th.json`.
+  - 2. *Chuẩn hóa tracking download*:
+       - Đổi tracking domain sang `utm_source=giftcodefree.com`.
+       - Thêm regex khử sạch: `i.includes("codegame.shop") && (i = i.replace(/codegame\.shop/gi, "giftcodefree.com"))`.
+       - Tự động dịch các nhãn tải store: "Tải trên CH Play" ⇋ "Get it on Google Play", "Tải trên App Store" ⇋ "Download on App Store", ghi chú vùng...
+  - 3. *Đa ngôn ngữ hóa các modal chia sẻ*:
+       - `src/components/ShareModal.tsx`: Tự động dịch tiêu đề modal theo `itemType`, badge số lượng code ("{count} CODES" / "Code Tân Thủ"), phụ đề "Official Publisher", "Verified Avatar", Deep Link label, Quick copy link, Close button, và toast thông báo tiếng Anh "Link copied successfully!".
+       - `src/components/PackageShareModal.tsx`: Đa ngôn ngữ hóa 100% tiêu đề gói, nhãn kho ("Còn hàng" / "Hết hàng"), Deep Link, Toast copy gói, nút mua ngay, nút đóng.
+       - `src/components/NewsDetailModal.tsx` & `ProductDetailModal.tsx`: Kết nối tooltip và nhãn chia sẻ vào `t.modal`.
+       - `src/components/GrowthCenterModal.tsx`: Tự động dịch toast sao chép link/mã mời, nhãn "Chia sẻ:" và lời kêu gọi tham gia.
+       - `src/App.tsx`: Kết nối `useLanguage()` vào `handleOpenShareGame` để truyền badge và subtitle song ngữ chuẩn.
+- **Kiểm thử & Nghiệm thu Thực Tế (Live Production QA)**:
+  - `npm run build`: Exit code 0, 0 lỗi, audit Rule 7 pass 100%.
+  - Triển khai thành công: `npm run deploy:all` (Web Khách & Web Quản trị) và `git push origin main`.
+  - Browser Subagent kiểm chứng thực tế tại `https://giftcodefree.com`:
+    + Tiếng Việt: Nút tải hiện "Tải trên CH Play", popup chia sẻ hiện "Chia Sẻ Giftcode Game", "106 MÃ CODE", "Ảnh đại diện chuẩn", "Copy nhanh link", "Đóng".
+    + English: Nút tải đổi sang "Get it on Google Play", popup chia sẻ đổi sang "Share Game Giftcodes", "106 CODES" (Genshin) / "182 CODES" (Honkai), "Verified Avatar", "Quick copy link", icon Close. Bấm copy link -> Toast hiển thị "Link copied successfully!".
+    + Link Google Play Store của cả 2 game Genshin Impact và Honkai: Star Rail: Href chứa chuẩn `utm_source%3Dgiftcodefree.com%26utm_medium%3Ddownload_button`, hoàn toàn sạch bóng `codegame.shop`.
+  - Đã chụp 5 ảnh bằng chứng visual QA lưu tại thư mục artifact.
+
 ### 432. Chuẩn Hóa Toàn Diện Bộ Tạo Link Chia Sẻ Sang giftcodefree.com & Cơ Chế window.location.origin Tự Thích Ứng (24/11/2026)
 - **Bối cảnh & Yêu cầu của Chủ sở hữu**:
   - Trang web đã chuyển hướng chính thức sang `https://giftcodefree.com`, canonical và og:url đều là `giftcodefree.com`.
