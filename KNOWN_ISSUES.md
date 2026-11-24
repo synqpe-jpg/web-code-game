@@ -10,6 +10,13 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-308: Đảo Chiều Tên Miền Chính Sang giftcodefree.com & Bảo Lưu Hoạt Động Của API Trên codegame.shop
+- **Triệu chứng & Rủi ro**:
+  - Khi đảo chiều chuyển hướng từ tên miền cũ (`codegame.shop`) sang tên miền mới (`giftcodefree.com`), nếu chuyển hướng toàn bộ cả cụm API `/api/*`: các crawler ngầm, bot xuất bản tự động, webhook ngân hàng SePay và bot Telegram đang dùng endpoint `https://codegame.shop/api/...` sẽ bị chuyển hướng thành phương thức GET (301 redirect biến POST thành GET), gây hỏng toàn bộ hệ thống thu thập mã và báo tin tự động.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Luôn đặt điều kiện lọc nghiêm ngặt `!pathname.startsWith('/api') && !pathname.startsWith('/sync-bridge')` trước mọi logic 301 redirect tại Edge Worker.
+  - Cung cấp cú pháp filter chuẩn cho Cloudflare Redirect Rules trong Dashboard: `(http.host eq "codegame.shop" or http.host eq "www.codegame.shop") and not starts_with(http.request.uri.path, "/api") and not starts_with(http.request.uri.path, "/sync-bridge")`.
+
 ### ISSUE-307: Kết Nối Tên Miền Phụ & Chuyển Hướng 301 Canonical Về Miền Chính
 - **Triệu chứng & Rủi ro**:
   - Khi chủ sở hữu sở hữu nhiều tên miền phụ (ví dụ `giftcodefree.com`, `codegamefree.com`) để hứng traffic tìm kiếm, nếu không cấu hình chuyển hướng 301 chuẩn SEO: (1) Google sẽ coi là nội dung trùng lặp (duplicate content) làm giảm thứ hạng cả 2 site; (2) Người dùng truy cập tên miền phụ có thể thấy lỗi hoặc không được chuyển về thương hiệu chính thức `codegame.shop`.

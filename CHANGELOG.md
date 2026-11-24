@@ -7,6 +7,21 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-24]
 
+### 430. Thiết Lập giftcodefree.com Thành Tên Miền Chính & Chuyển Hướng 301 Ngược Cho codegame.shop (Loại Trừ /api/) (24/11/2026)
+- **Bối cảnh & Yêu cầu của Chủ sở hữu**:
+  - Chuyển `giftcodefree.com` thành tên miền chính thức của website.
+  - Xóa quy tắc chuyển hướng cũ trên zone `giftcodefree.com`.
+  - Thiết lập chuyển hướng ngược: khi người dùng truy cập `codegame.shop` (hoặc `www.codegame.shop`), tự động chuyển hướng 301 sang `https://giftcodefree.com` bảo toàn đường dẫn con.
+  - YÊU CẦU CỐT LÕI: Tuyệt đối loại trừ đường dẫn bắt đầu bằng `/api/` (và `/sync-bridge/`) trên `codegame.shop` để đảm bảo toàn bộ vòng quét code, xuất bản tin tức, Telegram webhook và các lệnh gọi API quản trị đang dùng `https://codegame.shop/api/...` không bị gián đoạn.
+- **Giải pháp áp dụng (Solution)**:
+  - 1. *Xóa Worker Routes Cũ*: Gọi Cloudflare API xóa hoàn toàn 2 routes `giftcodefree.com/*` và `www.giftcodefree.com/*` cùng worker script `giftcodefree-redirect` trên zone `e84832c0663d81e4498976404f43126e`.
+  - 2. *Đồng bộ Custom Domain Pages*: Xác nhận `giftcodefree.com` và `www.giftcodefree.com` đã được gắn vào dự án Pages `web-code-game`.
+  - 3. *Cấu hình 301 Redirect tại Edge Worker `functions/_worker.ts`*: Khai báo tập `REDIRECT_TO_GIFTCODEFREE` chuyển hướng toàn bộ lượt truy cập trang web (GET HTML/page) từ `codegame.shop`, `www.codegame.shop`, `web-code-game.pages.dev`, v.v. sang `https://giftcodefree.com`, đồng thời loại trừ 100% mọi request tới `/api/*` và `/sync-bridge/*`.
+- **Kiểm thử & Nghiệm thu Thực Tế**:
+  - `GET /` trên `codegame.shop`: Trả về HTTP 301 `Location: https://giftcodefree.com/`.
+  - `GET /game/genshin-impact` trên `codegame.shop`: Trả về HTTP 301 `Location: https://giftcodefree.com/game/genshin-impact`.
+  - `GET /api/branding` trên `codegame.shop`: Trả về HTTP 200 OK (không bị chuyển hướng, hoạt động bình thường).
+
 ### 429. Kết Nối Tên Miền Phụ giftcodefree.com & Chuyển Hướng 301 Canonical Về codegame.shop (24/11/2026)
 - **Bối cảnh & Yêu cầu của Chủ sở hữu**:
   - Người dùng yêu cầu kết nối tên miền phụ `giftcodefree.com` (và sẵn sàng cho `codegamefree.com`) vào hệ thống `codegame.shop` để khi người dùng hoặc công cụ tìm kiếm truy cập sẽ tự động chuyển hướng về trang chính `codegame.shop`.

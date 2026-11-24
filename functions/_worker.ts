@@ -288,11 +288,13 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
       );
     }
 
-    // Canonical primary domain redirect: auxiliary domains & aliases -> codegame.shop (for browser navigation & SEO)
-    const CANONICAL_REDIRECT_HOSTS = new Set([
-      'web-code-game.pages.dev',
+    // Canonical primary domain redirect: redirect codegame.shop & aliases -> giftcodefree.com
+    // CRITICAL: Strictly EXCLUDE /api/* and /sync-bridge/* so background crawlers, sync scripts,
+    // and Telegram webhooks calling https://codegame.shop/api/... continue working without disruption!
+    const REDIRECT_TO_GIFTCODEFREE = new Set([
+      'codegame.shop',
       'www.codegame.shop',
-      'giftcodefree.com',
+      'web-code-game.pages.dev',
       'www.giftcodefree.com',
       'gitfcodefree.com',
       'www.gitfcodefree.com',
@@ -300,14 +302,14 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
       'www.codegamefree.com',
     ]);
     if (
-      CANONICAL_REDIRECT_HOSTS.has(url.hostname) &&
+      REDIRECT_TO_GIFTCODEFREE.has(url.hostname) &&
       method === 'GET' &&
       !pathname.startsWith('/api') &&
       !pathname.startsWith('/sync-bridge') &&
       !pathname.match(/\.(js|css|json|webp|png|jpg|jpeg|svg|ico|txt|xml|woff2?|map|apk)$/i)
     ) {
       const redirectUrl = new URL(request.url);
-      redirectUrl.hostname = 'codegame.shop';
+      redirectUrl.hostname = 'giftcodefree.com';
       redirectUrl.protocol = 'https:';
       return Response.redirect(redirectUrl.toString(), 301);
     }
