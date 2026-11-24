@@ -10,6 +10,21 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-309: Chèn Tên Miền Cũ/Mới Vào Trường Rewards Của Giftcode & Ghi Đè Ngầm Dữ Liệu Gốc
+- **Triệu chứng & Rủi ro**:
+  - Hơn 2.500 giftcode trong kho dữ liệu có trường phần thưởng mang mẫu câu quảng bá `"Giftcode độc quyền cập nhật từ https://..."`.
+  - Trong codebase tồn tại hàm `decodeHtmlEntities()` tự ý chèn logic `.replace(/https:\/\/codegame\.store\/?/g, 'https://codegame.shop/');`. Khi hệ thống đổi tên miền sang `giftcodefree.com` hoặc thương hiệu khác, logic này trở nên lỗi thời, vừa làm sai lệch dữ liệu gốc trong CSDL vừa khiến phần thưởng hiển thị như một đoạn quảng cáo thiếu chuyên nghiệp.
+  - Nếu sửa bằng cách update trực tiếp hàng nghìn dòng trong D1: rủi ro làm hỏng schema, mất liên kết dữ liệu, và lại phải update lại mỗi khi thay đổi tên miền.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Tuyệt đối cấm logic tự ý thay thế chuỗi tên miền trong trường `rewards` ở bất kỳ hàm helper nào (`decodeHtmlEntities`, utils, sanitize).
+  - Tách bạch rõ ràng giữa dữ liệu lưu trữ gốc và biểu diễn hiển thị:
+    + Ở tầng API và tầng hiển thị: sử dụng hàm chuẩn hóa tập trung `cleanRewardText(raw, lang)` và `formatRewardTranslation(rawReward, t, lang)`.
+    + Bắt mẫu quảng bá bằng regex trung lập: `/^Giftcode độc quyền cập nhật từ(?:\s+https?:\/\/[^\s]+)?\/?$/i`.
+    + Thay thế bằng nhãn trung lập song ngữ chuẩn i18n: Tiếng Việt là `"Quà tặng từ nhà phát hành"`, Tiếng Anh là `"Rewards from the publisher"`.
+    + Đảm bảo các phần thưởng thực (Nguyên Thạch, Primogems, Mora, KNB...) được giữ nguyên vẹn 100%.
+  - Chặn triệt để tại đầu nguồn: các crawler thu thập mã và form nhập mã của admin nếu không có chi tiết phần thưởng thì gán nhãn trung lập chuẩn thay vì chèn URL tên miền.
+
+
 ### ISSUE-308: Đảo Chiều Tên Miền Chính Sang giftcodefree.com & Bảo Lưu Hoạt Động Của API Trên codegame.shop
 - **Triệu chứng & Rủi ro**:
   - Khi đảo chiều chuyển hướng từ tên miền cũ (`codegame.shop`) sang tên miền mới (`giftcodefree.com`), nếu chuyển hướng toàn bộ cả cụm API `/api/*`: các crawler ngầm, bot xuất bản tự động, webhook ngân hàng SePay và bot Telegram đang dùng endpoint `https://codegame.shop/api/...` sẽ bị chuyển hướng thành phương thức GET (301 redirect biến POST thành GET), gây hỏng toàn bộ hệ thống thu thập mã và báo tin tự động.

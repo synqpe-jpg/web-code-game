@@ -7,6 +7,51 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-24]
 
+### 431. Loại Bỏ Cơ Chế Chèn Tên Miền Vào Rewards, Chuẩn Hóa Nhãn Trung Lập Song Ngữ "Quà Tặng Từ Nhà Phát Hành" (24/11/2026)
+- **Bối cảnh & Yêu cầu của Chủ sở hữu**:
+  - Hơn 2.559 mã giftcode (riêng Genshin Impact có 69 mã) trong cơ sở dữ liệu có trường phần thưởng mang mẫu câu quảng bá `"Giftcode độc quyền cập nhật từ https://..."`.
+  - Trong codebase có cơ chế ngầm tự động thay thế chuỗi tên miền cũ (`codegame.store` -> `codegame.shop`) trong trường `rewards`, gây sai lệch dữ liệu gốc và lỗi thời khi đổi thương hiệu/tên miền.
+  - Yêu cầu:
+    1. Bỏ hẳn cơ chế tự ý thay đổi chuỗi tên miền trong trường `rewards` ở tầng worker/codebase. API phải trả về nguyên văn dữ liệu.
+    2. Chuyển toàn bộ các mã mang mẫu câu quảng bá tên miền thành nhãn trung lập: Tiếng Việt là `"Quà tặng từ nhà phát hành"`, Tiếng Anh là `"Rewards from the publisher"`. Thực hiện ở tầng API và tầng hiển thị, không sửa tay từng dòng D1.
+    3. Hỗ trợ song ngữ đầy đủ (VI/EN) qua hệ thống dịch i18n (`translations.ts`, locales JSON), không hardcode tiếng Việt trong UI.
+    4. Bảo toàn 100% phần thưởng thật của game (Nguyên Thạch, Primogems, Mora, KNB, tướng...).
+    5. Chặn từ gốc tại các luồng nạp mã (crawler, admin ingest, manual add/update) và chuẩn hóa kho mã tĩnh fallback.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - 1. *Cơ chế replace tên miền ngầm*: Nằm tại dòng 61 của `src/utils/codeUtils.ts` bên trong hàm `decodeHtmlEntities()`: `.replace(/https:\/\/codegame\.store\/?/g, 'https://codegame.shop/');`. Khi bất kỳ nơi nào đọc mã gọi qua hàm này, chuỗi tên miền cũ bị ép đổi sang tên miền mới.
+  - 2. *Mẫu câu quảng bá mặc định*: Sinh ra lịch sử từ `scripts/crawl_codegame_store.cjs` và `functions/api/crawler/ingest-codes.ts` khi thu thập mã mà không có chi tiết phần thưởng, gán mặc định chuỗi `"Giftcode độc quyền cập nhật từ https://..."`.
+- **Giải pháp áp dụng (Solution)**:
+  - 1. *Loại bỏ cơ chế thay đổi tên miền*: Xóa bỏ hoàn toàn dòng regex replace trong `src/utils/codeUtils.ts`.
+  - 2. *Xây dựng bộ chuẩn hóa trung lập tập trung (`src/utils/codeUtils.ts`)*:
+       - Định nghĩa `DEFAULT_REWARD_VI = 'Quà tặng từ nhà phát hành'`, `DEFAULT_REWARD_EN = 'Rewards from the publisher'`.
+       - Định nghĩa regex nhận diện: `PROMOTIONAL_REWARD_REGEX = /^Giftcode độc quyền cập nhật từ(?:\s+https?:\/\/[^\s]+)?\/?$/i;`.
+       - Viết các hàm `cleanRewardText(raw, lang)` và `formatRewardTranslation(rawReward, t, lang)`.
+  - 3. *Hệ thống i18n song ngữ chuẩn*:
+       - Khai báo trường `publisherReward` trong schema `TranslationSchema.modal` tại `src/i18n/translations.ts` và từ điển `src/locales/vi.json`, `en.json` (`vi`: 'Quà tặng từ nhà phát hành', `en`: 'Rewards from the publisher', `zh`: '官方发行商礼包', `th`: 'ของรางวัลจากผู้พัฒนา').
+  - 4. *Đồng bộ toàn bộ tầng hiển thị & API*:
+       - `functions/api/games.ts`: Cập nhật endpoint đọc tham số `lang` (hoặc header `Accept-Language`), tự động chuẩn hóa qua `cleanRewardText(c.rewards, lang)`.
+       - `src/components/GameDetailModal.tsx`: Render động qua `formatRewardTranslation(codeItem.rewards, t, language)` cho cả danh sách mã còn hạn (active) và hết hạn (expired), đồng thời hỗ trợ tìm kiếm theo chuỗi nhãn dịch.
+       - `src/components/SearchAutocomplete.tsx`: Hiển thị nhãn dịch cho kết quả tìm kiếm mã quà tặng nhanh.
+       - `src/components/TodayCodesView.tsx`: Hiển thị nhãn dịch cho danh sách mã mới hôm nay.
+       - `src/services/dataService.ts`: Làm sạch phần thưởng khi map danh sách mã offline/fallback.
+       - `functions/_worker.ts` & `scripts/prerender.js`: Làm sạch phần thưởng trong SSR HTML / SEO prerender.
+  - 5. *Chặn từ gốc & Chuẩn hóa kho fallback*:
+       - Cập nhật `scripts/crawl_codegame_store.cjs` và `functions/api/crawler/ingest-codes.ts` dùng mặc định `DEFAULT_REWARD_VI`.
+       - Cập nhật API quản trị `functions/api/admin/free-codes/index.ts` và `[id].ts` chặn lưu chuỗi quảng cáo tên miền.
+       - Chuẩn hóa hơn 2.600 mã trong 3 file fallback tĩnh `crawled_codes_188.json` (`src/data/`, `public/data/`, `data/`).
+- **Kiểm thử & Nghiệm thu Thực Tế**:
+  - `Build & Test Suite`: Chạy `npm run test:ingest` vượt qua 4/4 test suite (B1-B4), audit Rule 7 zero test artifacts passed 100%, Vite build và prerender thành công exit code 0.
+  - `cURL Live API`:
+    + `GET https://giftcodefree.com/api/games?slug=genshin-impact`: 68 mã hiển thị `"Quà tặng từ nhà phát hành"`, 0 chuỗi tên miền, phần thưởng thật (`POYMANSXF877`, `QYJWFB784MFL`) giữ nguyên 100%.
+    + `GET https://giftcodefree.com/api/games?slug=genshin-impact&lang=en`: 69 mã tự động chuyển sang `"Rewards from the publisher"`.
+    + Kiểm tra thêm game `honkai-star-rail` (116 mã) và `lien-quan-mobile` (7 mã): sạch 100% tên miền, phần thưởng thật nguyên vẹn.
+  - `Live SSR HTML`: `https://giftcodefree.com/game/genshin-impact` trả về HTTP 200, chứa `"Quà tặng từ nhà phát hành"`, 0 chuỗi quảng bá tên miền trong khối codes.
+  - `Browser Subagent QA (Live Browser)`: Mở `https://giftcodefree.com/game/genshin-impact` trên trình duyệt thật:
+    + Tiếng Việt: 64 mã hiển thị `🎁 Quà tặng từ nhà phát hành`, tìm kiếm các chuỗi `codegame.shop`, `codegame.store`, `giftcodefree.com` trong phần thưởng trả về **0 kết quả**.
+    + Tiếng Anh: Bấm chuyển đổi ngôn ngữ Header sang `🇺🇸 English (en)`, toàn bộ nhãn phần thưởng tự động đổi thành `🎁 Rewards from the publisher`.
+    + Ảnh chụp màn hình bằng chứng: `genshin_reward_vi.png` và `genshin_reward_en.png`.
+
+
 ### 430. Thiết Lập giftcodefree.com Thành Tên Miền Chính & Chuyển Hướng 301 Ngược Cho codegame.shop (Loại Trừ /api/) (24/11/2026)
 - **Bối cảnh & Yêu cầu của Chủ sở hữu**:
   - Chuyển `giftcodefree.com` thành tên miền chính thức của website.
