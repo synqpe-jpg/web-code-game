@@ -5,6 +5,22 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ---
 
+## [2026-11-24]
+
+### 429. Kết Nối Tên Miền Phụ giftcodefree.com & Chuyển Hướng 301 Canonical Về codegame.shop (24/11/2026)
+- **Bối cảnh & Yêu cầu của Chủ sở hữu**:
+  - Người dùng yêu cầu kết nối tên miền phụ `giftcodefree.com` (và sẵn sàng cho `codegamefree.com`) vào hệ thống `codegame.shop` để khi người dùng hoặc công cụ tìm kiếm truy cập sẽ tự động chuyển hướng về trang chính `codegame.shop`.
+- **Nguyên nhân & Kiến trúc giải pháp (Root Cause & Solution)**:
+  - 1. *Gắn Domain vào Cloudflare Pages*: Đã thêm `giftcodefree.com` và `www.giftcodefree.com` vào dự án Pages `web-code-game` qua Cloudflare Pages API.
+  - 2. *Cloudflare Edge Redirect Worker*: Triển khai Worker chuyên dụng `giftcodefree-redirect` và gắn 2 Worker routes trực tiếp trên zone `e84832c0663d81e4498976404f43126e` (`giftcodefree.com/*` và `www.giftcodefree.com/*`). Khi bất kỳ ai truy cập HTTP/HTTPS trên tên miền phụ, Cloudflare Edge sẽ lập tức chuyển hướng `HTTP 301 Moved Permanently` về `https://codegame.shop` bảo toàn nguyên vẹn đường dẫn (`pathname` + `search`).
+  - 3. *Đồng bộ Edge Worker `functions/_worker.ts`*: Khai báo tập `CANONICAL_REDIRECT_HOSTS` bao gồm `giftcodefree.com`, `www.giftcodefree.com`, `gitfcodefree.com`, `www.gitfcodefree.com`, `codegamefree.com`, `www.codegamefree.com` để đảm bảo dù đi qua lớp định tuyến nào, 100% lưu lượng và chỉ mục tìm kiếm (SEO PageRank) đều đổ về miền chính `codegame.shop`.
+- **Kiểm thử & Nghiệm thu Thực Tế**:
+  - `curl -sI "http://giftcodefree.com"`: Trả về HTTP 301 `Location: https://codegame.shop/`.
+  - `curl -sI "https://giftcodefree.com"`: Trả về HTTP 301 `Location: https://codegame.shop/`.
+  - `curl -sI "http://www.giftcodefree.com"`: Trả về HTTP 301 `Location: https://codegame.shop/`.
+  - `curl -sI "https://www.giftcodefree.com"`: Trả về HTTP 301 `Location: https://codegame.shop/`.
+  - `curl -sI "http://giftcodefree.com/game/genshin-impact?ref=test"`: Trả về HTTP 301 `Location: https://codegame.shop/game/genshin-impact?ref=test`.
+
 ## [2026-11-23]
 
 ### 428. Khắc Phục Chuỗi Fallback Ghi Cứng Cuối Trong Modal Tải App (23/11/2026)

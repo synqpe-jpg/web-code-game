@@ -10,6 +10,14 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-307: Kết Nối Tên Miền Phụ & Chuyển Hướng 301 Canonical Về Miền Chính
+- **Triệu chứng & Rủi ro**:
+  - Khi chủ sở hữu sở hữu nhiều tên miền phụ (ví dụ `giftcodefree.com`, `codegamefree.com`) để hứng traffic tìm kiếm, nếu không cấu hình chuyển hướng 301 chuẩn SEO: (1) Google sẽ coi là nội dung trùng lặp (duplicate content) làm giảm thứ hạng cả 2 site; (2) Người dùng truy cập tên miền phụ có thể thấy lỗi hoặc không được chuyển về thương hiệu chính thức `codegame.shop`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Kết nối domain vào Cloudflare Pages `web-code-game`.
+  - Triển khai Worker chuyên biệt `giftcodefree-redirect` kèm Route `giftcodefree.com/*` và `www.giftcodefree.com/*` trên Cloudflare zone để chặn bắt và phát `HTTP 301 Moved Permanently` ngay tại Edge gần người dùng nhất (<10ms).
+  - Khai báo danh sách `CANONICAL_REDIRECT_HOSTS` trong `functions/_worker.ts` để đồng bộ chuyển hướng 301 trên toàn bộ Edge Worker Pages bundle.
+
 ### ISSUE-306: Chuỗi Fallback Ghi Cứng Tên Cũ Trong Modal Tải App
 - **Triệu chứng & Rủi ro**:
   - Trong `src/components/DownloadAppModal.tsx`, tại dòng 30, dòng 56 và dòng 88, các giá trị fallback cuối cùng khi khởi tạo URL mã QR, liên kết chia sẻ cài đặt và tên ứng dụng vẫn dùng string literal `'CodeGame'` và `'https://codegame.shop'`.

@@ -288,9 +288,19 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
       );
     }
 
-    // Canonical primary domain redirect: web-code-game.pages.dev & www.codegame.shop -> codegame.shop (for browser page navigation)
+    // Canonical primary domain redirect: auxiliary domains & aliases -> codegame.shop (for browser navigation & SEO)
+    const CANONICAL_REDIRECT_HOSTS = new Set([
+      'web-code-game.pages.dev',
+      'www.codegame.shop',
+      'giftcodefree.com',
+      'www.giftcodefree.com',
+      'gitfcodefree.com',
+      'www.gitfcodefree.com',
+      'codegamefree.com',
+      'www.codegamefree.com',
+    ]);
     if (
-      (url.hostname === 'web-code-game.pages.dev' || url.hostname === 'www.codegame.shop') &&
+      CANONICAL_REDIRECT_HOSTS.has(url.hostname) &&
       method === 'GET' &&
       !pathname.startsWith('/api') &&
       !pathname.startsWith('/sync-bridge') &&
